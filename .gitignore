@@ -48,3 +48,4 @@ pming/.workers.lockdir/
 pming/.workers.merge-lock/
 pming/.telemetry.jsonl
 .playwright-mcp/
+.claude/worktrees/
