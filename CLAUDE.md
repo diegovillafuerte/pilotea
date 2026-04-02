@@ -31,7 +31,17 @@ The project uses a markdown-based PM system in `pming/` (epics → stories → t
 
 ## Architecture
 
-TBD — to be defined once project details are provided.
+Next.js 15 monolith (App Router) deployed on Render. React frontend + API routes in a single deployable unit.
+
+**Layers and boundaries:**
+- `src/app/` — Next.js pages and API routes. Pages can import from `components/`, `hooks/`, `lib/`. API routes can import from `lib/`.
+- `src/lib/` — Shared library code. Modules: `db/` (Drizzle ORM), `auth/` (sessions, magic links), `parsers/` (Claude Vision extraction), `storage/` (R2), `whatsapp/` (Twilio), `percentiles/` (stats engine). Lib modules should not import from `app/` or `components/`.
+- `src/components/` — React UI components. Can import from `hooks/` and `lib/constants.ts`. Should not import from `lib/db/` or `lib/auth/` directly.
+- `src/hooks/` — React hooks. Can import from `lib/`.
+
+**External services:** Render Postgres, Cloudflare R2, Claude API (Vision), Twilio WhatsApp.
+
+See `docs/technical-design.md` for full architecture details.
 
 ## Commands
 
@@ -45,7 +55,15 @@ pnpm lint             # eslint
 
 ## Tech stack
 
-TBD — to be defined once project details are provided.
+- **Framework:** Next.js 15 (App Router), React 19, TypeScript (strict)
+- **Styling:** Tailwind CSS 4
+- **Database:** Render Postgres + Drizzle ORM
+- **File storage:** Cloudflare R2 (S3-compatible)
+- **AI/OCR:** Claude Sonnet API (vision)
+- **Auth:** Custom WhatsApp magic links via Twilio + jose JWT
+- **Validation:** Zod
+- **Testing:** Vitest (unit/integration), Playwright (e2e)
+- **Hosting:** Render Web Service
 
 ## File conventions
 
