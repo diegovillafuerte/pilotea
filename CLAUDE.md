@@ -1,4 +1,4 @@
-# Pilotea
+# Kompara
 
 A web app for uber drivers. (Details TBD — project scaffolding phase.)
 

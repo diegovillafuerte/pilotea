@@ -1,6 +1,6 @@
 # Project Management Skills
 
-Skills for managing the Pilotea project roadmap. All data lives in `pming/` as markdown files with YAML frontmatter.
+Skills for managing the Kompara project roadmap. All data lives in `pming/` as markdown files with YAML frontmatter.
 
 ## Hierarchy
 

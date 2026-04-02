@@ -36,7 +36,7 @@ function getBucketName(): string {
   const bucket = process.env.R2_BUCKET_NAME;
   if (!bucket) {
     throw new Error(
-      "R2_BUCKET_NAME environment variable is not set. Set it to your R2 bucket name (e.g. pilotea-uploads).",
+      "R2_BUCKET_NAME environment variable is not set. Set it to your R2 bucket name (e.g. kompara-uploads).",
     );
   }
   return bucket;

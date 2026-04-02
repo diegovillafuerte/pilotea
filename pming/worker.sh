@@ -114,8 +114,8 @@ resolve_uuid() {
   fi
 
   # 4. Check /tmp by session PID (stable Claude Code process PID)
-  if [ -f "/tmp/pilotea-worker-$SESSION_PID.uuid" ]; then
-    cat "/tmp/pilotea-worker-$SESSION_PID.uuid"
+  if [ -f "/tmp/kompara-worker-$SESSION_PID.uuid" ]; then
+    cat "/tmp/kompara-worker-$SESSION_PID.uuid"
     return 0
   fi
 
@@ -125,7 +125,7 @@ resolve_uuid() {
 persist_uuid() {
   local uuid="$1" task="$2"
   # Always write to /tmp (fallback, works before worktree exists)
-  echo "$uuid" > "/tmp/pilotea-worker-$SESSION_PID.uuid"
+  echo "$uuid" > "/tmp/kompara-worker-$SESSION_PID.uuid"
   # Also write to worktree dir if it exists
   if [ -d "$WORKTREES_DIR/$task" ]; then
     echo "$uuid" > "$WORKTREES_DIR/$task/.worker-uuid"
@@ -309,7 +309,7 @@ cmd_release() {
 
   # Clean up UUID files
   rm -f "$WORKTREES_DIR/${removed_task:-.nonexistent}/.worker-uuid" 2>/dev/null || true
-  rm -f "/tmp/pilotea-worker-$SESSION_PID.uuid" 2>/dev/null || true
+  rm -f "/tmp/kompara-worker-$SESSION_PID.uuid" 2>/dev/null || true
 
   echo "OK"
 }
@@ -430,7 +430,7 @@ cmd_merge_lock_acquire() {
       echo "$MY_HOSTNAME" > "$MERGE_LOCK_DIR/host"
       date +%s > "$MERGE_LOCK_DIR/acquired_at"
       # Persist token for release
-      echo "$token" > "/tmp/pilotea-merge-lock-$SESSION_PID.token"
+      echo "$token" > "/tmp/kompara-merge-lock-$SESSION_PID.token"
       echo "OK"
       return 0
     fi
@@ -471,12 +471,12 @@ cmd_merge_lock_release() {
   [ -d "$MERGE_LOCK_DIR" ] || { echo "OK (no lock)"; return 0; }
 
   local my_token stored_token
-  my_token=$(cat "/tmp/pilotea-merge-lock-$SESSION_PID.token" 2>/dev/null || echo "")
+  my_token=$(cat "/tmp/kompara-merge-lock-$SESSION_PID.token" 2>/dev/null || echo "")
   stored_token=$(cat "$MERGE_LOCK_DIR/token" 2>/dev/null || echo "")
 
   if [ -n "$my_token" ] && [ "$my_token" = "$stored_token" ]; then
     rm -rf "$MERGE_LOCK_DIR"
-    rm -f "/tmp/pilotea-merge-lock-$SESSION_PID.token" 2>/dev/null || true
+    rm -f "/tmp/kompara-merge-lock-$SESSION_PID.token" 2>/dev/null || true
     echo "OK"
   else
     echo "OK (not owner)"

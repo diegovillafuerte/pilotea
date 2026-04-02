@@ -72,7 +72,7 @@ Construct the prompt per shared protocol Steps 2.1 and 2.2. Do NOT paste the ful
 **Solve-specific prompt template:**
 
 ```
-You are an adversarial reviewer for the Pilotea project. Your job is to find flaws in the diagnosis and fix plan below before any code is written. Be skeptical — assume the diagnosis might be wrong and the plan might have gaps.
+You are an adversarial reviewer for the Kompara project. Your job is to find flaws in the diagnosis and fix plan below before any code is written. Be skeptical — assume the diagnosis might be wrong and the plan might have gaps.
 
 You have read-only access to the full repo.
 

@@ -1,6 +1,6 @@
 # [NOMBRE POR DEFINIR] — Documento de Contexto del Proyecto
 
-> **Anteriormente llamado "Pilotea" y antes "Ruleteo"**
+> **Anteriormente llamado "Kompara" (antes "Pilotea", antes "Ruleteo")**
 > Última actualización: 2 de abril de 2026
 > Status: Pre-desarrollo. Diseño completo, backend diseñado, ningún código en producción.
 
@@ -22,7 +22,7 @@ El proyecto nació el 28 de febrero de 2026 en una sesión de brainstorming.
 
 **Nombre original: Ruleteo.** "Ruletear" es el término que usan los conductores mexicanos para describir el acto de andar buscando pasajeros. Se construyó un primer prototipo interactivo (React/JSX) con onboarding, upload de datos y dashboard con percentiles.
 
-**Segundo nombre: Pilotea.** Se renombró para facilitar expansión a LATAM. "Pilotea tus ganancias" como tagline. Se registró el dominio pilotea.app. Se construyeron múltiples iteraciones del prototipo (v1 a v5), afinando métricas, flujo de upload, y comparación cross-platform.
+**Segundo nombre: Pilotea.** Se renombró para facilitar expansión a LATAM. "Pilotea tus ganancias" como tagline. Se registró el dominio pilotea.app. Se construyeron múltiples iteraciones del prototipo (v1 a v5), afinando métricas, flujo de upload, y comparación cross-platform. Posteriormente se renombró a **Kompara** tras descubrir un conflicto de marca.
 
 **Conflicto de marca descubierto (abril 2026):** Existe una empresa mexicana llamada Pilotea® (pilotea.mx) que hace arrendamiento de autos para conductores de Uber y DiDi. Operan en Puebla, Monterrey, Guadalajara y León. Usan el símbolo ® y atienden a la misma audiencia (conductores de plataformas). Esto crea un conflicto de marca que hace inviable usar el nombre "Pilotea".
 
@@ -182,7 +182,7 @@ Cada métrica puede ser null si la plataforma no la reporta. El sistema maneja n
 | Auth | Twilio SMS vía Supabase Auth | Conductores no usan email |
 | OCR / IA | Claude Sonnet API (vision) | Entiende contexto, no solo OCR |
 | Hosting | Vercel | Deploy automático, edge |
-| Dominio | [pendiente — era pilotea.app] | — |
+| Dominio | [pendiente — era pilotea.app, ahora kompara.app] | — |
 
 ### Flujo de datos
 ```
@@ -233,7 +233,7 @@ Cada parser envía la imagen/PDF a Claude con un prompt altamente específico qu
 Se construyó un prototipo funcional en React (JSX) que simula la experiencia completa del usuario. Pasó por 5+ iteraciones refinando:
 
 ### Flujo de pantallas
-1. **Splash** — Logo + "Pilotea tus ganancias" (2.2 seg)
+1. **Splash** — Logo + "Kompara tus ganancias" (2.2 seg)
 2. **Onboarding** — Nombre, ciudad (40 ciudades con buscador), celular + badge de privacidad "Tus datos, tu control"
 3. **Verificación SMS** — 6 dígitos con auto-advance, paste, backspace
 4. **Selección de plataformas** — Uber 🖤, DiDi 🧡, InDrive 💚 (multi-selección)
@@ -249,8 +249,8 @@ Se construyó un prototipo funcional en React (JSX) que simula la experiencia co
 📊 Dashboard | 🆚 Comparar | 📸 Subir | 🧾 Fiscal | 💡 Tips
 
 ### Archivos entregados
-- `/mnt/user-data/outputs/pilotea-mvp.jsx` — Prototipo v1
-- `/mnt/user-data/outputs/pilotea-mvp-v2.jsx` — Prototipo v2 con learnings de Gridwise integrados
+- `/mnt/user-data/outputs/kompara-mvp.jsx` — Prototipo v1
+- `/mnt/user-data/outputs/kompara-mvp-v2.jsx` — Prototipo v2 con learnings de Gridwise integrados
 
 ---
 
@@ -389,7 +389,7 @@ Del análisis de Gridwise extrajimos 7 cambios concretos ya implementados en el 
 
 **B2B revenue** se activa a partir de 50K usuarios ($50K MXN/mes) y crece significativamente con escala (hasta $3M MXN/mes a 1M usuarios).
 
-**El modelo completo en Excel** está en `/mnt/user-data/outputs/pilotea-revenue-model.xlsx` con todos los inputs modificables (celdas azules), incluyendo hoja de sensibilidad.
+**El modelo completo en Excel** está en `/mnt/user-data/outputs/kompara-revenue-model.xlsx` con todos los inputs modificables (celdas azules), incluyendo hoja de sensibilidad.
 
 ---
 
@@ -423,23 +423,23 @@ Del análisis de Gridwise extrajimos 7 cambios concretos ya implementados en el 
 ### Archivos ya entregados
 
 **Backend:**
-- `pilotea-backend/schema.sql` — Schema completo de Supabase con 5 tablas + RLS + funciones
-- `pilotea-backend/lib/parsers/uber-pdf.ts` — Parser OCR para PDF semanal de Uber
-- `pilotea-backend/lib/parsers/uber-screenshot.ts` — Parser OCR para screenshot de Uber
-- `pilotea-backend/lib/parsers/didi-screenshot.ts` — Parser OCR para screenshots de DiDi
-- `pilotea-backend/lib/parsers/indrive-screenshot.ts` — Parser OCR para screenshot de InDrive
-- `pilotea-backend/app/api/parse-upload/route.ts` — API route principal
-- `pilotea-backend/pilotea-architecture.md` — Documentación de arquitectura completa
-- `pilotea-backend/README.md` — Guía de setup
+- `kompara-backend/schema.sql` — Schema completo de Supabase con 5 tablas + RLS + funciones
+- `kompara-backend/lib/parsers/uber-pdf.ts` — Parser OCR para PDF semanal de Uber
+- `kompara-backend/lib/parsers/uber-screenshot.ts` — Parser OCR para screenshot de Uber
+- `kompara-backend/lib/parsers/didi-screenshot.ts` — Parser OCR para screenshots de DiDi
+- `kompara-backend/lib/parsers/indrive-screenshot.ts` — Parser OCR para screenshot de InDrive
+- `kompara-backend/app/api/parse-upload/route.ts` — API route principal
+- `kompara-backend/kompara-architecture.md` — Documentación de arquitectura completa
+- `kompara-backend/README.md` — Guía de setup
 
 **Análisis:**
-- `pilotea-costos-legal.md` — Análisis completo de costos por escala + riesgo legal
-- `gridwise-analysis-pilotea-learnings.md` — Análisis de Gridwise con learnings para MVP
-- `pilotea-revenue-model.xlsx` — Modelo financiero en Excel con 7 escenarios
+- `kompara-costos-legal.md` — Análisis completo de costos por escala + riesgo legal
+- `gridwise-analysis-kompara-learnings.md` — Análisis de Gridwise con learnings para MVP
+- `kompara-revenue-model.xlsx` — Modelo financiero en Excel con 7 escenarios
 
 **Prototipos:**
-- `pilotea-mvp.jsx` — Prototipo interactivo v1
-- `pilotea-mvp-v2.jsx` — Prototipo v2 con learnings de Gridwise
+- `kompara-mvp.jsx` — Prototipo interactivo v1
+- `kompara-mvp-v2.jsx` — Prototipo v2 con learnings de Gridwise
 
 ### Siguiente paso técnico
 1. Decidir nombre definitivo y registrar dominio
@@ -453,8 +453,8 @@ Del análisis de Gridwise extrajimos 7 cambios concretos ya implementados en el 
 
 ## 15. NAMING — INVESTIGACIÓN Y CANDIDATOS
 
-### ¿Por qué cambiar de "Pilotea"?
-Existe Pilotea® (pilotea.mx), empresa de arrendamiento de autos para conductores de Uber/DiDi en Puebla, Monterrey, Guadalajara y León. Misma audiencia, mismo nombre. Conflicto de marca inviable.
+### ¿Por qué se cambió de "Pilotea"?
+Existe Pilotea® (pilotea.mx), empresa de arrendamiento de autos para conductores de Uber/DiDi en Puebla, Monterrey, Guadalajara y León. Misma audiencia, mismo nombre. Conflicto de marca inviable. El producto ahora se llama **Kompara**.
 
 ### Patrones de naming identificados
 - Apps gig economy exitosas: 74% usan 2 sílabas (Gridwise, Para, Solo, GigU)
@@ -498,7 +498,7 @@ Existe Pilotea® (pilotea.mx), empresa de arrendamiento de autos para conductore
 | Riesgo | Severidad | Mitigación |
 |--------|-----------|------------|
 | Conflicto de interés con DiDi | ALTA | Construir sin lanzar públicamente. Revisar contrato con abogado laboral. |
-| Marca "Pilotea" ya tomada | ALTA | Cambiar nombre. Top 3 candidatos ya identificados. |
+| Marca "Pilotea" ya tomada | RESUELTA | Renombrado a Kompara. |
 | OCR se rompe si plataformas cambian formato | MEDIA | Claude es adaptable — cambios de prompt lo resuelven. Monitorear error rates. |
 | Datos sintéticos de percentiles al inicio | MEDIA | Ser transparente: "Basado en estimados de mercado. Mejora con más datos." |
 | Retención baja (uso semanal natural) | MEDIA | Push notification lunes, streak counter, resumen mensual. |

@@ -6,7 +6,7 @@ argument-hint: [description of what needs to be done]
 
 # Task Creation
 
-You are the smart intake system for the Pilotea project. Your job is to help the user capture work items quickly while keeping them well-organized.
+You are the smart intake system for the Kompara project. Your job is to help the user capture work items quickly while keeping them well-organized.
 
 ## Step 1: Understand the request
 

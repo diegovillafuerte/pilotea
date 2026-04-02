@@ -124,7 +124,7 @@ Before implementing, send the plan to Codex for a quick sanity check. This catch
 1. Write the plan to a temp file with this prompt:
 
    ```
-   You are reviewing an implementation plan for a task in the Pilotea codebase (a web application, Node.js/TypeScript).
+   You are reviewing an implementation plan for a task in the Kompara codebase (a web application, Node.js/TypeScript).
 
    You have read-only access to the full repo. Read `.claude/codex-guide.md` FIRST for efficient navigation, then read `CLAUDE.md` for architecture boundary rules.
 
@@ -152,9 +152,9 @@ Before implementing, send the plan to Codex for a quick sanity check. This catch
    codex exec - \
      --sandbox read-only \
      --output-last-message "$OUTFILE" \
-     -C "$(pwd)" < /tmp/pilotea-plan-review.txt && \
+     -C "$(pwd)" < /tmp/kompara-plan-review.txt && \
    cat "$OUTFILE"
-   rm -f "$OUTFILE" /tmp/pilotea-plan-review.txt
+   rm -f "$OUTFILE" /tmp/kompara-plan-review.txt
    ```
 
 3. **If PROCEED**: Show Codex's assessment briefly, move to Step 5.
@@ -187,11 +187,11 @@ After implementation passes lint and tests, run a quick Codex review to catch is
 
    If `CLAUDE_PLUGIN_ROOT` is not set, fall back to:
    ```bash
-   codex exec - --sandbox read-only --output-last-message /tmp/pilotea-impl-review.json -C "$(pwd)" <<'EOF'
+   codex exec - --sandbox read-only --output-last-message /tmp/kompara-impl-review.json -C "$(pwd)" <<'EOF'
    Review the uncommitted changes in this repository. Focus on bugs, data integrity risks, and missing error handling. Be brief — list only material issues.
    EOF
-   cat /tmp/pilotea-impl-review.json
-   rm -f /tmp/pilotea-impl-review.json
+   cat /tmp/kompara-impl-review.json
+   rm -f /tmp/kompara-impl-review.json
    ```
 
 2. **If the review is clean**: Tell the user "Implementation check passed. Ready to ship." and stop.

@@ -8,7 +8,7 @@ function getDatabaseUrl(): string {
     throw new Error(
       "DATABASE_URL environment variable is not set. " +
         "Set it to your Postgres connection string, e.g. " +
-        "postgres://user:pass@host:5432/pilotea",
+        "postgres://user:pass@host:5432/kompara",
     );
   }
   return url;

@@ -1,6 +1,6 @@
 # Codex Navigation Guide
 
-How to efficiently navigate the Pilotea codebase. Read this FIRST before doing anything else.
+How to efficiently navigate the Kompara codebase. Read this FIRST before doing anything else.
 
 > **Plugin:** This project uses the `codex-plugin-cc` plugin for Claude Code integration. Project-level Codex config is in `.codex/config.toml`.
 

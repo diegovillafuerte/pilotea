@@ -21,7 +21,7 @@ If the Codex plugin is not loaded (no `codex:rescue` skill available), fall back
 TMPFILE=$(mktemp)
 OUTFILE=$(mktemp)
 cat > "$TMPFILE" <<'PROMPT_EOF'
-You are being consulted as a second opinion on a software engineering problem in the Pilotea codebase (a web application built with Node.js/TypeScript).
+You are being consulted as a second opinion on a software engineering problem in the Kompara codebase (a web application built with Node.js/TypeScript).
 
 You have read-only access to the full repo. Read `.claude/codex-guide.md` FIRST for efficient navigation.
 

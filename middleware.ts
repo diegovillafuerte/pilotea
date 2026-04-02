@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const COOKIE_NAME = "pilotea_session";
+const COOKIE_NAME = "kompara_session";
 
 /**
  * Next.js Edge Middleware.

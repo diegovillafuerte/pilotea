@@ -195,5 +195,5 @@ Rules for comment replies:
 - Never modify files outside `~/.claude/canvas/` — this skill only reads/writes `current.json` and `review.json`
 - Always delete stale `review.json` before writing a new `current.json` to avoid reading old feedback
 - Section IDs must be stable across versions (same section = same ID) so the review maps correctly
-- The skill is read-only with respect to the Pilotea codebase — it does not modify source files
+- The skill is read-only with respect to the Kompara codebase — it does not modify source files
 - Keep the chat output minimal during polling — the document lives in the canvas, not in chat

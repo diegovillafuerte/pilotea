@@ -5,7 +5,7 @@ import { eq, and, gt } from "drizzle-orm";
 import { cookies } from "next/headers";
 
 const SESSION_EXPIRY_DAYS = 30;
-const COOKIE_NAME = "pilotea_session";
+const COOKIE_NAME = "kompara_session";
 
 /**
  * Hash a raw session token with SHA-256.

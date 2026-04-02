@@ -77,11 +77,11 @@ Set `timeout: 480000` (8 minutes).
 
 If `CLAUDE_PLUGIN_ROOT` is not set, fall back to:
 ```bash
-codex exec - --sandbox read-only --output-last-message /tmp/pilotea-prescreen.txt -C "$(pwd)" <<'EOF'
+codex exec - --sandbox read-only --output-last-message /tmp/kompara-prescreen.txt -C "$(pwd)" <<'EOF'
 Review the uncommitted changes in this repo. Report material issues only — bugs, security risks, data integrity, architectural violations. Be brief.
 EOF
-cat /tmp/pilotea-prescreen.txt
-rm -f /tmp/pilotea-prescreen.txt
+cat /tmp/kompara-prescreen.txt
+rm -f /tmp/kompara-prescreen.txt
 ```
 
 Read the pre-screen output. Classify it as:
@@ -131,14 +131,14 @@ Run a single lightweight review using the lean reviewer prompt:
 4. Execute via Codex CLI (same as Step 3.4 but with a single reviewer):
 
 ```bash
-OUTFILE="/tmp/pilotea-review-lean-out.json"
+OUTFILE="/tmp/kompara-review-lean-out.json"
 codex exec - \
   --sandbox read-only \
   --output-schema .claude/skills/ship/code-review-schema.json \
   --output-last-message "$OUTFILE" \
-  -C "$(pwd)" < /tmp/pilotea-review-lean.txt && \
+  -C "$(pwd)" < /tmp/kompara-review-lean.txt && \
 cat "$OUTFILE"
-rm -f /tmp/pilotea-review-lean.txt /tmp/pilotea-review-lean-out.json
+rm -f /tmp/kompara-review-lean.txt /tmp/kompara-review-lean-out.json
 ```
 
 Set `timeout: 300000` (5 minutes — shorter than full review since it is a single reviewer).
@@ -175,22 +175,22 @@ For each reviewer to run:
    {"verdict":"PASS or REJECT","findings":[{"severity":"CRITICAL or ADVISORY","title":"...","location":"file:line","evidence":"...","why":"...","fix":"..."}],"summary":"..."}
    ```
 5. Build prompt files per shared protocol Step 2.1 (split trusted/untrusted content into separate files, concatenate safely — never embed diffs in heredocs).
-6. Write each assembled prompt to a temp file: `/tmp/pilotea-review-<name>.txt`
+6. Write each assembled prompt to a temp file: `/tmp/kompara-review-<name>.txt`
 
 Launch ALL reviewers in parallel per shared protocol Step 2.3:
 ```bash
-OUTFILE="/tmp/pilotea-review-<name>-out.json"
+OUTFILE="/tmp/kompara-review-<name>-out.json"
 codex exec - \
   --sandbox read-only \
   --output-schema .claude/skills/ship/code-review-schema.json \
   --output-last-message "$OUTFILE" \
-  -C "$(pwd)" < /tmp/pilotea-review-<name>.txt && \
+  -C "$(pwd)" < /tmp/kompara-review-<name>.txt && \
 cat "$OUTFILE"
 ```
 
 Set `timeout: 480000` (8 minutes) for each. After all complete:
 ```bash
-rm -f /tmp/pilotea-review-*.txt /tmp/pilotea-review-*-out.json
+rm -f /tmp/kompara-review-*.txt /tmp/kompara-review-*-out.json
 ```
 
 **Error handling per shared protocol Step 2.4:** If a reviewer fails (non-zero exit, timeout, empty output), treat as PASS with advisory: "[Reviewer] Codex review failed — review manually." Do NOT block ship.

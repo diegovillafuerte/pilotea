@@ -30,7 +30,7 @@ while [ "$CURRENT" != "1" ] && [ -n "$CURRENT" ] && [ "$CURRENT" != "0" ]; do
   if [[ "$CMD" == *claude* ]]; then SESSION_PID=$CURRENT; break; fi
   CURRENT=$(ps -o ppid= -p "$CURRENT" 2>/dev/null | tr -d ' ')
 done
-SESSION_FILE="/tmp/pilotea-work-auto-$SESSION_PID.json"
+SESSION_FILE="/tmp/kompara-work-auto-$SESSION_PID.json"
 echo "$SESSION_FILE"
 ```
 
@@ -319,7 +319,7 @@ git push origin main
 
 - Never stop to ask for confirmation — this is fully autonomous
 - **Between every task iteration, `/clear` and re-invoke to prevent context rot** — each task gets a fresh context window
-- **Session state is persisted to `/tmp/pilotea-work-auto-$SESSION_PID.json`** — never keep tracking data in conversation memory
+- **Session state is persisted to `/tmp/kompara-work-auto-$SESSION_PID.json`** — never keep tracking data in conversation memory
 - **All session file writes use atomic rename** (`jq > .tmp && mv .tmp file`) to prevent corruption
 - If tests or lint fail after 3 consecutive fix attempts, skip the task and move to the next one
 - If the adversarial reviewer rejects 3 times in a row, skip the task and move to the next one

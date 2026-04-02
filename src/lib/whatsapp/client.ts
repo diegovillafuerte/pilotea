@@ -30,7 +30,7 @@ function getTwilioClient() {
  * Send a magic link to the driver's WhatsApp using the pre-approved template.
  *
  * Template: auth_magic_link (es_MX)
- * Body: "Hola {{1}}! Entra a Pilotea con este link: {{2}}
+ * Body: "Hola {{1}}! Entra a Kompara con este link: {{2}}
  *        Expira en 15 minutos. Si no solicitaste esto, ignora este mensaje."
  */
 export async function sendMagicLink(
@@ -53,7 +53,7 @@ export async function sendMagicLink(
     ...(process.env.TWILIO_TEMPLATE_SID
       ? {}
       : {
-          body: `Hola! Entra a Pilotea con este link:\n\n${verifyUrl}\n\nExpira en 15 minutos. Si no solicitaste esto, ignora este mensaje.`,
+          body: `Hola! Entra a Kompara con este link:\n\n${verifyUrl}\n\nExpira en 15 minutos. Si no solicitaste esto, ignora este mensaje.`,
         }),
   });
 }

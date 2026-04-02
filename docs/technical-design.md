@@ -1,4 +1,4 @@
-# Pilotea — Technical Design Document
+# Kompara — Technical Design Document
 
 > **Version:** 1.0
 > **Date:** 2026-04-02
@@ -9,7 +9,7 @@
 
 ## 1. Overview
 
-Pilotea is a mobile-first PWA for ride-hailing drivers in Mexico. Drivers upload screenshots or PDFs of their weekly earnings from Uber, DiDi, and InDrive. The app uses Claude Vision to extract structured data, calculates efficiency metrics, and benchmarks the driver against others in their city using percentiles.
+Kompara is a mobile-first PWA for ride-hailing drivers in Mexico. Drivers upload screenshots or PDFs of their weekly earnings from Uber, DiDi, and InDrive. The app uses Claude Vision to extract structured data, calculates efficiency metrics, and benchmarks the driver against others in their city using percentiles.
 
 **Core loop:** Upload screenshot → AI extracts data → See dashboard with percentiles → Get actionable recommendations.
 
@@ -115,7 +115,7 @@ For full business context, see `docs/project-context.md`.
 ## 4. Project Structure
 
 ```
-pilotea/
+kompara/
 ├── src/
 │   ├── app/                          # Next.js App Router
 │   │   ├── (auth)/                   # Public auth pages
@@ -487,7 +487,7 @@ function generateToken(): string {
 1. Find existing driver by phone, or create new one
 2. Generate session token (random 32 bytes)
 3. Store SHA-256 hash in `sessions` table
-4. Set HTTP-only, Secure, SameSite=Lax cookie: `pilotea_session={token}`
+4. Set HTTP-only, Secure, SameSite=Lax cookie: `kompara_session={token}`
 5. Cookie expiry: 30 days (same as session)
 6. If driver's `onboarding_completed` is false → redirect to `/onboarding`
 7. Otherwise → redirect to `/dashboard`
@@ -496,7 +496,7 @@ function generateToken(): string {
 ```typescript
 // middleware.ts (Next.js middleware)
 // Runs on every request to /(app)/* routes
-// 1. Read pilotea_session cookie
+// 1. Read kompara_session cookie
 // 2. Hash it
 // 3. Look up in sessions table (cached for 5 min)
 // 4. If valid → attach driver_id to request
@@ -509,7 +509,7 @@ Template name: auth_magic_link
 Language: es_MX
 
 Body:
-"Hola {{1}}! Entra a Pilotea con este link:
+"Hola {{1}}! Entra a Kompara con este link:
 
 {{2}}
 
@@ -544,7 +544,7 @@ const r2 = new S3Client({
 
 ### Bucket structure
 
-Bucket name: `pilotea-uploads`
+Bucket name: `kompara-uploads`
 
 Object key format: `{driver_id}/{upload_id}.{ext}`
 
@@ -1128,8 +1128,8 @@ Paywall is **also enforced server-side** in API routes. Client-side is just UX �
 ```typescript
 export default function manifest() {
   return {
-    name: 'Pilotea',
-    short_name: 'Pilotea',
+    name: 'Kompara',
+    short_name: 'Kompara',
     description: 'Compara tus ganancias entre plataformas',
     start_url: '/dashboard',
     display: 'standalone',
@@ -1160,17 +1160,17 @@ Using `@ducanh2912/next-pwa` for service worker generation. Configuration:
 
 | Service | Type | Plan | Notes |
 |---------|------|------|-------|
-| `pilotea-web` | Web Service | Starter ($7/mo) | Next.js app. Auto-deploy from `main` branch |
-| `pilotea-db` | PostgreSQL | Starter ($7/mo) | 1 GB RAM, 1 GB storage. Scale as needed |
-| `pilotea-cron-stats` | Cron Job | Free | Weekly: `POST /api/cron/update-stats`. Sunday 03:00 UTC |
-| `pilotea-cron-cleanup` | Cron Job | Free | Daily: `POST /api/cron/cleanup-magic-links`. 04:00 UTC |
-| `pilotea-cron-reminder` | Cron Job | Free | Weekly: `POST /api/cron/weekly-reminder`. Monday 14:00 UTC (8am CDMX) |
+| `kompara-web` | Web Service | Starter ($7/mo) | Next.js app. Auto-deploy from `main` branch |
+| `kompara-db` | PostgreSQL | Starter ($7/mo) | 1 GB RAM, 1 GB storage. Scale as needed |
+| `kompara-cron-stats` | Cron Job | Free | Weekly: `POST /api/cron/update-stats`. Sunday 03:00 UTC |
+| `kompara-cron-cleanup` | Cron Job | Free | Daily: `POST /api/cron/cleanup-magic-links`. 04:00 UTC |
+| `kompara-cron-reminder` | Cron Job | Free | Weekly: `POST /api/cron/weekly-reminder`. Monday 14:00 UTC (8am CDMX) |
 
 ### Cloudflare R2
 
 | Resource | Details |
 |----------|---------|
-| Bucket | `pilotea-uploads` |
+| Bucket | `kompara-uploads` |
 | Region | Auto (or `wnam` for US West — close to Mexico) |
 | Access | Private — no public access |
 | Lifecycle | Delete objects older than 90 days (originals aren't needed after parsing) |
@@ -1209,13 +1209,13 @@ Traffic switches to new deploy (zero-downtime)
 # .env.example
 
 # Database (Render Postgres — internal connection string)
-DATABASE_URL=postgresql://user:pass@host:5432/pilotea
+DATABASE_URL=postgresql://user:pass@host:5432/kompara
 
 # Cloudflare R2
 R2_ENDPOINT=https://<account_id>.r2.cloudflarestorage.com
 R2_ACCESS_KEY_ID=xxx
 R2_SECRET_ACCESS_KEY=xxx
-R2_BUCKET_NAME=pilotea-uploads
+R2_BUCKET_NAME=kompara-uploads
 
 # Claude API
 ANTHROPIC_API_KEY=sk-ant-xxx
@@ -1227,13 +1227,13 @@ TWILIO_WHATSAPP_FROM=whatsapp:+14155238886  # Twilio sandbox or approved number
 
 # Auth
 SESSION_SECRET=xxx            # Random 64-char hex, used for cookie signing
-MAGIC_LINK_BASE_URL=https://pilotea.app  # Or Render URL for staging
+MAGIC_LINK_BASE_URL=https://kompara.app  # Or Render URL for staging
 
 # Cron (internal API auth)
 CRON_SECRET=xxx               # Shared secret for cron job endpoints
 
 # App
-NEXT_PUBLIC_APP_URL=https://pilotea.app
+NEXT_PUBLIC_APP_URL=https://kompara.app
 NODE_ENV=production
 ```
 
@@ -1409,8 +1409,8 @@ export async function GET() {
 
 | Decision | Options | Status |
 |----------|---------|--------|
-| Final app name | Jale, Mero, Rifa (using "Pilotea" as placeholder) | Pending IMPI verification |
-| Domain | pilotea.app or final name domain | Pending name decision |
+| Final app name | Jale, Mero, Rifa (using "Kompara" as placeholder) | Pending IMPI verification |
+| Domain | kompara.app or final name domain | Pending name decision |
 | Payment processor | Stripe Mexico vs Mercado Pago | Decide in Phase 3 |
 | Brand colors / visual identity | TBD | Needs design work |
 | Weekly reminder copy | Exact WhatsApp message text | Decide before Phase 4 |

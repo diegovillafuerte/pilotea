@@ -31,7 +31,7 @@ Active workers:
 ## Display format
 
 ```
-# Pilotea Roadmap
+# Kompara Roadmap
 
 ## E-002: Infrastructure Foundations          ░░░░░░░░░░░░░░░░  0% (0/10)
    Priority: urgent | Status: backlog

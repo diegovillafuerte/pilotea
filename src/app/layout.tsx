@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Pilotea",
+  title: "Kompara",
   description: "Compara tus ganancias como conductor de plataforma",
 };
 

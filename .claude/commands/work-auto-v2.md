@@ -25,7 +25,7 @@ while [ "$CURRENT" != "1" ] && [ -n "$CURRENT" ] && [ "$CURRENT" != "0" ]; do
   if [[ "$CMD" == *claude* ]]; then SESSION_PID=$CURRENT; break; fi
   CURRENT=$(ps -o ppid= -p "$CURRENT" 2>/dev/null | tr -d ' ')
 done
-SESSION_FILE="/tmp/pilotea-work-auto-v2-$SESSION_PID.json"
+SESSION_FILE="/tmp/kompara-work-auto-v2-$SESSION_PID.json"
 ```
 
 If the session file exists and is < 24 hours old, resume from it. If `stop_reason` is set, go to Step 4 (session report). If `current_task` is set, check disk: done → record success; pending+in_progress → record skip. Then continue the loop.
@@ -85,7 +85,7 @@ Spawn a **single Agent** with `isolation: "worktree"` and `model: "opus"`. The A
 **Agent prompt template** (fill in the values — the main loop constructs this):
 
 ````
-You are working on task {TASK_ID} for the Pilotea project autonomously.
+You are working on task {TASK_ID} for the Kompara project autonomously.
 
 ## Task
 {FULL TASK FILE CONTENT}
@@ -288,7 +288,7 @@ git push origin main
 - **Each task runs in a fresh Agent with `isolation: "worktree"`** — no context rot between tasks
 - **The main loop never reads source code or implements anything** — it only does task selection, session tracking, and reporting
 - **All Agents must use `model: "opus"`** — never downgrade to Sonnet/Haiku
-- **Session state persisted to `/tmp/pilotea-work-auto-v2-$SESSION_PID.json`** — all writes use atomic rename
+- **Session state persisted to `/tmp/kompara-work-auto-v2-$SESSION_PID.json`** — all writes use atomic rename
 - Skip `ops`/`business` category tasks (non-code) — leave as `todo`
 - Skip tasks with `review: human` in frontmatter
 - Skip tasks whose `depends_on` is not yet done
