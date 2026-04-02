@@ -42,6 +42,10 @@ export interface ParseResult {
   error?: string; // Spanish error message
 }
 
+// ─── Platform and upload type enums ───────────────────────────
+export type Platform = "uber" | "didi" | "indrive";
+export type UploadType = "pdf" | "screenshot";
+
 // ─── Zod schema for Claude Vision extraction response ─────────
 // This validates the raw JSON that Claude returns from the PDF
 export const uberPdfExtractionSchema = z.object({

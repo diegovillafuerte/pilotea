@@ -14,20 +14,30 @@ function getDatabaseUrl(): string {
   return url;
 }
 
-/**
- * postgres.js connection pool.
- *
- * Uses `max: 10` by default, which is suitable for a single Next.js
- * server process. Render Postgres Starter allows up to 97 connections —
- * leaving headroom for migrations, seeding, and ad-hoc queries.
- */
-const client = postgres(getDatabaseUrl(), {
-  max: 10,
-  idle_timeout: 20,
-  connect_timeout: 10,
+let _client: ReturnType<typeof postgres> | null = null;
+let _db: ReturnType<typeof drizzle> | null = null;
+
+function getClient() {
+  if (!_client) {
+    _client = postgres(getDatabaseUrl(), {
+      max: 10,
+      idle_timeout: 20,
+      connect_timeout: 10,
+    });
+  }
+  return _client;
+}
+
+/** Drizzle ORM instance — lazily initialized on first use. */
+export const db = new Proxy({} as ReturnType<typeof drizzle>, {
+  get(_target, prop) {
+    if (!_db) {
+      _db = drizzle(getClient(), { schema });
+    }
+    return (_db as unknown as Record<string | symbol, unknown>)[prop];
+  },
 });
 
-/** Drizzle ORM instance — use this everywhere. */
-export const db = drizzle(client, { schema });
-
-export { client };
+export function getDirectClient() {
+  return getClient();
+}
