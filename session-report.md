@@ -1,33 +1,32 @@
 # Session Report — 2026-04-02
 
 ## Summary
-Completed 1 task. Skipped 3. 3 consecutive tasks skipped — all remaining tasks blocked by dependency chain on B-002 (database) and B-004 (auth), both currently being worked on by other workers.
+Completed 5 tasks. Skipped 0. Budget of 5 tasks reached.
 
 ## Completed
-| ID | Title | Notes |
-|---|---|---|
-| B-001 | Initialize Next.js project | Full Next.js 15 project initialized with all dependencies, folder structure, configs. Follow-up Codex review applied fixes to CLAUDE.md architecture docs, techdebt.md, and .gitignore. |
+| Task | Title | Files Changed | Notes |
+|------|-------|---------------|-------|
+| B-004 | WhatsApp magic link auth | 17 files | Full auth system: magic links, sessions, rate limiting, middleware, login/verify UI. Codex full review passed. |
+| B-005 | Onboarding flow | 5 files | 3-step progressive form (name, city, platforms), 40-city searchable dropdown, Zod validation API route. |
+| B-007 | Uber PDF parser | 6 files | Claude Vision integration for ~20 field extraction, reusable Claude client, derived metrics, data completeness scoring. |
+| B-008 | Upload UI | 7 files | Platform tabs, drag/drop file dropzone, 4-step processing animation, upload state machine hook, drivers/me API. |
+| B-009 | Percentile engine + seed data | 6 files | SQL function wrapper with commission inversion and national fallback, synthetic data for 10 cities x 3 platforms x 5 metrics, cron placeholder. |
 
 ## Skipped
-| ID | Title | Reason | Action |
-|---|---|---|---|
-| B-004 | WhatsApp magic link auth | Already claimed by worker `be2f70a4`, depends on B-002 (not done) | Wait for B-002 + B-004 workers to complete |
-| B-005 | Onboarding flow | Depends on B-004 (not done) | Pick up after B-004 ships |
-| B-006 | Upload API and R2 storage | Depends on B-002 and B-004 (not done) | Pick up after B-002 and B-004 ship |
+None.
 
 ## Patterns
-- **Dependency bottleneck:** All 21 remaining tasks form a dependency chain rooted in B-002 (database schema, ops) and B-004 (auth system, code). Until these two ship, no other code task can proceed.
-- B-002 and B-004 are actively being worked on by other agents — this session ran concurrently and simply ran out of eligible work.
+- Agents consistently completed implementation and simplify pass but failed to invoke `/ship` before context ran out. Main loop recovered all 4 affected tasks (B-005, B-007, B-008, B-009) by manually committing from worktrees.
+- B-006 (Upload API) was completed by a parallel worker during this session.
 
 ## State of main
-- **Build:** PASSING
-- **Tests:** 1 passed (smoke test); 6 failures are from worktree test files being picked up by root vitest config (not real failures)
-- **Lint:** Errors from worktree `.next/` build artifacts being linted (not real failures). Consider adding `.claude/worktrees/` to `.eslintignore` and vitest excludes.
-- **Last commit:** `d1dc4d4` "Update CLAUDE.md architecture and tech stack, populate techdebt.md, fix next-env.d.ts gitignore"
+- Tests: PASSING (127 tests, 14 files)
+- Lint: 1 pre-existing warning (`_input` unused in `src/lib/parsers/index.ts`)
+- Last commit: `517d7c9` "Complete B-009: Percentile engine and synthetic data seeding shipped"
 
 ## Next priorities
-1. **B-002** (high) — Database schema and Render Postgres setup — *in progress*
-2. **B-004** (high) — WhatsApp magic link auth — *in progress*
-3. **B-005** (high) — Onboarding flow — blocked on B-004
-4. **B-006** (high) — Upload API and R2 storage — blocked on B-002 + B-004
-5. **B-007** (high) — Uber PDF parser — blocked on B-006
+1. **B-010** (high, code) — Dashboard page: main screen with metric cards, percentile bars, recommendations
+2. **B-003** (high, ops) — Render deployment pipeline: health check, render.yaml, deploy config
+3. **B-011** (medium, code) — Uber screenshot parser
+4. **B-012** (medium, code) — DiDi screenshot parser
+5. **B-013** (medium, code) — InDrive screenshot parser
