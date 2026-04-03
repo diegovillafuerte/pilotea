@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentDriver } from "@/lib/auth/session";
+import { BottomNav } from "@/components/layout/bottom-nav";
 
 export default async function AppLayout({
   children,
@@ -15,5 +16,10 @@ export default async function AppLayout({
     redirect("/login");
   }
 
-  return <div className="min-h-screen">{children}</div>;
+  return (
+    <div className="min-h-screen bg-gray-50 pb-20">
+      {children}
+      <BottomNav />
+    </div>
+  );
 }
