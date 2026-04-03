@@ -1,5 +1,6 @@
 import type { Platform, UploadType, ParseInput, ParseResult } from "./types";
 import { parseUberScreenshot } from "./uber-screenshot";
+import { parseUberPdf } from "./uber-pdf";
 import { parseDidiScreenshot } from "./didi-screenshot";
 
 function notAvailable(error: string): ParseResult {
@@ -17,10 +18,10 @@ function notAvailable(error: string): ParseResult {
  *
  * Implemented parsers:
  * - uber+screenshot → parseUberScreenshot (pie chart, ~0.40 completeness)
+ * - uber+pdf → parseUberPdf (weekly report, ~0.85 completeness)
  * - didi+screenshot → parseDidiScreenshot (2 images, ~0.85 completeness)
  *
- * Stub parsers (not yet implemented):
- * - uber+pdf → B-007
+ * Not yet implemented:
  * - indrive+screenshot → future
  */
 export async function parseUpload(
@@ -29,9 +30,7 @@ export async function parseUpload(
   input: ParseInput,
 ): Promise<ParseResult> {
   if (platform === "uber" && uploadType === "pdf") {
-    return notAvailable(
-      "El parser de PDF de Uber aun no esta implementado. Estara disponible pronto.",
-    );
+    return parseUberPdf(input);
   }
 
   if (platform === "uber" && uploadType === "screenshot") {

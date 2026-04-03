@@ -1,7 +1,7 @@
 import { callClaudeVision, extractJsonFromResponse } from "@/lib/claude/client";
 import type { ParseInput, ParseResult, ParsedMetrics, UberPdfExtraction } from "./types";
 import { uberPdfExtractionSchema } from "./types";
-import { calculateDataCompleteness } from "./utils";
+import { calculateDataCompleteness, getCurrentMonday } from "./utils";
 
 // ─── System prompt ────────────────────────────────────────────
 const SYSTEM_PROMPT = `Eres un extractor de datos experto para reportes de ganancias semanales de Uber.
@@ -123,7 +123,7 @@ export async function parseUberPdf(input: ParseInput): Promise<ParseResult> {
     const derived = calculateDerivedMetrics(extraction);
 
     const metrics: ParsedMetrics = {
-      week_start: extraction.week_start,
+      week_start: extraction.week_start ?? getCurrentMonday(),
       net_earnings: extraction.net_earnings,
       gross_earnings: extraction.gross_earnings,
       total_trips: extraction.total_trips,

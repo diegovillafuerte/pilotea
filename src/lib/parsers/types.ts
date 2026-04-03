@@ -49,7 +49,7 @@ export type UploadType = "pdf" | "screenshot";
 // ─── Zod schema for Claude Vision extraction response ─────────
 // This validates the raw JSON that Claude returns from the PDF
 export const uberPdfExtractionSchema = z.object({
-  week_start: z.string(),
+  week_start: z.string().nullable(),
   net_earnings: z.number().nullable(),
   gross_earnings: z.number().nullable(),
   total_trips: z.number().int().nullable(),
