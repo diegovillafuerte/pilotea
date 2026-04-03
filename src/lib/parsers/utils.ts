@@ -4,13 +4,25 @@ import { ALL_METRICS_FIELDS } from "./types";
 
 const MAX_DIMENSION = 2048;
 
+type VisionMediaType = "image/jpeg" | "image/png" | "image/webp" | "image/gif" | "application/pdf";
+
 /**
- * Normalize an image buffer for Claude Vision: validate, resize if too large,
- * and convert to JPEG. Returns base64 data and the correct media type.
- * This prevents "Could not process image" errors from corrupted, HEIC,
- * or oversized images.
+ * Prepare a file buffer for Claude Vision. PDFs are passed through as-is;
+ * images are normalized via sharp (resize, convert to JPEG, auto-rotate)
+ * to prevent "Could not process image" errors.
  */
-export async function normalizeImage(buffer: Buffer): Promise<{ base64: string; mediaType: "image/jpeg" }> {
+export async function prepareFileForVision(
+  buffer: Buffer,
+  mimeType: string,
+): Promise<{ base64: string; mediaType: VisionMediaType }> {
+  if (mimeType === "application/pdf") {
+    return {
+      base64: buffer.toString("base64"),
+      mediaType: "application/pdf",
+    };
+  }
+
+  // Image path: normalize with sharp
   const img = sharp(buffer).rotate(); // auto-rotate based on EXIF
   const metadata = await img.metadata();
 

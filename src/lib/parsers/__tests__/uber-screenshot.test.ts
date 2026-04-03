@@ -13,7 +13,7 @@ vi.mock("@/lib/parsers/utils", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/parsers/utils")>();
   return {
     ...actual,
-    normalizeImage: vi.fn(async (buf: Buffer) => ({
+    prepareFileForVision: vi.fn(async (buf: Buffer) => ({
       base64: buf.toString("base64"),
       mediaType: "image/jpeg" as const,
     })),
