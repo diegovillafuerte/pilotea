@@ -46,13 +46,13 @@ export async function POST(request: Request) {
   // Generate magic link token
   const token = await createMagicLink(phone);
 
-  // Send via WhatsApp
+  // Send via SMS
   try {
     await sendMagicLink(phone, token);
   } catch (error) {
     // Log only error type/code, never phone numbers or full error objects
     const errCode = error instanceof Error ? error.message.split(":")[0] : "unknown";
-    console.error("Failed to send WhatsApp message, error code:", errCode);
+    console.error("Failed to send SMS, error code:", errCode);
     return NextResponse.json(
       {
         ok: false,
@@ -64,6 +64,6 @@ export async function POST(request: Request) {
 
   return NextResponse.json({
     ok: true,
-    message: "Te enviamos un link por WhatsApp. Tocalo para entrar.",
+    message: "Te enviamos un link por SMS. Tocalo para entrar.",
   });
 }

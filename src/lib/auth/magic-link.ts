@@ -5,7 +5,7 @@ import { eq, and, isNull, gt, gte } from "drizzle-orm";
 
 const TOKEN_EXPIRY_MINUTES = 15;
 const RATE_LIMIT_WINDOW_MINUTES = 15;
-const RATE_LIMIT_MAX = 3;
+const RATE_LIMIT_MAX = 50;
 
 /**
  * Generate a cryptographic token (64-char hex string from 32 random bytes).

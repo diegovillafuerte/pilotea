@@ -66,7 +66,7 @@ function LoginForm() {
           </svg>
         </div>
         <h2 className="text-xl font-semibold text-gray-900">
-          Revisa tu WhatsApp
+          Revisa tus mensajes
         </h2>
         <p className="mt-2 text-gray-600">
           Te enviamos un link al numero{" "}
@@ -144,7 +144,7 @@ function LoginForm() {
             Enviando...
           </span>
         ) : (
-          "Enviar link por WhatsApp"
+          "Enviar link por SMS"
         )}
       </button>
     </form>
