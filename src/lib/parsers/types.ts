@@ -74,7 +74,7 @@ export type UberPdfExtraction = z.infer<typeof uberPdfExtractionSchema>;
 // ─── Zod schema for Uber screenshot (pie chart) extraction ───
 // Only a subset of fields are available from the pie chart view
 export const uberScreenshotExtractionSchema = z.object({
-  week_start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "week_start must be a valid ISO date (YYYY-MM-DD)"),
+  week_start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "week_start must be a valid ISO date (YYYY-MM-DD)").nullable(),
   net_earnings: z.number().nullable(),
   gross_earnings: z.number().nullable(),
   platform_commission: z.number().nullable(),
@@ -89,7 +89,7 @@ export type UberScreenshotExtraction = z.infer<typeof uberScreenshotExtractionSc
 // ─── Zod schema for DiDi screenshot extraction ──────────────
 // DiDi provides 2 screens: earnings + tablero (dashboard)
 export const didiScreenshotExtractionSchema = z.object({
-  week_start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "week_start must be a valid ISO date (YYYY-MM-DD)"),
+  week_start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "week_start must be a valid ISO date (YYYY-MM-DD)").nullable(),
   net_earnings: z.number().nullable(),
   gross_earnings: z.number().nullable(),
   total_trips: z.number().int().nullable(),

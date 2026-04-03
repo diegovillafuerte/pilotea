@@ -1,7 +1,7 @@
 import { callClaudeVision, extractJsonFromResponse } from "@/lib/claude/client";
 import type { ParseInput, ParseResult, ParsedMetrics, UberScreenshotExtraction } from "./types";
 import { uberScreenshotExtractionSchema } from "./types";
-import { calculateDataCompleteness, getImageMediaType } from "./utils";
+import { calculateDataCompleteness, getImageMediaType, getCurrentMonday } from "./utils";
 
 // ─── System prompt ────────────────────────────────────────────
 const SYSTEM_PROMPT = `Eres un extractor de datos experto para capturas de pantalla de Uber.
@@ -88,7 +88,7 @@ export async function parseUberScreenshot(input: ParseInput): Promise<ParseResul
 
     // Build metrics — most fields are null since screenshot only shows pie chart
     const metrics: ParsedMetrics = {
-      week_start: extraction.week_start,
+      week_start: extraction.week_start ?? getCurrentMonday(),
       net_earnings: extraction.net_earnings,
       gross_earnings: extraction.gross_earnings,
       platform_commission: extraction.platform_commission,

@@ -2,6 +2,19 @@ import type { ParsedMetrics } from "./types";
 import { ALL_METRICS_FIELDS } from "./types";
 
 /**
+ * Returns the Monday of the current week as an ISO date string (YYYY-MM-DD).
+ * Used as fallback when Claude cannot determine week_start from the screenshot.
+ */
+export function getCurrentMonday(): string {
+  const now = new Date();
+  const day = now.getDay(); // 0=Sun, 1=Mon, ...
+  const diff = day === 0 ? 6 : day - 1; // days since Monday
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - diff);
+  return monday.toISOString().slice(0, 10);
+}
+
+/**
  * Calculate data completeness as a ratio of non-null metrics fields.
  * Shared across all parsers (Uber PDF, Uber screenshot, DiDi, InDrive).
  */

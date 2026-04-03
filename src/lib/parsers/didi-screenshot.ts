@@ -1,7 +1,7 @@
 import { callClaudeVision, extractJsonFromResponse } from "@/lib/claude/client";
 import type { ParseInput, ParseResult, ParsedMetrics, DidiScreenshotExtraction } from "./types";
 import { didiScreenshotExtractionSchema } from "./types";
-import { calculateDataCompleteness, getImageMediaType } from "./utils";
+import { calculateDataCompleteness, getImageMediaType, getCurrentMonday } from "./utils";
 
 // ─── System prompt ────────────────────────────────────────────
 const SYSTEM_PROMPT = `Eres un extractor de datos experto para capturas de pantalla de DiDi Driver.
@@ -127,7 +127,7 @@ export async function parseDidiScreenshot(input: ParseInput): Promise<ParseResul
     const tripsPerHour = deriveTripsPerHour(extraction.total_trips, hoursOnline);
 
     const metrics: ParsedMetrics = {
-      week_start: extraction.week_start,
+      week_start: extraction.week_start ?? getCurrentMonday(),
       net_earnings: extraction.net_earnings,
       gross_earnings: extraction.gross_earnings,
       total_trips: extraction.total_trips,
