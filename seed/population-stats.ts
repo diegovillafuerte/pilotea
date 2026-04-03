@@ -1,20 +1,31 @@
 /**
- * Seed population_stats with synthetic data for the 10 priority cities + national fallback.
+ * Seed population_stats with synthetic data for 10 priority cities + national fallback.
  *
- * Run with: pnpm db:seed
+ * Values are reasonable estimates for Mexican ride-hail drivers in MXN,
+ * based on public reports, news articles, and driver community data.
  *
- * Idempotent — uses ON CONFLICT DO UPDATE, so it can be run multiple times safely.
+ * Idempotent: uses ON CONFLICT ... DO UPDATE to upsert.
  *
- * Data is based on reasonable estimates from:
- * - Public reports on ride-hailing earnings in Mexico
- * - INEGI transportation data
- * - Driver community forums and social media
- * - News articles on ride-hailing in Mexican cities
+ * Usage: pnpm db:seed
  */
 
 import postgres from "postgres";
 
 // ─── Configuration ────────────────────────────────────────────
+
+const CITIES = [
+  "cdmx",
+  "monterrey",
+  "guadalajara",
+  "puebla",
+  "toluca",
+  "tijuana",
+  "leon",
+  "queretaro",
+  "merida",
+  "cancun",
+  "national",
+] as const;
 
 const PLATFORMS = ["uber", "didi", "indrive"] as const;
 
@@ -26,38 +37,13 @@ const METRICS = [
   "platform_commission_pct",
 ] as const;
 
-/**
- * Cities with their sample sizes.
- * Major cities (CDMX, Monterrey, Guadalajara) have larger sample sizes.
- * Smaller cities have fewer data points.
- */
-const CITIES: Record<string, number> = {
-  cdmx: 2000,
-  monterrey: 1500,
-  guadalajara: 1400,
-  puebla: 800,
-  toluca: 600,
-  tijuana: 900,
-  leon: 500,
-  queretaro: 700,
-  merida: 600,
-  cancun: 700,
-  national: 5000,
-};
+// ─── Types ────────────────────────────────────────────────────
 
-// ─── Synthetic data definitions ───────────────────────────────
+type MetricName = (typeof METRICS)[number];
+type CityKey = (typeof CITIES)[number];
+type PlatformKey = (typeof PLATFORMS)[number];
 
-/**
- * Base stats for each metric per platform (national averages in MXN).
- * These are realistic estimates for Mexican ride-hailing markets.
- *
- * earnings_per_trip: Average net earnings per completed trip
- * earnings_per_km: Net earnings per kilometer driven
- * earnings_per_hour: Net earnings per hour online
- * trips_per_hour: Average completed trips per hour online
- * platform_commission_pct: Platform take rate as percentage
- */
-interface MetricProfile {
+interface PercentileBreakpoints {
   p10: number;
   p25: number;
   p50: number;
@@ -66,295 +52,159 @@ interface MetricProfile {
   mean: number;
 }
 
-type PlatformMetrics = Record<string, MetricProfile>;
-
-const NATIONAL_BASE: Record<string, PlatformMetrics> = {
-  uber: {
-    earnings_per_trip: {
-      p10: 28.0,
-      p25: 35.0,
-      p50: 45.0,
-      p75: 58.0,
-      p90: 72.0,
-      mean: 46.5,
-    },
-    earnings_per_km: {
-      p10: 3.5,
-      p25: 4.8,
-      p50: 6.2,
-      p75: 7.8,
-      p90: 9.5,
-      mean: 6.3,
-    },
-    earnings_per_hour: {
-      p10: 85.0,
-      p25: 110.0,
-      p50: 145.0,
-      p75: 185.0,
-      p90: 230.0,
-      mean: 150.0,
-    },
-    trips_per_hour: {
-      p10: 1.5,
-      p25: 2.0,
-      p50: 2.8,
-      p75: 3.5,
-      p90: 4.2,
-      mean: 2.8,
-    },
-    platform_commission_pct: {
-      p10: 20.0,
-      p25: 22.5,
-      p50: 25.0,
-      p75: 28.0,
-      p90: 32.0,
-      mean: 25.5,
-    },
-  },
-  didi: {
-    earnings_per_trip: {
-      p10: 25.0,
-      p25: 32.0,
-      p50: 42.0,
-      p75: 55.0,
-      p90: 68.0,
-      mean: 43.0,
-    },
-    earnings_per_km: {
-      p10: 3.2,
-      p25: 4.5,
-      p50: 5.8,
-      p75: 7.2,
-      p90: 8.8,
-      mean: 5.9,
-    },
-    earnings_per_hour: {
-      p10: 78.0,
-      p25: 100.0,
-      p50: 135.0,
-      p75: 172.0,
-      p90: 215.0,
-      mean: 140.0,
-    },
-    trips_per_hour: {
-      p10: 1.4,
-      p25: 1.9,
-      p50: 2.6,
-      p75: 3.3,
-      p90: 4.0,
-      mean: 2.6,
-    },
-    platform_commission_pct: {
-      p10: 18.0,
-      p25: 20.0,
-      p50: 23.0,
-      p75: 26.0,
-      p90: 30.0,
-      mean: 23.5,
-    },
-  },
-  indrive: {
-    earnings_per_trip: {
-      p10: 22.0,
-      p25: 30.0,
-      p50: 40.0,
-      p75: 52.0,
-      p90: 65.0,
-      mean: 41.0,
-    },
-    earnings_per_km: {
-      p10: 3.0,
-      p25: 4.2,
-      p50: 5.5,
-      p75: 7.0,
-      p90: 8.5,
-      mean: 5.6,
-    },
-    earnings_per_hour: {
-      p10: 70.0,
-      p25: 92.0,
-      p50: 125.0,
-      p75: 160.0,
-      p90: 200.0,
-      mean: 130.0,
-    },
-    trips_per_hour: {
-      p10: 1.2,
-      p25: 1.7,
-      p50: 2.4,
-      p75: 3.0,
-      p90: 3.8,
-      mean: 2.4,
-    },
-    platform_commission_pct: {
-      p10: 10.0,
-      p25: 12.0,
-      p50: 15.0,
-      p75: 18.0,
-      p90: 22.0,
-      mean: 15.5,
-    },
-  },
-};
-
-/**
- * City-level multipliers relative to national base.
- * Values > 1.0 mean higher than national average.
- *
- * CDMX and tourist cities (Cancun) tend to have higher earnings.
- * Smaller cities tend to have lower earnings but also lower commission negotiation.
- */
-const CITY_MULTIPLIERS: Record<
-  string,
-  Record<string, number>
-> = {
-  cdmx: {
-    earnings_per_trip: 1.15,
-    earnings_per_km: 1.05,
-    earnings_per_hour: 1.20,
-    trips_per_hour: 1.10,
-    platform_commission_pct: 1.02,
-  },
-  monterrey: {
-    earnings_per_trip: 1.10,
-    earnings_per_km: 1.08,
-    earnings_per_hour: 1.12,
-    trips_per_hour: 1.05,
-    platform_commission_pct: 1.00,
-  },
-  guadalajara: {
-    earnings_per_trip: 1.05,
-    earnings_per_km: 1.03,
-    earnings_per_hour: 1.08,
-    trips_per_hour: 1.03,
-    platform_commission_pct: 1.00,
-  },
-  puebla: {
-    earnings_per_trip: 0.90,
-    earnings_per_km: 0.92,
-    earnings_per_hour: 0.88,
-    trips_per_hour: 0.95,
-    platform_commission_pct: 0.98,
-  },
-  toluca: {
-    earnings_per_trip: 0.85,
-    earnings_per_km: 0.88,
-    earnings_per_hour: 0.82,
-    trips_per_hour: 0.92,
-    platform_commission_pct: 0.97,
-  },
-  tijuana: {
-    earnings_per_trip: 1.08,
-    earnings_per_km: 1.10,
-    earnings_per_hour: 1.05,
-    trips_per_hour: 0.98,
-    platform_commission_pct: 1.01,
-  },
-  leon: {
-    earnings_per_trip: 0.88,
-    earnings_per_km: 0.90,
-    earnings_per_hour: 0.85,
-    trips_per_hour: 0.93,
-    platform_commission_pct: 0.98,
-  },
-  queretaro: {
-    earnings_per_trip: 0.95,
-    earnings_per_km: 0.97,
-    earnings_per_hour: 0.93,
-    trips_per_hour: 0.97,
-    platform_commission_pct: 0.99,
-  },
-  merida: {
-    earnings_per_trip: 0.92,
-    earnings_per_km: 0.94,
-    earnings_per_hour: 0.90,
-    trips_per_hour: 0.95,
-    platform_commission_pct: 0.98,
-  },
-  cancun: {
-    earnings_per_trip: 1.18,
-    earnings_per_km: 1.12,
-    earnings_per_hour: 1.15,
-    trips_per_hour: 1.02,
-    platform_commission_pct: 1.03,
-  },
-};
-
-// ─── Helpers ──────────────────────────────────────────────────
-
-function round2(n: number): string {
-  return n.toFixed(2);
+interface CityPlatformProfile {
+  sample_size: number;
+  metrics: Record<MetricName, PercentileBreakpoints>;
 }
 
-function applyMultiplier(base: MetricProfile, multiplier: number): MetricProfile {
+// ─── Sample sizes by city tier ────────────────────────────────
+
+function sampleSize(city: CityKey, platform: PlatformKey): number {
+  // Major cities have more data
+  const cityTier: Record<CityKey, "major" | "medium" | "small" | "national"> = {
+    cdmx: "major",
+    monterrey: "major",
+    guadalajara: "major",
+    puebla: "medium",
+    toluca: "medium",
+    tijuana: "medium",
+    leon: "small",
+    queretaro: "small",
+    merida: "small",
+    cancun: "small",
+    national: "national",
+  };
+
+  const baseSizes: Record<string, number> = {
+    major: 1500,
+    medium: 600,
+    small: 200,
+    national: 5000,
+  };
+
+  // Platform market share adjustments
+  const platformMultiplier: Record<PlatformKey, number> = {
+    uber: 1.0,
+    didi: 0.7,
+    indrive: 0.4,
+  };
+
+  const base = baseSizes[cityTier[city]];
+  // Add some variation so not every city has the same number
+  const variation = ((city.length * 37 + platform.length * 13) % 200) - 100;
+  return Math.max(
+    50,
+    Math.round((base + variation) * platformMultiplier[platform]),
+  );
+}
+
+// ─── Synthetic data generators ────────────────────────────────
+
+/**
+ * Base national median values (MXN per week basis):
+ * - earnings_per_trip: ~$45 MXN median
+ * - earnings_per_km: ~$7 MXN median
+ * - earnings_per_hour: ~$140 MXN median
+ * - trips_per_hour: ~$3.2 median
+ * - platform_commission_pct: ~25% median
+ */
+
+interface CityModifiers {
+  earningsMultiplier: number; // Higher in expensive cities
+  commissionBase: number; // Platform commission median %
+}
+
+const CITY_MODIFIERS: Record<CityKey, CityModifiers> = {
+  cdmx: { earningsMultiplier: 1.15, commissionBase: 25 },
+  monterrey: { earningsMultiplier: 1.10, commissionBase: 25 },
+  guadalajara: { earningsMultiplier: 1.05, commissionBase: 25 },
+  puebla: { earningsMultiplier: 0.90, commissionBase: 25 },
+  toluca: { earningsMultiplier: 0.88, commissionBase: 25 },
+  tijuana: { earningsMultiplier: 1.12, commissionBase: 24 },
+  leon: { earningsMultiplier: 0.85, commissionBase: 25 },
+  queretaro: { earningsMultiplier: 0.95, commissionBase: 25 },
+  merida: { earningsMultiplier: 0.92, commissionBase: 25 },
+  cancun: { earningsMultiplier: 1.20, commissionBase: 24 }, // Tourism premium
+  national: { earningsMultiplier: 1.00, commissionBase: 25 },
+};
+
+const PLATFORM_MODIFIERS: Record<
+  PlatformKey,
+  { earningsMultiplier: number; commissionShift: number }
+> = {
+  uber: { earningsMultiplier: 1.0, commissionShift: 0 },
+  didi: { earningsMultiplier: 0.92, commissionShift: -2 }, // DiDi slightly lower earnings, lower commission
+  indrive: { earningsMultiplier: 0.85, commissionShift: -5 }, // InDrive lower earnings, much lower commission (driver sets price)
+};
+
+function generateBreakpoints(
+  median: number,
+  spread: "tight" | "normal" | "wide",
+): PercentileBreakpoints {
+  // Spread controls how much variation around the median
+  const spreadFactors = {
+    tight: { p10: 0.70, p25: 0.85, p75: 1.18, p90: 1.35 },
+    normal: { p10: 0.60, p25: 0.80, p75: 1.25, p90: 1.50 },
+    wide: { p10: 0.50, p25: 0.72, p75: 1.35, p90: 1.70 },
+  };
+
+  const f = spreadFactors[spread];
+  const p10 = round2(median * f.p10);
+  const p25 = round2(median * f.p25);
+  const p50 = round2(median);
+  const p75 = round2(median * f.p75);
+  const p90 = round2(median * f.p90);
+  // Mean is slightly above median (right-skewed distribution typical of earnings)
+  const mean = round2(median * 1.05);
+
+  return { p10, p25, p50, p75, p90, mean };
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+function generateMetrics(
+  city: CityKey,
+  platform: PlatformKey,
+): Record<MetricName, PercentileBreakpoints> {
+  const cm = CITY_MODIFIERS[city];
+  const pm = PLATFORM_MODIFIERS[platform];
+  const mult = cm.earningsMultiplier * pm.earningsMultiplier;
+
   return {
-    p10: base.p10 * multiplier,
-    p25: base.p25 * multiplier,
-    p50: base.p50 * multiplier,
-    p75: base.p75 * multiplier,
-    p90: base.p90 * multiplier,
-    mean: base.mean * multiplier,
+    // Earnings per trip: national median ~$45 MXN
+    earnings_per_trip: generateBreakpoints(45 * mult, "normal"),
+
+    // Earnings per km: national median ~$7 MXN
+    earnings_per_km: generateBreakpoints(7 * mult, "normal"),
+
+    // Earnings per hour: national median ~$140 MXN
+    earnings_per_hour: generateBreakpoints(140 * mult, "wide"),
+
+    // Trips per hour: national median ~3.2
+    // Less affected by city earnings, more by traffic/density
+    trips_per_hour: generateBreakpoints(
+      3.2 * (city === "cdmx" ? 0.85 : city === "cancun" ? 1.1 : 1.0),
+      "tight",
+    ),
+
+    // Platform commission %: median ~25%, varies by platform
+    platform_commission_pct: generateBreakpoints(
+      cm.commissionBase + pm.commissionShift,
+      "tight",
+    ),
   };
 }
 
-// ─── Main seed function ───────────────────────────────────────
-
-interface SeedRow {
-  city: string;
-  platform: string;
-  metric_name: string;
-  period: string;
-  sample_size: number;
-  p10: string;
-  p25: string;
-  p50: string;
-  p75: string;
-  p90: string;
-  mean: string;
-}
-
-function generateRows(): SeedRow[] {
-  const rows: SeedRow[] = [];
-
-  for (const [city, sampleSize] of Object.entries(CITIES)) {
-    for (const platform of PLATFORMS) {
-      for (const metric of METRICS) {
-        const baseProfile = NATIONAL_BASE[platform][metric];
-        const multiplier =
-          city === "national" ? 1.0 : (CITY_MULTIPLIERS[city]?.[metric] ?? 1.0);
-        const profile = applyMultiplier(baseProfile, multiplier);
-
-        // Vary sample size slightly per platform/metric to look realistic
-        const platformFactor =
-          platform === "uber" ? 1.0 : platform === "didi" ? 0.7 : 0.4;
-        const adjustedSampleSize = Math.round(sampleSize * platformFactor);
-
-        rows.push({
-          city,
-          platform,
-          metric_name: metric,
-          period: "current",
-          sample_size: Math.max(adjustedSampleSize, 30), // Ensure minimum sample
-          p10: round2(profile.p10),
-          p25: round2(profile.p25),
-          p50: round2(profile.p50),
-          p75: round2(profile.p75),
-          p90: round2(profile.p90),
-          mean: round2(profile.mean),
-        });
-      }
-    }
-  }
-
-  return rows;
-}
+// ─── Seed execution ───────────────────────────────────────────
 
 async function seed() {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) {
     console.error(
-      "DATABASE_URL environment variable is not set.\n" +
-        "Set it to your Postgres connection string, e.g.:\n" +
+      "DATABASE_URL environment variable is required.\n" +
+        "Set it to your Postgres connection string, e.g.\n" +
         "  DATABASE_URL=postgres://user:pass@host:5432/pilotea pnpm db:seed",
     );
     process.exit(1);
@@ -362,25 +212,25 @@ async function seed() {
 
   const sql = postgres(databaseUrl, { max: 1 });
 
-  try {
-    const rows = generateRows();
+  console.log("Seeding population_stats...");
+  let rowCount = 0;
 
-    console.log(
-      `Seeding population_stats with ${rows.length} rows ` +
-        `(${Object.keys(CITIES).length} cities x ${PLATFORMS.length} platforms x ${METRICS.length} metrics)...`,
-    );
+  for (const city of CITIES) {
+    for (const platform of PLATFORMS) {
+      const metrics = generateMetrics(city, platform);
+      const size = sampleSize(city, platform);
 
-    // Use a single transaction for atomicity
-    await sql.begin(async (tx) => {
-      for (const row of rows) {
-        await tx`
+      for (const metric of METRICS) {
+        const bp = metrics[metric];
+
+        await sql`
           INSERT INTO population_stats (
-            city, platform, metric_name, period,
-            sample_size, p10, p25, p50, p75, p90, mean, updated_at
+            city, platform, metric_name, period, sample_size,
+            p10, p25, p50, p75, p90, mean, updated_at
           ) VALUES (
-            ${row.city}, ${row.platform}, ${row.metric_name}, ${row.period},
-            ${row.sample_size}, ${row.p10}, ${row.p25}, ${row.p50},
-            ${row.p75}, ${row.p90}, ${row.mean}, NOW()
+            ${city}, ${platform}, ${metric}, 'current', ${size},
+            ${bp.p10}, ${bp.p25}, ${bp.p50}, ${bp.p75}, ${bp.p90}, ${bp.mean},
+            NOW()
           )
           ON CONFLICT (city, platform, metric_name, period)
           DO UPDATE SET
@@ -393,45 +243,21 @@ async function seed() {
             mean = EXCLUDED.mean,
             updated_at = NOW()
         `;
+        rowCount++;
       }
-    });
-
-    console.log(`Successfully seeded ${rows.length} rows.`);
-
-    // Print summary
-    const summary = await sql`
-      SELECT city, COUNT(*) as metrics
-      FROM population_stats
-      WHERE period = 'current'
-      GROUP BY city
-      ORDER BY city
-    `;
-    console.log("\nSummary:");
-    for (const row of summary) {
-      console.log(`  ${row.city}: ${row.metrics} metric rows`);
     }
-  } catch (error) {
-    console.error("Seed failed:", error);
-    process.exit(1);
-  } finally {
-    await sql.end();
+    console.log(`  ${city}: ${PLATFORMS.length * METRICS.length} rows`);
   }
+
+  console.log(`\nDone. ${rowCount} rows upserted across ${CITIES.length} cities.`);
+  console.log(
+    `Coverage: ${CITIES.length} cities x ${PLATFORMS.length} platforms x ${METRICS.length} metrics = ${CITIES.length * PLATFORMS.length * METRICS.length} rows`,
+  );
+
+  await sql.end();
 }
 
-// Export for testing
-export { generateRows, CITIES, PLATFORMS, METRICS, applyMultiplier };
-
-// Run when executed directly (not imported for testing)
-// tsx sets the module URL to the file path, so we check if this is the entry point
-const isMainModule =
-  typeof process !== "undefined" &&
-  process.argv[1] &&
-  (process.argv[1].endsWith("population-stats.ts") ||
-    process.argv[1].endsWith("population-stats.js"));
-
-if (isMainModule) {
-  seed().catch((err) => {
-    console.error("Unexpected error:", err);
-    process.exit(1);
-  });
-}
+seed().catch((err) => {
+  console.error("Seed failed:", err);
+  process.exit(1);
+});
