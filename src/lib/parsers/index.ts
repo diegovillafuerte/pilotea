@@ -1,5 +1,6 @@
 import type { Platform, UploadType, ParseInput, ParseResult } from "./types";
 import { parseUberScreenshot } from "./uber-screenshot";
+import { parseDidiScreenshot } from "./didi-screenshot";
 
 function notAvailable(error: string): ParseResult {
   return {
@@ -16,10 +17,10 @@ function notAvailable(error: string): ParseResult {
  *
  * Implemented parsers:
  * - uber+screenshot → parseUberScreenshot (pie chart, ~0.40 completeness)
+ * - didi+screenshot → parseDidiScreenshot (2 images, ~0.85 completeness)
  *
  * Stub parsers (not yet implemented):
  * - uber+pdf → B-007
- * - didi+screenshot → future
  * - indrive+screenshot → future
  */
 export async function parseUpload(
@@ -38,9 +39,7 @@ export async function parseUpload(
   }
 
   if (platform === "didi" && uploadType === "screenshot") {
-    return notAvailable(
-      "El parser de capturas de DiDi aun no esta disponible. Estara disponible pronto.",
-    );
+    return parseDidiScreenshot(input);
   }
 
   if (platform === "indrive" && uploadType === "screenshot") {

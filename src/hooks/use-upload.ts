@@ -119,24 +119,28 @@ export function useUpload() {
 
   const upload = useCallback(
     async (
-      file: File,
+      fileOrFiles: File | File[],
       platform: string,
       uploadType: "screenshot" | "pdf",
     ) => {
-      // Validate first
-      const validationError = validateFile(file);
-      if (validationError) {
-        setState({
-          status: "error",
-          processingStep: 0,
-          progress: 0,
-          result: null,
-          error: {
-            message: validationError.message,
-            retryable: false,
-          },
-        });
-        return;
+      const files = Array.isArray(fileOrFiles) ? fileOrFiles : [fileOrFiles];
+
+      // Validate all files
+      for (const file of files) {
+        const validationError = validateFile(file);
+        if (validationError) {
+          setState({
+            status: "error",
+            processingStep: 0,
+            progress: 0,
+            result: null,
+            error: {
+              message: validationError.message,
+              retryable: false,
+            },
+          });
+          return;
+        }
       }
 
       // Reset state
@@ -158,7 +162,9 @@ export function useUpload() {
         const formData = new FormData();
         formData.append("platform", platform);
         formData.append("upload_type", uploadType);
-        formData.append("files", file);
+        for (const file of files) {
+          formData.append("files", file);
+        }
 
         const response = await fetch("/api/uploads", {
           method: "POST",

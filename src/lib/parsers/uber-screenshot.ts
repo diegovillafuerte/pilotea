@@ -1,6 +1,7 @@
 import { callClaudeVision, extractJsonFromResponse } from "@/lib/claude/client";
 import type { ParseInput, ParseResult, ParsedMetrics, UberScreenshotExtraction } from "./types";
-import { uberScreenshotExtractionSchema, ALL_METRICS_FIELDS } from "./types";
+import { uberScreenshotExtractionSchema } from "./types";
+import { calculateDataCompleteness, getImageMediaType } from "./utils";
 
 // ─── System prompt ────────────────────────────────────────────
 const SYSTEM_PROMPT = `Eres un extractor de datos experto para capturas de pantalla de Uber.
@@ -39,20 +40,6 @@ Responde UNICAMENTE con un objeto JSON valido con la siguiente estructura (sin t
 
 const USER_PROMPT =
   "Extrae todos los datos visibles de esta captura de pantalla del desglose de tarifa de Uber. Responde SOLO con JSON valido, sin texto adicional.";
-
-// ─── Completeness ─────────────────────────────────────────────
-function calculateDataCompleteness(metrics: ParsedMetrics): number {
-  const total = ALL_METRICS_FIELDS.length;
-  const filled = ALL_METRICS_FIELDS.filter((field) => metrics[field] != null).length;
-  return Math.round((filled / total) * 100) / 100;
-}
-
-// ─── Determine image media type ──────────────────────────────
-function getImageMediaType(mimeType: string): "image/jpeg" | "image/png" | "image/webp" | "image/gif" {
-  const validTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"] as const;
-  const match = validTypes.find((t) => t === mimeType);
-  return match ?? "image/png"; // Default to PNG for screenshots
-}
 
 // ─── Main parser ──────────────────────────────────────────────
 export async function parseUberScreenshot(input: ParseInput): Promise<ParseResult> {

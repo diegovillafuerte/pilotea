@@ -86,6 +86,24 @@ export const uberScreenshotExtractionSchema = z.object({
 
 export type UberScreenshotExtraction = z.infer<typeof uberScreenshotExtractionSchema>;
 
+// ─── Zod schema for DiDi screenshot extraction ──────────────
+// DiDi provides 2 screens: earnings + tablero (dashboard)
+export const didiScreenshotExtractionSchema = z.object({
+  week_start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "week_start must be a valid ISO date (YYYY-MM-DD)"),
+  net_earnings: z.number().nullable(),
+  gross_earnings: z.number().nullable(),
+  total_trips: z.number().int().nullable(),
+  earnings_per_km: z.number().nullable(),
+  earnings_per_trip: z.number().nullable(),
+  earnings_per_hour: z.number().nullable(),
+  cash_amount: z.number().nullable(),
+  card_amount: z.number().nullable(),
+  taxes: z.number().nullable(),
+  rewards: z.number().nullable(),
+});
+
+export type DidiScreenshotExtraction = z.infer<typeof didiScreenshotExtractionSchema>;
+
 // ─── All metrics fields (for completeness calculation) ────────
 export const ALL_METRICS_FIELDS: (keyof ParsedMetrics)[] = [
   "week_start",

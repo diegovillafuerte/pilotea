@@ -1,6 +1,7 @@
 import { callClaudeVision, extractJsonFromResponse } from "@/lib/claude/client";
 import type { ParseInput, ParseResult, ParsedMetrics, UberPdfExtraction } from "./types";
-import { uberPdfExtractionSchema, ALL_METRICS_FIELDS } from "./types";
+import { uberPdfExtractionSchema } from "./types";
+import { calculateDataCompleteness } from "./utils";
 
 // ─── System prompt ────────────────────────────────────────────
 const SYSTEM_PROMPT = `Eres un extractor de datos experto para reportes de ganancias semanales de Uber.
@@ -75,13 +76,6 @@ function calculateDerivedMetrics(
     earnings_per_km: null,
     total_km: null,
   };
-}
-
-// ─── Completeness ─────────────────────────────────────────────
-function calculateDataCompleteness(metrics: ParsedMetrics): number {
-  const total = ALL_METRICS_FIELDS.length;
-  const filled = ALL_METRICS_FIELDS.filter((field) => metrics[field] != null).length;
-  return Math.round((filled / total) * 100) / 100;
 }
 
 // ─── Main parser ──────────────────────────────────────────────

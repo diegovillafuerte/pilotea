@@ -21,7 +21,8 @@ const PLATFORM_INSTRUCTIONS: Record<
   didi: {
     title: "DiDi",
     description:
-      "Sube una captura de pantalla de tu resumen semanal de ganancias en DiDi.",
+      "Sube 2 capturas de pantalla: tu pantalla de ganancias y el tablero/dashboard de DiDi.",
+    hint: "Necesitamos ambas imagenes para extraer todos los datos disponibles (~85%).",
   },
   indrive: {
     title: "InDrive",
@@ -47,6 +48,10 @@ export default function UploadPage() {
   const [activePlatform, setActivePlatform] = useState<string>("");
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [profileError, setProfileError] = useState<string | null>(null);
+
+  // DiDi requires 2 files: earnings screen + tablero/dashboard
+  const [didiFile1, setDidiFile1] = useState<File | null>(null);
+  const [didiFile2, setDidiFile2] = useState<File | null>(null);
 
   // Fetch driver's platforms from the server
   useEffect(() => {
@@ -90,6 +95,12 @@ export default function UploadPage() {
     }
   }, [status, router]);
 
+  // Reset DiDi files when switching platforms
+  useEffect(() => {
+    setDidiFile1(null);
+    setDidiFile2(null);
+  }, [activePlatform]);
+
   const handleFileSelected = useCallback(
     (file: File) => {
       const uploadType: "screenshot" | "pdf" =
@@ -98,6 +109,21 @@ export default function UploadPage() {
     },
     [upload, activePlatform],
   );
+
+  const handleDidiFile1 = useCallback((file: File) => {
+    setDidiFile1(file);
+  }, []);
+
+  const handleDidiFile2 = useCallback((file: File) => {
+    setDidiFile2(file);
+  }, []);
+
+  // Auto-upload when both DiDi files are ready
+  useEffect(() => {
+    if (activePlatform === "didi" && didiFile1 && didiFile2 && status === "idle") {
+      upload([didiFile1, didiFile2], "didi", "screenshot");
+    }
+  }, [activePlatform, didiFile1, didiFile2, upload, status]);
 
   const handleRetry = useCallback(() => {
     reset();
@@ -300,13 +326,38 @@ export default function UploadPage() {
             )}
           </div>
 
-          {/* File dropzone */}
+          {/* File dropzone(s) */}
           <div className="mt-5">
-            <FileDropzone
-              onFileSelected={handleFileSelected}
-              accept={FILE_ACCEPT}
-              platformName={platformInfo.title}
-            />
+            {activePlatform === "didi" ? (
+              <div className="space-y-4">
+                <div>
+                  <p className="mb-2 text-sm font-medium text-gray-700">
+                    1. Pantalla de ganancias
+                  </p>
+                  <FileDropzone
+                    onFileSelected={handleDidiFile1}
+                    accept={FILE_ACCEPT}
+                    platformName="DiDi - Ganancias"
+                  />
+                </div>
+                <div>
+                  <p className="mb-2 text-sm font-medium text-gray-700">
+                    2. Tablero / Dashboard
+                  </p>
+                  <FileDropzone
+                    onFileSelected={handleDidiFile2}
+                    accept={FILE_ACCEPT}
+                    platformName="DiDi - Tablero"
+                  />
+                </div>
+              </div>
+            ) : (
+              <FileDropzone
+                onFileSelected={handleFileSelected}
+                accept={FILE_ACCEPT}
+                platformName={platformInfo.title}
+              />
+            )}
           </div>
         </div>
       </div>
