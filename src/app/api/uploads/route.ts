@@ -193,6 +193,8 @@ export async function POST(request: NextRequest) {
     );
 
     // 9. Handle parser result
+    console.log(`[upload] platform=${platform} type=${uploadType} success=${parseResult.success} completeness=${parseResult.data_completeness}`, JSON.stringify(parseResult.metrics));
+
     if (!parseResult.success || !parseResult.metrics) {
       // Parser failed — update status and return error
       const errorMsg =
