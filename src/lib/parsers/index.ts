@@ -1,4 +1,5 @@
 import type { Platform, UploadType, ParseInput, ParseResult } from "./types";
+import { parseUberScreenshot } from "./uber-screenshot";
 
 function notAvailable(error: string): ParseResult {
   return {
@@ -13,13 +14,18 @@ function notAvailable(error: string): ParseResult {
 /**
  * Router function: given a platform and upload type, dispatch to the correct parser.
  *
- * Currently, only the uber+pdf combination is recognized (but not yet implemented -- B-007).
- * All other combinations return clear "not available" errors in Spanish.
+ * Implemented parsers:
+ * - uber+screenshot → parseUberScreenshot (pie chart, ~0.40 completeness)
+ *
+ * Stub parsers (not yet implemented):
+ * - uber+pdf → B-007
+ * - didi+screenshot → future
+ * - indrive+screenshot → future
  */
 export async function parseUpload(
   platform: Platform,
   uploadType: UploadType,
-  _input: ParseInput,
+  input: ParseInput,
 ): Promise<ParseResult> {
   if (platform === "uber" && uploadType === "pdf") {
     return notAvailable(
@@ -28,9 +34,7 @@ export async function parseUpload(
   }
 
   if (platform === "uber" && uploadType === "screenshot") {
-    return notAvailable(
-      "El parser de capturas de Uber aun no esta disponible. Por favor sube el PDF semanal.",
-    );
+    return parseUberScreenshot(input);
   }
 
   if (platform === "didi" && uploadType === "screenshot") {

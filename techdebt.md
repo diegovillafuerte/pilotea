@@ -39,6 +39,13 @@ Conscious deferrals. Each entry: date, severity, context, why deferred, when to 
 - **Why deferred:** The tech design spec (section 5.1) explicitly defines `magic_links.token` as `VARCHAR(64) UNIQUE`. Task B-002 requires the schema to match the spec exactly. Changing this would be a spec deviation.
 - **When to fix:** Before launch. Change `token` to `token_hash`, store SHA-256 of the token, and compare hashes during magic link validation. Update the auth implementation (B-003 or equivalent) to hash tokens before storage and comparison.
 
+## TD-003: Upload route coerces null metrics to zero for NOT NULL DB columns
+- **Date:** 2026-04-02
+- **Severity:** medium
+- **Context:** `src/app/api/uploads/route.ts` lines 216-218 coerce null `net_earnings`/`gross_earnings` to `"0"` and null `total_trips` to `0` before inserting into the `weekly_data` table. These columns are `NOT NULL` in the schema. For the Uber PDF parser this is rarely an issue (those fields are almost always present), but the screenshot parser (`uber-screenshot.ts`) intentionally returns `total_trips: null` since that data is not available from a pie chart view. This creates weekly data rows with `total_trips = 0` which is misleading (zero trips vs. unknown trips).
+- **Why deferred:** The upload route is pre-existing code from B-006. Fixing it requires either making these DB columns nullable (schema migration) or adding parser-specific handling in the upload route. Both are out of scope for B-011 (screenshot parser).
+- **When to fix:** Before launch. Either make `total_trips`, `net_earnings`, `gross_earnings` nullable in the schema, or add logic in the upload route to distinguish "zero" from "unknown/null". Consider adding a `source_type` column to `weekly_data` to track whether data came from a full PDF or limited screenshot.
+
 ## TD-002: get_percentile edge case with zero-valued distributions
 - **Date:** 2026-04-02
 - **Severity:** low
