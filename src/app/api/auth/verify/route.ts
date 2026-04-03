@@ -5,13 +5,24 @@ import { db } from "@/lib/db";
 import { drivers } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 
+function getBaseUrl(request: Request): string {
+  // Behind a reverse proxy, request.url is localhost — use forwarded headers
+  const forwardedProto = request.headers.get("x-forwarded-proto");
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  if (forwardedProto && forwardedHost) {
+    return `${forwardedProto}://${forwardedHost}`;
+  }
+  return new URL(request.url).origin;
+}
+
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const token = url.searchParams.get("token");
+  const baseUrl = getBaseUrl(request);
 
   if (!token) {
     return NextResponse.redirect(
-      new URL("/login?error=missing_token", request.url),
+      new URL("/login?error=missing_token", baseUrl),
     );
   }
 
@@ -20,7 +31,7 @@ export async function GET(request: Request) {
 
   if (!phone) {
     return NextResponse.redirect(
-      new URL("/login?error=invalid_or_expired", request.url),
+      new URL("/login?error=invalid_or_expired", baseUrl),
     );
   }
 
@@ -48,5 +59,5 @@ export async function GET(request: Request) {
     ? "/dashboard"
     : "/onboarding";
 
-  return NextResponse.redirect(new URL(redirectUrl, request.url));
+  return NextResponse.redirect(new URL(redirectUrl, baseUrl));
 }
