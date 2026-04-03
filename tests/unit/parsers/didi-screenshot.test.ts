@@ -7,6 +7,18 @@ vi.mock("@/lib/claude/client", () => ({
   extractJsonFromResponse: vi.fn(),
 }));
 
+// ─── Mock normalizeImage (sharp can't process fake buffers) ──
+vi.mock("@/lib/parsers/utils", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/parsers/utils")>();
+  return {
+    ...actual,
+    normalizeImage: vi.fn(async (buf: Buffer) => ({
+      base64: buf.toString("base64"),
+      mediaType: "image/jpeg" as const,
+    })),
+  };
+});
+
 import { callClaudeVision, extractJsonFromResponse } from "@/lib/claude/client";
 import { parseDidiScreenshot } from "@/lib/parsers/didi-screenshot";
 
@@ -72,8 +84,8 @@ describe("parseDidiScreenshot", () => {
     expect(mockCallClaudeVision).toHaveBeenCalledTimes(1);
     const callArg = mockCallClaudeVision.mock.calls[0][0];
     expect(callArg.inputs).toHaveLength(2);
-    expect(callArg.inputs[0].mediaType).toBe("image/png");
-    expect(callArg.inputs[1].mediaType).toBe("image/png");
+    expect(callArg.inputs[0].mediaType).toBe("image/jpeg");
+    expect(callArg.inputs[1].mediaType).toBe("image/jpeg");
   });
 
   it("extracts all DiDi-specific fields including earnings_per_km", async () => {
@@ -198,20 +210,10 @@ describe("parseDidiScreenshot", () => {
 
   // ─── MIME type handling ────────────────────────────────────
 
-  it("defaults to image/png for unknown MIME types", async () => {
+  it("normalizes all images to jpeg regardless of input MIME type", async () => {
     await parseDidiScreenshot({
       files: [Buffer.from("a"), Buffer.from("b")],
       mimeType: "image/bmp",
-    });
-
-    const callArg = mockCallClaudeVision.mock.calls[0][0];
-    expect(callArg.inputs[0].mediaType).toBe("image/png");
-  });
-
-  it("passes through valid MIME types", async () => {
-    await parseDidiScreenshot({
-      files: [Buffer.from("a"), Buffer.from("b")],
-      mimeType: "image/jpeg",
     });
 
     const callArg = mockCallClaudeVision.mock.calls[0][0];

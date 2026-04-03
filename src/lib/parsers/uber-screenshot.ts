@@ -1,7 +1,7 @@
 import { callClaudeVision, extractJsonFromResponse } from "@/lib/claude/client";
 import type { ParseInput, ParseResult, ParsedMetrics, UberScreenshotExtraction } from "./types";
 import { uberScreenshotExtractionSchema } from "./types";
-import { calculateDataCompleteness, getImageMediaType, getCurrentMonday } from "./utils";
+import { calculateDataCompleteness, normalizeImage, getCurrentMonday } from "./utils";
 
 // ─── System prompt ────────────────────────────────────────────
 const SYSTEM_PROMPT = `Eres un extractor de datos experto para capturas de pantalla de Uber.
@@ -54,14 +54,14 @@ export async function parseUberScreenshot(input: ParseInput): Promise<ParseResul
   }
 
   try {
-    const mediaType = getImageMediaType(input.mimeType);
+    const normalized = await normalizeImage(input.files[0]);
 
     const response = await callClaudeVision({
       systemPrompt: SYSTEM_PROMPT,
       inputs: [
         {
-          data: input.files[0].toString("base64"),
-          mediaType,
+          data: normalized.base64,
+          mediaType: normalized.mediaType,
         },
       ],
       userPrompt: USER_PROMPT,

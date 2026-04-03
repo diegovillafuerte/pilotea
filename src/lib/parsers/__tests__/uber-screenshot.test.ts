@@ -8,6 +8,18 @@ vi.mock("@/lib/claude/client", () => ({
   extractJsonFromResponse: vi.fn(),
 }));
 
+// ─── Mock normalizeImage (sharp can't process fake buffers) ──
+vi.mock("@/lib/parsers/utils", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/parsers/utils")>();
+  return {
+    ...actual,
+    normalizeImage: vi.fn(async (buf: Buffer) => ({
+      base64: buf.toString("base64"),
+      mediaType: "image/jpeg" as const,
+    })),
+  };
+});
+
 import { callClaudeVision, extractJsonFromResponse } from "@/lib/claude/client";
 
 const mockCallClaudeVision = vi.mocked(callClaudeVision);
@@ -210,7 +222,7 @@ describe("parseUberScreenshot", () => {
     expect(result.metrics).toBeNull();
   });
 
-  it("sends image as base64 with correct media type", async () => {
+  it("sends normalized image as base64 with jpeg media type", async () => {
     mockCallClaudeVision.mockResolvedValue({
       text: JSON.stringify(COMPLETE_EXTRACTION),
       usage: { input_tokens: 500, output_tokens: 200 },
@@ -219,50 +231,6 @@ describe("parseUberScreenshot", () => {
 
     const imgBuffer = Buffer.from("test-image-content");
     await parseUberScreenshot({ files: [imgBuffer], mimeType: "image/png" });
-
-    expect(mockCallClaudeVision).toHaveBeenCalledWith(
-      expect.objectContaining({
-        inputs: [
-          {
-            data: imgBuffer.toString("base64"),
-            mediaType: "image/png",
-          },
-        ],
-      }),
-    );
-  });
-
-  it("defaults to image/png for unknown mime types", async () => {
-    mockCallClaudeVision.mockResolvedValue({
-      text: JSON.stringify(COMPLETE_EXTRACTION),
-      usage: { input_tokens: 500, output_tokens: 200 },
-    });
-    mockExtractJson.mockReturnValue(COMPLETE_EXTRACTION);
-
-    const imgBuffer = Buffer.from("test-image-content");
-    await parseUberScreenshot({ files: [imgBuffer], mimeType: "application/octet-stream" });
-
-    expect(mockCallClaudeVision).toHaveBeenCalledWith(
-      expect.objectContaining({
-        inputs: [
-          {
-            data: imgBuffer.toString("base64"),
-            mediaType: "image/png",
-          },
-        ],
-      }),
-    );
-  });
-
-  it("handles image/jpeg mime type correctly", async () => {
-    mockCallClaudeVision.mockResolvedValue({
-      text: JSON.stringify(COMPLETE_EXTRACTION),
-      usage: { input_tokens: 500, output_tokens: 200 },
-    });
-    mockExtractJson.mockReturnValue(COMPLETE_EXTRACTION);
-
-    const imgBuffer = Buffer.from("test-jpeg-content");
-    await parseUberScreenshot({ files: [imgBuffer], mimeType: "image/jpeg" });
 
     expect(mockCallClaudeVision).toHaveBeenCalledWith(
       expect.objectContaining({

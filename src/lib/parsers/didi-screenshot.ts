@@ -1,7 +1,7 @@
 import { callClaudeVision, extractJsonFromResponse } from "@/lib/claude/client";
 import type { ParseInput, ParseResult, ParsedMetrics, DidiScreenshotExtraction } from "./types";
 import { didiScreenshotExtractionSchema } from "./types";
-import { calculateDataCompleteness, getImageMediaType, getCurrentMonday } from "./utils";
+import { calculateDataCompleteness, normalizeImage, getCurrentMonday } from "./utils";
 
 // ─── System prompt ────────────────────────────────────────────
 const SYSTEM_PROMPT = `Eres un extractor de datos experto para capturas de pantalla de DiDi Driver.
@@ -86,18 +86,21 @@ export async function parseDidiScreenshot(input: ParseInput): Promise<ParseResul
   }
 
   try {
-    const mediaType = getImageMediaType(input.mimeType);
+    const [img0, img1] = await Promise.all([
+      normalizeImage(input.files[0]),
+      normalizeImage(input.files[1]),
+    ]);
 
     const response = await callClaudeVision({
       systemPrompt: SYSTEM_PROMPT,
       inputs: [
         {
-          data: input.files[0].toString("base64"),
-          mediaType,
+          data: img0.base64,
+          mediaType: img0.mediaType,
         },
         {
-          data: input.files[1].toString("base64"),
-          mediaType,
+          data: img1.base64,
+          mediaType: img1.mediaType,
         },
       ],
       userPrompt: USER_PROMPT,

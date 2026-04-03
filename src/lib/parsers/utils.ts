@@ -1,5 +1,38 @@
+import sharp from "sharp";
 import type { ParsedMetrics } from "./types";
 import { ALL_METRICS_FIELDS } from "./types";
+
+const MAX_DIMENSION = 2048;
+
+/**
+ * Normalize an image buffer for Claude Vision: validate, resize if too large,
+ * and convert to JPEG. Returns base64 data and the correct media type.
+ * This prevents "Could not process image" errors from corrupted, HEIC,
+ * or oversized images.
+ */
+export async function normalizeImage(buffer: Buffer): Promise<{ base64: string; mediaType: "image/jpeg" }> {
+  const img = sharp(buffer).rotate(); // auto-rotate based on EXIF
+  const metadata = await img.metadata();
+
+  let pipeline = img;
+  if (metadata.width && metadata.height) {
+    const longest = Math.max(metadata.width, metadata.height);
+    if (longest > MAX_DIMENSION) {
+      pipeline = pipeline.resize({
+        width: metadata.width >= metadata.height ? MAX_DIMENSION : undefined,
+        height: metadata.height > metadata.width ? MAX_DIMENSION : undefined,
+        fit: "inside",
+        withoutEnlargement: true,
+      });
+    }
+  }
+
+  const jpegBuffer = await pipeline.jpeg({ quality: 85 }).toBuffer();
+  return {
+    base64: jpegBuffer.toString("base64"),
+    mediaType: "image/jpeg",
+  };
+}
 
 /**
  * Returns the Monday of the current week as an ISO date string (YYYY-MM-DD).
