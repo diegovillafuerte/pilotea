@@ -1,4 +1,2 @@
 # Parallel Workers — auto-managed by worker.sh
 {"id":"ccb36594","hostname":"Diegos-MacBook-Air.local","pid":44804,"uuid":"ccb36594-e476-491f-9545-6b04e828c1d0","task":"B-006","mode":"task","target":"B-006","branch":"work/B-006","status":"active","started_at":"2026-04-02T23:24:55Z"}
-{"id":"b37e3508","hostname":"Juans-MacBook-Air.local","pid":91379,"uuid":"b37e3508-89aa-4582-8aa2-ab38224abe82","task":"B-009","mode":"task","target":"B-009","branch":"work/B-009","status":"active","started_at":"2026-04-02T23:51:27Z"}
-{"id":"6a7a3605","hostname":"Juans-MacBook-Air.local","pid":92949,"uuid":"6a7a3605-c540-4ee6-8fdd-fbd1ff54b933","task":"B-023","mode":"task","target":"B-023","branch":"work/B-023","status":"active","started_at":"2026-04-02T23:51:46Z"}
