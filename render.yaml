@@ -3,7 +3,7 @@ services:
     name: kompara
     runtime: node
     region: oregon
-    plan: starter
+    plan: free
     buildCommand: pnpm install && pnpm build
     startCommand: pnpm start
     healthCheckPath: /api/health
@@ -58,6 +58,6 @@ services:
 
 databases:
   - name: kompara-db
-    plan: starter
+    plan: free
     region: oregon
     postgresMajorVersion: "16"
