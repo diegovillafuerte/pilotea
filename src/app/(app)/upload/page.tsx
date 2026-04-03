@@ -15,8 +15,8 @@ const PLATFORM_INSTRUCTIONS: Record<
   uber: {
     title: "Uber",
     description:
-      "Sube una captura de pantalla de tu resumen semanal o el PDF que Uber te envia por correo.",
-    hint: "PDF semanal (recomendado)",
+      "Sube el PDF semanal que Uber te envia por correo (recomendado) o una captura de pantalla del desglose de tarifa.",
+    hint: "La captura de pantalla extrae datos limitados (~40%). Para mejores resultados usa el PDF.",
   },
   didi: {
     title: "DiDi",
