@@ -104,6 +104,20 @@ export const didiScreenshotExtractionSchema = z.object({
 
 export type DidiScreenshotExtraction = z.infer<typeof didiScreenshotExtractionSchema>;
 
+// ─── Zod schema for InDrive screenshot extraction ──────────────
+// InDrive provides 1 screen: earnings summary
+export const indriveScreenshotExtractionSchema = z.object({
+  week_start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "week_start debe ser una fecha ISO valida (YYYY-MM-DD)").nullable(),
+  net_earnings: z.number().nullable(),
+  gross_earnings: z.number().nullable(),
+  total_trips: z.number().int().nullable(),
+  total_km: z.number().nullable(),
+  earnings_per_km: z.number().nullable(),
+  service_fee: z.number().nullable(),
+});
+
+export type IndriveScreenshotExtraction = z.infer<typeof indriveScreenshotExtractionSchema>;
+
 // ─── All metrics fields (for completeness calculation) ────────
 export const ALL_METRICS_FIELDS: (keyof ParsedMetrics)[] = [
   "week_start",

@@ -2,6 +2,7 @@ import type { Platform, UploadType, ParseInput, ParseResult } from "./types";
 import { parseUberScreenshot } from "./uber-screenshot";
 import { parseUberPdf } from "./uber-pdf";
 import { parseDidiScreenshot } from "./didi-screenshot";
+import { parseIndriveScreenshot } from "./indrive-screenshot";
 
 function notAvailable(error: string): ParseResult {
   return {
@@ -21,8 +22,7 @@ function notAvailable(error: string): ParseResult {
  * - uber+pdf → parseUberPdf (weekly report, ~0.85 completeness)
  * - didi+screenshot → parseDidiScreenshot (2 images, ~0.85 completeness)
  *
- * Not yet implemented:
- * - indrive+screenshot → future
+ * - indrive+screenshot → parseIndriveScreenshot (1 image, ~0.70 completeness)
  */
 export async function parseUpload(
   platform: Platform,
@@ -42,9 +42,7 @@ export async function parseUpload(
   }
 
   if (platform === "indrive" && uploadType === "screenshot") {
-    return notAvailable(
-      "El parser de capturas de InDrive aun no esta disponible. Estara disponible pronto.",
-    );
+    return parseIndriveScreenshot(input);
   }
 
   return notAvailable(
