@@ -43,17 +43,7 @@ export async function sendMagicLink(
 
   await client.messages.create({
     from: fromNumber,
-    to: `whatsapp:${phone}`,
-    contentSid: process.env.TWILIO_TEMPLATE_SID,
-    contentVariables: JSON.stringify({
-      "1": "conductor",
-      "2": verifyUrl,
-    }),
-    // Fallback body for sandbox/testing (when no template SID is set)
-    ...(process.env.TWILIO_TEMPLATE_SID
-      ? {}
-      : {
-          body: `Hola! Entra a Kompara con este link:\n\n${verifyUrl}\n\nExpira en 15 minutos. Si no solicitaste esto, ignora este mensaje.`,
-        }),
+    to: phone,
+    body: `Hola! Entra a Kompara con este link:\n\n${verifyUrl}\n\nExpira en 15 minutos. Si no solicitaste esto, ignora este mensaje.`,
   });
 }
