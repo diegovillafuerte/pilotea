@@ -9,6 +9,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import mx.kompara.billing.EntitlementRepository
 import mx.kompara.capture.OfferEventPipeline
 import mx.kompara.capture.lifecycle.OfferEventLifecycleMapper
 import mx.kompara.capture.lifecycle.TripLifecycleTracker
@@ -56,6 +57,9 @@ class KomparaApplication : Application(), Configuration.Provider {
     // B-036 service-health watchdog (alerts when an OEM task killer disables the reader).
     @Inject lateinit var serviceWatchdog: ServiceWatchdog
 
+    // B-049 Play Billing entitlement. Hydrates last-known (offline grace) then tracks live purchases.
+    @Inject lateinit var entitlementRepository: EntitlementRepository
+
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     override val workManagerConfiguration: Configuration
@@ -94,5 +98,10 @@ class KomparaApplication : Application(), Configuration.Provider {
         // Watch reader-service health once onboarding completes; alert (notification + in-app
         // banner) if an OEM task killer disables the accessibility service mid-shift (B-036).
         serviceWatchdog.start(appScope)
+
+        // B-049: hydrate last-known entitlement (offline grace) then track live Play purchases —
+        // acknowledging + syncing to the backend. App-scoped so a transient failure never crashes
+        // the app; when Play is unavailable the repo logs loudly and stays on the last-known value.
+        entitlementRepository.start(appScope)
     }
 }

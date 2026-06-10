@@ -1,9 +1,11 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { eq, sql } from "drizzle-orm";
-import { drivers } from "../db/schema.js";
+import { desc, eq, sql } from "drizzle-orm";
+import { drivers, subscriptions } from "../db/schema.js";
 import { requireBearer } from "../middleware/auth.js";
+import { tierForStatus } from "../subscriptions/status.js";
+import type { SubscriptionStatus } from "../subscriptions/verifier.js";
 import type { DriverProfile } from "../auth/otp.js";
 import type { Database } from "../db/client.js";
 
@@ -17,14 +19,50 @@ const updateInput = z
     message: "at least one of name, city, platforms is required",
   });
 
-function profileOf(row: typeof drivers.$inferSelect): DriverProfile {
+function profileOf(row: typeof drivers.$inferSelect, tier: string): DriverProfile {
   return {
     id: row.id,
     phone: row.phone,
     name: row.name,
     city: row.city,
     platforms: row.platforms ?? null,
-    tier: row.tier,
+    tier,
+  };
+}
+
+/** A driver's current subscription block for the /v1/me response, or null when none. */
+interface SubscriptionView {
+  status: SubscriptionStatus;
+  trial: boolean;
+  expiresAtMillis: number | null;
+}
+
+/**
+ * Resolve the driver's current subscription (most-recently-updated row) and the derived tier
+ * (B-049). Tier is computed from the live subscription status so it can never drift from the
+ * `drivers.tier` column — a driver is "premium" iff they hold an entitled subscription.
+ */
+async function resolveSubscription(
+  db: Database,
+  driverId: string,
+): Promise<{ tier: "premium" | "free"; subscription: SubscriptionView | null }> {
+  const [sub] = await db
+    .select()
+    .from(subscriptions)
+    .where(eq(subscriptions.driverId, driverId))
+    .orderBy(desc(subscriptions.updatedAt))
+    .limit(1);
+
+  if (!sub) return { tier: "free", subscription: null };
+
+  const status = sub.status as SubscriptionStatus;
+  return {
+    tier: tierForStatus(status),
+    subscription: {
+      status,
+      trial: sub.trial,
+      expiresAtMillis: sub.expiresAt ? sub.expiresAt.getTime() : null,
+    },
   };
 }
 
@@ -40,7 +78,8 @@ export function meRoutes(db: Database) {
     const driverId = c.get("driverId");
     const [row] = await db.select().from(drivers).where(eq(drivers.id, driverId)).limit(1);
     if (!row) return c.json({ error: "Driver not found" }, 404);
-    return c.json({ driver: profileOf(row) }, 200);
+    const { tier, subscription } = await resolveSubscription(db, driverId);
+    return c.json({ driver: profileOf(row, tier), subscription }, 200);
   });
 
   app.patch("/me", guard, zValidator("json", updateInput), async (c) => {
@@ -58,7 +97,8 @@ export function meRoutes(db: Database) {
       .where(eq(drivers.id, driverId))
       .returning();
     if (!row) return c.json({ error: "Driver not found" }, 404);
-    return c.json({ driver: profileOf(row) }, 200);
+    const { tier, subscription } = await resolveSubscription(db, driverId);
+    return c.json({ driver: profileOf(row, tier), subscription }, 200);
   });
 
   return app;

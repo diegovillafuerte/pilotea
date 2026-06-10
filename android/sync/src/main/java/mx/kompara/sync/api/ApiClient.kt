@@ -129,6 +129,22 @@ class ApiClient @Inject constructor(
     }
 
     /**
+     * POST /v1/subscriptions/sync — record a Play purchase token + client-observed state after a
+     * purchase or restore (bearer / session-authed). Returns the server's acknowledged view of the
+     * subscription. Real server-side verification against the Play Developer API is a launch blocker
+     * tracked in techdebt (B-053); today the server trusts the client token.
+     */
+    suspend fun syncSubscription(body: SubscriptionSyncBody): SubscriptionDto {
+        val res = http.post("$baseUrl/v1/subscriptions/sync") {
+            bearer()
+            contentType(ContentType.Application.Json)
+            setBody(body)
+        }
+        ensureOk(res)
+        return res.body<SubscriptionSyncResponse>().subscription
+    }
+
+    /**
      * POST /v1/telemetry — push one accumulated parse-health counter bucket
      * (B-034). Anonymous (no auth); the body is integer counters + host/spec
      * identifiers only — never screen content.

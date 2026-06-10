@@ -285,3 +285,39 @@ export const fixtureReports = pgTable(
     index("idx_fixture_reports_device_created").on(table.deviceId, table.createdAt),
   ],
 );
+
+// ─── subscriptions ─────────────────────────────────────────────
+// Play Billing subscription state per driver (B-049). One row per purchase
+// token (a token is the stable id of a single subscription purchase across its
+// renewals). The client posts the token + its observed state after a
+// purchase/restore (POST /v1/subscriptions/sync); Real-time Developer
+// Notifications (POST /v1/rtdn) drive subsequent status transitions.
+//
+// `status` mirrors the lifecycle the app gates on:
+//   active   — purchased/renewing (incl. trial); entitled
+//   canceled — auto-renew off but still within the paid period; entitled
+//   grace    — renewal payment failing, grace window; entitled
+//   hold     — past grace (account hold); NOT entitled
+//   expired  — ended/revoked; NOT entitled
+//
+// SECURITY: server-side verification against the Google Play Developer API and
+// signed RTDN/Pub-Sub validation are NOT yet implemented (StubVerifier trusts
+// the client). Tracked as a LAUNCH BLOCKER in techdebt.
+export const subscriptions = pgTable(
+  "subscriptions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    driverId: uuid("driver_id")
+      .notNull()
+      .references(() => drivers.id, { onDelete: "cascade" }),
+    // The Play purchase token — the unique, stable handle for a subscription.
+    purchaseToken: text("purchase_token").notNull().unique(),
+    productId: varchar("product_id", { length: 100 }).notNull(),
+    status: varchar("status", { length: 20 }).notNull().default("active"),
+    trial: boolean("trial").notNull().default(false),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("idx_subscriptions_driver").on(table.driverId)],
+);
