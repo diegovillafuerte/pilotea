@@ -79,8 +79,8 @@ Conscious deferrals. Each entry: date, severity, context, why deferred, when to 
 ## 2026-06-10 | RESOLVED (B-042) | Backend auth stubbed (bearer-presence only) until B-042
 
 - **Context:** `backend/src/middleware/auth.ts` only checked that a bearer token was *present* on protected routes; it did not resolve the token to a session/driver, and `backend/src/routes/auth.ts` was an empty placeholder.
-- **Resolution (B-042):** `requireBearer(db)` now resolves the bearer token to a `driverId` via a SHA-256 hash lookup against the `sessions` table (`backend/src/auth/sessions.ts`). WhatsApp OTP request/verify, session creation (256-bit token, hash-at-rest, 30-day expiry), `GET/PATCH /v1/me`, and logout are implemented. `/v1/aggregates` still trusts the `driverId` in the request body rather than deriving it from the session — see the note below.
-- **Follow-up:** `POST /v1/aggregates` should derive `driverId` from `c.get("driverId")` (the authenticated session) and reject mismatched body `driverId`, instead of trusting the client-supplied id. Out of scope for B-042 (aggregates ownership belongs with the sync-rollup task); fix when that lands.
+- **Resolution (B-042):** `requireBearer(db)` now resolves the bearer token to a `driverId` via a SHA-256 hash lookup against the `sessions` table (`backend/src/auth/sessions.ts`). WhatsApp OTP request/verify, session creation (256-bit token, hash-at-rest, 30-day expiry), `GET/PATCH /v1/me`, and logout are implemented.
+- **Follow-up (RESOLVED 2026-06-10):** `POST /v1/aggregates` no longer trusts a client-supplied `driverId` (IDOR). `driverId` was removed from the input schema (any body value is stripped/ignored) and the handler derives ownership from `c.get("driverId")` — the authenticated session. Covered by tests in `backend/src/app.test.ts`.
 
 ## TD-006: Parser spec engine has no real-device fixture corpus yet
 - **Date:** 2026-06-10
