@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Shown as the service title in Android Settings > Accessibility. -->
+    <string name="capture_service_label">Kompara</string>
+    <!-- Spanish description shown in the Accessibility settings entry (es-MX, primary market). -->
+    <string name="capture_service_description">Kompara lee las pantallas de Uber Driver y DiDi Conductor para mostrarte al instante cuánto ganarías de verdad con cada viaje, ya descontados tus costos. Solo lee la información en pantalla: nunca toca, acepta ni rechaza viajes por ti.</string>
+</resources>

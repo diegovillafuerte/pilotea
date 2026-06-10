@@ -16,6 +16,14 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+
+    testOptions {
+        unitTests {
+            // Robolectric needs merged resources (the accessibility-service XML/strings) and the
+            // android.* classes on the unit-test classpath.
+            isIncludeAndroidResources = true
+        }
+    }
 }
 
 dependencies {
@@ -30,4 +38,8 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    // Robolectric gives us a real android.graphics.Rect + AccessibilityNodeInfo on the JVM so the
+    // flattener/model tests run in CI without an emulator (instrumented tests are out of scope).
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.ext.junit)
 }

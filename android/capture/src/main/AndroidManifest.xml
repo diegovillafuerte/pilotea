@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!--
+            Read-only accessibility service bound to the Uber Driver + DiDi Conductor apps.
+            Declared in the library manifest so it merges into :app automatically.
+            BIND_ACCESSIBILITY_SERVICE is enforced by the system; the user must enable it manually.
+        -->
+        <service
+            android:name="mx.kompara.capture.KomparaAccessibilityService"
+            android:exported="false"
+            android:label="@string/capture_service_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/kompara_accessibility_service" />
+        </service>
+    </application>
+
+</manifest>

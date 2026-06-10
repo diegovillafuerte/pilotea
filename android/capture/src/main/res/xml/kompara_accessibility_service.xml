@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Read-only accessibility service configuration.
+
+    - canRetrieveWindowContent: required to flatten the host app's node tree into snapshots.
+    - accessibilityEventTypes: only content/state changes from the target apps; this plus
+      packageNames keeps non-target events out of the pipeline entirely.
+    - packageNames: com.ubercab.driver (Uber Driver), com.sdu.didi.gsui (DiDi Conductor).
+      NOTE: these IDs need on-device verification before launch (see techdebt.md).
+    - isAccessibilityTool="false": Kompara is not an assistive tool; it augments the driver's
+      own workflow, so we must declare it as a non-tool service.
+    - We intentionally do NOT request flagRequestFilterKeyEvents / flagRequestTouchExploration /
+      any action capability: the service is read-only and never calls performAction.
+-->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeWindowContentChanged|typeWindowStateChanged"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagRetrieveInteractiveWindows|flagReportViewIds"
+    android:canRetrieveWindowContent="true"
+    android:description="@string/capture_service_description"
+    android:isAccessibilityTool="false"
+    android:notificationTimeout="100"
+    android:packageNames="com.ubercab.driver,com.sdu.didi.gsui" />
