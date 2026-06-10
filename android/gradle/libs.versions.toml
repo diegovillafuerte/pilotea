@@ -10,6 +10,7 @@ lifecycle = "2.9.4"
 navigationCompose = "2.9.8"
 coroutines = "1.11.0"
 serialization = "1.11.0"
+ktor = "3.5.0"
 coreKtx = "1.17.0"
 composeBom = "2026.05.00"
 activityCompose = "1.13.0"
@@ -36,6 +37,13 @@ kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-cor
 
 # Serialization
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serialization" }
+
+# Ktor client (HTTP for the thin backend; OkHttp engine, kotlinx-serialization)
+ktor-client-core = { group = "io.ktor", name = "ktor-client-core", version.ref = "ktor" }
+ktor-client-okhttp = { group = "io.ktor", name = "ktor-client-okhttp", version.ref = "ktor" }
+ktor-client-content-negotiation = { group = "io.ktor", name = "ktor-client-content-negotiation", version.ref = "ktor" }
+ktor-serialization-kotlinx-json = { group = "io.ktor", name = "ktor-serialization-kotlinx-json", version.ref = "ktor" }
+ktor-client-mock = { group = "io.ktor", name = "ktor-client-mock", version.ref = "ktor" }
 
 # Hilt
 hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }

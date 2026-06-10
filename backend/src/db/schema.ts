@@ -32,9 +32,51 @@ export const drivers = pgTable("drivers", {
   city: varchar("city", { length: 100 }),
   platforms: text("platforms").array(),
   tier: varchar("tier", { length: 20 }).notNull().default("free"),
+  // Anonymous-first: the install's device UUID is recorded so locally-captured
+  // data can be merged into the account at first OTP verification. Nullable
+  // because accounts created from a fresh phone (no prior anonymous use) won't
+  // have one. Unique so a device maps to at most one account.
+  anonymousDeviceId: uuid("anonymous_device_id").unique(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// ─── devices ───────────────────────────────────────────────────
+// Anonymous-first install identities. A device row is created at first run so
+// the reader works with zero signup (telemetry / parser-config / future local
+// rollups key off it). When the driver later creates an account via OTP, the
+// device's data is attached to the new driver row.
+export const devices = pgTable("devices", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  deviceId: uuid("device_id").notNull().unique(),
+  // Set once the device is claimed by an account (OTP verify with deviceId).
+  driverId: uuid("driver_id").references(() => drivers.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ─── otp_codes ─────────────────────────────────────────────────
+// Short-lived WhatsApp OTP challenges. Only the SHA-256 hash of the 6-digit
+// code is stored (never the plaintext). `attempts` caps brute force on a single
+// code; the per-phone request rate limit is enforced in SQL by counting rows
+// in the trailing window (no infra dependency). Expired/used rows are harmless
+// to leave around; verification filters on expiresAt and consumedAt.
+export const otpCodes = pgTable(
+  "otp_codes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    phone: varchar("phone", { length: 20 }).notNull(),
+    codeHash: varchar("code_hash", { length: 64 }).notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    attempts: integer("attempts").notNull().default(0),
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    // Rate-limit lookups and verification both query by phone, newest first.
+    index("idx_otp_codes_phone_created").on(table.phone, table.createdAt),
+  ],
+);
 
 // ─── sessions ──────────────────────────────────────────────────
 // Server-side session records. Only the SHA-256 hash of the token is stored.

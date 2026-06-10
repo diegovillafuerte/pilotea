@@ -76,11 +76,11 @@ Conscious deferrals. Each entry: date, severity, context, why deferred, when to 
 - **Why deferred:** B-041 is the scaffold task — schema, API skeleton, percentile port, and CI. Standing up the hosted service and database is a launch-phase ops task, not part of the thin scaffold.
 - **When to fix:** At launch. Add the Render service definition, provision managed Postgres, run `pnpm db:migrate` + `pnpm db:seed` against it, and wire the backend health endpoint into `/canary`.
 
-## 2026-06-10 | Medium | Backend auth stubbed (bearer-presence only) until B-042
+## 2026-06-10 | RESOLVED (B-042) | Backend auth stubbed (bearer-presence only) until B-042
 
-- **Context:** `backend/src/middleware/auth.ts` only checks that a bearer token is *present* on protected routes (`POST /v1/aggregates`); it does not resolve the token to a session/driver. `backend/src/routes/auth.ts` is an empty placeholder router. So `POST /v1/aggregates` currently accepts any non-empty bearer token and trusts the `driverId` in the request body.
-- **Why deferred:** Real auth (WhatsApp magic links → session token → SHA-256 hash lookup in the `sessions` table) is scoped to B-042 per the task split. B-041 ships the route shape so B-042 can drop in the real check.
-- **When to fix:** B-042. Implement magic-link issue/verify, session creation, and replace `requireBearer` with a real session lookup that derives `driverId` from the session rather than the request body.
+- **Context:** `backend/src/middleware/auth.ts` only checked that a bearer token was *present* on protected routes; it did not resolve the token to a session/driver, and `backend/src/routes/auth.ts` was an empty placeholder.
+- **Resolution (B-042):** `requireBearer(db)` now resolves the bearer token to a `driverId` via a SHA-256 hash lookup against the `sessions` table (`backend/src/auth/sessions.ts`). WhatsApp OTP request/verify, session creation (256-bit token, hash-at-rest, 30-day expiry), `GET/PATCH /v1/me`, and logout are implemented. `/v1/aggregates` still trusts the `driverId` in the request body rather than deriving it from the session — see the note below.
+- **Follow-up:** `POST /v1/aggregates` should derive `driverId` from `c.get("driverId")` (the authenticated session) and reject mismatched body `driverId`, instead of trusting the client-supplied id. Out of scope for B-042 (aggregates ownership belongs with the sync-rollup task); fix when that lands.
 
 ## TD-006: Parser spec engine has no real-device fixture corpus yet
 - **Date:** 2026-06-10
@@ -95,3 +95,24 @@ Conscious deferrals. Each entry: date, severity, context, why deferred, when to 
 - **Context:** `:parsers` deliberately defines its own framework-free `ParserSnapshot`/`ParserNode` mirror of `:capture`'s `ScreenSnapshot`/`SnapshotNode` (built in parallel) and does NOT depend on `:capture`, to keep the engine pure-JVM unit-testable. The `Rect` → `RectBox` conversion lives in `android/parsers/.../snapshot/SnapshotMapper.kt`, but the actual `ScreenSnapshot.toParserSnapshot()` extension (which would import `:capture`) is only documented there, not implemented.
 - **Why deferred:** Adding the inter-module dependency edge and the adapter is B-029's job; doing it in B-028 would couple the two modules before `:capture`'s types are finalized.
 - **When to fix:** B-029. Add `:capture`→`:parsers` is already present; implement the adapter in `:capture` (which depends on `:parsers`) delegating to `Rect.toRectBox()`, and feed `OfferCard` into the `OfferPipeline`/`ParsedOffer` flow.
+
+## TD-008: Account UI screens (login/profile) deferred from B-042
+- **Date:** 2026-06-10
+- **Severity:** medium
+- **Context:** B-042 implemented WhatsApp OTP auth end-to-end on the backend and the Android client *layer* in `:sync` (`AuthRepository`, `ApiClient`, `SessionState`, DI), but **no UI screens**. There is no "crear cuenta" phone→OTP flow screen, no profile (nombre/ciudad/plataformas) editor, and no logout/device-management UI. The repository exposes everything those screens need (`requestOtp`, `verifyOtp`, `sessionState: Flow<SessionState>`, `updateProfile`, `logout`), but nothing in `:app`/`:ui` consumes it yet.
+- **Why deferred:** The orchestrator split B-042 to land the backend + client layer while a sibling agent builds navigation UI in parallel; touching `:app`/`:ui` would conflict. The 10-city list + "otras" picker and platform multi-select (acceptance criterion 4) are UI concerns that belong with the account screens.
+- **When to fix:** The follow-up account-UI task. Build the OTP entry + verify screens and the profile editor in `:ui`, wire them to `AuthRepository` via a ViewModel, gate them behind the sync/premium entry points, and add the 10-city + platform pickers. Verify the <60s happy-path and resend/fallback acceptance criteria on-device.
+
+## TD-009: Session token + device id stored in plaintext DataStore
+- **Date:** 2026-06-10
+- **Severity:** high
+- **Context:** `AuthRepository` (`android/sync/.../auth/AuthRepository.kt`) persists the raw 256-bit session token and the anonymous device UUID in an unencrypted preferences DataStore (`kompara_auth`, provided by `android/sync/.../di/ApiModule.kt`). On a rooted device or via a device backup, the token could be lifted and replayed for up to 30 days (the server session lifetime). The backend correctly stores only the SHA-256 hash, but the client holds the raw token at rest.
+- **Why deferred:** Plaintext DataStore is the simplest correct persistence and unblocks the auth flow + tests. Hardening (Android Keystore-wrapped encryption or EncryptedSharedPreferences / DataStore with a Keystore-derived key) is an isolated change that does not affect the API surface.
+- **When to fix:** Before launch. Wrap the token (and ideally the device id) with a Keystore-backed key — e.g. encrypt the value before `dataStore.edit` and decrypt on read, or migrate the token to `EncryptedSharedPreferences`. Keep `AuthRepository`'s public surface unchanged so callers/tests are unaffected.
+
+## TD-010: No real Twilio credentials — WhatsApp OTP delivery unverified end-to-end
+- **Date:** 2026-06-10
+- **Severity:** medium
+- **Context:** The backend's `MessageSender` has a real `TwilioWhatsAppSender` (raw Twilio Messages REST call, `backend/src/auth/message-sender.ts`) but it has never run against live Twilio — this machine has no `TWILIO_ACCOUNT_SID`/`TWILIO_AUTH_TOKEN`, so `senderFromEnv()` falls back to `DevLogSender` (logs the OTP) in dev/CI, and tests use a fake sender. The es_MX message body is hand-written, not a Twilio-approved WhatsApp template, so production sends may be rejected for being out of the 24h session window without an approved template.
+- **Why deferred:** No credentials available; the interface + fallback let the whole flow be built and tested without them. Provisioning Twilio, getting a WhatsApp sender number, and submitting a template for approval is an ops/account task.
+- **When to fix:** Before launch. Provision Twilio WhatsApp (sender + approved `auth_otp` es_MX template), set the `TWILIO_*` env vars in the deploy environment, switch `TwilioWhatsAppSender` to send via the approved template (contentSid + variables) rather than a free-form body, and run one real end-to-end OTP delivery test.

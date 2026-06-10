@@ -34,7 +34,7 @@ export function aggregatesRoutes(db: Database) {
   const app = new Hono();
 
   // POST /v1/aggregates — upsert a weekly aggregate (driver × platform × week)
-  app.post("/aggregates", requireBearer, zValidator("json", aggregateInput), async (c) => {
+  app.post("/aggregates", requireBearer(db), zValidator("json", aggregateInput), async (c) => {
     const body = c.req.valid("json");
 
     const [row] = await db

@@ -6,13 +6,14 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { createApp } from "./app.js";
 import { drivers } from "./db/schema.js";
+import { createSession } from "./auth/sessions.js";
 import { makeTestDb, type TestDb } from "./test/db.js";
 
 let db: TestDb;
 let app: ReturnType<typeof createApp>;
 let driverId: string;
-
-const BEARER = { authorization: "Bearer test-token" } as const;
+// A real bearer header backed by a session row (auth is no longer a stub).
+let BEARER: { authorization: string };
 
 beforeAll(async () => {
   db = await makeTestDb({ seed: true });
@@ -24,6 +25,8 @@ beforeAll(async () => {
     .values({ phone: "+5215512345678", city: "cdmx", tier: "free" })
     .returning();
   driverId = d!.id;
+  const token = await createSession(db as unknown as Parameters<typeof createSession>[0], driverId);
+  BEARER = { authorization: `Bearer ${token}` };
 });
 
 describe("GET /health", () => {
