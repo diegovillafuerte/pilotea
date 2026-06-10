@@ -41,7 +41,18 @@ yarn-error.log*
 # vercel
 .vercel
 
+# android
+android/.gradle/
+android/.kotlin/
+android/build/
+android/app/build/
+android/local.properties
+android/.idea/
+*.keystore
+*.jks
+
 # project-specific
+.worker-uuid
 .worktrees/
 pming/.workers.lockdir/
 pming/.workers.merge-lock/
