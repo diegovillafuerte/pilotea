@@ -244,6 +244,9 @@ private class FakeOfferDao : OfferDao {
 
     override suspend fun seenBetween(from: Long, until: Long): List<OfferEntity> =
         rows.values.filter { it.seenAt in from until until }.sortedBy { it.seenAt }
+
+    override fun observeSeenBetween(from: Long, until: Long): Flow<List<OfferEntity>> =
+        MutableStateFlow(rows.values.filter { it.seenAt in from until until }.sortedBy { it.seenAt })
 }
 
 private class FakeTripDao : TripDao {
@@ -276,6 +279,12 @@ private class FakeTripDao : TripDao {
     override suspend fun completedStartedBetween(from: Long, until: Long): List<TripEntity> =
         rows.values.filter { it.endedAt != null && it.startedAt in from until until }
             .sortedBy { it.startedAt }
+
+    override fun observeCompletedStartedBetween(from: Long, until: Long): Flow<List<TripEntity>> =
+        MutableStateFlow(
+            rows.values.filter { it.endedAt != null && it.startedAt in from until until }
+                .sortedBy { it.startedAt },
+        )
 }
 
 private class FakeShiftDao : ShiftDao {

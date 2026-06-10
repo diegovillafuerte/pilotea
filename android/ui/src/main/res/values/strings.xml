@@ -364,6 +364,7 @@
     <string name="gate_hint_compare">Compara tus ganancias entre Uber y DiDi</string>
     <string name="gate_hint_history">Revisa todo tu historial, semana por semana</string>
     <string name="gate_hint_fiscal">Sigue tu avance hacia la cobertura del IMSS</string>
+    <string name="gate_hint_recommendations">Recibe consejos personalizados para ganar más</string>
 
     <!-- Pantalla del paywall. -->
     <string name="paywall_title">Kompara Premium</string>
@@ -467,4 +468,12 @@
     <string name="share_week_close_notif_body">Comparte tu semana en Kompara con tu grupo de choferes.</string>
     <!-- Ajuste del recordatorio semanal -->
     <string name="share_settings_weekly_reminder">Recordatorio semanal para compartir</string>
+
+    <!-- ============================================================= -->
+    <!-- Sección "Consejos" del Inicio (B-048): recomendaciones         -->
+    <!-- accionables basadas en reglas. El texto de cada consejo vive   -->
+    <!-- en código (mx.kompara.metrics.recommendation), parametrizado   -->
+    <!-- con pesos/horas; aquí solo el encabezado y el gancho premium.  -->
+    <!-- ============================================================= -->
+    <string name="recommendations_title">Consejos para ti</string>
 </resources>

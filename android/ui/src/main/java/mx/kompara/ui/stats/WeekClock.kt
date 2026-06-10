@@ -17,13 +17,30 @@ import java.time.temporal.TemporalAdjusters
  * @param zone device-local zone, injected so day/week boundaries match what the driver sees (and so
  *   tests can pin a deterministic zone).
  */
-class WeekClock(private val zone: ZoneId) {
+class WeekClock(val zone: ZoneId) {
 
     /** ISO date (yyyy-MM-dd) of the Monday that opens the week [epochMs] falls in. */
     fun weekStartIso(epochMs: Long): String =
         localDate(epochMs)
             .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
             .format(ISO_DATE)
+
+    /** Epoch millis at the start of the Monday that opens the week containing [epochMs]. */
+    fun weekStartMs(epochMs: Long): Long =
+        localDate(epochMs)
+            .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+            .atStartOfDay(zone)
+            .toInstant()
+            .toEpochMilli()
+
+    /** Epoch millis at the start of the *next* Monday — the exclusive end of the current week window. */
+    fun weekEndMs(epochMs: Long): Long =
+        localDate(epochMs)
+            .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+            .plusWeeks(1)
+            .atStartOfDay(zone)
+            .toInstant()
+            .toEpochMilli()
 
     /** ISO date (yyyy-MM-dd) of the local day [epochMs] falls in. */
     fun dayIso(epochMs: Long): String = localDate(epochMs).format(ISO_DATE)

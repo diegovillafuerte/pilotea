@@ -42,4 +42,15 @@ interface TripDao {
             "ORDER BY startedAt ASC",
     )
     suspend fun completedStartedBetween(from: Long, until: Long): List<TripEntity>
+
+    /**
+     * Reactive twin of [completedStartedBetween] — completed trips that started in `[from, until)`,
+     * recomputed as trips close. Backs the recommendations engine's "tus mejores horas" rule (B-048),
+     * which buckets the current week's trips by (day-of-week, hour).
+     */
+    @Query(
+        "SELECT * FROM trips WHERE endedAt IS NOT NULL AND startedAt >= :from AND startedAt < :until " +
+            "ORDER BY startedAt ASC",
+    )
+    fun observeCompletedStartedBetween(from: Long, until: Long): Flow<List<TripEntity>>
 }

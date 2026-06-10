@@ -36,4 +36,12 @@ interface OfferDao {
     /** All offers seen in `[from, until)` (used by the rollup acceptance-rate math). */
     @Query("SELECT * FROM offers WHERE seenAt >= :from AND seenAt < :until ORDER BY seenAt ASC")
     suspend fun seenBetween(from: Long, until: Long): List<OfferEntity>
+
+    /**
+     * Reactive twin of [seenBetween] — offers seen in `[from, until)`, recomputed as new offers land.
+     * Backs the recommendations engine's capture-powered rules (B-048), which need the current week's
+     * offers (verdicts + outcomes) to count missed-good offers and acceptance behaviour.
+     */
+    @Query("SELECT * FROM offers WHERE seenAt >= :from AND seenAt < :until ORDER BY seenAt ASC")
+    fun observeSeenBetween(from: Long, until: Long): Flow<List<OfferEntity>>
 }

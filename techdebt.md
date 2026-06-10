@@ -2,6 +2,18 @@
 
 Conscious deferrals. Each entry: date, severity, context, why deferred, when to fix.
 
+## 2026-06-10 | low | Recommendation copy lives in code constants, not strings.xml (B-048)
+
+**Context:** The recommendations engine (`android/metrics/.../recommendation/RecommendationEngine.kt`) builds each tip's Spanish title/body inline in Kotlin, heavily parameterised with pesos/percentages/hour-blocks it computes. Only the section header (`recommendations_title`) and the premium gate hint (`gate_hint_recommendations`) are in `android/ui/.../res/values/strings.xml`. The engine is a pure `:metrics` module with no Android resources, and keeping each rule's copy beside its logic is what lets the exhaustive per-rule tests assert exact wording.
+**Why deferred:** Extracting parameterised copy into `strings.xml` formatter args would split each rule across two files and complicate the pure-module boundary, for no user benefit at a single-locale (es-MX) launch. The copy is already driver-tone reviewed (tú, direct, no jargon).
+**When to fix:** If/when Kompara localises beyond es-MX, or a designer/copy review wants the strings centralised — move the rule bodies to `strings.xml` with positional formatter args and have the `:ui` layer format them (the engine would then return a copy key + args instead of a finished string).
+
+## 2026-06-10 | low | High-commission recommendation never fires on the captured-only path (B-048)
+
+**Context:** The ported "tu comisión está alta" rule (`RecommendationEngine.highCommission`) needs the week's `platform_commission_pct`, but the captured `WeeklyAggregateEntity` deliberately omits commission (the reader can't observe it on device), so `RecommendationsBuilder` passes `commissionPct = null` and the rule is permanently guarded out today. The rule, its premium flag, its percentile guard and its copy are fully implemented and unit-tested — only the input is absent.
+**Why deferred:** Commission only exists on IMPORTED weeks (B-045 import path), which doesn't feed the Inicio "Consejos" viewmodel yet. Wiring an imported-week's commission into the recommendation context is its own integration once the import-merge UI lands. Leaving the rule in (silent) keeps web→Android rule parity and means the only change later is supplying the value.
+**When to fix:** When the import-merge path surfaces commission to Inicio — pass the imported week's `platform_commission_pct` into `RecommendationsBuilder.build(commissionPct = …)` and add a fixture-week test that the rule fires end-to-end.
+
 ## 2026-06-10 | medium | Referral K-factor dashboard + partner payout tooling are manual (B-056)
 
 **Context:** The referral & partners program (B-056) ships the raw growth signals but no analytics surface. Partner attribution is a JSON export (`GET /v1/admin/partners` → per-code redemption counts, last-30d + all-time) intended for **manual** off-platform payouts to driver-influencers; there is no payout ledger, no automated transfer, and no reconciliation. K-factor inputs exist in the schema (`referral_codes`, `referral_redemptions`, `premium_grants`) but there is no dashboard computing invites-sent / redemptions / activation, no cohort/virality view, and no alerting. "Invites sent" in particular is NOT tracked server-side at all — the app shares via an `ACTION_SEND` intent with no callback, so only *redemptions* are observable.

@@ -33,9 +33,12 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import mx.kompara.billing.GateState
 import mx.kompara.ui.R
+import mx.kompara.metrics.recommendation.Recommendation
+import mx.kompara.metrics.recommendation.RecommendationType
 import mx.kompara.ui.components.EmptyState
 import mx.kompara.ui.components.KomparaProgressBar
 import mx.kompara.ui.components.MetricCard
+import mx.kompara.ui.components.RecommendationCard
 import mx.kompara.ui.components.WatchdogBanner
 import mx.kompara.ui.format.Formatters
 import mx.kompara.ui.onboarding.WatchdogState
@@ -48,6 +51,7 @@ import mx.kompara.ui.stats.InicioDashboardViewModel
 import mx.kompara.ui.stats.InicioUiState
 import mx.kompara.ui.stats.MetricCardValues
 import mx.kompara.ui.stats.MetricPercentiles
+import mx.kompara.ui.stats.RecommendationsUiState
 import mx.kompara.ui.stats.StreakDisplay
 import mx.kompara.ui.stats.platformChipLabel
 import mx.kompara.ui.theme.KomparaTheme
@@ -165,6 +169,14 @@ private fun DashboardContent(
                     ),
                 ) {}
             }
+        }
+
+        if (state.recommendations.hasAny) {
+            RecommendationsSection(
+                state = state.recommendations,
+                gateFunnel = gateFunnel,
+                onUpgrade = onUpgrade,
+            )
         }
 
         if (state.completeness != CompletenessHint.NONE) {
@@ -323,6 +335,59 @@ private fun CompletenessNote(hint: CompletenessHint) {
     )
 }
 
+/**
+ * The "Consejos" section (B-048): a header, the free recommendation cards rendered verbatim, then the
+ * premium ones — rendered verbatim when unlocked, or wrapped in a single [PaywallGate] tease when the
+ * [Capability.RECOMMENDATIONS][mx.kompara.billing.Capability.RECOMMENDATIONS] gate is locked. The
+ * caller only mounts this when [RecommendationsUiState.hasAny] is true, so the section never shows
+ * empty.
+ */
+@Composable
+private fun RecommendationsSection(
+    state: RecommendationsUiState,
+    gateFunnel: GateFunnel? = null,
+    onUpgrade: (GateSurface) -> Unit = {},
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            text = stringResource(R.string.recommendations_title),
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+
+        state.free.forEach { rec -> RecommendationItem(rec) }
+
+        if (state.hasPremium) {
+            if (state.locked && gateFunnel != null) {
+                // One tease-then-gate wrapper over the premium tips: the driver sees the shape + upsell.
+                PaywallGate(
+                    surface = GateSurface.RECOMMENDATIONS,
+                    state = GateState.LOCKED,
+                    valueHint = stringResource(R.string.gate_hint_recommendations),
+                    funnel = gateFunnel,
+                    onUpgrade = onUpgrade,
+                    ctaText = stringResource(R.string.paywall_cta),
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        state.premium.forEach { rec -> RecommendationItem(rec) }
+                    }
+                }
+            } else if (!state.locked) {
+                state.premium.forEach { rec -> RecommendationItem(rec) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RecommendationItem(rec: Recommendation) {
+    RecommendationCard(type = rec.type, title = rec.title, body = rec.body)
+}
+
 @Preview(showBackground = true, name = "Dashboard — con datos")
 @Composable
 private fun DashboardContentPreview() {
@@ -349,6 +414,25 @@ private fun DashboardContentPreview() {
                 streak = StreakDisplay(4),
                 completeness = CompletenessHint.HOURS_INFERRED,
                 costProfileSet = false,
+                recommendations = RecommendationsUiState(
+                    recommendations = listOf(
+                        Recommendation(
+                            id = "missed_good_offers",
+                            type = RecommendationType.WARNING,
+                            title = "Dejaste ir buenos viajes",
+                            body = "Rechazaste 3 ofertas que sí te convenían — \$420 que se te fueron.",
+                            premium = false,
+                        ),
+                        Recommendation(
+                            id = "best_hours",
+                            type = RecommendationType.INFO,
+                            title = "Tus mejores horas",
+                            body = "Tu mejor bloque fue el viernes de 19:00 a 20:00: \$340 netos.",
+                            premium = false,
+                        ),
+                    ),
+                    locked = false,
+                ),
             ),
             onSelectPlatform = {},
             onOpenCostProfile = {},
