@@ -66,5 +66,13 @@ enum class KomparaDestination(
 
         /** Bar items in display order (same as declaration order). */
         val barItems: List<KomparaDestination> = entries
+
+        /**
+         * Route for the offer simulator (B-037). It is NOT a bottom-bar tab — it's a detail screen
+         * reachable from Ajustes (and the onboarding done-screen). The route key lives here so `:ui`
+         * (which owns Ajustes) can navigate to it, while `:overlay` registers the actual composable
+         * (the simulator embeds the verdict chip, which lives in `:overlay`).
+         */
+        const val SIMULATOR_ROUTE: String = "simulator"
     }
 }

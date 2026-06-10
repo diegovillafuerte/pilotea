@@ -55,6 +55,10 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     debugImplementation(libs.androidx.compose.ui.tooling)
 
+    // The app wires the offer-simulator route (:overlay) into the shared nav host (:ui), so it needs
+    // the navigation API on its own classpath (KomparaApp's registerExtraDestinations lambda type).
+    implementation(libs.androidx.navigation.compose)
+
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
 

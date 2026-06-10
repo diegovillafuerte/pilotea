@@ -50,6 +50,7 @@
     <string name="ajustes_empty_title">Ajustes en construcción</string>
     <string name="ajustes_empty_body">Aquí podrás configurar tus plataformas, costos y umbrales de ganancia.</string>
     <string name="ajustes_empty_cta">Entendido</string>
+    <string name="ajustes_open_simulator">Ver el simulador</string>
 
     <!-- ============================================================= -->
     <!-- Componente: VerdictBadge (semáforo de veredicto)             -->

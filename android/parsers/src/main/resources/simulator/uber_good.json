@@ -1,0 +1,13 @@
+{
+  "packageName": "com.ubercab.driver",
+  "timestampMs": 1700000000000,
+  "versionCode": 1000,
+  "nodes": [
+    { "text": "UberX", "viewId": "com.ubercab.driver:id/product_name", "className": "android.widget.TextView", "bounds": { "left": 48, "top": 220, "right": 360, "bottom": 280 }, "depth": 4, "index": 0 },
+    { "text": "MX$135.00", "viewId": "com.ubercab.driver:id/upfront_fare", "className": "android.widget.TextView", "bounds": { "left": 48, "top": 290, "right": 420, "bottom": 380 }, "depth": 4, "index": 1 },
+    { "text": "4.95", "viewId": "com.ubercab.driver:id/rider_rating", "className": "android.widget.TextView", "bounds": { "left": 440, "top": 300, "right": 560, "bottom": 350 }, "depth": 5, "index": 2 },
+    { "text": "4 min (1.5 km) de distancia", "viewId": "com.ubercab.driver:id/pickup_line", "className": "android.widget.TextView", "bounds": { "left": 48, "top": 420, "right": 700, "bottom": 470 }, "depth": 5, "index": 3 },
+    { "text": "14 min (7.5 km) de viaje", "viewId": "com.ubercab.driver:id/trip_line", "className": "android.widget.TextView", "bounds": { "left": 48, "top": 480, "right": 700, "bottom": 530 }, "depth": 5, "index": 4 },
+    { "text": "Aceptar", "viewId": "com.ubercab.driver:id/accept_cta", "className": "android.view.View", "bounds": { "left": 48, "top": 620, "right": 700, "bottom": 720 }, "depth": 3, "index": 5 }
+  ]
+}

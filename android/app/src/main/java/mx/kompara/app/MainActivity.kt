@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import dagger.hilt.android.AndroidEntryPoint
+import mx.kompara.overlay.simulator.simulatorDestination
 import mx.kompara.ui.nav.KomparaApp
 import mx.kompara.ui.theme.KomparaTheme
 
@@ -23,7 +24,9 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             KomparaTheme {
-                KomparaApp()
+                // `:app` is the only module that depends on both `:ui` (nav shell) and `:overlay`
+                // (the verdict chip the simulator embeds), so it injects the simulator route here.
+                KomparaApp(registerExtraDestinations = { simulatorDestination() })
             }
         }
     }

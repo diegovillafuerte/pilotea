@@ -48,12 +48,22 @@ dependencies {
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.material3)
+    // The in-app offer simulator screen (B-037) renders the verdict chip inline and needs the
+    // material icons + Compose tooling preview the floating overlay path didn't.
+    implementation(libs.androidx.compose.material.icons.core)
+    implementation(libs.androidx.compose.ui.tooling.preview)
+    debugImplementation(libs.androidx.compose.ui.tooling)
 
     // Manual LifecycleOwner / SavedStateRegistryOwner / ViewModelStoreOwner wiring for a ComposeView
     // hosted in a Service (no Activity to inherit these from).
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel)
     implementation(libs.androidx.savedstate)
+    // The simulator's ViewModel (viewModelScope), reactive Compose collection, and nav-graph entry.
+    implementation(libs.androidx.lifecycle.viewmodel.ktx)
+    implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.androidx.navigation.compose)
+    implementation(libs.androidx.hilt.navigation.compose)
 
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)

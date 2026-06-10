@@ -69,11 +69,19 @@ fun FiscalScreen(modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun AjustesScreen(modifier: Modifier = Modifier) {
+fun AjustesScreen(
+    modifier: Modifier = Modifier,
+    onOpenSimulator: () -> Unit = {},
+) {
+    // The Ajustes tab is still a placeholder, but it already surfaces the offer simulator (B-037)
+    // so drivers can see what Kompara does before their first shift. The CTA opens the simulator
+    // route; the real settings list lands in a later UI task.
     EmptyState(
         icon = Icons.Filled.Settings,
         title = stringResource(R.string.ajustes_empty_title),
         body = stringResource(R.string.ajustes_empty_body),
+        ctaText = stringResource(R.string.ajustes_open_simulator),
+        onCtaClick = onOpenSimulator,
         modifier = modifier,
     )
 }
