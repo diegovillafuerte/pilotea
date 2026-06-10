@@ -66,6 +66,20 @@
     <string name="progress_label_format">%1$d%%</string>
 
     <!-- ============================================================= -->
+    <!-- Componente: Percentiles / comparativas (B-046)               -->
+    <!-- ============================================================= -->
+    <!-- contentDescription de la barra de 20 personas (mayor es mejor). -->
+    <string name="percentile_bar_description">Estás por encima del %1$d%% de los choferes de tu ciudad</string>
+    <!-- contentDescription cuando se usó el promedio nacional (muestra local pequeña). -->
+    <string name="percentile_bar_description_national">Estás por encima del %1$d%% de los choferes a nivel nacional</string>
+    <!-- contentDescription del badge "Top X%". -->
+    <string name="percentile_badge_description">Mejor que el %1$d%% de los choferes</string>
+    <!-- Etiqueta cuando la comparativa usa datos sintéticos (aún no hay suficientes datos reales). -->
+    <string name="percentile_synthetic_tag">Datos de muestra</string>
+    <!-- Pista de upsell en el estado bloqueado (gratis por defecto; B-050 aplica el bloqueo). -->
+    <string name="percentile_premium_hint">Kompara Premium</string>
+
+    <!-- ============================================================= -->
     <!-- Onboarding (B-036): embudo de bienvenida y permisos.          -->
     <!-- ============================================================= -->
 

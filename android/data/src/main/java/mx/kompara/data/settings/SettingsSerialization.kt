@@ -34,6 +34,9 @@ object SettingsSerialization {
     /** String key for the driver's benchmark city (B-043), stored as [City.name]; absent ⇒ default. */
     const val KEY_CITY = "benchmark_city"
 
+    /** Boolean key for the debug premium override (B-046); default OFF, additive over entitlement. */
+    const val KEY_DEBUG_PREMIUM = "debug_premium"
+
     fun perKmKey(platform: Platform): String = "threshold_${platform.name}_per_km"
     fun perHourKey(platform: Platform): String = "threshold_${platform.name}_per_hour"
 
@@ -89,6 +92,8 @@ object SettingsSerialization {
             aggregatePromptDismissed = lookupBoolean(KEY_AGGREGATE_PROMPT_DISMISSED)
                 ?: Settings.DEFAULT_AGGREGATE_PROMPT_DISMISSED,
             city = decodeCity(lookupString(KEY_CITY)),
+            debugPremium = lookupBoolean(KEY_DEBUG_PREMIUM)
+                ?: Settings.DEFAULT_DEBUG_PREMIUM,
         )
     }
 }

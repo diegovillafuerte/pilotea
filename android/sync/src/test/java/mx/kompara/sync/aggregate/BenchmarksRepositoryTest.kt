@@ -50,14 +50,20 @@ class BenchmarksRepositoryTest {
         ]}
     """.trimIndent()
 
-    /** ApiClient over a MockEngine that counts requests and replies per-handler. */
+    /**
+     * ApiClient over a MockEngine that counts requests and replies per-handler. The handler receives
+     * the requested `city` query param so a test can answer city vs `national` differently; counts are
+     * tallied per-city so existing assertions can ignore the (now always-fetched) `national` cell by
+     * asserting on the city's own count.
+     */
     private fun api(
         requestCount: IntArray,
-        handler: () -> Pair<String, HttpStatusCode>,
+        handler: (city: String) -> Pair<String, HttpStatusCode>,
     ): ApiClient {
-        val engine = MockEngine {
+        val engine = MockEngine { request ->
             requestCount[0]++
-            val (body, status) = handler()
+            val city = request.url.parameters["city"].orEmpty()
+            val (body, status) = handler(city)
             if (status == HttpStatusCode.OK) {
                 respond(body, status, headersOf(HttpHeaders.ContentType, "application/json"))
             } else {
@@ -70,6 +76,10 @@ class BenchmarksRepositoryTest {
         }
         return ApiClient(http, "http://test.local", { null }, { "device-uuid" })
     }
+
+    /** Empty (200) benchmarks body for a city — used to answer the `national` fetch a test ignores. */
+    private fun emptyBenchmarks(city: String, platform: String) =
+        """{"city":"$city","platform":"$platform","period":"current","stats":[]}"""
 
     private fun cachedRow(
         city: String,
@@ -94,14 +104,17 @@ class BenchmarksRepositoryTest {
         val reqs = intArrayOf(0)
         val repo = BenchmarksRepository(
             dao = dao,
-            api = api(reqs) { benchmarksJson("cdmx", "uber", "45", false) to HttpStatusCode.OK },
+            api = api(reqs) { city ->
+                if (city == "national") emptyBenchmarks(city, "uber") to HttpStatusCode.OK
+                else benchmarksJson(city, "uber", "45", false) to HttpStatusCode.OK
+            },
             clock = fixedClock(10_000L),
         )
 
         val result = repo.refresh(City.CDMX, platforms = listOf("uber"))
 
         assertEquals(BenchmarksRepository.RefreshResult.FETCHED, result)
-        assertEquals(1, reqs[0])
+        assertEquals(2, reqs[0]) // cdmx + national
         val stats = repo.observe(City.CDMX).first()
         assertEquals(1, stats.size)
         assertEquals("earnings_per_trip", stats.first().metric)
@@ -113,8 +126,9 @@ class BenchmarksRepositoryTest {
     fun `within the TTL the cache is served and no network call is made`() = runTest {
         val now = 1_000_000L
         val dao = FakePopulationStatDao().apply {
-            // Cached 1 hour ago — well within the 24h TTL.
+            // Both the city cell AND the national cell cached 1 hour ago — well within the 24h TTL.
             rows += cachedRow("cdmx", "uber", 45.0, fetchedAt = now - 60 * 60 * 1000)
+            rows += cachedRow("national", "uber", 45.0, fetchedAt = now - 60 * 60 * 1000)
         }
         val reqs = intArrayOf(0)
         val repo = BenchmarksRepository(
@@ -126,37 +140,65 @@ class BenchmarksRepositoryTest {
         val result = repo.refresh(City.CDMX, platforms = listOf("uber"))
 
         assertEquals(BenchmarksRepository.RefreshResult.FRESH_CACHE, result)
-        assertEquals(0, reqs[0]) // no fetch
+        assertEquals(0, reqs[0]) // no fetch — neither city nor national
     }
 
     @Test
     fun `stale cache triggers a re-fetch past the TTL`() = runTest {
         val now = 100_000_000L
         val dao = FakePopulationStatDao().apply {
-            // Cached 25 hours ago — past the 24h TTL.
+            // City + national cached 25 hours ago — past the 24h TTL.
             rows += cachedRow("cdmx", "uber", 40.0, fetchedAt = now - 25L * 60 * 60 * 1000)
+            rows += cachedRow("national", "uber", 40.0, fetchedAt = now - 25L * 60 * 60 * 1000)
         }
         val reqs = intArrayOf(0)
         val repo = BenchmarksRepository(
             dao = dao,
-            api = api(reqs) { benchmarksJson("cdmx", "uber", "45", false) to HttpStatusCode.OK },
+            api = api(reqs) { city -> benchmarksJson(city, "uber", "45", false) to HttpStatusCode.OK },
             clock = fixedClock(now),
         )
 
         val result = repo.refresh(City.CDMX, platforms = listOf("uber"))
 
         assertEquals(BenchmarksRepository.RefreshResult.FETCHED, result)
-        assertEquals(1, reqs[0])
+        assertEquals(2, reqs[0]) // cdmx + national both stale
         // New value overwrote the stale one.
         assertEquals(45.0, repo.observe(City.CDMX).first().first().p50, 0.001)
+    }
+
+    @Test
+    fun `national fallback row is cached and survives a city change`() = runTest {
+        val now = 200_000_000L
+        val dao = FakePopulationStatDao()
+        val reqs = intArrayOf(0)
+        val repo = BenchmarksRepository(
+            dao = dao,
+            api = api(reqs) { city ->
+                val p50 = if (city == "national") "45" else "49"
+                benchmarksJson(city, "uber", p50, true) to HttpStatusCode.OK
+            },
+            clock = fixedClock(now),
+        )
+
+        repo.refresh(City.CDMX, platforms = listOf("uber"))
+        // The percentile read shape sees BOTH cdmx and national for the platform.
+        val withNational = repo.observeForPercentiles(City.CDMX, "uber").first()
+        assertTrue(withNational.any { it.city == "national" })
+        assertTrue(withNational.any { it.city == "cdmx" })
+
+        // Driver switches to Monterrey within the TTL: cdmx is pruned but national is retained.
+        repo.refresh(City.MONTERREY, platforms = listOf("uber"))
+        assertTrue(dao.rows.none { it.city == "cdmx" })
+        assertTrue(dao.rows.any { it.city == "national" })
     }
 
     @Test
     fun `failed fetch keeps the last-known-good cache (offline tolerance)`() = runTest {
         val now = 100_000_000L
         val dao = FakePopulationStatDao().apply {
-            // Stale (forces a fetch attempt) but present last-known-good.
+            // Stale (forces a fetch attempt) but present last-known-good for both cells.
             rows += cachedRow("cdmx", "uber", 40.0, fetchedAt = now - 25L * 60 * 60 * 1000)
+            rows += cachedRow("national", "uber", 40.0, fetchedAt = now - 25L * 60 * 60 * 1000)
         }
         val reqs = intArrayOf(0)
         val repo = BenchmarksRepository(
@@ -168,7 +210,7 @@ class BenchmarksRepositoryTest {
         val result = repo.refresh(City.CDMX, platforms = listOf("uber"))
 
         assertEquals(BenchmarksRepository.RefreshResult.FAILED, result)
-        assertEquals(1, reqs[0])
+        assertEquals(2, reqs[0]) // attempted both city + national
         // The stale-but-present cache is retained — benchmarks still available offline.
         val stats = repo.observe(City.CDMX).first()
         assertEquals(1, stats.size)
@@ -185,7 +227,7 @@ class BenchmarksRepositoryTest {
         val reqs = intArrayOf(0)
         val repo = BenchmarksRepository(
             dao = dao,
-            api = api(reqs) { benchmarksJson("monterrey", "uber", "49", false) to HttpStatusCode.OK },
+            api = api(reqs) { city -> benchmarksJson(city, "uber", "49", false) to HttpStatusCode.OK },
             clock = fixedClock(now),
         )
 
@@ -205,18 +247,19 @@ class BenchmarksRepositoryTest {
         val now = 1_000_000L
         val dao = FakePopulationStatDao().apply {
             rows += cachedRow("cdmx", "uber", 45.0, fetchedAt = now - 1000) // fresh
+            rows += cachedRow("national", "uber", 45.0, fetchedAt = now - 1000) // fresh
         }
         val reqs = intArrayOf(0)
         val repo = BenchmarksRepository(
             dao = dao,
-            api = api(reqs) { benchmarksJson("cdmx", "uber", "50", false) to HttpStatusCode.OK },
+            api = api(reqs) { city -> benchmarksJson(city, "uber", "50", false) to HttpStatusCode.OK },
             clock = fixedClock(now),
         )
 
         val result = repo.refresh(City.CDMX, platforms = listOf("uber"), force = true)
 
         assertEquals(BenchmarksRepository.RefreshResult.FETCHED, result)
-        assertEquals(1, reqs[0])
+        assertEquals(2, reqs[0]) // force re-fetches both
         assertEquals(50.0, repo.observe(City.CDMX).first().first().p50, 0.001)
     }
 }
@@ -251,11 +294,20 @@ internal class FakePopulationStatDao : PopulationStatDao {
         platform: String,
     ): List<PopulationStatEntity> = rows.filter { it.city == city && it.platform == platform }
 
+    override fun observeForCityOrNational(
+        city: String,
+        platform: String,
+    ): Flow<List<PopulationStatEntity>> =
+        changes.map {
+            rows.filter { it.platform == platform && (it.city == city || it.city == "national") }
+        }
+
     override suspend fun latestFetchedAt(city: String, platform: String): Long? =
         rows.filter { it.city == city && it.platform == platform }.maxOfOrNull { it.fetchedAt }
 
     override suspend fun deleteOtherCities(city: String) {
-        val removed = rows.removeAll { it.city != city }
+        // Mirrors the real query: prune everything that is neither the active city nor `national`.
+        val removed = rows.removeAll { it.city != city && it.city != "national" }
         if (removed) changes.value++
     }
 

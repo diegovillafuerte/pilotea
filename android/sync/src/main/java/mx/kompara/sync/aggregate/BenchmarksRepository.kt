@@ -63,6 +63,15 @@ class BenchmarksRepository @Inject constructor(
             .map { rows -> rows.map(PopulationStat::from) }
 
     /**
+     * Cached benchmarks for one [city] × [platform] **including the `national` fallback** rows — the
+     * exact read shape the percentile engine (B-046) needs to apply its < 20-sample national fallback.
+     * Emits both the city cells and the national cells for the platform.
+     */
+    fun observeForPercentiles(city: City, platform: String): Flow<List<PopulationStat>> =
+        dao.observeForCityOrNational(city.key, platform.lowercase())
+            .map { rows -> rows.map(PopulationStat::from) }
+
+    /**
      * Ensure the [city]'s benchmarks are cached and fresh. Fetches per platform only when the cache
      * is empty or older than the 24h TTL; otherwise no-ops. Always prunes other-city rows first so a
      * city change invalidates the previous city's cache. Never throws — a fetch failure returns
@@ -84,20 +93,27 @@ class BenchmarksRepository @Inject constructor(
 
         for (platform in platforms) {
             val wire = platform.lowercase()
-            if (!force && isFresh(city.key, wire)) {
-                anyFreshCache = true
-                continue
+
+            // Fetch the driver's city cell and the shared `national` fallback cell. B-046's percentile
+            // engine needs `national` cached locally so its < 20-sample fallback works offline; the
+            // backend `/v1/benchmarks` only ever returns the requested city, so we ask for it
+            // explicitly. Each cell is TTL-gated independently.
+            for (statCity in listOf(city.key, NATIONAL_CITY)) {
+                if (!force && isFresh(statCity, wire)) {
+                    anyFreshCache = true
+                    continue
+                }
+                val result = runCatching { api.getBenchmarks(city = statCity, platform = wire) }
+                result.fold(
+                    onSuccess = { response ->
+                        val now = clock.millis()
+                        val rows = response.stats.map { it.toEntity(now) }
+                        if (rows.isNotEmpty()) dao.upsert(rows)
+                        fetchedAny = true
+                    },
+                    onFailure = { anyFailed = true },
+                )
             }
-            val result = runCatching { api.getBenchmarks(city = city.key, platform = wire) }
-            result.fold(
-                onSuccess = { response ->
-                    val now = clock.millis()
-                    val rows = response.stats.map { it.toEntity(now) }
-                    if (rows.isNotEmpty()) dao.upsert(rows)
-                    fetchedAny = true
-                },
-                onFailure = { anyFailed = true },
-            )
         }
 
         return when {
@@ -134,6 +150,9 @@ class BenchmarksRepository @Inject constructor(
     companion object {
         /** 24-hour cache TTL — benchmarks change slowly (folded weekly at most). */
         const val TTL_MS: Long = 24L * 60 * 60 * 1000
+
+        /** The shared fallback city slug B-046 uses when a city sample is < 20. */
+        const val NATIONAL_CITY: String = "national"
 
         /** Platforms benchmarks are fetched for by default (launch scope + inDrive fast-follow). */
         val DEFAULT_PLATFORMS = listOf("uber", "didi", "indrive")

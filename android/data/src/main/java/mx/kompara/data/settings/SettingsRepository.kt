@@ -39,6 +39,8 @@ class SettingsRepository @Inject constructor(
         booleanPreferencesKey(SettingsSerialization.KEY_AGGREGATE_PROMPT_DISMISSED)
     private val cityKey =
         stringPreferencesKey(SettingsSerialization.KEY_CITY)
+    private val debugPremiumKey =
+        booleanPreferencesKey(SettingsSerialization.KEY_DEBUG_PREMIUM)
 
     val settings: Flow<Settings> = dataStore.data.map { prefs -> prefs.toSettings() }
 
@@ -91,6 +93,14 @@ class SettingsRepository @Inject constructor(
      */
     suspend fun setCity(city: City) {
         dataStore.edit { prefs -> prefs[cityKey] = city.name }
+    }
+
+    /**
+     * Toggle the debug premium override (B-046). Additive over the real entitlement so a tester can
+     * preview the percentile UI before a paywall exists. Default OFF.
+     */
+    suspend fun setDebugPremium(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[debugPremiumKey] = enabled }
     }
 
     /** Enable or disable capture/verdicts for a single platform. */

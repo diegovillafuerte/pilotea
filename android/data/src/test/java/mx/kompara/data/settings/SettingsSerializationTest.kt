@@ -190,6 +190,27 @@ class SettingsSerializationTest {
     }
 
     @Test
+    fun `debug premium defaults OFF when never written and reads a stored value (B-046)`() {
+        // Fresh install → real entitlement decides (no debug override).
+        val fresh = SettingsSerialization.decode(
+            enabledNames = null,
+            lookupDouble = { null },
+            lookupBoolean = { null },
+        )
+        assertFalse(fresh.debugPremium)
+
+        // Explicitly enabled for demoing → reads true.
+        val enabled = SettingsSerialization.decode(
+            enabledNames = null,
+            lookupDouble = { null },
+            lookupBoolean = { key ->
+                if (key == SettingsSerialization.KEY_DEBUG_PREMIUM) true else null
+            },
+        )
+        assertTrue(enabled.debugPremium)
+    }
+
+    @Test
     fun `city keys match the backend benchmark city slugs (B-043)`() {
         // The 10 seeded benchmark cities — keys MUST stay in lockstep with the backend CITIES list.
         assertEquals("cdmx", City.CDMX.key)

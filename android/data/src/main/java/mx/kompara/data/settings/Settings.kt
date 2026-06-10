@@ -68,6 +68,15 @@ data class Settings(
      * are fetched. One of the 10 seeded benchmark cities — see [City].
      */
     val city: City = City.DEFAULT,
+
+    /**
+     * Debug-only override that unlocks premium-gated surfaces (currently the B-046 percentile UI) so
+     * they can be demoed before a paywall exists. **Additive**: the real entitlement still grants
+     * premium when present; this only ever *adds* access, never removes it. Default OFF. Surfaced in
+     * Ajustes (debug builds) and folded into the capability check as
+     * `canSeeBenchmarks || debugPremium`. Remove or hide once B-050 ships a real paywall.
+     */
+    val debugPremium: Boolean = DEFAULT_DEBUG_PREMIUM,
 ) {
     /** Threshold for [platform], or the default when none has been set. */
     fun thresholdFor(platform: Platform): PlatformThreshold =
@@ -89,6 +98,9 @@ data class Settings(
         /** The consent prompt has not been dismissed on a fresh install (B-043). */
         const val DEFAULT_AGGREGATE_PROMPT_DISMISSED = false
 
+        /** The debug premium override is OFF by default — real entitlement decides (B-046). */
+        const val DEFAULT_DEBUG_PREMIUM = false
+
         /** Launch defaults: Uber + DiDi enabled, default thresholds, telemetry on, onboarding pending. */
         val DEFAULT = Settings(
             enabledPlatforms = setOf(Platform.UBER, Platform.DIDI),
@@ -98,6 +110,7 @@ data class Settings(
             shareAggregates = DEFAULT_SHARE_AGGREGATES,
             aggregatePromptDismissed = DEFAULT_AGGREGATE_PROMPT_DISMISSED,
             city = City.DEFAULT,
+            debugPremium = DEFAULT_DEBUG_PREMIUM,
         )
     }
 }

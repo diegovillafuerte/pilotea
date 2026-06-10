@@ -27,6 +27,10 @@ dependencies {
     // :ui consumes persistence and metrics; it must NOT depend on :capture internals.
     implementation(project(":data"))
     implementation(project(":metrics"))
+    // :sync for the percentile/benchmarks repositories (B-046) and :billing for the premium
+    // capability flags that gate the percentile UI (B-049 → B-050).
+    implementation(project(":sync"))
+    implementation(project(":billing"))
     implementation(libs.kotlinx.coroutines.core)
     // androidx.core: NotificationCompat / ContextCompat for the service-health watchdog (B-036).
     implementation(libs.androidx.core.ktx)

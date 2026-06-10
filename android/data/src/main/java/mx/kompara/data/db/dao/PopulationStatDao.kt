@@ -40,6 +40,19 @@ interface PopulationStatDao {
     suspend fun forCityPlatform(city: String, platform: String): List<PopulationStatEntity>
 
     /**
+     * Cached cells for one platform across BOTH the driver's [city] and the `national` fallback row,
+     * as a reactive [Flow]. This is the read shape the percentile feature (B-046) needs: it must see
+     * the national breakpoints to fall back when the city sample is < 20. Ordered city-first so a
+     * consumer can split the two with a simple partition on `city`.
+     */
+    @Query(
+        "SELECT * FROM population_stats " +
+            "WHERE platform = :platform AND (city = :city OR city = 'national') " +
+            "ORDER BY city DESC, metricName ASC",
+    )
+    fun observeForCityOrNational(city: String, platform: String): Flow<List<PopulationStatEntity>>
+
+    /**
      * The most recent [PopulationStatEntity.fetchedAt] for a city × platform, or null when nothing is
      * cached. Drives the TTL decision: a fetch is skipped while `now - max(fetchedAt) < TTL`.
      */
@@ -48,8 +61,12 @@ interface PopulationStatDao {
     )
     suspend fun latestFetchedAt(city: String, platform: String): Long?
 
-    /** Delete every cached cell whose city is NOT [city] — invalidates a previous city's cache. */
-    @Query("DELETE FROM population_stats WHERE city <> :city")
+    /**
+     * Delete every cached cell whose city is NOT [city] AND NOT the `national` fallback — invalidates a
+     * previous city's cache on a city change, but always retains the `national` row so the percentile
+     * feature (B-046) keeps its < 20-sample fallback offline regardless of which city is active.
+     */
+    @Query("DELETE FROM population_stats WHERE city <> :city AND city <> 'national'")
     suspend fun deleteOtherCities(city: String)
 
     /** Delete all cached benchmarks (e.g. a forced refresh). */

@@ -85,6 +85,6 @@ private fun WeekSummaryContent(
         }
 
         Spacer(Modifier.padding(top = 0.dp))
-        MetricCardsBlock(state.period)
+        MetricCardsBlock(state.period, percentiles = state.percentiles)
     }
 }

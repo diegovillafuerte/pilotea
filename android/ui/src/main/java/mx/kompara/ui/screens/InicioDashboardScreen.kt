@@ -41,6 +41,7 @@ import mx.kompara.ui.stats.GoalProgress
 import mx.kompara.ui.stats.InicioDashboardViewModel
 import mx.kompara.ui.stats.InicioUiState
 import mx.kompara.ui.stats.MetricCardValues
+import mx.kompara.ui.stats.MetricPercentiles
 import mx.kompara.ui.stats.StreakDisplay
 import mx.kompara.ui.stats.platformChipLabel
 import mx.kompara.ui.theme.KomparaTheme
@@ -121,8 +122,13 @@ private fun DashboardContent(
             )
         }
 
-        MetricCardValues.of(state.period).forEach { card ->
-            MetricCard(label = stringResource(card.labelRes), value = card.value)
+        MetricCardValues.of(state.period).forEachIndexed { index, card ->
+            PercentileMetricCard(
+                label = stringResource(card.labelRes),
+                value = card.value,
+                percentile = MetricPercentiles.forCard(index, state.percentiles.byMetric),
+                locked = state.percentiles.locked,
+            )
         }
 
         if (state.completeness != CompletenessHint.NONE) {
