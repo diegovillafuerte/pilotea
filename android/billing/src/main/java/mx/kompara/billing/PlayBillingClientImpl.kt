@@ -54,8 +54,12 @@ class PlayBillingClientImpl(
     private val client: BillingClient = BillingClient.newBuilder(context)
         .setListener(purchasesListener)
         .enablePendingPurchases(
-            // Subscriptions require prepaid-plan pending support; one-time products aren't used.
-            PendingPurchasesParams.newBuilder().enablePrepaidPlans().build(),
+            // Billing 9 requires enableOneTimeProducts() even for subscription-only apps —
+            // build() throws IllegalArgumentException without it (crashes on real devices only).
+            PendingPurchasesParams.newBuilder()
+                .enableOneTimeProducts()
+                .enablePrepaidPlans()
+                .build(),
         )
         .enableAutoServiceReconnection()
         .build()
