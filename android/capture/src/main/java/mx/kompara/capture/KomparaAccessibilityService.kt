@@ -56,7 +56,7 @@ class KomparaAccessibilityService : AccessibilityService() {
         val pkg = event?.packageName?.toString() ?: return
         // The accessibility-service XML already filters packageNames, but guard again so a
         // misconfiguration can never leak non-target events into the pipeline.
-        if (pkg != UBER_DRIVER_PACKAGE && pkg != DIDI_DRIVER_PACKAGE) return
+        if (pkg !in TARGET_PACKAGES) return
 
         pipeline.submit(CaptureEvent(packageName = pkg, timestampMs = event.eventTime))
     }
@@ -74,9 +74,14 @@ class KomparaAccessibilityService : AccessibilityService() {
     }
 
     companion object {
-        // NOTE: package IDs need on-device verification before launch (see techdebt.md). These are
-        // the current best-known production IDs for the MX driver apps.
+        // Verified on-device (Samsung S25, MX, 2026-06-10) via `adb shell pm list packages`.
         const val UBER_DRIVER_PACKAGE = "com.ubercab.driver"
         const val DIDI_DRIVER_PACKAGE = "com.didiglobal.driver"
+        const val INDRIVE_DRIVER_PACKAGE = "sinet.startup.inDriver"
+        val TARGET_PACKAGES = setOf(
+            UBER_DRIVER_PACKAGE,
+            DIDI_DRIVER_PACKAGE,
+            INDRIVE_DRIVER_PACKAGE,
+        )
     }
 }

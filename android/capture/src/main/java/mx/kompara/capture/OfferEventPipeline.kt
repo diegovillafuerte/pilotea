@@ -41,6 +41,7 @@ class OfferEventPipeline @Inject constructor(
     private val engine: SpecEngine,
     private val scrubber: SnapshotScrubber,
     private val versionCodes: HostVersionCodes,
+    private val recorder: SnapshotRecorder = NoOpSnapshotRecorder,
 ) {
     /**
      * Latest active specs; seeded with the bundled baseline (loaded eagerly from `:parsers`
@@ -82,17 +83,24 @@ class OfferEventPipeline @Inject constructor(
             snapshot.toParserSnapshot(versionCodes.versionCodeOf(snapshot.packageName)),
         )
         val spec = current.registry.specFor(parser)
-            ?: return OfferEvent.NoCard(
+        if (spec == null) {
+            recorder.record(parser, "NO_SPEC")
+            return OfferEvent.NoCard(
                 packageName = snapshot.packageName,
                 timestampMs = snapshot.timestampMs,
                 reason = OfferEvent.Reason.NO_SPEC,
             )
+        }
         val card = engine.evaluate(parser, spec)
-            ?: return OfferEvent.NoCard(
+        if (card == null) {
+            recorder.record(parser, "NOT_AN_OFFER")
+            return OfferEvent.NoCard(
                 packageName = snapshot.packageName,
                 timestampMs = snapshot.timestampMs,
                 reason = OfferEvent.Reason.NOT_AN_OFFER,
             )
+        }
+        recorder.record(parser, "PARSED")
         return OfferEvent.Parsed(
             packageName = snapshot.packageName,
             timestampMs = snapshot.timestampMs,

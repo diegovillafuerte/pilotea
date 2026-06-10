@@ -20,4 +20,4 @@
     android:description="@string/capture_service_description"
     android:isAccessibilityTool="false"
     android:notificationTimeout="100"
-    android:packageNames="com.ubercab.driver,com.didiglobal.driver" />
+    android:packageNames="com.ubercab.driver,com.didiglobal.driver,sinet.startup.inDriver" />
