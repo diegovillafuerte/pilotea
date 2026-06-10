@@ -101,5 +101,19 @@ enum class KomparaDestination(
          * [mx.kompara.ui.stats.WeekSummaryViewModel.ARG_WEEK_START].
          */
         const val WEEK_SUMMARY_ROUTE: String = "week"
+
+        /**
+         * Paywall route (B-050). NOT a bottom-bar tab — a detail screen reached from a
+         * [mx.kompara.ui.paywall.PaywallGate] CTA. Carries the originating
+         * [mx.kompara.ui.paywall.GateSurface] name as a path arg (purely to bucket conversion
+         * analytics). Use [paywallRoute] to build a navigable destination string.
+         */
+        const val PAYWALL_ROUTE: String = "paywall"
+
+        /** Nav-arg key carrying the originating gate surface name on [PAYWALL_ROUTE]. */
+        const val ARG_PAYWALL_SURFACE: String = "surface"
+
+        /** Build the navigable paywall destination for an originating surface name. */
+        fun paywallRoute(surface: String): String = "$PAYWALL_ROUTE/$surface"
     }
 }

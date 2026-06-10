@@ -268,6 +268,19 @@ class ApiClient @Inject constructor(
         return res.body()
     }
 
+    /**
+     * GET /v1/config/app — app-wide runtime flags, today just the paywall kill switch (B-050).
+     * Public/anonymous: the same value for every device, so no auth is required (a bearer is attached
+     * when present but ignored). The caller ([mx.kompara.sync.config.PaywallConfigRepository]) caches the
+     * result and falls back to gating-ON when this is unreachable, so a transport failure never unlocks
+     * premium.
+     */
+    suspend fun getAppConfig(): AppConfigResponse {
+        val res = http.get("$baseUrl/v1/config/app") { bearer() }
+        ensureOk(res)
+        return res.body()
+    }
+
     private suspend fun io.ktor.client.request.HttpRequestBuilder.bearer() {
         tokenProvider.currentToken()?.let { header(HttpHeaders.Authorization, "Bearer $it") }
     }

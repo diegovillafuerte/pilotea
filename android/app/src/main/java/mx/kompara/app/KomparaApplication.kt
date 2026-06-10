@@ -16,6 +16,7 @@ import mx.kompara.capture.lifecycle.TripLifecycleTracker
 import mx.kompara.capture.telemetry.TelemetryCollector
 import mx.kompara.sync.rollup.RollupWorker
 import mx.kompara.sync.aggregate.AggregateSyncScheduler
+import mx.kompara.sync.config.PaywallConfigRepository
 import mx.kompara.sync.spec.SpecConfigRefreshWorker
 import mx.kompara.sync.spec.SpecConfigRepository
 import mx.kompara.sync.telemetry.TelemetryScheduler
@@ -68,6 +69,9 @@ class KomparaApplication : Application(), Configuration.Provider {
     // B-051 month-end IMSS summary: daily check + a run on this app open.
     @Inject lateinit var fiscalMonthEndScheduler: FiscalMonthEndScheduler
 
+    // B-050 remote paywall kill switch: refresh the cached flag on app open (TTL-gated, best-effort).
+    @Inject lateinit var paywallConfigRepository: PaywallConfigRepository
+
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     override val workManagerConfiguration: Configuration
@@ -116,6 +120,11 @@ class KomparaApplication : Application(), Configuration.Provider {
         // acknowledging + syncing to the backend. App-scoped so a transient failure never crashes
         // the app; when Play is unavailable the repo logs loudly and stays on the last-known value.
         entitlementRepository.start(appScope)
+
+        // B-050: refresh the cached paywall kill switch so a promo flip applies this session. TTL-gated
+        // and best-effort — a failed fetch keeps the last-known flag (or the gating-ON default), so a
+        // network hiccup never accidentally unlocks premium.
+        appScope.launch { paywallConfigRepository.refresh() }
 
         // B-051: keep the daily month-end IMSS check enqueued, and run one now (the "next app open"
         // path) so a just-ended month's summary fires promptly. Both are idempotent via the per-month

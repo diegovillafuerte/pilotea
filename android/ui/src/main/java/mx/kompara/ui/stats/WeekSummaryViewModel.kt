@@ -14,7 +14,8 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import mx.kompara.billing.EntitlementRepository
+import mx.kompara.billing.Capability
+import mx.kompara.billing.TierGatekeeper
 import mx.kompara.data.db.dao.AggregateDao
 import mx.kompara.data.db.entity.AggregateSource
 import mx.kompara.data.db.entity.WeeklyAggregateEntity
@@ -37,7 +38,7 @@ class WeekSummaryViewModel @Inject constructor(
     aggregateDao: AggregateDao,
     settingsRepository: SettingsRepository,
     percentileRepository: PercentileRepository,
-    entitlementRepository: EntitlementRepository,
+    tierGatekeeper: TierGatekeeper,
 ) : ViewModel() {
 
     private val weekStart: String = savedStateHandle.get<String>(ARG_WEEK_START).orEmpty()
@@ -60,13 +61,13 @@ class WeekSummaryViewModel @Inject constructor(
      */
     private val percentiles: StateFlow<PercentilesUiState> = combine(
         baseState.map { PercentileInputs(it.selectedPlatform, it.period) }.distinctUntilChanged(),
-        settingsRepository.settings.map { it.city to it.debugPremium }.distinctUntilChanged(),
-        entitlementRepository.capabilities.distinctUntilChanged(),
-    ) { inputs, cityDebug, caps ->
-        Triple(inputs, cityDebug, caps)
-    }.flatMapLatest { (inputs, cityDebug, caps) ->
-        val (city, debugPremium) = cityDebug
-        val locked = !(caps.canSeeBenchmarks || debugPremium)
+        settingsRepository.settings.map { it.city }.distinctUntilChanged(),
+        // B-050: the single source of truth for gating — entitlement + debug + remote kill switch.
+        tierGatekeeper.gateFor(Capability.BENCHMARKS),
+    ) { inputs, city, gate ->
+        Triple(inputs, city, gate)
+    }.flatMapLatest { (inputs, city, gate) ->
+        val locked = gate.isLocked
         val platform = inputs.platform
         if (platform == null || platform == Platform.UNKNOWN) {
             flowOf(PercentilesUiState(byMetric = emptyMap(), locked = locked))

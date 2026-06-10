@@ -11,11 +11,15 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import mx.kompara.billing.Capability
+import mx.kompara.billing.GateState
+import mx.kompara.billing.TierGatekeeper
 import mx.kompara.data.db.dao.AggregateDao
 import mx.kompara.data.settings.SettingsRepository
 import mx.kompara.metrics.imss.PlatformImssStatus
 import mx.kompara.sync.fiscal.FiscalConfig
 import mx.kompara.sync.fiscal.FiscalConfigRepository
+import mx.kompara.ui.paywall.GateFunnel
 import java.time.YearMonth
 import javax.inject.Inject
 
@@ -37,12 +41,20 @@ class FiscalViewModel @Inject constructor(
     private val aggregateDao: AggregateDao,
     settingsRepository: SettingsRepository,
     fiscalConfigRepository: FiscalConfigRepository,
+    tierGatekeeper: TierGatekeeper,
+    /** Exposed so the screen's [mx.kompara.ui.paywall.PaywallGate] can record gate impressions. */
+    val gateFunnel: GateFunnel,
     private val fiscalMonth: FiscalMonth,
     private val clock: AppClock,
 ) : ViewModel() {
 
     /** Months-ago offset for the picker: 0 = current, 1 = last month, … up to [PAST_MONTHS]. */
     private val monthOffset = MutableStateFlow(0)
+
+    /** B-050: the Fiscal/IMSS tab is premium. Gating flows through the [TierGatekeeper]. */
+    val gateState: StateFlow<GateState> =
+        tierGatekeeper.gateFor(Capability.FISCAL)
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), GateState.LOCKED)
 
     init {
         // Best-effort: pick up a fresh threshold this session; never throws, no-ops within TTL.

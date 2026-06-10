@@ -17,6 +17,7 @@ import * as schema from "../db/schema.js";
 import { buildSeedRows } from "../../seed/population-stats.js";
 import { buildParserSpecRows } from "../../seed/parser-specs.js";
 import { buildFiscalConfigRows } from "../../seed/fiscal-config.js";
+import { buildAppConfigRow } from "../../seed/app-config.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const migrationsDir = join(here, "..", "..", "migrations");
@@ -114,12 +115,22 @@ async function seedFiscalConfig(db: TestDb): Promise<void> {
 }
 
 /**
+ * Insert the app_config singleton using the SAME generator as the shipped seed runner (B-050), so the
+ * app-config kill-switch tests exercise the real seeded default (paywall ON).
+ */
+async function seedAppConfig(db: TestDb): Promise<void> {
+  const row = buildAppConfigRow();
+  await db.insert(schema.appConfig).values({ singleton: true, paywallEnabled: row.paywallEnabled });
+}
+
+/**
  * Build a fresh migrated test DB. Pass `seed: true` to also load the synthetic population_stats,
- * `seedSpecs: true` to load the launch-day parser_configs bundle, and `seedFiscal: true` to load the
- * fiscal_config IMSS-threshold rows (B-051). Each call is an isolated in-memory database.
+ * `seedSpecs: true` to load the launch-day parser_configs bundle, `seedFiscal: true` to load the
+ * fiscal_config IMSS-threshold rows (B-051), and `seedApp: true` to load the app_config kill-switch
+ * singleton (B-050). Each call is an isolated in-memory database.
  */
 export async function makeTestDb(
-  opts: { seed?: boolean; seedSpecs?: boolean; seedFiscal?: boolean } = {},
+  opts: { seed?: boolean; seedSpecs?: boolean; seedFiscal?: boolean; seedApp?: boolean } = {},
 ): Promise<TestDb> {
   const client = new PGlite();
   await client.waitReady;
@@ -134,6 +145,9 @@ export async function makeTestDb(
   }
   if (opts.seedFiscal) {
     await seedFiscalConfig(db);
+  }
+  if (opts.seedApp) {
+    await seedAppConfig(db);
   }
   return db;
 }

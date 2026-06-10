@@ -21,6 +21,14 @@ android {
     buildFeatures {
         compose = true
     }
+
+    testOptions {
+        unitTests {
+            // The paywall viewmodel test launches the (fake) billing flow with a real Activity;
+            // Robolectric provides it on the JVM without an emulator (B-050). The rest is pure-JVM.
+            isIncludeAndroidResources = true
+        }
+    }
 }
 
 dependencies {
@@ -63,4 +71,7 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    // A real Activity for the paywall billing-flow launch test (no emulator), B-050.
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.ext.junit)
 }

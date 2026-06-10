@@ -29,10 +29,14 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import mx.kompara.billing.GateState
 import mx.kompara.ui.R
 import mx.kompara.ui.components.EmptyState
 import mx.kompara.ui.components.PrimaryButton
 import mx.kompara.ui.format.Formatters
+import mx.kompara.ui.paywall.GateFunnel
+import mx.kompara.ui.paywall.GateSurface
+import mx.kompara.ui.paywall.PaywallGate
 import mx.kompara.ui.stats.HistoryUiState
 import mx.kompara.ui.stats.HistoryViewModel
 import mx.kompara.ui.stats.HistoryWeek
@@ -43,16 +47,27 @@ import mx.kompara.ui.theme.KomparaTheme
  * The History tab (B-040 req 3): the weeks list with a source badge (capturado/importado). Tapping a
  * week opens its summary ([onOpenWeek]). The "Importar semana" CTA ([onImportWeek]) opens the B-045
  * import flow to backfill weeks the reader didn't capture live.
+ *
+ * B-050: the free tier sees the current + previous week; older weeks render blurred behind a
+ * [PaywallGate] whose CTA opens the paywall ([onUpgrade]).
  */
 @Composable
 fun HistoryScreen(
     modifier: Modifier = Modifier,
     onOpenWeek: (String) -> Unit = {},
     onImportWeek: () -> Unit = {},
+    onUpgrade: (GateSurface) -> Unit = {},
     viewModel: HistoryViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    HistoryContent(state = state, onOpenWeek = onOpenWeek, onImportWeek = onImportWeek, modifier = modifier)
+    HistoryContent(
+        state = state,
+        onOpenWeek = onOpenWeek,
+        onImportWeek = onImportWeek,
+        onUpgrade = onUpgrade,
+        gateFunnel = viewModel.gateFunnel,
+        modifier = modifier,
+    )
 }
 
 @Composable
@@ -60,6 +75,8 @@ private fun HistoryContent(
     state: HistoryUiState,
     onOpenWeek: (String) -> Unit,
     onImportWeek: () -> Unit,
+    onUpgrade: (GateSurface) -> Unit = {},
+    gateFunnel: GateFunnel? = null,
     modifier: Modifier = Modifier,
 ) {
     when {
@@ -91,6 +108,25 @@ private fun HistoryContent(
             }
             items(state.weeks, key = { it.weekStart + it.source.name }) { week ->
                 WeekRow(week = week, onClick = { onOpenWeek(week.weekStart) })
+            }
+            // B-050: the premium-locked older weeks, teased behind the shared gate.
+            if (state.lockedWeeks.isNotEmpty() && gateFunnel != null) {
+                item(key = "history-gate") {
+                    PaywallGate(
+                        surface = GateSurface.HISTORY,
+                        state = GateState.LOCKED,
+                        valueHint = stringResource(R.string.history_free_limit_body),
+                        funnel = gateFunnel,
+                        onUpgrade = onUpgrade,
+                        ctaText = stringResource(R.string.paywall_cta),
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            state.lockedWeeks.forEach { week ->
+                                WeekRow(week = week, onClick = {})
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -167,17 +203,20 @@ private fun HistoryContentPreview() {
         HistoryContent(
             state = HistoryUiState(
                 loading = false,
-                weeks = listOf(
-                    HistoryWeek(
-                        weekStart = "2026-06-08",
-                        source = WeekSourceBadge.CAPTURADO,
-                        period = mx.kompara.ui.stats.PeriodStats(
-                            netEarningsMxn = 3450.0, grossEarningsMxn = 4200.0, totalTrips = 38,
-                            totalKm = 410.0, hoursOnline = 22.5, earningsPerTrip = 90.8,
-                            earningsPerKm = 8.4, earningsPerHour = 153.3, tripsPerHour = 1.7,
-                            acceptanceRate = 0.62,
+                partition = mx.kompara.ui.stats.HistoryPartition(
+                    visible = listOf(
+                        HistoryWeek(
+                            weekStart = "2026-06-08",
+                            source = WeekSourceBadge.CAPTURADO,
+                            period = mx.kompara.ui.stats.PeriodStats(
+                                netEarningsMxn = 3450.0, grossEarningsMxn = 4200.0, totalTrips = 38,
+                                totalKm = 410.0, hoursOnline = 22.5, earningsPerTrip = 90.8,
+                                earningsPerKm = 8.4, earningsPerHour = 153.3, tripsPerHour = 1.7,
+                                acceptanceRate = 0.62,
+                            ),
                         ),
                     ),
+                    locked = emptyList(),
                 ),
             ),
             onOpenWeek = {},

@@ -33,9 +33,13 @@ import mx.kompara.data.model.Platform
 import mx.kompara.metrics.imss.CoverageStatus
 import mx.kompara.metrics.imss.MonthPhase
 import mx.kompara.metrics.imss.PlatformImssStatus
+import mx.kompara.billing.GateState
 import mx.kompara.ui.R
 import mx.kompara.ui.components.KomparaProgressBar
 import mx.kompara.ui.format.Formatters
+import mx.kompara.ui.paywall.GateFunnel
+import mx.kompara.ui.paywall.GateSurface
+import mx.kompara.ui.paywall.PaywallGate
 import mx.kompara.ui.stats.FiscalUiState
 import mx.kompara.ui.stats.FiscalViewModel
 import mx.kompara.ui.stats.platformChipLabel
@@ -56,10 +60,19 @@ import mx.kompara.ui.theme.VerdictYellow
 @Composable
 fun FiscalScreen(
     modifier: Modifier = Modifier,
+    onUpgrade: (GateSurface) -> Unit = {},
     viewModel: FiscalViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    FiscalContent(state = state, onSelectMonth = viewModel::selectMonthOffset, modifier = modifier)
+    val gateState by viewModel.gateState.collectAsStateWithLifecycle()
+    FiscalContent(
+        state = state,
+        gateState = gateState,
+        gateFunnel = viewModel.gateFunnel,
+        onSelectMonth = viewModel::selectMonthOffset,
+        onUpgrade = onUpgrade,
+        modifier = modifier,
+    )
 }
 
 @Composable
@@ -67,6 +80,9 @@ private fun FiscalContent(
     state: FiscalUiState,
     onSelectMonth: (Int) -> Unit,
     modifier: Modifier = Modifier,
+    gateState: GateState = GateState.UNLOCKED,
+    gateFunnel: GateFunnel? = null,
+    onUpgrade: (GateSurface) -> Unit = {},
 ) {
     if (state.loading) {
         Spacer(modifier.fillMaxSize())
@@ -85,31 +101,54 @@ private fun FiscalContent(
             fontWeight = FontWeight.Bold,
         )
 
-        MonthPicker(state = state, onSelectMonth = onSelectMonth)
+        // B-050: the IMSS tracker body is premium. Title stays visible so the driver still sees the tab;
+        // the tracker itself is teased behind the gate for a free driver.
+        val body: @Composable () -> Unit = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                MonthPicker(state = state, onSelectMonth = onSelectMonth)
 
-        Text(
-            text = stringResource(R.string.fiscal_threshold_label, Formatters.formatMxn(state.thresholdMxn)),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        if (state.usingDefaultConfig) {
-            Text(
-                text = stringResource(R.string.fiscal_using_default_config),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+                Text(
+                    text = stringResource(
+                        R.string.fiscal_threshold_label,
+                        Formatters.formatMxn(state.thresholdMxn),
+                    ),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                if (state.usingDefaultConfig) {
+                    Text(
+                        text = stringResource(R.string.fiscal_using_default_config),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
 
-        if (state.isEmpty) {
-            EmptyMonthNote()
-        } else {
-            state.sections.forEach { section ->
-                PlatformImssCard(section = section)
+                if (state.isEmpty) {
+                    EmptyMonthNote()
+                } else {
+                    state.sections.forEach { section ->
+                        PlatformImssCard(section = section)
+                    }
+                }
+
+                ExplainerCard()
+                DisclaimerNote()
             }
         }
 
-        ExplainerCard()
-        DisclaimerNote()
+        if (gateFunnel != null) {
+            PaywallGate(
+                surface = GateSurface.FISCAL,
+                state = gateState,
+                valueHint = stringResource(R.string.gate_hint_fiscal),
+                funnel = gateFunnel,
+                onUpgrade = onUpgrade,
+                ctaText = stringResource(R.string.paywall_cta),
+                content = body,
+            )
+        } else {
+            body()
+        }
     }
 }
 

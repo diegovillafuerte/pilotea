@@ -351,4 +351,49 @@
     <string name="fiscal_notif_uncovered_body">El mes pasado no llegaste al umbral del IMSS en %1$s.</string>
     <!-- Ajuste de notificaciones de fin de mes -->
     <string name="fiscal_settings_monthly_summary">Resumen de IMSS a fin de mes</string>
+
+    <!-- ============================================================= -->
+    <!-- Paywall y candados premium (B-050).                           -->
+    <!-- El lector y las estadísticas de hoy SIEMPRE son gratis.       -->
+    <!-- ============================================================= -->
+    <!-- CTA del candado tease-then-gate, reutilizado en todas las superficies. -->
+    <string name="paywall_cta">Probar Kompara Premium</string>
+
+    <!-- Pistas de valor de una línea sobre el contenido difuminado por superficie. -->
+    <string name="gate_hint_benchmarks">Mira cómo te comparas con otros choferes de tu ciudad</string>
+    <string name="gate_hint_compare">Compara tus ganancias entre Uber y DiDi</string>
+    <string name="gate_hint_history">Revisa todo tu historial, semana por semana</string>
+    <string name="gate_hint_fiscal">Sigue tu avance hacia la cobertura del IMSS</string>
+
+    <!-- Pantalla del paywall. -->
+    <string name="paywall_title">Kompara Premium</string>
+    <string name="paywall_value_framing">Si te ayuda a ganar $200 más a la semana, se paga solo. Premium te muestra dónde estás dejando dinero en la mesa.</string>
+    <string name="paywall_feature_percentiles">Percentiles: cómo te comparas con tu ciudad</string>
+    <string name="paywall_feature_compare">Comparativa Uber vs. DiDi</string>
+    <string name="paywall_feature_history">Historial completo de todas tus semanas</string>
+    <string name="paywall_feature_fiscal">Seguimiento fiscal e IMSS por plataforma</string>
+    <string name="paywall_loading">Cargando el plan…</string>
+    <string name="paywall_cta_trial">Empezar prueba gratis</string>
+    <string name="paywall_cta_subscribe">Suscribirme</string>
+    <!-- %1$s = precio localizado que viene de Google Play en tiempo de ejecución. -->
+    <string name="paywall_price_with_trial">Prueba gratis y luego %1$s al mes. Cancela cuando quieras.</string>
+    <string name="paywall_price_no_trial">%1$s al mes. Cancela cuando quieras.</string>
+    <string name="paywall_play_unavailable">Google Play no está disponible en este dispositivo, así que no se puede iniciar la compra. Intenta desde un teléfono con Play Store.</string>
+    <string name="paywall_restore">Restaurar compras</string>
+    <string name="paywall_maybe_later">Quizá después</string>
+    <!-- TODO(legal-B038): reemplazar con términos de suscripción revisados por asesoría legal. -->
+    <string name="paywall_legal_placeholder">La suscripción se renueva automáticamente hasta que la canceles. Términos y aviso de privacidad pendientes de revisión legal.</string>
+    <!-- Mensajes (snackbar). -->
+    <string name="paywall_msg_restored">Listo, restauramos tu suscripción Premium.</string>
+    <string name="paywall_msg_nothing_to_restore">No encontramos una suscripción activa para restaurar.</string>
+    <string name="paywall_msg_already_premium">Ya tienes Premium activo.</string>
+    <string name="paywall_msg_launch_failed">No se pudo abrir la compra. Inténtalo de nuevo.</string>
+
+    <!-- Historial: aviso del límite de la versión gratis (B-050). -->
+    <string name="history_free_limit_title">Desbloquea tu historial completo</string>
+    <string name="history_free_limit_body">La versión gratis muestra esta semana y la anterior. Con Premium ves todas tus semanas.</string>
+
+    <!-- Comparar: superficie premium (se construye en la siguiente ola). -->
+    <string name="comparar_locked_title">Comparativa entre plataformas</string>
+    <string name="comparar_locked_body">Pronto: compara lado a lado tus ganancias en Uber y DiDi.</string>
 </resources>

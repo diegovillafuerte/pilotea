@@ -29,6 +29,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import mx.kompara.billing.GateState
 import mx.kompara.ui.R
 import mx.kompara.ui.components.EmptyState
 import mx.kompara.ui.components.KomparaProgressBar
@@ -36,6 +37,9 @@ import mx.kompara.ui.components.MetricCard
 import mx.kompara.ui.components.WatchdogBanner
 import mx.kompara.ui.format.Formatters
 import mx.kompara.ui.onboarding.WatchdogState
+import mx.kompara.ui.paywall.GateFunnel
+import mx.kompara.ui.paywall.GateSurface
+import mx.kompara.ui.paywall.PaywallGate
 import mx.kompara.ui.stats.CompletenessHint
 import mx.kompara.ui.stats.GoalProgress
 import mx.kompara.ui.stats.InicioDashboardViewModel
@@ -62,6 +66,7 @@ fun InicioDashboardScreen(
     onOpenCostProfile: () -> Unit = {},
     onOpenToday: () -> Unit = {},
     onOpenReaderTrial: () -> Unit = {},
+    onUpgrade: (GateSurface) -> Unit = {},
     dashboardViewModel: InicioDashboardViewModel = hiltViewModel(),
 ) {
     val watchdogState by dashboardViewModel.watchdogState.collectAsStateWithLifecycle()
@@ -85,6 +90,8 @@ fun InicioDashboardScreen(
                 onSelectPlatform = dashboardViewModel::selectPlatform,
                 onOpenCostProfile = onOpenCostProfile,
                 onOpenToday = onOpenToday,
+                gateFunnel = dashboardViewModel.gateFunnel,
+                onUpgrade = onUpgrade,
             )
         }
     }
@@ -96,6 +103,8 @@ private fun DashboardContent(
     onSelectPlatform: (mx.kompara.data.model.Platform?) -> Unit,
     onOpenCostProfile: () -> Unit,
     onOpenToday: () -> Unit,
+    gateFunnel: GateFunnel? = null,
+    onUpgrade: (GateSurface) -> Unit = {},
 ) {
     Column(
         modifier = Modifier
@@ -129,6 +138,27 @@ private fun DashboardContent(
                 percentile = MetricPercentiles.forCard(index, state.percentiles.byMetric),
                 locked = state.percentiles.locked,
             )
+        }
+
+        // B-050: when benchmarks are gated, a single tease-then-gate upsell beneath the cards routes the
+        // conversion through the shared PaywallGate (the per-card bars already show the dimmed stand-in).
+        if (state.percentiles.locked && gateFunnel != null) {
+            PaywallGate(
+                surface = GateSurface.BENCHMARKS,
+                state = GateState.LOCKED,
+                valueHint = stringResource(R.string.gate_hint_benchmarks),
+                funnel = gateFunnel,
+                onUpgrade = onUpgrade,
+                ctaText = stringResource(R.string.paywall_cta),
+            ) {
+                // Teaser preview content (blurred by the gate): a neutral comparison strip.
+                Card(
+                    modifier = Modifier.fillMaxWidth().height(96.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    ),
+                ) {}
+            }
         }
 
         if (state.completeness != CompletenessHint.NONE) {

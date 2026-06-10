@@ -350,3 +350,25 @@ export const fiscalConfig = pgTable("fiscal_config", {
   }).notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// ─── app_config ────────────────────────────────────────────────
+// Remote-config singleton for app-wide runtime flags (B-050). Today it carries a
+// single field — `paywallEnabled` — the remote kill switch for premium gating.
+//
+// The Android app fetches this (GET /v1/config/app), caches it, and falls back to
+// `paywallEnabled = TRUE` when offline/empty so a transport hiccup never accidentally
+// unlocks premium. Flipping the flag to FALSE puts the app in "launch promo mode":
+// every premium surface is unlocked for everyone, no app release required — an admin
+// PATCH, reverted the same way once the promo ends.
+//
+// A one-row table: `singleton` is unique and always TRUE, so a second insert
+// conflicts on that key and upserts in place. Reads take the single row.
+export const appConfig = pgTable("app_config", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  // Enforces a single row: unique + always TRUE, so a second insert conflicts.
+  singleton: boolean("singleton").notNull().default(true).unique(),
+  // The paywall kill switch. TRUE = gating active (normal); FALSE = everything
+  // unlocked (launch promo). Seeded TRUE.
+  paywallEnabled: boolean("paywall_enabled").notNull().default(true),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});

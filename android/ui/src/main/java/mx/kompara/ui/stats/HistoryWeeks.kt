@@ -46,4 +46,39 @@ object HistoryWeeks {
             }
             .sortedByDescending { it.weekStart }
     }
+
+    /**
+     * Split the (newest-first) [weeks] into the free-tier visible window and the premium-locked tail
+     * (B-050). The free tier sees the [FREE_WEEKS] most-recent weeks (current + previous week); older
+     * rows are gated. When [locked] is false (premium / debug / kill-switch promo) nothing is truncated
+     * — every week is visible and [HistoryPartition.locked] is empty.
+     *
+     * Pure + positional (no clock): "current + previous" is just the two newest weeks that have data, so
+     * a driver who only drove every other week still sees their two most recent weeks free.
+     */
+    fun partition(weeks: List<HistoryWeek>, locked: Boolean): HistoryPartition {
+        if (!locked) return HistoryPartition(visible = weeks, locked = emptyList())
+        val sorted = weeks.sortedByDescending { it.weekStart }
+        return HistoryPartition(
+            visible = sorted.take(FREE_WEEKS),
+            locked = sorted.drop(FREE_WEEKS),
+        )
+    }
+
+    /** Free-tier history window: the current week + the previous week. */
+    const val FREE_WEEKS = 2
+}
+
+/**
+ * The history list split into the free-visible weeks and the premium-locked tail (B-050).
+ *
+ * @property visible weeks rendered normally (the free window, or all weeks when unlocked).
+ * @property locked older weeks shown blurred behind the gate (empty when unlocked).
+ */
+data class HistoryPartition(
+    val visible: List<HistoryWeek>,
+    val locked: List<HistoryWeek>,
+) {
+    /** True when there is a locked tail to tease behind the gate. */
+    val hasLocked: Boolean get() = locked.isNotEmpty()
 }

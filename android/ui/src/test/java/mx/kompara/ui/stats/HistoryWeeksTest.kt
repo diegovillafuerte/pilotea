@@ -58,4 +58,44 @@ class HistoryWeeksTest {
         assertEquals(WeekSourceBadge.IMPORTADO, weeks[0].source)
         assertEquals(1234.0, weeks[0].period.netEarningsMxn, 0.001) // imported preferred
     }
+
+    // ── B-050 free-tier truncation ───────────────────────────────────────────
+
+    private fun weeksList(vararg weekStarts: String): List<HistoryWeek> =
+        weekStarts.map { ws ->
+            HistoryWeek(weekStart = ws, source = WeekSourceBadge.CAPTURADO, period = PeriodStats.EMPTY)
+        }
+
+    @Test
+    fun `unlocked partition keeps every week visible and locks nothing`() {
+        val weeks = weeksList("2026-06-15", "2026-06-08", "2026-06-01", "2026-05-25")
+        val p = HistoryWeeks.partition(weeks, locked = false)
+        assertEquals(4, p.visible.size)
+        assertEquals(0, p.locked.size)
+        assertEquals(false, p.hasLocked)
+    }
+
+    @Test
+    fun `locked partition shows the two newest weeks free and gates the rest`() {
+        val weeks = weeksList("2026-06-15", "2026-06-08", "2026-06-01", "2026-05-25")
+        val p = HistoryWeeks.partition(weeks, locked = true)
+        assertEquals(listOf("2026-06-15", "2026-06-08"), p.visible.map { it.weekStart })
+        assertEquals(listOf("2026-06-01", "2026-05-25"), p.locked.map { it.weekStart })
+        assertEquals(true, p.hasLocked)
+    }
+
+    @Test
+    fun `locked partition with two or fewer weeks gates nothing`() {
+        val p = HistoryWeeks.partition(weeksList("2026-06-15", "2026-06-08"), locked = true)
+        assertEquals(2, p.visible.size)
+        assertEquals(0, p.locked.size)
+    }
+
+    @Test
+    fun `locked partition newest-first regardless of input order`() {
+        val weeks = weeksList("2026-05-25", "2026-06-15", "2026-06-01", "2026-06-08")
+        val p = HistoryWeeks.partition(weeks, locked = true)
+        assertEquals(listOf("2026-06-15", "2026-06-08"), p.visible.map { it.weekStart })
+        assertEquals(listOf("2026-06-01", "2026-05-25"), p.locked.map { it.weekStart })
+    }
 }

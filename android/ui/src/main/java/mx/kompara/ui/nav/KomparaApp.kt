@@ -18,6 +18,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import mx.kompara.ui.imports.importDestination
+import mx.kompara.ui.paywall.GateSurface
+import mx.kompara.ui.paywall.PaywallScreen
 import mx.kompara.ui.screens.AjustesScreen
 import mx.kompara.ui.screens.CompararScreen
 import mx.kompara.ui.screens.CostProfileScreen
@@ -118,6 +120,11 @@ private fun NavHostController.navigateToReaderTrial() {
     }
 }
 
+/** Navigate to the paywall screen, carrying the originating [GateSurface] for analytics bucketing. */
+private fun NavController.navigateToPaywall(surface: GateSurface) {
+    navigate(KomparaDestination.paywallRoute(surface.name))
+}
+
 /** Registers the screen for every top-level destination. */
 private fun NavGraphBuilder.tabScreens(navController: NavController) {
     composable(KomparaDestination.INICIO.route) {
@@ -125,11 +132,16 @@ private fun NavGraphBuilder.tabScreens(navController: NavController) {
             onOpenCostProfile = { navController.navigate(KomparaDestination.COST_PROFILE_ROUTE) },
             onOpenToday = { navController.navigate(KomparaDestination.DAY_DETAIL_ROUTE) },
             onOpenReaderTrial = { navController.navigate(KomparaDestination.SIMULATOR_ROUTE) },
+            onUpgrade = { surface -> navController.navigateToPaywall(surface) },
         )
     }
-    composable(KomparaDestination.COMPARAR.route) { CompararScreen() }
+    composable(KomparaDestination.COMPARAR.route) {
+        CompararScreen(onUpgrade = { surface -> navController.navigateToPaywall(surface) })
+    }
     composable(KomparaDestination.LECTOR.route) { LectorScreen() }
-    composable(KomparaDestination.FISCAL.route) { FiscalScreen() }
+    composable(KomparaDestination.FISCAL.route) {
+        FiscalScreen(onUpgrade = { surface -> navController.navigateToPaywall(surface) })
+    }
     composable(KomparaDestination.AJUSTES.route) {
         AjustesScreen(
             onOpenSimulator = { navController.navigate(KomparaDestination.SIMULATOR_ROUTE) },
@@ -154,7 +166,21 @@ private fun NavGraphBuilder.statsScreens(navController: NavController) {
             },
             // B-045 import flow (registered below via importDestination).
             onImportWeek = { navController.navigate(KomparaDestination.IMPORT_ROUTE) },
+            // B-050 paywall: older history rows are gated behind the free window.
+            onUpgrade = { surface -> navController.navigateToPaywall(surface) },
         )
+    }
+    // B-050 paywall screen, reached from any PaywallGate CTA. The surface path arg buckets analytics.
+    composable(
+        route = "${KomparaDestination.PAYWALL_ROUTE}/{${KomparaDestination.ARG_PAYWALL_SURFACE}}",
+        arguments = listOf(
+            navArgument(KomparaDestination.ARG_PAYWALL_SURFACE) { type = NavType.StringType },
+        ),
+    ) { entry ->
+        val surfaceName = entry.arguments?.getString(KomparaDestination.ARG_PAYWALL_SURFACE)
+        val surface = runCatching { GateSurface.valueOf(surfaceName ?: "") }
+            .getOrDefault(GateSurface.GENERIC)
+        PaywallScreen(surface = surface, onClose = { navController.popBackStack() })
     }
     importDestination(navController)
     // Day detail with no arg → today.

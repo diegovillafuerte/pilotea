@@ -50,6 +50,13 @@
       "when": 1781200000000,
       "tag": "0006_lonely_omega_red",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1781112793415,
+      "tag": "0007_lovely_wildside",
+      "breakpoints": true
     }
   ]
 }

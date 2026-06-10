@@ -22,10 +22,14 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import mx.kompara.billing.GateState
 import mx.kompara.ui.R
 import mx.kompara.ui.components.EmptyState
 import mx.kompara.ui.components.PrimaryButton
+import mx.kompara.ui.paywall.GateSurface
+import mx.kompara.ui.paywall.PaywallGate
 import mx.kompara.ui.stats.AjustesViewModel
+import mx.kompara.ui.stats.CompararViewModel
 import mx.kompara.ui.theme.KomparaTheme
 
 /**
@@ -35,15 +39,43 @@ import mx.kompara.ui.theme.KomparaTheme
  * cost-profile editor, history and the simulator. Copy lives in `strings.xml`.
  */
 
+/**
+ * The Comparar tab (B-050). The actual cross-platform comparison content is built in the NEXT wave; for
+ * now this provides the premium gate + a documented hook: a tease-then-gate [PaywallGate] around a
+ * "coming soon" placeholder. When unlocked (premium / debug / kill-switch promo) the placeholder shows
+ * through; when locked, the gate teases it and offers the upsell.
+ *
+ * To build the real content next wave: replace [CompararComingSoon] with the comparison UI and keep the
+ * [PaywallGate] wrapper + [GateSurface.COMPARE] as-is.
+ */
 @Composable
-fun CompararScreen(modifier: Modifier = Modifier) {
+fun CompararScreen(
+    modifier: Modifier = Modifier,
+    onUpgrade: (GateSurface) -> Unit = {},
+    viewModel: CompararViewModel = hiltViewModel(),
+) {
+    val gateState by viewModel.gateState.collectAsStateWithLifecycle()
+    Column(modifier = modifier.fillMaxSize().padding(16.dp)) {
+        PaywallGate(
+            surface = GateSurface.COMPARE,
+            state = gateState,
+            valueHint = stringResource(R.string.gate_hint_compare),
+            funnel = viewModel.gateFunnel,
+            onUpgrade = onUpgrade,
+            ctaText = stringResource(R.string.paywall_cta),
+        ) {
+            CompararComingSoon()
+        }
+    }
+}
+
+@Composable
+private fun CompararComingSoon() {
     EmptyState(
         icon = Icons.AutoMirrored.Filled.List,
-        title = stringResource(R.string.comparar_empty_title),
-        body = stringResource(R.string.comparar_empty_body),
-        ctaText = stringResource(R.string.comparar_empty_cta),
-        onCtaClick = {},
-        modifier = modifier,
+        title = stringResource(R.string.comparar_locked_title),
+        body = stringResource(R.string.comparar_locked_body),
+        modifier = Modifier.fillMaxWidth(),
     )
 }
 
