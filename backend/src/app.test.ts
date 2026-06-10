@@ -54,7 +54,6 @@ describe("GET /v1/benchmarks", () => {
 
 describe("POST /v1/aggregates", () => {
   const payload = () => ({
-    driverId,
     platform: "uber",
     weekStart: "2026-06-01",
     netEarnings: 4200.5,
@@ -80,6 +79,9 @@ describe("POST /v1/aggregates", () => {
       body: JSON.stringify(payload()),
     });
     expect(first.status).toBe(200);
+    const firstBody = (await first.json()) as { aggregate: { driverId: string } };
+    // The row belongs to the session's driver, not anything client-supplied.
+    expect(firstBody.aggregate.driverId).toBe(driverId);
 
     // Same driver × platform × week, different totals -> updates the same row.
     const second = await app.request("/v1/aggregates", {
@@ -90,6 +92,20 @@ describe("POST /v1/aggregates", () => {
     expect(second.status).toBe(200);
     const body = (await second.json()) as { aggregate: { totalTrips: number } };
     expect(body.aggregate.totalTrips).toBe(130);
+  });
+
+  it("ignores a client-supplied driverId and writes under the session driver", async () => {
+    const res = await app.request("/v1/aggregates", {
+      method: "POST",
+      headers: { "content-type": "application/json", ...BEARER },
+      body: JSON.stringify({
+        ...payload(),
+        driverId: "00000000-0000-4000-8000-000000000000",
+      }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { aggregate: { driverId: string } };
+    expect(body.aggregate.driverId).toBe(driverId);
   });
 });
 

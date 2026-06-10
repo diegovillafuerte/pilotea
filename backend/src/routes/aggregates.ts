@@ -11,7 +11,6 @@ const decimalString = z
   .transform((v) => String(v));
 
 const aggregateInput = z.object({
-  driverId: z.string().uuid(),
   platform: z.string().min(1).max(20),
   weekStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "weekStart must be YYYY-MM-DD"),
   netEarnings: decimalString,
@@ -36,11 +35,13 @@ export function aggregatesRoutes(db: Database) {
   // POST /v1/aggregates — upsert a weekly aggregate (driver × platform × week)
   app.post("/aggregates", requireBearer(db), zValidator("json", aggregateInput), async (c) => {
     const body = c.req.valid("json");
+    // Ownership comes from the authenticated session, never the request body.
+    const driverId = c.get("driverId");
 
     const [row] = await db
       .insert(weeklyAggregates)
       .values({
-        driverId: body.driverId,
+        driverId,
         platform: body.platform,
         weekStart: body.weekStart,
         netEarnings: body.netEarnings,
