@@ -1,0 +1,30 @@
+{
+  "description": "Bid list where ratings render with a star glyph ('★ 4.7') in a node whose viewId is generic, so rating comes from the star same-node regex. Top bid $115; raw.additional_bids=1.",
+  "snapshot": {
+    "packageName": "sinet.startup.inDriver",
+    "timestampMs": 1700000000000,
+    "versionCode": 8500,
+    "nodes": [
+      { "text": "Ofertas de pasajero", "viewId": "sinet.startup.inDriver:id/oc_title", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 80, "right": 700, "bottom": 130 }, "depth": 2, "index": 0 },
+      { "text": "$115", "viewId": "sinet.startup.inDriver:id/bid_price", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 160, "right": 300, "bottom": 220 }, "depth": 4, "index": 1 },
+      { "text": "1.5 km", "viewId": "sinet.startup.inDriver:id/pickup_distance", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 230, "right": 360, "bottom": 270 }, "depth": 4, "index": 2 },
+      { "text": "23 min · 11.2 km", "viewId": "sinet.startup.inDriver:id/trip_info", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 280, "right": 500, "bottom": 320 }, "depth": 4, "index": 3 },
+      { "text": "★ 4.7", "viewId": "sinet.startup.inDriver:id/tag_chip", "className": "android.widget.TextView", "bounds": { "left": 520, "top": 160, "right": 660, "bottom": 200 }, "depth": 4, "index": 4 },
+      { "text": "$92", "viewId": "sinet.startup.inDriver:id/bid_price", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 400, "right": 300, "bottom": 460 }, "depth": 4, "index": 5 },
+      { "text": "3.4 km", "viewId": "sinet.startup.inDriver:id/pickup_distance", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 470, "right": 360, "bottom": 510 }, "depth": 4, "index": 6 },
+      { "text": "21 min · 9 km", "viewId": "sinet.startup.inDriver:id/trip_info", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 520, "right": 500, "bottom": 560 }, "depth": 4, "index": 7 },
+      { "text": "★ 4.5", "viewId": "sinet.startup.inDriver:id/tag_chip", "className": "android.widget.TextView", "bounds": { "left": 520, "top": 400, "right": 660, "bottom": 440 }, "depth": 4, "index": 8 }
+    ]
+  },
+  "expected": {
+    "platform": "sinet.startup.inDriver",
+    "variant": "bid_list",
+    "fare": 115.0,
+    "pickupDistanceKm": 1.5,
+    "pickupEtaMin": null,
+    "tripDistanceKm": 11.2,
+    "tripDurationMin": 23.0,
+    "surge": false,
+    "paymentType": null
+  }
+}

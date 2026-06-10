@@ -1,13 +1,13 @@
 /**
  * Tests for the parser-config OTA bundle endpoint + signing round-trip (B-033).
  *
- * Runs against an in-memory pglite DB seeded with the launch-day parser specs (uber + didi). Uses a
- * deterministic test signing key (not the committed dev key) so the test owns both halves and can
- * assert the signature verifies — and that a tampered payload does not.
+ * Runs against an in-memory pglite DB seeded with the launch-day parser specs (uber + didi +
+ * inDrive). Uses a deterministic test signing key (not the committed dev key) so the test owns both
+ * halves and can assert the signature verifies — and that a tampered payload does not.
  *
  * Covers:
  *  - GET /v1/parser-configs/bundle returns a { payload, signature } envelope whose payload parses to
- *    a SpecBundle carrying both seeded specs and an empty killSwitches;
+ *    a SpecBundle carrying every seeded spec and an empty killSwitches;
  *  - the signature verifies against the matching public key, and fails on a tampered payload;
  *  - a kill switch (no active row for a package that has rows) surfaces in killSwitches;
  *  - signBundle → verifyBundle round-trips (the contract the signing script relies on).
@@ -55,9 +55,9 @@ describe("GET /v1/parser-configs/bundle", () => {
     expect(bundle).not.toBeNull();
     const ok = bundle as SpecBundle;
     expect(ok.bundleVersion).toBeGreaterThanOrEqual(1);
-    expect(ok.specs).toHaveLength(2);
+    expect(ok.specs).toHaveLength(3);
     const packages = ok.specs.map((s) => (s as { targetPackage: string }).targetPackage).sort();
-    expect(packages).toEqual(["com.sdu.didi.gsui", "com.ubercab.driver"]);
+    expect(packages).toEqual(["com.sdu.didi.gsui", "com.ubercab.driver", "sinet.startup.inDriver"]);
     expect(ok.killSwitches).toEqual({});
   });
 
@@ -75,7 +75,7 @@ describe("GET /v1/parser-configs/bundle", () => {
 
   it("surfaces a kill switch when a package has rows but none active", async () => {
     const db = await makeTestDb({ seedSpecs: true });
-    // Flip every Uber row inactive → Uber is now a kill switch, DiDi still served.
+    // Flip every Uber row inactive → Uber is now a kill switch, DiDi + inDrive still served.
     await db
       .update(parserConfigs)
       .set({ active: false })
@@ -86,9 +86,9 @@ describe("GET /v1/parser-configs/bundle", () => {
     const bundle = verifyBundle(signed, testKey.publicKey) as SpecBundle;
 
     expect(bundle.killSwitches["com.ubercab.driver"]).toBe(true);
-    expect(bundle.specs.map((s) => (s as { targetPackage: string }).targetPackage)).toEqual([
-      "com.sdu.didi.gsui",
-    ]);
+    expect(
+      bundle.specs.map((s) => (s as { targetPackage: string }).targetPackage).sort(),
+    ).toEqual(["com.sdu.didi.gsui", "sinet.startup.inDriver"]);
   });
 
   it("works on an empty table (bundleVersion floored at 1, no specs)", async () => {

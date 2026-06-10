@@ -1,0 +1,27 @@
+{
+  "description": "Single bid where the passenger rating uses a European-style decimal comma '4,9' (raw kept; not a typed column). Fare $80, pickup 1.7 km, trip 16 min / 7 km.",
+  "snapshot": {
+    "packageName": "sinet.startup.inDriver",
+    "timestampMs": 1700000000000,
+    "versionCode": 8200,
+    "nodes": [
+      { "text": "Nuevo pedido", "viewId": "sinet.startup.inDriver:id/oc_title", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 100, "right": 700, "bottom": 150 }, "depth": 2, "index": 0 },
+      { "text": "$80", "viewId": "sinet.startup.inDriver:id/bid_price", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 170, "right": 300, "bottom": 240 }, "depth": 3, "index": 1 },
+      { "text": "1.7 km", "viewId": "sinet.startup.inDriver:id/pickup_distance", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 270, "right": 360, "bottom": 310 }, "depth": 3, "index": 2 },
+      { "text": "16 min · 7 km", "viewId": "sinet.startup.inDriver:id/trip_info", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 320, "right": 500, "bottom": 360 }, "depth": 3, "index": 3 },
+      { "text": "4,9", "viewId": "sinet.startup.inDriver:id/passenger_rating", "className": "android.widget.TextView", "bounds": { "left": 520, "top": 170, "right": 620, "bottom": 210 }, "depth": 3, "index": 4 },
+      { "text": "Aceptar oferta", "viewId": "sinet.startup.inDriver:id/btn_accept", "className": "android.widget.Button", "bounds": { "left": 40, "top": 400, "right": 700, "bottom": 470 }, "depth": 2, "index": 5 }
+    ]
+  },
+  "expected": {
+    "platform": "sinet.startup.inDriver",
+    "variant": "single_bid",
+    "fare": 80.0,
+    "pickupDistanceKm": 1.7,
+    "pickupEtaMin": null,
+    "tripDistanceKm": 7.0,
+    "tripDurationMin": 16.0,
+    "surge": false,
+    "paymentType": null
+  }
+}

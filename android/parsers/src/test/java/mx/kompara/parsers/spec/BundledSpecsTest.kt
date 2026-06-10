@@ -13,23 +13,27 @@ import org.junit.Test
 class BundledSpecsTest {
 
     @Test
-    fun `both bundled specs load at runtime`() {
+    fun `all bundled specs load at runtime`() {
         val specs = BundledSpecs.load()
-        // uber-driver + didi-mx
-        assertEquals(2, specs.size)
+        // uber-driver + didi-mx + indrive-mx (B-035)
+        assertEquals(3, specs.size)
         val packages = specs.map { it.targetPackage }.toSet()
         assertTrue("uber spec missing", "com.ubercab.driver" in packages)
         assertTrue("didi spec missing", "com.sdu.didi.gsui" in packages)
+        assertTrue("indrive spec missing", "sinet.startup.inDriver" in packages)
     }
 
     @Test
-    fun `bundled registry resolves both uber and didi by package`() {
+    fun `bundled registry resolves uber, didi and indrive by package`() {
         val registry = BundledSpecs.registry()
         assertNotNull(
             registry.all().firstOrNull { it.targetPackage == "com.ubercab.driver" },
         )
         assertNotNull(
             registry.all().firstOrNull { it.targetPackage == "com.sdu.didi.gsui" },
+        )
+        assertNotNull(
+            registry.all().firstOrNull { it.targetPackage == "sinet.startup.inDriver" },
         )
     }
 

@@ -1,0 +1,27 @@
+{
+  "description": "Single bid with no passenger rating node (new passenger). Fare $55, pickup 600 m, trip 8 min / 3.4 km.",
+  "snapshot": {
+    "packageName": "sinet.startup.inDriver",
+    "timestampMs": 1700000000000,
+    "versionCode": 8300,
+    "nodes": [
+      { "text": "Nuevo pedido", "viewId": "sinet.startup.inDriver:id/oc_title", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 100, "right": 700, "bottom": 150 }, "depth": 2, "index": 0 },
+      { "text": "$55", "viewId": "sinet.startup.inDriver:id/bid_price", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 170, "right": 300, "bottom": 240 }, "depth": 3, "index": 1 },
+      { "text": "600 m", "viewId": "sinet.startup.inDriver:id/pickup_distance", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 270, "right": 360, "bottom": 310 }, "depth": 3, "index": 2 },
+      { "text": "8 min · 3.4 km", "viewId": "sinet.startup.inDriver:id/trip_info", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 320, "right": 500, "bottom": 360 }, "depth": 3, "index": 3 },
+      { "text": "Pasajero nuevo", "viewId": "sinet.startup.inDriver:id/passenger_tag", "className": "android.widget.TextView", "bounds": { "left": 520, "top": 170, "right": 700, "bottom": 210 }, "depth": 3, "index": 4 },
+      { "text": "Aceptar oferta", "viewId": "sinet.startup.inDriver:id/btn_accept", "className": "android.widget.Button", "bounds": { "left": 40, "top": 400, "right": 700, "bottom": 470 }, "depth": 2, "index": 5 }
+    ]
+  },
+  "expected": {
+    "platform": "sinet.startup.inDriver",
+    "variant": "single_bid",
+    "fare": 55.0,
+    "pickupDistanceKm": 0.6,
+    "pickupEtaMin": null,
+    "tripDistanceKm": 3.4,
+    "tripDurationMin": 8.0,
+    "surge": false,
+    "paymentType": null
+  }
+}

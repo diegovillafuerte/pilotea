@@ -18,6 +18,7 @@ object BundledSpecs {
     val SPEC_NAMES: List<String> = listOf(
         "uber-driver",
         "didi-mx",
+        "indrive-mx",
     )
 
     /** Decode every bundled spec found on the classpath. Unreadable/missing entries are skipped. */

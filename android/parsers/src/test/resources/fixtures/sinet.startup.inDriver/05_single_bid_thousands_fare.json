@@ -1,0 +1,27 @@
+{
+  "description": "Single bid, long-distance fare with thousands separator '$1,250'. Pickup 3.0 km, trip 1 h 5 min / 62 km, rating 4.7.",
+  "snapshot": {
+    "packageName": "sinet.startup.inDriver",
+    "timestampMs": 1700000000000,
+    "versionCode": 8200,
+    "nodes": [
+      { "text": "Nuevo pedido", "viewId": "sinet.startup.inDriver:id/oc_title", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 100, "right": 700, "bottom": 150 }, "depth": 2, "index": 0 },
+      { "text": "$1,250", "viewId": "sinet.startup.inDriver:id/bid_price", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 170, "right": 340, "bottom": 240 }, "depth": 3, "index": 1 },
+      { "text": "3.0 km", "viewId": "sinet.startup.inDriver:id/pickup_distance", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 270, "right": 360, "bottom": 310 }, "depth": 3, "index": 2 },
+      { "text": "1 h 5 min · 62 km", "viewId": "sinet.startup.inDriver:id/trip_info", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 320, "right": 540, "bottom": 360 }, "depth": 3, "index": 3 },
+      { "text": "4.7", "viewId": "sinet.startup.inDriver:id/passenger_rating", "className": "android.widget.TextView", "bounds": { "left": 520, "top": 170, "right": 620, "bottom": 210 }, "depth": 3, "index": 4 },
+      { "text": "Aceptar oferta", "viewId": "sinet.startup.inDriver:id/btn_accept", "className": "android.widget.Button", "bounds": { "left": 40, "top": 400, "right": 700, "bottom": 470 }, "depth": 2, "index": 5 }
+    ]
+  },
+  "expected": {
+    "platform": "sinet.startup.inDriver",
+    "variant": "single_bid",
+    "fare": 1250.0,
+    "pickupDistanceKm": 3.0,
+    "pickupEtaMin": null,
+    "tripDistanceKm": 62.0,
+    "tripDurationMin": 65.0,
+    "surge": false,
+    "paymentType": null
+  }
+}

@@ -1,0 +1,91 @@
+{
+  "_comment": "inDrive (Mexico) driver offer-card spec (B-035, fast-follow after Uber B-029 + DiDi B-030). PACKAGE ID NEEDS ON-DEVICE VERIFICATION: 'sinet.startup.inDriver' is the observed inDrive driver package, but it has NOT been confirmed against a live MX build in this environment — no physical device was available. inDrive uses a BID model: passengers offer a custom price and the driver picks from a LIST of simultaneous bids. This spec is therefore list-mode (see 'listMode'): the engine segments one snapshot into one card per bid via the repeating per-card anchor (the bid amount), extracts each bid's offered price (MXN), pickup distance, trip distance/time and passenger rating, and the single-verdict pipeline keeps the TOP bid (others' count -> raw.additional_bids). Anchors are text-pattern-first (es-MX), viewIdContains hints secondary, geometry only as the engine's tiebreaker. SYNTHETIC CORPUS: fixtures are reasoned models of inDrive MX bid cards, not on-device captures.",
+  "targetPackage": "sinet.startup.inDriver",
+  "versionCodeRange": { "min": 1, "max": null },
+  "specVersion": 1,
+  "cardDetector": {
+    "allOf": [],
+    "anyOf": [
+      { "regex": "Nuevo pedido" },
+      { "regex": "Nueva solicitud" },
+      { "regex": "Ofertas? de pasajero" },
+      { "regex": "Pedidos disponibles" },
+      { "regex": "Aceptar oferta" },
+      { "regex": "Ofrece\\s*\\$" }
+    ],
+    "noneOf": [
+      { "regex": "Viaje en curso" },
+      { "regex": "En camino al pasajero" },
+      { "regex": "Recogiendo al pasajero" }
+    ],
+    "baseVariant": "single_bid"
+  },
+  "listMode": {
+    "cardAnchor": { "regex": "(?:Ofrece\\s*)?\\$\\s*[0-9][0-9.,]*" }
+  },
+  "extractors": [
+    {
+      "field": "fare",
+      "normalizer": "CURRENCY",
+      "strategies": [
+        { "viewIdContains": "bid", "regexOnSameNode": "\\$\\s*([0-9][0-9.,]*)" },
+        { "viewIdContains": "price", "regexOnSameNode": "\\$\\s*([0-9][0-9.,]*)" },
+        { "viewIdContains": "offer", "regexOnSameNode": "\\$\\s*([0-9][0-9.,]*)" },
+        { "afterAnchor": { "regex": "^Oferta$|^Ofrece$|Precio ofrecido|^Tu ganancia$" }, "extractRegex": "\\$\\s*([0-9][0-9.,]*)" },
+        { "regexOnSameNode": "Ofrece\\s*\\$\\s*([0-9][0-9.,]*)" },
+        { "regexOnSameNode": "\\$\\s*([0-9][0-9.,]*)" }
+      ]
+    },
+    {
+      "field": "pickupDistanceKm",
+      "normalizer": "DISTANCE_KM",
+      "strategies": [
+        { "viewIdContains": "pickup", "regexOnSameNode": "([0-9][0-9.,]*\\s*(?:km|m)(?![a-z]))" },
+        { "viewIdContains": "origin", "regexOnSameNode": "([0-9][0-9.,]*\\s*(?:km|m)(?![a-z]))" },
+        { "regexOnSameNode": "(?:Recoger|Recogida)\\s*[·:]?\\s*([0-9][0-9.,]*\\s*(?:km|m)(?![a-z]))" },
+        { "regexOnSameNode": "(?:a|A)\\s+([0-9][0-9.,]*\\s*(?:km|m)(?![a-z]))\\s+de ti" },
+        { "afterAnchor": { "regex": "^Recoger$|^Recogida$|^Punto de partida$" }, "extractRegex": "([0-9][0-9.,]*\\s*(?:km|m)(?![a-z]))" }
+      ]
+    },
+    {
+      "field": "tripDistanceKm",
+      "normalizer": "DISTANCE_KM",
+      "strategies": [
+        { "viewIdContains": "trip", "regexOnSameNode": "([0-9][0-9.,]*\\s*(?:km|m)(?![a-z]))" },
+        { "viewIdContains": "dest", "regexOnSameNode": "([0-9][0-9.,]*\\s*(?:km|m)(?![a-z]))" },
+        { "regexOnSameNode": "(?:Viaje|Trayecto|Destino)\\s*[·:]?\\s*(?:\\d+\\s*(?:h\\s*\\d+\\s*)?min\\s*[·,]?\\s*)?([0-9][0-9.,]*\\s*(?:km|m)(?![a-z]))" },
+        { "afterAnchor": { "regex": "^Viaje$|^Trayecto$|^Destino$|^Distancia del viaje$" }, "extractRegex": "([0-9][0-9.,]*\\s*(?:km|m)(?![a-z]))" }
+      ]
+    },
+    {
+      "field": "tripDurationMin",
+      "normalizer": "DURATION_MIN",
+      "strategies": [
+        { "viewIdContains": "trip", "regexOnSameNode": "(\\d+\\s*(?:h\\s*\\d+\\s*min|min))" },
+        { "viewIdContains": "dest", "regexOnSameNode": "(\\d+\\s*(?:h\\s*\\d+\\s*min|min))" },
+        { "regexOnSameNode": "(?:Viaje|Trayecto|Destino)\\s*[·:]?\\s*(\\d+\\s*(?:h\\s*\\d+\\s*min|min))" },
+        { "afterAnchor": { "regex": "^Viaje$|^Trayecto$|^Destino$|^Duraci[oó]n$" }, "extractRegex": "(\\d+\\s*(?:h\\s*\\d+\\s*min|min))" }
+      ]
+    },
+    {
+      "field": "passengerRating",
+      "normalizer": "NUMBER",
+      "strategies": [
+        { "viewIdContains": "rating", "regexOnSameNode": "([0-5][.,]\\d)" },
+        { "afterAnchor": { "regex": "Calificaci[oó]n|Valoraci[oó]n" }, "extractRegex": "([0-5][.,]\\d)" },
+        { "regexOnSameNode": "★\\s*([0-5][.,]\\d)" },
+        { "regexOnSameNode": "([0-5][.,]\\d)\\s*★" }
+      ]
+    }
+  ],
+  "variants": [
+    {
+      "tag": "bid_list",
+      "whenAnyOf": [
+        { "regex": "Pedidos disponibles" },
+        { "regex": "Ofertas de pasajero" },
+        { "regex": "\\d+\\s+ofertas" }
+      ]
+    }
+  ]
+}

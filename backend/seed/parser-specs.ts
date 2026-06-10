@@ -1,7 +1,8 @@
 /**
- * Seed `parser_configs` with the initial OTA bundle: the Uber MX (B-029) and DiDi MX (B-030) parser
- * specs (B-033). These mirror the JSON bundled in the Android `:parsers` module exactly — vendored
- * here under `seed/specs/` so the served bundle and the on-device fallback start identical.
+ * Seed `parser_configs` with the initial OTA bundle: the Uber MX (B-029), DiDi MX (B-030) and
+ * inDrive MX (B-035) parser specs. These mirror the JSON bundled in the Android `:parsers` module
+ * exactly — vendored here under `seed/specs/` so the served bundle and the on-device fallback start
+ * identical.
  *
  * Idempotent: upserts on the (target_package, version_range, spec_version) unique index.
  *
@@ -46,9 +47,9 @@ function loadSpec(file: string): SeedSpec {
   };
 }
 
-/** The two launch-day specs that make up the initial signed bundle. */
+/** The launch-day specs that make up the initial signed bundle. */
 export function buildParserSpecRows(): SeedSpec[] {
-  return [loadSpec("uber-driver.json"), loadSpec("didi-mx.json")];
+  return [loadSpec("uber-driver.json"), loadSpec("didi-mx.json"), loadSpec("indrive-mx.json")];
 }
 
 async function main(): Promise<void> {
