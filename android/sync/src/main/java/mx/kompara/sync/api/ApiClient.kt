@@ -34,11 +34,17 @@ fun interface TokenProvider {
     suspend fun currentToken(): String?
 }
 
+/** Supplies the stable anonymous device id for device-authed endpoints (B-034 fixture reports). */
+fun interface DeviceIdProvider {
+    suspend fun deviceId(): String
+}
+
 @Singleton
 class ApiClient @Inject constructor(
     private val http: HttpClient,
     private val baseUrl: String,
     private val tokenProvider: TokenProvider,
+    private val deviceIdProvider: DeviceIdProvider,
 ) {
     /** POST /v1/auth/otp/request — request a WhatsApp OTP. Always succeeds (200). */
     suspend fun requestOtp(phone: String) {
@@ -97,6 +103,35 @@ class ApiClient @Inject constructor(
         return res.body<MeResponse>().driver
     }
 
+    /**
+     * POST /v1/telemetry — push one accumulated parse-health counter bucket
+     * (B-034). Anonymous (no auth); the body is integer counters + host/spec
+     * identifiers only — never screen content.
+     */
+    suspend fun uploadTelemetryCounter(body: TelemetryCounterBody) {
+        ensureOk(
+            http.post("$baseUrl/v1/telemetry") {
+                contentType(ContentType.Application.Json)
+                setBody(body)
+            },
+        )
+    }
+
+    /**
+     * POST /v1/fixture-reports — device-authed, consented submission of a
+     * PII-scrubbed snapshot the parser couldn't read (B-034). Sends the stable
+     * anonymous device id in `X-Device-Id`.
+     */
+    suspend fun uploadFixtureReport(body: FixtureReportBody) {
+        ensureOk(
+            http.post("$baseUrl/v1/fixture-reports") {
+                header(HEADER_DEVICE_ID, deviceIdProvider.deviceId())
+                contentType(ContentType.Application.Json)
+                setBody(body)
+            },
+        )
+    }
+
     private suspend fun io.ktor.client.request.HttpRequestBuilder.bearer() {
         tokenProvider.currentToken()?.let { header(HttpHeaders.Authorization, "Bearer $it") }
     }
@@ -109,4 +144,8 @@ class ApiClient @Inject constructor(
     }
 
     private fun HttpStatusCode.isSuccess(): Boolean = value in 200..299
+
+    private companion object {
+        const val HEADER_DEVICE_ID = "X-Device-Id"
+    }
 }

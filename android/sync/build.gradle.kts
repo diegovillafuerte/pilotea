@@ -37,6 +37,8 @@ android {
 
 dependencies {
     implementation(project(":data"))
+    // ParserSnapshot is deserialized when rebuilding a fixture-report payload (B-034).
+    implementation(project(":parsers"))
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.serialization.json)
 
@@ -48,6 +50,11 @@ dependencies {
 
     // Anonymous device id + session token persistence.
     implementation(libs.androidx.datastore.preferences)
+
+    // WorkManager for the periodic + on-demand telemetry upload (B-034).
+    implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.androidx.hilt.work)
+    ksp(libs.androidx.hilt.compiler)
 
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)

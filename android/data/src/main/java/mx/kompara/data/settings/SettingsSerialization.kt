@@ -15,6 +15,9 @@ object SettingsSerialization {
 
     const val KEY_ENABLED_PLATFORMS = "enabled_platforms"
 
+    /** Boolean key for the anonymous-telemetry consent toggle (B-034). */
+    const val KEY_TELEMETRY_ENABLED = "telemetry_enabled"
+
     fun perKmKey(platform: Platform): String = "threshold_${platform.name}_per_km"
     fun perHourKey(platform: Platform): String = "threshold_${platform.name}_per_hour"
 
@@ -31,10 +34,13 @@ object SettingsSerialization {
     /**
      * Reconstruct [Settings] from a flat lookup of stored preferences. [lookupDouble] returns
      * null when a key is absent (so defaults apply); [enabledNames] is the stored name set.
+     * [lookupBoolean] returns null when the telemetry toggle has never been written, in which
+     * case the default ([Settings.DEFAULT_TELEMETRY_ENABLED]) applies.
      */
     fun decode(
         enabledNames: Set<String>?,
         lookupDouble: (String) -> Double?,
+        lookupBoolean: (String) -> Boolean? = { null },
     ): Settings {
         val thresholds = mutableMapOf<Platform, PlatformThreshold>()
         for (platform in Platform.entries) {
@@ -50,6 +56,8 @@ object SettingsSerialization {
         return Settings(
             enabledPlatforms = decodeEnabledPlatforms(enabledNames),
             thresholds = thresholds,
+            telemetryEnabled = lookupBoolean(KEY_TELEMETRY_ENABLED)
+                ?: Settings.DEFAULT_TELEMETRY_ENABLED,
         )
     }
 }

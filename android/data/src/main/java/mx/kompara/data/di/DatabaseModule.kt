@@ -9,8 +9,10 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import mx.kompara.data.db.KomparaDatabase
 import mx.kompara.data.db.dao.CostProfileDao
+import mx.kompara.data.db.dao.FixtureReportDao
 import mx.kompara.data.db.dao.OfferDao
 import mx.kompara.data.db.dao.ShiftDao
+import mx.kompara.data.db.dao.TelemetryCounterDao
 import mx.kompara.data.db.dao.TripDao
 import javax.inject.Singleton
 
@@ -38,4 +40,11 @@ object DatabaseModule {
 
     @Provides
     fun provideCostProfileDao(db: KomparaDatabase): CostProfileDao = db.costProfileDao()
+
+    @Provides
+    fun provideTelemetryCounterDao(db: KomparaDatabase): TelemetryCounterDao =
+        db.telemetryCounterDao()
+
+    @Provides
+    fun provideFixtureReportDao(db: KomparaDatabase): FixtureReportDao = db.fixtureReportDao()
 }

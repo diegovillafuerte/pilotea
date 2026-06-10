@@ -2,10 +2,12 @@ package mx.kompara.data.settings
 
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.doublePreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import mx.kompara.data.model.Platform
 import javax.inject.Inject
@@ -23,8 +25,18 @@ class SettingsRepository @Inject constructor(
 ) {
     private val enabledPlatformsKey =
         stringSetPreferencesKey(SettingsSerialization.KEY_ENABLED_PLATFORMS)
+    private val telemetryEnabledKey =
+        booleanPreferencesKey(SettingsSerialization.KEY_TELEMETRY_ENABLED)
 
     val settings: Flow<Settings> = dataStore.data.map { prefs -> prefs.toSettings() }
+
+    /** Snapshot read of whether anonymous telemetry upload is currently allowed. */
+    suspend fun isTelemetryEnabled(): Boolean = settings.first().telemetryEnabled
+
+    /** Turn anonymous parse-health telemetry upload on or off (B-034). */
+    suspend fun setTelemetryEnabled(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[telemetryEnabledKey] = enabled }
+    }
 
     /** Enable or disable capture/verdicts for a single platform. */
     suspend fun setPlatformEnabled(platform: Platform, enabled: Boolean) {
@@ -51,5 +63,6 @@ class SettingsRepository @Inject constructor(
         SettingsSerialization.decode(
             enabledNames = this[enabledPlatformsKey],
             lookupDouble = { key -> this[doublePreferencesKey(key)] },
+            lookupBoolean = { key -> this[booleanPreferencesKey(key)] },
         )
 }

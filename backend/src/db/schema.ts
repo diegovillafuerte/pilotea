@@ -254,3 +254,34 @@ export const telemetryCounters = pgTable(
     ),
   ],
 );
+
+// ─── fixture_reports ───────────────────────────────────────────
+// Driver-submitted "Reportar tarjeta no leída" reports: a PII-scrubbed
+// accessibility snapshot the on-device SnapshotScrubber failed to parse, sent
+// with explicit per-report consent so it can feed the parser-spec corpus
+// (B-028). Device-authed (anonymous deviceId), rate-limited per device, and
+// capped at 50 KB. The `snapshot` jsonb holds ONLY the scrubbed structural
+// shape (packageName, versionCode, masked node texts/bounds/viewIds) — no raw
+// passenger names, plates, phones, or addresses survive the on-device scrub.
+export const fixtureReports = pgTable(
+  "fixture_reports",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    // The reporting device (anonymous-first). References devices.device_id via
+    // app logic (validated at the route) rather than an FK, so a report from an
+    // un-registered device is rejected with a 401 instead of an FK error.
+    deviceId: uuid("device_id").notNull(),
+    hostPackage: varchar("host_package", { length: 255 }).notNull(),
+    hostVersion: varchar("host_version", { length: 100 }),
+    specVersion: integer("spec_version"),
+    // Why the on-device parser produced no card (NO_SPEC / NOT_AN_OFFER / other).
+    reason: varchar("reason", { length: 40 }),
+    // The scrubbed ParserSnapshot shape. Structural only; PII already masked.
+    snapshot: jsonb("snapshot").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    // Rate-limit lookups count a device's reports in the trailing window.
+    index("idx_fixture_reports_device_created").on(table.deviceId, table.createdAt),
+  ],
+);

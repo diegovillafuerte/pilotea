@@ -21,6 +21,6 @@
     "sourceMap": true,
     "verbatimModuleSyntax": true
   },
-  "include": ["src/**/*.ts", "seed/**/*.ts", "drizzle.config.ts"],
+  "include": ["src/**/*.ts", "seed/**/*.ts", "scripts/**/*.ts", "drizzle.config.ts"],
   "exclude": ["node_modules", "dist"]
 }

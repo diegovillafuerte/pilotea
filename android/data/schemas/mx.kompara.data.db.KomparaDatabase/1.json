@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "271204aafe9fcdc683517811d718635b",
+    "identityHash": "f0ac7904a53f82bb8c4caf22758d8491",
     "entities": [
       {
         "tableName": "offers",
@@ -251,11 +251,144 @@
             "id"
           ]
         }
+      },
+      {
+        "tableName": "telemetry_counters",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`hostPackage` TEXT NOT NULL, `hostVersionCode` INTEGER NOT NULL, `specVersion` INTEGER NOT NULL, `variant` TEXT NOT NULL, `dayUtc` TEXT NOT NULL, `attempts` INTEGER NOT NULL, `successes` INTEGER NOT NULL, `failures` INTEGER NOT NULL, PRIMARY KEY(`hostPackage`, `hostVersionCode`, `specVersion`, `variant`, `dayUtc`))",
+        "fields": [
+          {
+            "fieldPath": "hostPackage",
+            "columnName": "hostPackage",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hostVersionCode",
+            "columnName": "hostVersionCode",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "specVersion",
+            "columnName": "specVersion",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "variant",
+            "columnName": "variant",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dayUtc",
+            "columnName": "dayUtc",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "attempts",
+            "columnName": "attempts",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "successes",
+            "columnName": "successes",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "failures",
+            "columnName": "failures",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "hostPackage",
+            "hostVersionCode",
+            "specVersion",
+            "variant",
+            "dayUtc"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_telemetry_counters_dayUtc",
+            "unique": false,
+            "columnNames": [
+              "dayUtc"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_telemetry_counters_dayUtc` ON `${TABLE_NAME}` (`dayUtc`)"
+          }
+        ]
+      },
+      {
+        "tableName": "fixture_reports",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `hostPackage` TEXT NOT NULL, `hostVersionCode` INTEGER, `specVersion` INTEGER, `reason` TEXT NOT NULL, `snapshotJson` TEXT NOT NULL, `consented` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hostPackage",
+            "columnName": "hostPackage",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hostVersionCode",
+            "columnName": "hostVersionCode",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "specVersion",
+            "columnName": "specVersion",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "reason",
+            "columnName": "reason",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "snapshotJson",
+            "columnName": "snapshotJson",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "consented",
+            "columnName": "consented",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        }
       }
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '271204aafe9fcdc683517811d718635b')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'f0ac7904a53f82bb8c4caf22758d8491')"
     ]
   }
 }

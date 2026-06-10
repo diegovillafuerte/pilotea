@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import dagger.Module
 import dagger.Provides
@@ -18,7 +19,9 @@ import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.Json
 import mx.kompara.sync.BuildConfig
 import mx.kompara.sync.api.ApiClient
+import mx.kompara.sync.api.DeviceIdProvider
 import mx.kompara.sync.api.TokenProvider
+import java.util.UUID
 import javax.inject.Qualifier
 import javax.inject.Singleton
 
@@ -47,6 +50,10 @@ object ApiModule {
 
     private const val AUTH_FILE = "kompara_auth"
     private const val KEY_SESSION_TOKEN = "session_token"
+
+    // MUST match AuthRepository.KEY_DEVICE_ID so the device-id provider and the
+    // repository share the one stable anonymous install id.
+    private const val KEY_DEVICE_ID = "anonymous_device_id"
 
     @Provides
     @Singleton
@@ -78,6 +85,27 @@ object ApiModule {
         dataStore.data.first()[stringPreferencesKey(KEY_SESSION_TOKEN)]
     }
 
+    /**
+     * Supplies the stable anonymous device id, reading the SAME DataStore key as
+     * [mx.kompara.sync.auth.AuthRepository]. Reads directly from DataStore (not
+     * via AuthRepository) to keep the graph acyclic — ApiClient depends on this
+     * provider, and AuthRepository depends on ApiClient. Generates + persists the
+     * id if it hasn't been created yet (mirrors AuthRepository's first-run logic),
+     * so a device-authed call works even before the first AuthRepository.deviceId().
+     */
+    @Provides
+    @Singleton
+    fun provideDeviceIdProvider(
+        @AuthDataStore dataStore: DataStore<Preferences>,
+    ): DeviceIdProvider = DeviceIdProvider {
+        val key = stringPreferencesKey(KEY_DEVICE_ID)
+        dataStore.data.first()[key] ?: run {
+            val generated = UUID.randomUUID().toString()
+            dataStore.edit { it[key] = generated }
+            generated
+        }
+    }
+
     @Provides
     @Singleton
     fun provideHttpClient(json: Json): HttpClient = HttpClient(OkHttp) {
@@ -91,5 +119,6 @@ object ApiModule {
         http: HttpClient,
         @ApiBaseUrl baseUrl: String,
         tokenProvider: TokenProvider,
-    ): ApiClient = ApiClient(http, baseUrl, tokenProvider)
+        deviceIdProvider: DeviceIdProvider,
+    ): ApiClient = ApiClient(http, baseUrl, tokenProvider, deviceIdProvider)
 }

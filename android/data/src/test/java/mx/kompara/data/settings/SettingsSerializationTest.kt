@@ -78,4 +78,25 @@ class SettingsSerializationTest {
         assertTrue(settings.isEnabled(Platform.UBER))
         assertFalse(settings.isEnabled(Platform.DIDI))
     }
+
+    @Test
+    fun `telemetry defaults ON when never written and reads a stored value`() {
+        // Never written → default ON (anonymous counters carry no personal data).
+        val default = SettingsSerialization.decode(
+            enabledNames = null,
+            lookupDouble = { null },
+            lookupBoolean = { null },
+        )
+        assertTrue(default.telemetryEnabled)
+
+        // Explicitly disabled → reads false.
+        val disabled = SettingsSerialization.decode(
+            enabledNames = null,
+            lookupDouble = { null },
+            lookupBoolean = { key ->
+                if (key == SettingsSerialization.KEY_TELEMETRY_ENABLED) false else null
+            },
+        )
+        assertFalse(disabled.telemetryEnabled)
+    }
 }
