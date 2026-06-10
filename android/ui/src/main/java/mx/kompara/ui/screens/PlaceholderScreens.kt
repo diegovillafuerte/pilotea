@@ -1,5 +1,6 @@
 package mx.kompara.ui.screens
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.DateRange
@@ -7,11 +8,17 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import mx.kompara.ui.InicioViewModel
 import mx.kompara.ui.R
 import mx.kompara.ui.components.EmptyState
+import mx.kompara.ui.components.WatchdogBanner
+import mx.kompara.ui.onboarding.WatchdogState
 import mx.kompara.ui.theme.KomparaTheme
 
 /**
@@ -21,15 +28,23 @@ import mx.kompara.ui.theme.KomparaTheme
  */
 
 @Composable
-fun InicioScreen(modifier: Modifier = Modifier) {
-    EmptyState(
-        icon = Icons.Filled.Home,
-        title = stringResource(R.string.inicio_empty_title),
-        body = stringResource(R.string.inicio_empty_body),
-        ctaText = stringResource(R.string.inicio_empty_cta),
-        onCtaClick = {},
-        modifier = modifier,
-    )
+fun InicioScreen(
+    modifier: Modifier = Modifier,
+    viewModel: InicioViewModel = hiltViewModel(),
+) {
+    val watchdogState by viewModel.watchdogState.collectAsStateWithLifecycle()
+    Column(modifier = modifier) {
+        if (watchdogState == WatchdogState.DROPPED) {
+            WatchdogBanner(onReEnable = viewModel::reEnableReader)
+        }
+        EmptyState(
+            icon = Icons.Filled.Home,
+            title = stringResource(R.string.inicio_empty_title),
+            body = stringResource(R.string.inicio_empty_body),
+            ctaText = stringResource(R.string.inicio_empty_cta),
+            onCtaClick = {},
+        )
+    }
 }
 
 @Composable
@@ -89,7 +104,17 @@ fun AjustesScreen(
 @Preview(showBackground = true, name = "Inicio — placeholder")
 @Composable
 private fun InicioScreenPreview() {
-    KomparaTheme { InicioScreen() }
+    // Render the empty state directly: InicioScreen() resolves a hiltViewModel() which the preview
+    // renderer can't construct.
+    KomparaTheme {
+        EmptyState(
+            icon = Icons.Filled.Home,
+            title = stringResource(R.string.inicio_empty_title),
+            body = stringResource(R.string.inicio_empty_body),
+            ctaText = stringResource(R.string.inicio_empty_cta),
+            onCtaClick = {},
+        )
+    }
 }
 
 @Preview(showBackground = true, name = "Lector — placeholder")

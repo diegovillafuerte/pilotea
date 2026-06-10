@@ -6,6 +6,10 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
+    <!-- Service-health watchdog: alert the driver if an OEM task killer disables the reader (B-036).
+         Requested contextually on the onboarding done screen on Android 13+. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <application
         android:name=".KomparaApplication"
         android:allowBackup="true"

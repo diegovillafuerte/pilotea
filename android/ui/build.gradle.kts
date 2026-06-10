@@ -28,6 +28,10 @@ dependencies {
     implementation(project(":data"))
     implementation(project(":metrics"))
     implementation(libs.kotlinx.coroutines.core)
+    // androidx.core: NotificationCompat / ContextCompat for the service-health watchdog (B-036).
+    implementation(libs.androidx.core.ktx)
+    // DataStore: the onboarding funnel counters share the app preferences store (B-036).
+    implementation(libs.androidx.datastore.preferences)
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)

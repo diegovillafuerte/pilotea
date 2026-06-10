@@ -99,4 +99,25 @@ class SettingsSerializationTest {
         )
         assertFalse(disabled.telemetryEnabled)
     }
+
+    @Test
+    fun `onboarding defaults to incomplete when never written and reads a stored value`() {
+        // Fresh install → onboarding pending (route to the funnel).
+        val fresh = SettingsSerialization.decode(
+            enabledNames = null,
+            lookupDouble = { null },
+            lookupBoolean = { null },
+        )
+        assertFalse(fresh.onboardingCompleted)
+
+        // Completed previously → reads true (route straight to the main shell).
+        val completed = SettingsSerialization.decode(
+            enabledNames = null,
+            lookupDouble = { null },
+            lookupBoolean = { key ->
+                if (key == SettingsSerialization.KEY_ONBOARDING_COMPLETED) true else null
+            },
+        )
+        assertTrue(completed.onboardingCompleted)
+    }
 }

@@ -21,6 +21,13 @@ data class Settings(
      * separate, always-explicit opt-in and are NOT gated by this flag.)
      */
     val telemetryEnabled: Boolean = DEFAULT_TELEMETRY_ENABLED,
+    /**
+     * Whether the driver has finished the onboarding funnel (value pitch → prominent disclosure →
+     * accessibility grant → OEM survival kit → ready). Default OFF: the root composable routes to
+     * onboarding until this flips true, after which it shows the main shell and arms the service
+     * watchdog (B-036).
+     */
+    val onboardingCompleted: Boolean = DEFAULT_ONBOARDING_COMPLETED,
 ) {
     /** Threshold for [platform], or the default when none has been set. */
     fun thresholdFor(platform: Platform): PlatformThreshold =
@@ -33,11 +40,15 @@ data class Settings(
         /** Anonymous telemetry is on by default (no personal data — see [telemetryEnabled]). */
         const val DEFAULT_TELEMETRY_ENABLED = true
 
-        /** Launch defaults: Uber + DiDi enabled, default thresholds, telemetry on. */
+        /** Onboarding has not run yet for a fresh install — route to the funnel first (B-036). */
+        const val DEFAULT_ONBOARDING_COMPLETED = false
+
+        /** Launch defaults: Uber + DiDi enabled, default thresholds, telemetry on, onboarding pending. */
         val DEFAULT = Settings(
             enabledPlatforms = setOf(Platform.UBER, Platform.DIDI),
             thresholds = emptyMap(),
             telemetryEnabled = DEFAULT_TELEMETRY_ENABLED,
+            onboardingCompleted = DEFAULT_ONBOARDING_COMPLETED,
         )
     }
 }

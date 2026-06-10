@@ -18,6 +18,9 @@ object SettingsSerialization {
     /** Boolean key for the anonymous-telemetry consent toggle (B-034). */
     const val KEY_TELEMETRY_ENABLED = "telemetry_enabled"
 
+    /** Boolean key for whether the onboarding funnel has been completed (B-036). */
+    const val KEY_ONBOARDING_COMPLETED = "onboarding_completed"
+
     fun perKmKey(platform: Platform): String = "threshold_${platform.name}_per_km"
     fun perHourKey(platform: Platform): String = "threshold_${platform.name}_per_hour"
 
@@ -58,6 +61,8 @@ object SettingsSerialization {
             thresholds = thresholds,
             telemetryEnabled = lookupBoolean(KEY_TELEMETRY_ENABLED)
                 ?: Settings.DEFAULT_TELEMETRY_ENABLED,
+            onboardingCompleted = lookupBoolean(KEY_ONBOARDING_COMPLETED)
+                ?: Settings.DEFAULT_ONBOARDING_COMPLETED,
         )
     }
 }

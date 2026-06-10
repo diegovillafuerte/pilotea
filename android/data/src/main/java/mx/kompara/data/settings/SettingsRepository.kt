@@ -27,6 +27,8 @@ class SettingsRepository @Inject constructor(
         stringSetPreferencesKey(SettingsSerialization.KEY_ENABLED_PLATFORMS)
     private val telemetryEnabledKey =
         booleanPreferencesKey(SettingsSerialization.KEY_TELEMETRY_ENABLED)
+    private val onboardingCompletedKey =
+        booleanPreferencesKey(SettingsSerialization.KEY_ONBOARDING_COMPLETED)
 
     val settings: Flow<Settings> = dataStore.data.map { prefs -> prefs.toSettings() }
 
@@ -36,6 +38,14 @@ class SettingsRepository @Inject constructor(
     /** Turn anonymous parse-health telemetry upload on or off (B-034). */
     suspend fun setTelemetryEnabled(enabled: Boolean) {
         dataStore.edit { prefs -> prefs[telemetryEnabledKey] = enabled }
+    }
+
+    /** Snapshot read of whether the onboarding funnel has been completed (B-036). */
+    suspend fun isOnboardingCompleted(): Boolean = settings.first().onboardingCompleted
+
+    /** Mark the onboarding funnel as completed; flips the root composable to the main shell (B-036). */
+    suspend fun setOnboardingCompleted(completed: Boolean) {
+        dataStore.edit { prefs -> prefs[onboardingCompletedKey] = completed }
     }
 
     /** Enable or disable capture/verdicts for a single platform. */

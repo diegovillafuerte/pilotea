@@ -14,6 +14,7 @@ import mx.kompara.capture.telemetry.TelemetryCollector
 import mx.kompara.sync.spec.SpecConfigRefreshWorker
 import mx.kompara.sync.spec.SpecConfigRepository
 import mx.kompara.sync.telemetry.TelemetryScheduler
+import mx.kompara.ui.onboarding.ServiceWatchdog
 import javax.inject.Inject
 
 /**
@@ -45,6 +46,9 @@ class KomparaApplication : Application(), Configuration.Provider {
     @Inject lateinit var specConfigRepository: SpecConfigRepository
     @Inject lateinit var workManager: WorkManager
 
+    // B-036 service-health watchdog (alerts when an OEM task killer disables the reader).
+    @Inject lateinit var serviceWatchdog: ServiceWatchdog
+
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     override val workManagerConfiguration: Configuration
@@ -68,5 +72,9 @@ class KomparaApplication : Application(), Configuration.Provider {
         // newer (B-033).
         appScope.launch { specConfigRepository.refresh() }
         SpecConfigRefreshWorker.schedule(workManager)
+
+        // Watch reader-service health once onboarding completes; alert (notification + in-app
+        // banner) if an OEM task killer disables the accessibility service mid-shift (B-036).
+        serviceWatchdog.start(appScope)
     }
 }

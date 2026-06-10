@@ -4,11 +4,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -29,10 +31,16 @@ import mx.kompara.ui.theme.KomparaTheme
  * the offer simulator screen) inject its own routes into the shared [NavHost]. `:app` is the only
  * place that depends on both `:ui` and those modules, so it supplies this. The lambda receives the
  * [NavController] so extra screens can navigate too.
+ *
+ * @param navigateToReaderTrial when true (set right after onboarding's "Probar el lector" CTA), the
+ *   shell navigates on first composition to the offer simulator if its route is present in the graph
+ *   (registered via [registerExtraDestinations]), otherwise to the Lector tab. Checked at runtime so
+ *   this file does not have to know whether the simulator has been registered.
  */
 @Composable
 fun KomparaApp(
     modifier: Modifier = Modifier,
+    navigateToReaderTrial: Boolean = false,
     registerExtraDestinations: NavGraphBuilder.(NavController) -> Unit = {},
 ) {
     val navController = rememberNavController()
@@ -40,6 +48,10 @@ fun KomparaApp(
     val current = backStackEntry?.destination?.route
         ?.let { route -> KomparaDestination.entries.firstOrNull { it.route == route } }
         ?: KomparaDestination.START
+
+    if (navigateToReaderTrial) {
+        LaunchedEffect(Unit) { navController.navigateToReaderTrial() }
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -71,6 +83,28 @@ fun KomparaApp(
             tabScreens(onOpenSimulator = { navController.navigate(KomparaDestination.SIMULATOR_ROUTE) })
             registerExtraDestinations(navController)
         }
+    }
+}
+
+/**
+ * Navigate to the offer simulator if its route was registered into the graph (via
+ * [KomparaApp]'s `registerExtraDestinations`), otherwise fall back to the Lector tab. Backs the
+ * onboarding "Probar el lector" CTA — see [KomparaApp]'s `navigateToReaderTrial`. The runtime graph
+ * check keeps `:ui` from hard-depending on whether `:overlay` registered the simulator.
+ */
+private fun NavHostController.navigateToReaderTrial() {
+    val hasSimulator = runCatching {
+        graph.any { node -> node.route == KomparaDestination.SIMULATOR_ROUTE }
+    }.getOrDefault(false)
+    val target = if (hasSimulator) {
+        KomparaDestination.SIMULATOR_ROUTE
+    } else {
+        KomparaDestination.LECTOR.route
+    }
+    navigate(target) {
+        popUpTo(KomparaDestination.START.route) { saveState = true }
+        launchSingleTop = true
+        restoreState = true
     }
 }
 
