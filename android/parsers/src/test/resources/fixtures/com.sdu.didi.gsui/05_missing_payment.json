@@ -1,0 +1,28 @@
+{
+  "description": "Edge case: no payment chip present (DiDi sometimes omits it pre-acceptance). paymentType must be null; other fields still extract.",
+  "snapshot": {
+    "packageName": "com.sdu.didi.gsui",
+    "timestampMs": 1700000400000,
+    "versionCode": 12500,
+    "nodes": [
+      { "text": "Nuevo viaje", "viewId": "com.sdu.didi.gsui:id/oc_title", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 120, "right": 700, "bottom": 180 }, "depth": 2, "index": 0 },
+      { "text": "$43.80", "viewId": "com.sdu.didi.gsui:id/oc_fare_amount", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 200, "right": 360, "bottom": 280 }, "depth": 3, "index": 1 },
+      { "text": "Recoger", "viewId": "com.sdu.didi.gsui:id/oc_pickup_label", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 320, "right": 300, "bottom": 360 }, "depth": 3, "index": 2 },
+      { "text": "a 4 min (1.8 km)", "viewId": "com.sdu.didi.gsui:id/oc_pickup_eta", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 360, "right": 600, "bottom": 400 }, "depth": 4, "index": 3 },
+      { "text": "Destino", "viewId": "com.sdu.didi.gsui:id/oc_trip_label", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 440, "right": 300, "bottom": 480 }, "depth": 3, "index": 4 },
+      { "text": "9 min (3.4 km)", "viewId": "com.sdu.didi.gsui:id/oc_trip_eta", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 480, "right": 600, "bottom": 520 }, "depth": 4, "index": 5 },
+      { "text": "Aceptar", "viewId": "com.sdu.didi.gsui:id/oc_accept_btn", "className": "android.widget.Button", "bounds": { "left": 40, "top": 620, "right": 700, "bottom": 700 }, "depth": 2, "index": 6 }
+    ]
+  },
+  "expected": {
+    "platform": "com.sdu.didi.gsui",
+    "variant": "standard",
+    "fare": 43.8,
+    "pickupDistanceKm": 1.8,
+    "pickupEtaMin": 4.0,
+    "tripDistanceKm": 3.4,
+    "tripDurationMin": 9.0,
+    "surge": false,
+    "paymentType": null
+  }
+}

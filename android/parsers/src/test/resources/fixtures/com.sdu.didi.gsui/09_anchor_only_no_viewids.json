@@ -1,0 +1,30 @@
+{
+  "description": "Text-anchor-first proof: generic viewIds, so extraction relies on 'Recoger'/'Destino' anchors and inline 'Ganas $' fare. Validates the spec degrades gracefully when accessibility ids are unhelpful.",
+  "snapshot": {
+    "packageName": "com.sdu.didi.gsui",
+    "timestampMs": 1700000800000,
+    "versionCode": 12480,
+    "nodes": [
+      { "text": "Nuevo viaje", "viewId": "android:id/text1", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 120, "right": 700, "bottom": 180 }, "depth": 2, "index": 0 },
+      { "text": "Ganas $58.00", "viewId": "android:id/text1", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 200, "right": 420, "bottom": 280 }, "depth": 3, "index": 1 },
+      { "text": "Recoger", "viewId": "android:id/text1", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 320, "right": 300, "bottom": 360 }, "depth": 3, "index": 2 },
+      { "text": "a 4 min (2.0 km)", "viewId": "android:id/text1", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 360, "right": 600, "bottom": 400 }, "depth": 4, "index": 3 },
+      { "text": "Destino", "viewId": "android:id/text1", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 440, "right": 300, "bottom": 480 }, "depth": 3, "index": 4 },
+      { "text": "20 min (10.0 km)", "viewId": "android:id/text1", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 480, "right": 600, "bottom": 520 }, "depth": 4, "index": 5 },
+      { "text": "Pago", "viewId": "android:id/text1", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 560, "right": 200, "bottom": 600 }, "depth": 3, "index": 6 },
+      { "text": "Efectivo", "viewId": "android:id/text1", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 600, "right": 240, "bottom": 640 }, "depth": 4, "index": 7 },
+      { "text": "Aceptar", "viewId": "android:id/button1", "className": "android.widget.Button", "bounds": { "left": 40, "top": 700, "right": 700, "bottom": 780 }, "depth": 2, "index": 8 }
+    ]
+  },
+  "expected": {
+    "platform": "com.sdu.didi.gsui",
+    "variant": "standard",
+    "fare": 58.0,
+    "pickupDistanceKm": 2.0,
+    "pickupEtaMin": 4.0,
+    "tripDistanceKm": 10.0,
+    "tripDurationMin": 20.0,
+    "surge": false,
+    "paymentType": "Efectivo"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "description": "Bonus variant: '+$15 extra' surge chip sets variant=bonus and surge=true. Cash payment.",
+  "snapshot": {
+    "packageName": "com.sdu.didi.gsui",
+    "timestampMs": 1700000200000,
+    "versionCode": 12530,
+    "nodes": [
+      { "text": "Nuevo viaje", "viewId": "com.sdu.didi.gsui:id/oc_title", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 120, "right": 700, "bottom": 180 }, "depth": 2, "index": 0 },
+      { "text": "+$15 extra", "viewId": "com.sdu.didi.gsui:id/oc_bonus_badge", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 185, "right": 360, "bottom": 215 }, "depth": 3, "index": 1 },
+      { "text": "$72.00", "viewId": "com.sdu.didi.gsui:id/oc_fare_amount", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 220, "right": 360, "bottom": 300 }, "depth": 3, "index": 2 },
+      { "text": "Recoger", "viewId": "com.sdu.didi.gsui:id/oc_pickup_label", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 340, "right": 300, "bottom": 380 }, "depth": 3, "index": 3 },
+      { "text": "a 5 min (2.1 km)", "viewId": "com.sdu.didi.gsui:id/oc_pickup_eta", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 380, "right": 600, "bottom": 420 }, "depth": 4, "index": 4 },
+      { "text": "Destino", "viewId": "com.sdu.didi.gsui:id/oc_trip_label", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 460, "right": 300, "bottom": 500 }, "depth": 3, "index": 5 },
+      { "text": "22 min (11.3 km)", "viewId": "com.sdu.didi.gsui:id/oc_trip_eta", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 500, "right": 600, "bottom": 540 }, "depth": 4, "index": 6 },
+      { "text": "Efectivo", "viewId": "com.sdu.didi.gsui:id/oc_payment_chip", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 580, "right": 240, "bottom": 630 }, "depth": 3, "index": 7 },
+      { "text": "Aceptar", "viewId": "com.sdu.didi.gsui:id/oc_accept_btn", "className": "android.widget.Button", "bounds": { "left": 40, "top": 700, "right": 700, "bottom": 780 }, "depth": 2, "index": 8 }
+    ]
+  },
+  "expected": {
+    "platform": "com.sdu.didi.gsui",
+    "variant": "bonus",
+    "fare": 72.0,
+    "pickupDistanceKm": 2.1,
+    "pickupEtaMin": 5.0,
+    "tripDistanceKm": 11.3,
+    "tripDurationMin": 22.0,
+    "surge": true,
+    "paymentType": "Efectivo"
+  }
+}

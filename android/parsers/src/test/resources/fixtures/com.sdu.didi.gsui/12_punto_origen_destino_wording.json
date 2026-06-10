@@ -1,0 +1,31 @@
+{
+  "description": "Wording variant: 'Punto de origen'/'Punto de destino' labels instead of 'Recoger'/'Destino'. Fare via 'Tarifa' anchor (no fare viewId hint). Cash.",
+  "snapshot": {
+    "packageName": "com.sdu.didi.gsui",
+    "timestampMs": 1700001100000,
+    "versionCode": 12550,
+    "nodes": [
+      { "text": "Tienes un viaje", "viewId": "com.sdu.didi.gsui:id/oc_title", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 120, "right": 700, "bottom": 180 }, "depth": 2, "index": 0 },
+      { "text": "Tarifa", "viewId": "com.sdu.didi.gsui:id/oc_lbl_a", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 200, "right": 260, "bottom": 250 }, "depth": 3, "index": 1 },
+      { "text": "$66.90", "viewId": "com.sdu.didi.gsui:id/oc_val_a", "className": "android.widget.TextView", "bounds": { "left": 280, "top": 200, "right": 520, "bottom": 250 }, "depth": 3, "index": 2 },
+      { "text": "Punto de origen", "viewId": "com.sdu.didi.gsui:id/oc_lbl_b", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 320, "right": 360, "bottom": 360 }, "depth": 3, "index": 3 },
+      { "text": "a 6 min (3.3 km)", "viewId": "com.sdu.didi.gsui:id/oc_val_b", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 360, "right": 600, "bottom": 400 }, "depth": 4, "index": 4 },
+      { "text": "Punto de destino", "viewId": "com.sdu.didi.gsui:id/oc_lbl_c", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 440, "right": 360, "bottom": 480 }, "depth": 3, "index": 5 },
+      { "text": "31 min (16.7 km)", "viewId": "com.sdu.didi.gsui:id/oc_val_c", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 480, "right": 600, "bottom": 520 }, "depth": 4, "index": 6 },
+      { "text": "Pago", "viewId": "com.sdu.didi.gsui:id/oc_lbl_d", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 560, "right": 200, "bottom": 600 }, "depth": 3, "index": 7 },
+      { "text": "Efectivo", "viewId": "com.sdu.didi.gsui:id/oc_val_d", "className": "android.widget.TextView", "bounds": { "left": 280, "top": 560, "right": 480, "bottom": 600 }, "depth": 3, "index": 8 },
+      { "text": "Aceptar", "viewId": "com.sdu.didi.gsui:id/oc_accept_btn", "className": "android.widget.Button", "bounds": { "left": 40, "top": 680, "right": 700, "bottom": 760 }, "depth": 2, "index": 9 }
+    ]
+  },
+  "expected": {
+    "platform": "com.sdu.didi.gsui",
+    "variant": "standard",
+    "fare": 66.9,
+    "pickupDistanceKm": 3.3,
+    "pickupEtaMin": 6.0,
+    "tripDistanceKm": 16.7,
+    "tripDurationMin": 31.0,
+    "surge": false,
+    "paymentType": "Efectivo"
+  }
+}
