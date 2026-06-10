@@ -353,6 +353,49 @@
     <string name="fiscal_settings_monthly_summary">Resumen de IMSS a fin de mes</string>
 
     <!-- ============================================================= -->
+    <!-- Resumen fiscal mensual + exportar PDF (B-052).                -->
+    <!-- Régimen de plataformas tecnológicas (LISR). Estimaciones.      -->
+    <!-- ============================================================= -->
+    <string name="fiscal_summary_title">Resumen fiscal</string>
+    <string name="fiscal_summary_view_month">Mes</string>
+    <string name="fiscal_summary_view_ytd">Año (acum.)</string>
+    <string name="fiscal_summary_empty">Cuando captures o importes viajes, verás aquí tus retenciones estimadas por plataforma.</string>
+    <string name="fiscal_summary_isr">ISR retenido (est.)</string>
+    <string name="fiscal_summary_iva">IVA retenido (est.)</string>
+    <string name="fiscal_summary_total_withheld">Total retenido (est.)</string>
+    <string name="fiscal_summary_approx_note">DiDi no reporta su comisión, así que el neto es una aproximación (igual al bruto). Las retenciones se calculan sobre el bruto y no se ven afectadas.</string>
+
+    <!-- Botón y estados de exportación. -->
+    <string name="fiscal_export_pdf">Exportar PDF</string>
+    <string name="fiscal_export_in_progress">Generando…</string>
+    <string name="fiscal_export_hint">Comparte tu resumen por WhatsApp o correo, para tu contador o una solicitud de crédito.</string>
+
+    <!-- Explicadores del régimen (revisión legal pendiente — TODO legal-B038). -->
+    <string name="fiscal_regime_explainer_title">Régimen de plataformas: ¿qué te retienen?</string>
+    <string name="fiscal_regime_explainer_body">En el régimen de plataformas tecnológicas (LISR), Uber, DiDi e inDrive retienen impuestos sobre tus tarifas brutas y los enteran al SAT por ti. Para transporte de pasajeros, la retención estimada es 2.1% de ISR y 8% de IVA (la mitad del IVA, para quien tiene RFC).</string>
+    <string name="fiscal_regime_explainer_csf">Para que las retenciones cuenten como tu pago definitivo necesitas estar dado de alta en el SAT (tu Constancia de Situación Fiscal, CSF) con tu RFC y régimen. Sin RFC, la plataforma puede retenerte tasas más altas. Tu CFDI/constancia de la plataforma es el dato oficial; esto es solo una estimación.</string>
+    <string name="fiscal_regime_explainer_harmonization">Pregunta abierta: la reforma laboral del IMSS (cobertura por plataforma) y el régimen fiscal del SAT aún no están del todo armonizados. Cómo se cruzan tu cobertura del IMSS y tus retenciones de ISR/IVA puede cambiar; lo iremos actualizando.</string>
+
+    <!-- ===== Contenido del PDF mensual (B-052) ===== -->
+    <string name="fiscal_pdf_title">Resumen fiscal mensual</string>
+    <string name="fiscal_pdf_col_platform">Plataforma</string>
+    <string name="fiscal_pdf_col_gross">Bruto</string>
+    <string name="fiscal_pdf_col_net">Neto</string>
+    <string name="fiscal_pdf_col_isr">ISR ret.</string>
+    <string name="fiscal_pdf_col_iva">IVA ret.</string>
+    <string name="fiscal_pdf_month_totals">Totales del mes</string>
+    <string name="fiscal_pdf_ytd_totals">Acumulado del año</string>
+    <string name="fiscal_pdf_approx_note">* El neto de esta plataforma es una aproximación (no reporta su comisión); se usa el bruto. Las retenciones se calculan sobre el bruto.</string>
+    <string name="fiscal_pdf_rates_note">Estimación bajo el régimen de plataformas tecnológicas (LISR art. 113-A): ISR 2.1%% e IVA 8%% sobre tarifas brutas, para transporte de pasajeros con RFC. No es asesoría fiscal.</string>
+    <string name="fiscal_pdf_disclaimer">Documento generado por Kompara con base en los datos que el usuario capturó o importó. Son estimaciones, no asesoría legal ni fiscal ni un comprobante oficial. El dato fiscal autoritativo es tu CFDI/constancia de la plataforma y el SAT.</string>
+    <string name="fiscal_pdf_generated_on">Generado el %1$s</string>
+    <string name="fiscal_pdf_imss_covered_prefix">IMSS: cobertura alcanzada este mes en</string>
+    <string name="fiscal_pdf_imss_none_covered">IMSS: ninguna plataforma alcanzó el umbral de cobertura este mes.</string>
+    <string name="fiscal_pdf_imss_no_data">IMSS: sin actividad registrada este mes.</string>
+    <string name="fiscal_pdf_share_subject">Resumen fiscal Kompara — %1$s</string>
+    <string name="fiscal_pdf_share_body">Adjunto mi resumen fiscal de %1$s (estimaciones bajo el régimen de plataformas). Generado con Kompara.</string>
+
+    <!-- ============================================================= -->
     <!-- Paywall y candados premium (B-050).                           -->
     <!-- El lector y las estadísticas de hoy SIEMPRE son gratis.       -->
     <!-- ============================================================= -->

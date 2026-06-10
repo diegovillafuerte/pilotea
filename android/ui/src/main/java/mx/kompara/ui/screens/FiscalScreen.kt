@@ -70,6 +70,8 @@ fun FiscalScreen(
         gateState = gateState,
         gateFunnel = viewModel.gateFunnel,
         onSelectMonth = viewModel::selectMonthOffset,
+        onToggleYtd = viewModel::setYtdView,
+        onExportPdf = viewModel::exportPdf,
         onUpgrade = onUpgrade,
         modifier = modifier,
     )
@@ -80,6 +82,8 @@ private fun FiscalContent(
     state: FiscalUiState,
     onSelectMonth: (Int) -> Unit,
     modifier: Modifier = Modifier,
+    onToggleYtd: (Boolean) -> Unit = {},
+    onExportPdf: () -> Unit = {},
     gateState: GateState = GateState.UNLOCKED,
     gateFunnel: GateFunnel? = null,
     onUpgrade: (GateSurface) -> Unit = {},
@@ -131,7 +135,15 @@ private fun FiscalContent(
                     }
                 }
 
+                // B-052: monthly fiscal (platform-regime withholding) summary + PDF export.
+                FiscalSummarySection(
+                    state = state,
+                    onToggleYtd = onToggleYtd,
+                    onExportPdf = onExportPdf,
+                )
+
                 ExplainerCard()
+                FiscalRegimeExplainerCard()
                 DisclaimerNote()
             }
         }
@@ -320,6 +332,200 @@ private fun DisclaimerNote() {
     )
 }
 
+// ─── B-052 fiscal withholding summary + PDF export ───────────────────────────────────────────────
+
+@Composable
+private fun FiscalSummarySection(
+    state: FiscalUiState,
+    onToggleYtd: (Boolean) -> Unit,
+    onExportPdf: () -> Unit,
+) {
+    val summary = state.fiscalSummary ?: return
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+        ) {
+            Text(
+                text = stringResource(R.string.fiscal_summary_title),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+            )
+            // Month / YTD view toggle.
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                FilterChip(
+                    selected = !state.ytdView,
+                    onClick = { onToggleYtd(false) },
+                    label = { Text(stringResource(R.string.fiscal_summary_view_month)) },
+                )
+                FilterChip(
+                    selected = state.ytdView,
+                    onClick = { onToggleYtd(true) },
+                    label = { Text(stringResource(R.string.fiscal_summary_view_ytd)) },
+                )
+            }
+        }
+
+        if (summary.isEmpty) {
+            Text(
+                text = stringResource(R.string.fiscal_summary_empty),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            return@Column
+        }
+
+        summary.platforms.forEach { p -> FiscalPlatformCard(platform = p) }
+
+        // Totals card (month or YTD per the toggle).
+        val totals = if (state.ytdView) summary.ytdTotals else summary.monthTotals
+        FiscalTotalsCard(totals = totals, ytd = state.ytdView)
+
+        if (summary.anyCommissionApproximated) {
+            Text(
+                text = "* " + stringResource(R.string.fiscal_summary_approx_note),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        androidx.compose.material3.FilledTonalButton(
+            onClick = onExportPdf,
+            enabled = state.canExport && !state.exporting,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            if (state.exporting) {
+                androidx.compose.material3.CircularProgressIndicator(
+                    modifier = Modifier.height(18.dp),
+                    strokeWidth = 2.dp,
+                )
+                Spacer(Modifier.height(0.dp))
+                Text("  " + stringResource(R.string.fiscal_export_in_progress))
+            } else {
+                Text(stringResource(R.string.fiscal_export_pdf))
+            }
+        }
+        Text(
+            text = stringResource(R.string.fiscal_export_hint),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun FiscalPlatformCard(platform: mx.kompara.metrics.fiscal.PlatformFiscalSummary) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                text = stringResource(platformChipLabel(platformOf(platform.platform))) +
+                    if (platform.commissionApproximated) " *" else "",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+            )
+            FiscalRow(stringResource(R.string.fiscal_pdf_col_gross), Formatters.formatMxn(platform.grossMxn))
+            FiscalRow(stringResource(R.string.fiscal_pdf_col_net), Formatters.formatMxn(platform.fiscalNetMxn))
+            FiscalRow(
+                stringResource(R.string.fiscal_summary_isr),
+                Formatters.formatMxn(platform.estimatedIsrMxn),
+            )
+            FiscalRow(
+                stringResource(R.string.fiscal_summary_iva),
+                Formatters.formatMxn(platform.estimatedIvaMxn),
+            )
+            FiscalRow(
+                stringResource(R.string.fiscal_summary_total_withheld),
+                Formatters.formatMxn(platform.totalWithheldMxn),
+                emphasize = true,
+            )
+        }
+    }
+}
+
+@Composable
+private fun FiscalTotalsCard(totals: mx.kompara.metrics.fiscal.FiscalTotals, ytd: Boolean) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        ),
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                text = stringResource(
+                    if (ytd) R.string.fiscal_pdf_ytd_totals else R.string.fiscal_pdf_month_totals,
+                ),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+            )
+            FiscalRow(stringResource(R.string.fiscal_pdf_col_gross), Formatters.formatMxn(totals.grossMxn))
+            FiscalRow(stringResource(R.string.fiscal_pdf_col_net), Formatters.formatMxn(totals.fiscalNetMxn))
+            FiscalRow(stringResource(R.string.fiscal_summary_isr), Formatters.formatMxn(totals.estimatedIsrMxn))
+            FiscalRow(stringResource(R.string.fiscal_summary_iva), Formatters.formatMxn(totals.estimatedIvaMxn))
+            FiscalRow(
+                stringResource(R.string.fiscal_summary_total_withheld),
+                Formatters.formatMxn(totals.totalWithheldMxn),
+                emphasize = true,
+            )
+        }
+    }
+}
+
+@Composable
+private fun FiscalRow(label: String, value: String, emphasize: Boolean = false) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = if (emphasize) FontWeight.SemiBold else FontWeight.Normal,
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = if (emphasize) FontWeight.Bold else FontWeight.Normal,
+        )
+    }
+}
+
+@Composable
+private fun FiscalRegimeExplainerCard() {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        ),
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            // TODO(legal-B038): regime/CSF/harmonization copy needs counsel review on the same cadence
+            // as the B-036 disclosure copy and the rate verification (launch gate).
+            Text(
+                text = stringResource(R.string.fiscal_regime_explainer_title),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(stringResource(R.string.fiscal_regime_explainer_body), style = MaterialTheme.typography.bodySmall)
+            Text(
+                stringResource(R.string.fiscal_regime_explainer_csf),
+                style = MaterialTheme.typography.bodySmall,
+            )
+            Text(
+                stringResource(R.string.fiscal_regime_explainer_harmonization),
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+    }
+}
+
 // ─── colour + label mapping ──────────────────────────────────────────────────────────────────────
 
 private val CoverageStatus.fillColor: Color
@@ -384,6 +590,33 @@ private fun FiscalContentPreview() {
                         status = CoverageStatus.COVERED,
                         phase = MonthPhase.CURRENT,
                     ),
+                ),
+                fiscalSummary = mx.kompara.metrics.fiscal.FiscalMonthSummary(
+                    month = "2026-06",
+                    year = 2026,
+                    ratesYear = 2026,
+                    platforms = listOf(
+                        mx.kompara.metrics.fiscal.PlatformFiscalSummary(
+                            platform = "UBER",
+                            grossMxn = 12000.0,
+                            fiscalNetMxn = 9000.0,
+                            commissionMxn = 3000.0,
+                            commissionApproximated = false,
+                            estimatedIsrMxn = 252.0,
+                            estimatedIvaMxn = 960.0,
+                        ),
+                        mx.kompara.metrics.fiscal.PlatformFiscalSummary(
+                            platform = "DIDI",
+                            grossMxn = 9000.0,
+                            fiscalNetMxn = 9000.0,
+                            commissionMxn = 0.0,
+                            commissionApproximated = true,
+                            estimatedIsrMxn = 189.0,
+                            estimatedIvaMxn = 720.0,
+                        ),
+                    ),
+                    monthTotals = mx.kompara.metrics.fiscal.FiscalTotals(21000.0, 18000.0, 441.0, 1680.0),
+                    ytdTotals = mx.kompara.metrics.fiscal.FiscalTotals(120000.0, 96000.0, 2520.0, 9600.0),
                 ),
             ),
             onSelectMonth = {},

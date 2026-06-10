@@ -54,6 +54,8 @@ class SettingsRepository @Inject constructor(
         stringPreferencesKey(SettingsSerialization.KEY_SHARE_LAST_REMINDER_WEEK)
     private val shareCountKey =
         intPreferencesKey(SettingsSerialization.KEY_SHARE_COUNT)
+    private val fiscalExportCountKey =
+        intPreferencesKey(SettingsSerialization.KEY_FISCAL_EXPORT_COUNT)
 
     val settings: Flow<Settings> = dataStore.data.map { prefs -> prefs.toSettings() }
 
@@ -168,6 +170,18 @@ class SettingsRepository @Inject constructor(
         dataStore.edit { prefs ->
             val current = (prefs[shareCountKey] ?: 0).coerceAtLeast(0)
             prefs[shareCountKey] = if (current == Int.MAX_VALUE) current else current + 1
+        }
+    }
+
+    /**
+     * Increment the anonymous local fiscal-PDF-export funnel counter (B-052). No personal data — just
+     * a count of how many times the driver exported a monthly fiscal report, for measuring the export
+     * loop (credit applications / accountants).
+     */
+    suspend fun incrementFiscalExportCount() {
+        dataStore.edit { prefs ->
+            val current = (prefs[fiscalExportCountKey] ?: 0).coerceAtLeast(0)
+            prefs[fiscalExportCountKey] = if (current == Int.MAX_VALUE) current else current + 1
         }
     }
 

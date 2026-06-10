@@ -1,9 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  FileProvider paths for the shareable earnings card (B-055). Only the share_cards/ cache subdir is
-  exposed, so the provider can hand a share target a read grant for a rendered card PNG without ever
-  exposing the rest of the app's cache. Must match ShareCardWriter.SUBDIR.
+  FileProvider paths for shareable exports. Only these named cache subdirs are exposed, so the
+  provider can hand a share target a read grant for a rendered file without ever exposing the rest of
+  the app's cache. Each path must match its writer's SUBDIR:
+    - share_cards/   — the shareable earnings-card PNGs (B-055, ShareCardWriter.SUBDIR)
+    - fiscal_reports/ — the monthly fiscal-report PDFs (B-052, FiscalPdfWriter.SUBDIR)
 -->
 <paths>
     <cache-path name="share_cards" path="share_cards/" />
+    <cache-path name="fiscal_reports" path="fiscal_reports/" />
 </paths>

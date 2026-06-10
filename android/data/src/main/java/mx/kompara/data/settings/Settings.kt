@@ -124,6 +124,13 @@ data class Settings(
      * uploaded by itself. Default 0.
      */
     val shareCount: Int = 0,
+
+    /**
+     * How many times the driver has exported a monthly fiscal PDF (B-052), an anonymous local-only
+     * funnel counter for measuring the export loop (credit applications / accountants). No personal
+     * data; never uploaded by itself. Default 0.
+     */
+    val fiscalExportCount: Int = 0,
 ) {
     /** Threshold for [platform], or the default when none has been set. */
     fun thresholdFor(platform: Platform): PlatformThreshold =

@@ -55,6 +55,9 @@ object SettingsSerialization {
     /** Int key for the anonymous local share-tap funnel counter (B-055). */
     const val KEY_SHARE_COUNT = "share_count"
 
+    /** Int key for the anonymous local fiscal-PDF-export funnel counter (B-052). */
+    const val KEY_FISCAL_EXPORT_COUNT = "fiscal_export_count"
+
     fun perKmKey(platform: Platform): String = "threshold_${platform.name}_per_km"
     fun perHourKey(platform: Platform): String = "threshold_${platform.name}_per_hour"
 
@@ -122,6 +125,7 @@ object SettingsSerialization {
                 ?: Settings.DEFAULT_SHARE_WEEKLY_REMINDER_ENABLED,
             shareLastReminderWeek = lookupString(KEY_SHARE_LAST_REMINDER_WEEK),
             shareCount = lookupInt(KEY_SHARE_COUNT) ?: 0,
+            fiscalExportCount = lookupInt(KEY_FISCAL_EXPORT_COUNT) ?: 0,
         )
     }
 }

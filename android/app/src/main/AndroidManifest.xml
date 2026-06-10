@@ -20,6 +20,11 @@
             <action android:name="android.intent.action.SEND" />
             <data android:mimeType="image/png" />
         </intent>
+        <!-- Resolve ACTION_SEND PDF targets for the fiscal-report export chooser (B-052). -->
+        <intent>
+            <action android:name="android.intent.action.SEND" />
+            <data android:mimeType="application/pdf" />
+        </intent>
     </queries>
 
     <application
