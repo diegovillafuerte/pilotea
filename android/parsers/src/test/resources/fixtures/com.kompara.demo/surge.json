@@ -1,0 +1,33 @@
+{
+  "description": "Surge variant: dynamic pricing badge sets surge=true and variant=surge; European-style fare number; card uses 'Solicitud de viaje' header.",
+  "snapshot": {
+    "packageName": "com.kompara.demo",
+    "timestampMs": 1700000100000,
+    "versionCode": 305,
+    "nodes": [
+      { "text": "Solicitud de viaje", "viewId": "com.kompara.demo:id/header", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 100, "right": 700, "bottom": 160 }, "depth": 2, "index": 0 },
+      { "text": "Tarifa dinámica x1.8", "viewId": "com.kompara.demo:id/surge_badge", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 170, "right": 500, "bottom": 200 }, "depth": 3, "index": 1 },
+      { "text": "Tarifa", "viewId": "com.kompara.demo:id/fare_label", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 210, "right": 200, "bottom": 260 }, "depth": 3, "index": 2 },
+      { "text": "$ 1.234,50", "viewId": "com.kompara.demo:id/fare_value", "className": "android.widget.TextView", "bounds": { "left": 220, "top": 210, "right": 480, "bottom": 260 }, "depth": 3, "index": 3 },
+      { "text": "Recoger", "viewId": "com.kompara.demo:id/pickup_label", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 310, "right": 200, "bottom": 360 }, "depth": 3, "index": 4 },
+      { "text": "850 m · 3 min", "viewId": "com.kompara.demo:id/pickup_value", "className": "android.widget.TextView", "bounds": { "left": 220, "top": 310, "right": 600, "bottom": 360 }, "depth": 3, "index": 5 },
+      { "text": "Viaje", "viewId": "com.kompara.demo:id/trip_label", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 410, "right": 200, "bottom": 460 }, "depth": 3, "index": 6 },
+      { "text": "12 km", "viewId": "com.kompara.demo:id/trip_value", "className": "android.widget.TextView", "bounds": { "left": 220, "top": 410, "right": 420, "bottom": 460 }, "depth": 3, "index": 7 },
+      { "text": "Viaje de 12 km, 1 h 5 min", "viewId": "com.kompara.demo:id/trip_summary", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 470, "right": 600, "bottom": 520 }, "depth": 3, "index": 8 },
+      { "text": "Pago", "viewId": "com.kompara.demo:id/payment_label", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 560, "right": 200, "bottom": 610 }, "depth": 3, "index": 9 },
+      { "text": "Tarjeta", "viewId": "com.kompara.demo:id/payment_value", "className": "android.widget.TextView", "bounds": { "left": 220, "top": 560, "right": 420, "bottom": 610 }, "depth": 3, "index": 10 },
+      { "text": "Aceptar", "viewId": "com.kompara.demo:id/accept_button", "className": "android.widget.Button", "bounds": { "left": 40, "top": 680, "right": 700, "bottom": 760 }, "depth": 2, "index": 11 }
+    ]
+  },
+  "expected": {
+    "platform": "com.kompara.demo",
+    "variant": "surge",
+    "fare": 1234.5,
+    "pickupDistanceKm": 0.85,
+    "pickupEtaMin": 3.0,
+    "tripDistanceKm": 12.0,
+    "tripDurationMin": 65.0,
+    "surge": true,
+    "paymentType": "Tarjeta"
+  }
+}

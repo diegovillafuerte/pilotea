@@ -1,0 +1,32 @@
+{
+  "description": "Standard demo offer card: fare via 'Tarifa' anchor, pickup/trip via anchors, cash payment.",
+  "snapshot": {
+    "packageName": "com.kompara.demo",
+    "timestampMs": 1700000000000,
+    "versionCode": 220,
+    "nodes": [
+      { "text": "Nuevo viaje", "viewId": "com.kompara.demo:id/header", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 100, "right": 700, "bottom": 160 }, "depth": 2, "index": 0 },
+      { "text": "Tarifa", "viewId": "com.kompara.demo:id/fare_label", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 200, "right": 200, "bottom": 250 }, "depth": 3, "index": 1 },
+      { "text": "$ 85.50", "viewId": "com.kompara.demo:id/fare_value", "className": "android.widget.TextView", "bounds": { "left": 220, "top": 200, "right": 420, "bottom": 250 }, "depth": 3, "index": 2 },
+      { "text": "Recoger", "viewId": "com.kompara.demo:id/pickup_label", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 300, "right": 200, "bottom": 350 }, "depth": 3, "index": 3 },
+      { "text": "1.2 km · 4 min", "viewId": "com.kompara.demo:id/pickup_value", "className": "android.widget.TextView", "bounds": { "left": 220, "top": 300, "right": 600, "bottom": 350 }, "depth": 3, "index": 4 },
+      { "text": "Viaje", "viewId": "com.kompara.demo:id/trip_label", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 400, "right": 200, "bottom": 450 }, "depth": 3, "index": 5 },
+      { "text": "8.5 km", "viewId": "com.kompara.demo:id/trip_value", "className": "android.widget.TextView", "bounds": { "left": 220, "top": 400, "right": 420, "bottom": 450 }, "depth": 3, "index": 6 },
+      { "text": "Viaje de 8.5 km, 22 min", "viewId": "com.kompara.demo:id/trip_summary", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 460, "right": 600, "bottom": 510 }, "depth": 3, "index": 7 },
+      { "text": "Pago", "viewId": "com.kompara.demo:id/payment_label", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 540, "right": 200, "bottom": 590 }, "depth": 3, "index": 8 },
+      { "text": "Efectivo", "viewId": "com.kompara.demo:id/payment_value", "className": "android.widget.TextView", "bounds": { "left": 220, "top": 540, "right": 420, "bottom": 590 }, "depth": 3, "index": 9 },
+      { "text": "Aceptar", "viewId": "com.kompara.demo:id/accept_button", "className": "android.widget.Button", "bounds": { "left": 40, "top": 650, "right": 700, "bottom": 730 }, "depth": 2, "index": 10 }
+    ]
+  },
+  "expected": {
+    "platform": "com.kompara.demo",
+    "variant": "standard",
+    "fare": 85.5,
+    "pickupDistanceKm": 1.2,
+    "pickupEtaMin": 4.0,
+    "tripDistanceKm": 8.5,
+    "tripDurationMin": 22.0,
+    "surge": false,
+    "paymentType": "Efectivo"
+  }
+}

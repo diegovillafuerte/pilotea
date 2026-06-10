@@ -1,0 +1,33 @@
+{
+  "description": "Reservation variant: 'Viaje reservado' tags variant=reservation; fare via fallback bare-$ strategy (no viewId hint); thousands-grouped es-MX fare.",
+  "snapshot": {
+    "packageName": "com.kompara.demo",
+    "timestampMs": 1700000300000,
+    "versionCode": 512,
+    "nodes": [
+      { "text": "Nuevo viaje", "viewId": "com.kompara.demo:id/header", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 100, "right": 700, "bottom": 160 }, "depth": 2, "index": 0 },
+      { "text": "Viaje reservado · Programado 18:30", "viewId": "com.kompara.demo:id/reservation_badge", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 170, "right": 600, "bottom": 200 }, "depth": 3, "index": 1 },
+      { "text": "Ganancia estimada $ 1,250.75", "viewId": "com.kompara.demo:id/earnings", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 210, "right": 600, "bottom": 260 }, "depth": 3, "index": 2 },
+      { "text": "Recoger", "viewId": "com.kompara.demo:id/pickup_label", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 310, "right": 200, "bottom": 360 }, "depth": 3, "index": 3 },
+      { "text": "5 km · 9 min", "viewId": "com.kompara.demo:id/pickup_value", "className": "android.widget.TextView", "bounds": { "left": 220, "top": 310, "right": 600, "bottom": 360 }, "depth": 3, "index": 4 },
+      { "text": "Viaje", "viewId": "com.kompara.demo:id/trip_label", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 410, "right": 200, "bottom": 460 }, "depth": 3, "index": 5 },
+      { "text": "32 km", "viewId": "com.kompara.demo:id/trip_value", "className": "android.widget.TextView", "bounds": { "left": 220, "top": 410, "right": 420, "bottom": 460 }, "depth": 3, "index": 6 },
+      { "text": "Duración", "viewId": "com.kompara.demo:id/duration_label", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 470, "right": 200, "bottom": 520 }, "depth": 3, "index": 7 },
+      { "text": "2 h 10 min", "viewId": "com.kompara.demo:id/duration_value", "className": "android.widget.TextView", "bounds": { "left": 220, "top": 470, "right": 420, "bottom": 520 }, "depth": 3, "index": 8 },
+      { "text": "Pago", "viewId": "com.kompara.demo:id/payment_label", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 560, "right": 200, "bottom": 610 }, "depth": 3, "index": 9 },
+      { "text": "Wallet", "viewId": "com.kompara.demo:id/payment_value", "className": "android.widget.TextView", "bounds": { "left": 220, "top": 560, "right": 420, "bottom": 610 }, "depth": 3, "index": 10 },
+      { "text": "Aceptar reservación", "viewId": "com.kompara.demo:id/accept_button", "className": "android.widget.Button", "bounds": { "left": 40, "top": 680, "right": 700, "bottom": 760 }, "depth": 2, "index": 11 }
+    ]
+  },
+  "expected": {
+    "platform": "com.kompara.demo",
+    "variant": "reservation",
+    "fare": 1250.75,
+    "pickupDistanceKm": 5.0,
+    "pickupEtaMin": 9.0,
+    "tripDistanceKm": 32.0,
+    "tripDurationMin": 130.0,
+    "surge": false,
+    "paymentType": "Wallet"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "description": "Multi-stop variant: '3 paradas' tags variant=multi_stop (not surge); missing pickup ETA proves partial extraction tolerates nulls.",
+  "snapshot": {
+    "packageName": "com.kompara.demo",
+    "timestampMs": 1700000200000,
+    "versionCode": 410,
+    "nodes": [
+      { "text": "Nuevo viaje", "viewId": "com.kompara.demo:id/header", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 100, "right": 700, "bottom": 160 }, "depth": 2, "index": 0 },
+      { "text": "Varias paradas · 3 paradas", "viewId": "com.kompara.demo:id/stops_badge", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 170, "right": 500, "bottom": 200 }, "depth": 3, "index": 1 },
+      { "text": "Tarifa", "viewId": "com.kompara.demo:id/fare_label", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 210, "right": 200, "bottom": 260 }, "depth": 3, "index": 2 },
+      { "text": "$ 210.00", "viewId": "com.kompara.demo:id/fare_value", "className": "android.widget.TextView", "bounds": { "left": 220, "top": 210, "right": 480, "bottom": 260 }, "depth": 3, "index": 3 },
+      { "text": "Recoger", "viewId": "com.kompara.demo:id/pickup_label", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 310, "right": 200, "bottom": 360 }, "depth": 3, "index": 4 },
+      { "text": "2,5 km", "viewId": "com.kompara.demo:id/pickup_value", "className": "android.widget.TextView", "bounds": { "left": 220, "top": 310, "right": 600, "bottom": 360 }, "depth": 3, "index": 5 },
+      { "text": "Viaje", "viewId": "com.kompara.demo:id/trip_label", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 410, "right": 200, "bottom": 460 }, "depth": 3, "index": 6 },
+      { "text": "24.3 km", "viewId": "com.kompara.demo:id/trip_value", "className": "android.widget.TextView", "bounds": { "left": 220, "top": 410, "right": 420, "bottom": 460 }, "depth": 3, "index": 7 },
+      { "text": "Aceptar", "viewId": "com.kompara.demo:id/accept_button", "className": "android.widget.Button", "bounds": { "left": 40, "top": 680, "right": 700, "bottom": 760 }, "depth": 2, "index": 8 }
+    ]
+  },
+  "expected": {
+    "platform": "com.kompara.demo",
+    "variant": "multi_stop",
+    "fare": 210.0,
+    "pickupDistanceKm": 2.5,
+    "pickupEtaMin": null,
+    "tripDistanceKm": 24.3,
+    "tripDurationMin": null,
+    "surge": false,
+    "paymentType": null
+  }
+}

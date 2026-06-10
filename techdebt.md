@@ -71,3 +71,17 @@ Conscious deferrals. Each entry: date, severity, context, why deferred, when to 
 - **Context:** `backend/src/middleware/auth.ts` only checks that a bearer token is *present* on protected routes (`POST /v1/aggregates`); it does not resolve the token to a session/driver. `backend/src/routes/auth.ts` is an empty placeholder router. So `POST /v1/aggregates` currently accepts any non-empty bearer token and trusts the `driverId` in the request body.
 - **Why deferred:** Real auth (WhatsApp magic links → session token → SHA-256 hash lookup in the `sessions` table) is scoped to B-042 per the task split. B-041 ships the route shape so B-042 can drop in the real check.
 - **When to fix:** B-042. Implement magic-link issue/verify, session creation, and replace `requireBearer` with a real session lookup that derives `driverId` from the session rather than the request body.
+
+## TD-006: Parser spec engine has no real-device fixture corpus yet
+- **Date:** 2026-06-10
+- **Severity:** medium
+- **Context:** B-028 built the declarative parser spec engine, normalizers, PII scrubber, and a JSON fixture regression harness in `:parsers`. The only spec/corpus present is the fictitious `com.kompara.demo` (4 hand-crafted fixtures under `android/parsers/src/test/resources/fixtures/com.kompara.demo/`) which proves the harness works end-to-end. There are no real Uber or DiDi specs, and no fixtures captured from real offer screens, so the engine is unproven against actual host-app node trees and es-MX rendering quirks.
+- **Why deferred:** Capturing real fixtures requires the AccessibilityService snapshot capture (`:capture`, wired to `:parsers` in B-029) and real driver devices. B-028 is the architecture; B-029/B-030 record sanitized real snapshots and author the production Uber/DiDi specs.
+- **When to fix:** B-029 (Uber spec + capture wiring + `ScreenSnapshot.toParserSnapshot()` adapter) and B-030 (DiDi spec). Each adds a spec under `android/parsers/src/test/resources/specs/` and a fixture corpus under `.../fixtures/<package>/`, then points a parameterized harness class at it (mirror `DemoFixtureHarnessTest`). Run all fixtures through `SnapshotScrubber` before committing them.
+
+## TD-007: :parsers ↔ :capture not yet wired (no ScreenSnapshot → ParserSnapshot edge)
+- **Date:** 2026-06-10
+- **Severity:** low
+- **Context:** `:parsers` deliberately defines its own framework-free `ParserSnapshot`/`ParserNode` mirror of `:capture`'s `ScreenSnapshot`/`SnapshotNode` (built in parallel) and does NOT depend on `:capture`, to keep the engine pure-JVM unit-testable. The `Rect` → `RectBox` conversion lives in `android/parsers/.../snapshot/SnapshotMapper.kt`, but the actual `ScreenSnapshot.toParserSnapshot()` extension (which would import `:capture`) is only documented there, not implemented.
+- **Why deferred:** Adding the inter-module dependency edge and the adapter is B-029's job; doing it in B-028 would couple the two modules before `:capture`'s types are finalized.
+- **When to fix:** B-029. Add `:capture`→`:parsers` is already present; implement the adapter in `:capture` (which depends on `:parsers`) delegating to `Rect.toRectBox()`, and feed `OfferCard` into the `OfferPipeline`/`ParsedOffer` flow.

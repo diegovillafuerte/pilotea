@@ -1,0 +1,96 @@
+{
+  "targetPackage": "com.kompara.demo",
+  "versionCodeRange": { "min": 100, "max": 999 },
+  "specVersion": 1,
+  "cardDetector": {
+    "allOf": [
+      { "regex": "Nuevo viaje|Solicitud de viaje" }
+    ],
+    "anyOf": [
+      { "regex": "Aceptar" },
+      { "regex": "Tarifa" }
+    ],
+    "noneOf": [
+      { "regex": "Viaje en curso" }
+    ],
+    "baseVariant": "standard"
+  },
+  "extractors": [
+    {
+      "field": "fare",
+      "normalizer": "CURRENCY",
+      "strategies": [
+        { "viewIdContains": "fare", "regexOnSameNode": "\\$\\s*([0-9.,]+)" },
+        { "afterAnchor": { "regex": "^Tarifa$" }, "extractRegex": "\\$\\s*([0-9.,]+)" },
+        { "regexOnSameNode": "\\$\\s*([0-9.,]+)" }
+      ]
+    },
+    {
+      "field": "pickupDistanceKm",
+      "normalizer": "DISTANCE_KM",
+      "strategies": [
+        { "afterAnchor": { "regex": "Recoger|Recogida|Pickup" }, "extractRegex": "([0-9.,]+\\s*(?:km|m)\\b)" },
+        { "regexOnSameNode": "([0-9.,]+\\s*(?:km|m))\\s+de distancia al pasajero" }
+      ]
+    },
+    {
+      "field": "pickupEtaMin",
+      "normalizer": "DURATION_MIN",
+      "strategies": [
+        { "afterAnchor": { "regex": "Recoger|Recogida|Pickup" }, "extractRegex": "(\\d+\\s*min)" },
+        { "regexOnSameNode": "(\\d+\\s*min)\\s+hasta el pasajero" }
+      ]
+    },
+    {
+      "field": "tripDistanceKm",
+      "normalizer": "DISTANCE_KM",
+      "strategies": [
+        { "afterAnchor": { "regex": "^Viaje$|^Trayecto$" }, "extractRegex": "([0-9.,]+\\s*(?:km|m)\\b)" },
+        { "regexOnSameNode": "Viaje\\s+de\\s+([0-9.,]+\\s*(?:km|m))" }
+      ]
+    },
+    {
+      "field": "tripDurationMin",
+      "normalizer": "DURATION_MIN",
+      "strategies": [
+        { "regexOnSameNode": "Viaje\\s+de\\s+[0-9.,]+\\s*(?:km|m)[,\\s]+(\\d+\\s*(?:h|min)[^,]*)" },
+        { "afterAnchor": { "regex": "Duraci[oó]n" }, "extractRegex": "(\\d+\\s*h\\s*\\d+\\s*min|\\d+\\s*min)" }
+      ]
+    },
+    {
+      "field": "paymentType",
+      "normalizer": "NONE",
+      "strategies": [
+        { "afterAnchor": { "regex": "^Pago$|M[eé]todo de pago" } },
+        { "viewIdContains": "payment_value" },
+        { "regexOnSameNode": "(Efectivo|Tarjeta|Wallet|Cartera)" }
+      ]
+    }
+  ],
+  "variants": [
+    {
+      "tag": "surge",
+      "whenAnyOf": [
+        { "regex": "Tarifa din[aá]mica" },
+        { "regex": "Surge" },
+        { "regex": "x[0-9]\\.[0-9]" }
+      ],
+      "setsSurge": true
+    },
+    {
+      "tag": "multi_stop",
+      "whenAnyOf": [
+        { "regex": "Varias paradas" },
+        { "regex": "[0-9]+\\s+paradas" }
+      ]
+    },
+    {
+      "tag": "reservation",
+      "whenAnyOf": [
+        { "regex": "Reservaci[oó]n" },
+        { "regex": "Viaje reservado" },
+        { "regex": "Programado" }
+      ]
+    }
+  ]
+}
