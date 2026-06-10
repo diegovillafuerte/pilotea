@@ -23,6 +23,8 @@ APK: `app/build/outputs/apk/debug/app-debug.apk` (~11 MB, auto-signed debug key)
 - Settings → Apps → **Kompara** → **⋮** → **Allow restricted settings**.
 - (Disappears once installed from Play — sideload-only friction.)
 
+**Samsung gotcha (One UI, default-on):** **Auto Blocker / "Bloqueador automático"** blocks USB commands — symptom: tapping USB debugging does nothing and shows *"bloqueado por bloqueador automático"*, and `adb install` fails. Fix: **Ajustes → Seguridad y privacidad → Bloqueador automático → off** for the whole testing period (re-enable after). Sideload-only — Auto Blocker allows Play Store installs, so real users are unaffected.
+
 **Onboarding** deep-links you to Settings → Accessibility → Kompara to enable the reader.
 
 **Works with no backend:** Lector (reader/overlay), Simulator (Ajustes — run first, proves the pipeline offline), local stats, onboarding.
