@@ -1,6 +1,6 @@
 package mx.kompara.overlay
 
-import mx.kompara.metrics.Verdict
+import mx.kompara.metrics.VerdictLevel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Test
@@ -8,10 +8,10 @@ import org.junit.Test
 class VerdictColorsTest {
 
     @Test
-    fun `each verdict maps to its traffic-light colour`() {
-        assertEquals(VerdictColors.Good, VerdictColors.forVerdict(Verdict.GOOD))
-        assertEquals(VerdictColors.Marginal, VerdictColors.forVerdict(Verdict.MARGINAL))
-        assertEquals(VerdictColors.Bad, VerdictColors.forVerdict(Verdict.BAD))
+    fun `each verdict level maps to its traffic-light colour`() {
+        assertEquals(VerdictColors.Good, VerdictColors.forVerdict(VerdictLevel.GREEN))
+        assertEquals(VerdictColors.Marginal, VerdictColors.forVerdict(VerdictLevel.YELLOW))
+        assertEquals(VerdictColors.Bad, VerdictColors.forVerdict(VerdictLevel.RED))
     }
 
     @Test

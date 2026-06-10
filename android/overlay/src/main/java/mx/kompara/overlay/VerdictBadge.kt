@@ -18,9 +18,9 @@ import mx.kompara.metrics.Verdict
  */
 @Composable
 fun VerdictBadge(verdict: Verdict, modifier: Modifier = Modifier) {
-    val color: Color = VerdictColors.forVerdict(verdict)
+    val color: Color = VerdictColors.forVerdict(verdict.level)
     Text(
-        text = verdict.name,
+        text = verdict.level.name,
         color = Color.White,
         modifier = modifier
             .clip(RoundedCornerShape(8.dp))

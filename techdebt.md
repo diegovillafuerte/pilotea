@@ -2,7 +2,17 @@
 
 Conscious deferrals. Each entry: date, severity, context, why deferred, when to fix.
 
-## 2026-04-02 | Medium | Auth, parsers, storage, WhatsApp, percentiles not implemented
+## 2026-06-10 | Low | Room schema v1 regenerated in place for new cost-profile columns (B-032)
+
+**Context:** B-032 added `rendimientoKmPerLitre`, `gasPricePerLitreMxn` and `workDaysPerWeek` to `CostProfileEntity` so the metrics engine can derive fuel $/km and reason about per-shift break-even. Rather than bumping to schema v2 + a `Migration`, the exported `data/schemas/.../1.json` was regenerated in place (the new columns are additive with defaults, and the entity's identity hash changed).
+**Why deferred:** Schema v1 has not shipped to any user (no production DB exists yet), so there is nothing to migrate from — a clean v1 is correct and avoids a no-op migration. The instrumented `KomparaDatabaseMigrationTest` still validates that v1 opens.
+**When to fix:** Once the app ships its first build with this schema, any further `CostProfileEntity` change MUST bump the DB version and add a real `Migration` (no more in-place edits to `1.json`).
+
+## 2026-06-10 | Low | DefaultThresholds hand-ported from web seed, not generated at build time (B-032)
+
+**Context:** `DefaultThresholds` hard-codes the p50 earnings_per_km / earnings_per_hour per city/platform, computed from `seed/population-stats.ts`'s deterministic generator. It is not auto-generated from the seed, so a seed change won't propagate.
+**Why deferred:** The two repos don't share a build; a codegen step crossing the web/Android boundary is out of scope for this task. Values were computed from the seed formula (not eyeballed) and a comment documents the source + formula.
+**When to fix:** If the seed's earnings model changes materially, re-run the formula and update the table (or wire a small codegen step) — guarded by `DefaultThresholdsTest`.
 
 **Context:** All `src/lib/` modules contain only TODO placeholder exports.
 **Why deferred:** B-001 establishes the folder structure per the tech design. Each module will be implemented by its own task in the S-001 story.

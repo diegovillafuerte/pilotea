@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "d0f7ff26a2cca3c41dad89b3a7cb0694",
+    "identityHash": "271204aafe9fcdc683517811d718635b",
     "entities": [
       {
         "tableName": "offers",
@@ -188,7 +188,7 @@
       },
       {
         "tableName": "cost_profile",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `fuelPerKmMxn` REAL NOT NULL, `maintenancePerKmMxn` REAL NOT NULL, `insurancePerDayMxn` REAL NOT NULL, `rentPerDayMxn` REAL NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `fuelPerKmMxn` REAL NOT NULL, `maintenancePerKmMxn` REAL NOT NULL, `insurancePerDayMxn` REAL NOT NULL, `rentPerDayMxn` REAL NOT NULL, `rendimientoKmPerLitre` REAL NOT NULL, `gasPricePerLitreMxn` REAL NOT NULL, `workDaysPerWeek` INTEGER NOT NULL, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -225,6 +225,24 @@
             "columnName": "rentPerDayMxn",
             "affinity": "REAL",
             "notNull": true
+          },
+          {
+            "fieldPath": "rendimientoKmPerLitre",
+            "columnName": "rendimientoKmPerLitre",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "gasPricePerLitreMxn",
+            "columnName": "gasPricePerLitreMxn",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "workDaysPerWeek",
+            "columnName": "workDaysPerWeek",
+            "affinity": "INTEGER",
+            "notNull": true
           }
         ],
         "primaryKey": {
@@ -237,7 +255,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'd0f7ff26a2cca3c41dad89b3a7cb0694')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '271204aafe9fcdc683517811d718635b')"
     ]
   }
 }
