@@ -1,5 +1,6 @@
 package mx.kompara.data.settings
 
+import mx.kompara.data.model.City
 import mx.kompara.data.model.Platform
 
 /**
@@ -24,6 +25,15 @@ object SettingsSerialization {
     /** Double key for the weekly net earnings goal in MXN (B-039); absent ⇒ no goal set. */
     const val KEY_WEEKLY_NET_GOAL = "weekly_net_goal_mxn"
 
+    /** Boolean key for the consented aggregate-sharing toggle (B-043); default OFF. */
+    const val KEY_SHARE_AGGREGATES = "share_aggregates"
+
+    /** Boolean key for whether the one-shot aggregate-sharing prompt was dismissed (B-043). */
+    const val KEY_AGGREGATE_PROMPT_DISMISSED = "aggregate_prompt_dismissed"
+
+    /** String key for the driver's benchmark city (B-043), stored as [City.name]; absent ⇒ default. */
+    const val KEY_CITY = "benchmark_city"
+
     fun perKmKey(platform: Platform): String = "threshold_${platform.name}_per_km"
     fun perHourKey(platform: Platform): String = "threshold_${platform.name}_per_hour"
 
@@ -37,6 +47,12 @@ object SettingsSerialization {
         return names.mapNotNull { name -> runCatching { Platform.valueOf(name) }.getOrNull() }.toSet()
     }
 
+    /** Decode the stored [City] enum name back into a [City]; unknown/absent ⇒ [City.DEFAULT]. */
+    fun decodeCity(name: String?): City {
+        if (name == null) return City.DEFAULT
+        return runCatching { City.valueOf(name) }.getOrNull() ?: City.DEFAULT
+    }
+
     /**
      * Reconstruct [Settings] from a flat lookup of stored preferences. [lookupDouble] returns
      * null when a key is absent (so defaults apply); [enabledNames] is the stored name set.
@@ -47,6 +63,7 @@ object SettingsSerialization {
         enabledNames: Set<String>?,
         lookupDouble: (String) -> Double?,
         lookupBoolean: (String) -> Boolean? = { null },
+        lookupString: (String) -> String? = { null },
     ): Settings {
         val thresholds = mutableMapOf<Platform, PlatformThreshold>()
         for (platform in Platform.entries) {
@@ -67,6 +84,11 @@ object SettingsSerialization {
             onboardingCompleted = lookupBoolean(KEY_ONBOARDING_COMPLETED)
                 ?: Settings.DEFAULT_ONBOARDING_COMPLETED,
             weeklyNetGoalMxn = lookupDouble(KEY_WEEKLY_NET_GOAL),
+            shareAggregates = lookupBoolean(KEY_SHARE_AGGREGATES)
+                ?: Settings.DEFAULT_SHARE_AGGREGATES,
+            aggregatePromptDismissed = lookupBoolean(KEY_AGGREGATE_PROMPT_DISMISSED)
+                ?: Settings.DEFAULT_AGGREGATE_PROMPT_DISMISSED,
+            city = decodeCity(lookupString(KEY_CITY)),
         )
     }
 }

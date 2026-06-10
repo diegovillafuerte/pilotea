@@ -8,10 +8,12 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import mx.kompara.data.db.KomparaDatabase
+import mx.kompara.data.db.KomparaMigrations
 import mx.kompara.data.db.dao.AggregateDao
 import mx.kompara.data.db.dao.CostProfileDao
 import mx.kompara.data.db.dao.FixtureReportDao
 import mx.kompara.data.db.dao.OfferDao
+import mx.kompara.data.db.dao.PopulationStatDao
 import mx.kompara.data.db.dao.ShiftDao
 import mx.kompara.data.db.dao.TelemetryCounterDao
 import mx.kompara.data.db.dao.TripDao
@@ -28,6 +30,7 @@ object DatabaseModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): KomparaDatabase =
         Room.databaseBuilder(context, KomparaDatabase::class.java, KomparaDatabase.NAME)
+            .addMigrations(*KomparaMigrations.ALL)
             .build()
 
     @Provides
@@ -51,4 +54,7 @@ object DatabaseModule {
 
     @Provides
     fun provideAggregateDao(db: KomparaDatabase): AggregateDao = db.aggregateDao()
+
+    @Provides
+    fun providePopulationStatDao(db: KomparaDatabase): PopulationStatDao = db.populationStatDao()
 }

@@ -59,4 +59,32 @@ interface AggregateDao {
     /** Delete the captured weekly rows for a week before rewriting them. */
     @Query("DELETE FROM weekly_aggregates WHERE weekStart = :weekStart AND source = 'CAPTURED'")
     suspend fun deleteCapturedWeek(weekStart: String)
+
+    // ─── B-043 consented aggregate sync ───────────────────────────────────────────────────────
+
+    /**
+     * Weekly rows that need uploading (B-043): never synced, or recomputed since the last sync.
+     * "Dirty" = `lastSyncedAt IS NULL OR lastSyncedAt < computedAt`. Returns BOTH sources (captured
+     * and imported) so the population data reflects every consented week the driver has; the
+     * uploader marks each row's source on the wire. Oldest week first for stable, debuggable order.
+     */
+    @Query(
+        "SELECT * FROM weekly_aggregates " +
+            "WHERE lastSyncedAt IS NULL OR lastSyncedAt < computedAt " +
+            "ORDER BY weekStart ASC, platform ASC",
+    )
+    suspend fun dirtyForSync(): List<WeeklyAggregateEntity>
+
+    /**
+     * Mark a row synced by stamping [syncedAt] on its primary key. Uses the row's own [computedAt]
+     * snapshot is irrelevant here — the worker passes the time it observed the row, and the dirty
+     * query compares against [WeeklyAggregateEntity.computedAt], so a row recomputed after upload is
+     * re-queued. Scoped to the exact `(platform, weekStart, source)` key so a concurrent recompute of
+     * a different row is untouched.
+     */
+    @Query(
+        "UPDATE weekly_aggregates SET lastSyncedAt = :syncedAt " +
+            "WHERE platform = :platform AND weekStart = :weekStart AND source = :source",
+    )
+    suspend fun markSynced(platform: String, weekStart: String, source: String, syncedAt: Long)
 }

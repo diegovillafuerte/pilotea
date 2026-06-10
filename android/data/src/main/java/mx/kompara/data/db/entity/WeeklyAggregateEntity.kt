@@ -69,4 +69,15 @@ data class WeeklyAggregateEntity(
 
     /** Epoch millis this row was last recomputed. */
     val computedAt: Long,
+
+    /**
+     * Epoch millis this row's derived aggregate was last successfully uploaded to the backend
+     * (B-043 consented aggregate sync), or null if never synced. The AggregateSyncWorker selects
+     * "dirty" rows — those with `lastSyncedAt IS NULL OR lastSyncedAt < computedAt` — so a recompute
+     * (which leaves this null via the REPLACE write path, or whose [computedAt] advances past the
+     * last sync) re-queues the row, and an unchanged row is skipped. Additive, defaults to null so
+     * the rollup writer and existing callers need no change; a freshly recomputed row is treated as
+     * not-yet-synced and re-uploaded.
+     */
+    val lastSyncedAt: Long? = null,
 )

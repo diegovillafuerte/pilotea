@@ -173,6 +173,42 @@ class ApiClient @Inject constructor(
         )
     }
 
+    /**
+     * POST /v1/aggregates — upsert one consented weekly aggregate (B-043). Bearer-authed: the
+     * backend derives the driver id from the session, never the body. The payload is ONLY derived
+     * aggregate fields ([AggregateUploadBody]) — no offer/trip/raw data. Requires a session; sending
+     * without one yields a 401 [ApiException] the caller treats as a permanent failure.
+     */
+    suspend fun pushAggregate(body: AggregateUploadBody) {
+        ensureOk(
+            http.post("$baseUrl/v1/aggregates") {
+                bearer()
+                contentType(ContentType.Application.Json)
+                setBody(body)
+            },
+        )
+    }
+
+    /**
+     * GET /v1/benchmarks?city=&platform=&period= — the population percentile breakpoints for a
+     * city × platform (B-043). Anonymous-allowed (no auth needed); a bearer is attached when present
+     * but isn't required, so benchmarks work pre-login. [period] defaults to "current".
+     */
+    suspend fun getBenchmarks(
+        city: String,
+        platform: String,
+        period: String = "current",
+    ): BenchmarksResponse {
+        val res = http.get("$baseUrl/v1/benchmarks") {
+            bearer()
+            parameter("city", city)
+            parameter("platform", platform)
+            parameter("period", period)
+        }
+        ensureOk(res)
+        return res.body()
+    }
+
     private suspend fun io.ktor.client.request.HttpRequestBuilder.bearer() {
         tokenProvider.currentToken()?.let { header(HttpHeaders.Authorization, "Bearer $it") }
     }

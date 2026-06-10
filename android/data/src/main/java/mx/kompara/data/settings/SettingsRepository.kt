@@ -5,10 +5,12 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.doublePreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import mx.kompara.data.model.City
 import mx.kompara.data.model.Platform
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -31,6 +33,12 @@ class SettingsRepository @Inject constructor(
         booleanPreferencesKey(SettingsSerialization.KEY_ONBOARDING_COMPLETED)
     private val weeklyNetGoalKey =
         doublePreferencesKey(SettingsSerialization.KEY_WEEKLY_NET_GOAL)
+    private val shareAggregatesKey =
+        booleanPreferencesKey(SettingsSerialization.KEY_SHARE_AGGREGATES)
+    private val aggregatePromptDismissedKey =
+        booleanPreferencesKey(SettingsSerialization.KEY_AGGREGATE_PROMPT_DISMISSED)
+    private val cityKey =
+        stringPreferencesKey(SettingsSerialization.KEY_CITY)
 
     val settings: Flow<Settings> = dataStore.data.map { prefs -> prefs.toSettings() }
 
@@ -48,6 +56,41 @@ class SettingsRepository @Inject constructor(
     /** Mark the onboarding funnel as completed; flips the root composable to the main shell (B-036). */
     suspend fun setOnboardingCompleted(completed: Boolean) {
         dataStore.edit { prefs -> prefs[onboardingCompletedKey] = completed }
+    }
+
+    /**
+     * Snapshot read of whether consented aggregate sharing is on (B-043). The sync worker also
+     * reads this; default OFF so nothing uploads until the driver explicitly opts in.
+     */
+    suspend fun isShareAggregatesEnabled(): Boolean = settings.first().shareAggregates
+
+    /**
+     * Turn consented aggregate sharing on or off (B-043). When ON (and signed in) the
+     * [mx.kompara.sync] AggregateSyncWorker uploads ONLY derived weekly aggregates; raw capture data
+     * never leaves the device. Turning it off does not retroactively delete already-uploaded
+     * aggregates (account deletion is the path for that) — it just stops future uploads.
+     */
+    suspend fun setShareAggregates(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[shareAggregatesKey] = enabled }
+    }
+
+    /**
+     * Record whether the one-shot aggregate-sharing consent prompt has been dismissed (B-043), so the
+     * Inicio prompt isn't shown again after the driver declines. Independent of [setShareAggregates].
+     */
+    suspend fun setAggregatePromptDismissed(dismissed: Boolean) {
+        dataStore.edit { prefs -> prefs[aggregatePromptDismissedKey] = dismissed }
+    }
+
+    /** Snapshot read of the driver's benchmark city (B-043). */
+    suspend fun currentCity(): City = settings.first().city
+
+    /**
+     * Set the driver's benchmark [city] (B-043). Changing it should invalidate the cached benchmarks
+     * (the caller — BenchmarksRepository — keys its cache on city and re-fetches on change).
+     */
+    suspend fun setCity(city: City) {
+        dataStore.edit { prefs -> prefs[cityKey] = city.name }
     }
 
     /** Enable or disable capture/verdicts for a single platform. */
@@ -90,5 +133,6 @@ class SettingsRepository @Inject constructor(
             enabledNames = this[enabledPlatformsKey],
             lookupDouble = { key -> this[doublePreferencesKey(key)] },
             lookupBoolean = { key -> this[booleanPreferencesKey(key)] },
+            lookupString = { key -> this[stringPreferencesKey(key)] },
         )
 }

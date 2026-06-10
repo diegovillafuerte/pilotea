@@ -15,6 +15,7 @@ import mx.kompara.capture.lifecycle.OfferEventLifecycleMapper
 import mx.kompara.capture.lifecycle.TripLifecycleTracker
 import mx.kompara.capture.telemetry.TelemetryCollector
 import mx.kompara.sync.rollup.RollupWorker
+import mx.kompara.sync.aggregate.AggregateSyncScheduler
 import mx.kompara.sync.spec.SpecConfigRefreshWorker
 import mx.kompara.sync.spec.SpecConfigRepository
 import mx.kompara.sync.telemetry.TelemetryScheduler
@@ -45,6 +46,9 @@ class KomparaApplication : Application(), Configuration.Provider {
     @Inject lateinit var offerEventPipeline: OfferEventPipeline
     @Inject lateinit var telemetryCollector: TelemetryCollector
     @Inject lateinit var telemetryScheduler: TelemetryScheduler
+
+    // B-043 consented aggregate sync + benchmark delivery.
+    @Inject lateinit var aggregateSyncScheduler: AggregateSyncScheduler
 
     // B-039 auto trip-log bootstrap collaborators.
     @Inject lateinit var lifecycleMapper: OfferEventLifecycleMapper
@@ -77,6 +81,11 @@ class KomparaApplication : Application(), Configuration.Provider {
         }
         // Enqueue the idempotent 12h periodic telemetry upload (network-constrained, with backoff).
         telemetryScheduler.ensurePeriodic()
+
+        // B-043: enqueue the idempotent 12h periodic consented aggregate sync + benchmark refresh.
+        // The upload leg short-circuits unless signed-in AND opted-in; the benchmark download leg
+        // (TTL-gated, offline-tolerant) keeps the percentile cache fresh regardless.
+        aggregateSyncScheduler.ensurePeriodic()
 
         // B-039: build the driver's automatic ledger from the same capture stream. The tracker
         // observes coalesced snapshots (hot SharedFlow → emits nothing until the service connects),

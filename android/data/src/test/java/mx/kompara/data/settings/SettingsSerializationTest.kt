@@ -1,5 +1,6 @@
 package mx.kompara.data.settings
 
+import mx.kompara.data.model.City
 import mx.kompara.data.model.Platform
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -134,5 +135,68 @@ class SettingsSerializationTest {
             },
         )
         assertEquals(5000.0, withGoal.weeklyNetGoalMxn!!, 0.0001)
+    }
+
+    @Test
+    fun `aggregate sharing defaults OFF when never written and reads a stored value (B-043)`() {
+        // Fresh install → sharing OFF (strictly opt-in; this shares the driver's own aggregates).
+        val fresh = SettingsSerialization.decode(
+            enabledNames = null,
+            lookupDouble = { null },
+            lookupBoolean = { null },
+        )
+        assertFalse(fresh.shareAggregates)
+
+        // Explicitly opted in → reads true.
+        val optedIn = SettingsSerialization.decode(
+            enabledNames = null,
+            lookupDouble = { null },
+            lookupBoolean = { key ->
+                if (key == SettingsSerialization.KEY_SHARE_AGGREGATES) true else null
+            },
+        )
+        assertTrue(optedIn.shareAggregates)
+    }
+
+    @Test
+    fun `city defaults to CDMX when unset and round-trips a stored value (B-043)`() {
+        // Never written → default city.
+        val unset = SettingsSerialization.decode(
+            enabledNames = null,
+            lookupDouble = { null },
+            lookupString = { null },
+        )
+        assertEquals(City.DEFAULT, unset.city)
+
+        // Stored as the enum name → decodes back to the city.
+        val stored = SettingsSerialization.decode(
+            enabledNames = null,
+            lookupDouble = { null },
+            lookupString = { key ->
+                if (key == SettingsSerialization.KEY_CITY) City.GUADALAJARA.name else null
+            },
+        )
+        assertEquals(City.GUADALAJARA, stored.city)
+
+        // Unknown/garbage stored value → falls back to default (never crashes).
+        val garbage = SettingsSerialization.decode(
+            enabledNames = null,
+            lookupDouble = { null },
+            lookupString = { key ->
+                if (key == SettingsSerialization.KEY_CITY) "ATLANTIS" else null
+            },
+        )
+        assertEquals(City.DEFAULT, garbage.city)
+    }
+
+    @Test
+    fun `city keys match the backend benchmark city slugs (B-043)`() {
+        // The 10 seeded benchmark cities — keys MUST stay in lockstep with the backend CITIES list.
+        assertEquals("cdmx", City.CDMX.key)
+        assertEquals("guadalajara", City.GUADALAJARA.key)
+        assertEquals("cancun", City.CANCUN.key)
+        assertEquals(10, City.entries.size)
+        assertEquals(City.CDMX, City.fromKey("CDMX"))
+        assertNull(City.fromKey("national")) // national is a server-side fallback, not a driver city
     }
 }

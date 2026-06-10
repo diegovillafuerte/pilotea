@@ -32,6 +32,18 @@ Conscious deferrals. Each entry: date, severity, context, why deferred, when to 
 **Why deferred:** The recomputer only writes buckets that actually have trips, so over-wide is cheap on a fresh install; computing the exact oldest-week bound needs an extra DAO query that wasn't worth it now. The recompute is wrapped in runCatching so a failure never blocks the save.
 **When to fix:** If on-device history grows large enough that a 2-year recompute is noticeably slow, derive the window from the earliest captured day and recompute only that span.
 
+## 2026-06-10 | Low | Aggregate-sharing consent UI (Inicio prompt + Ajustes toggle) deferred to the :ui sibling (B-043)
+
+**Context:** B-043 adds the consented aggregate-sharing domain layer — the `shareAggregates` flag (default OFF) + `city` field in `Settings`/`SettingsRepository`, the `ConsentPrompter` one-shot state seam (`:sync`), and the `AggregateSyncWorker`/`BenchmarksRepository`. It does NOT build the actual Compose UI: the Inicio consent-prompt card ("Compartir mis promedios semanales de forma anónima para comparativas") and the Ajustes share/city toggles. The domain seams (`ConsentPrompter.shouldPrompt`/`acceptSharing`/`dismiss`, `SettingsRepository.setShareAggregates`/`setCity`) are in place with usage KDoc for the `:ui` owner.
+**Why deferred:** `:ui` is owned by a sibling task this wave (conflict-avoidance per the task brief); two tasks must not both edit `:ui` screens. The flag + prompter are exposed so the sibling can render the prompt without re-plumbing.
+**When to fix:** When the `:ui` Inicio/Ajustes task lands — collect `ConsentPrompter.shouldPrompt`, render the prompt, wire "Compartir"→`acceptSharing()` + `AggregateSyncScheduler.syncNow()` and "Ahora no"→`dismiss()`; add an Ajustes share toggle + city picker bound to the repository setters.
+
+## 2026-06-10 | Low | Benchmark fold-in not yet scheduled in production (B-043)
+
+**Context:** The real-data fold-in (`backend/src/jobs/fold-population-stats.ts`) is runnable two ways — `POST /v1/admin/fold-stats` (ADMIN_TOKEN) and the `pnpm fold-stats` cron script — but nothing schedules it yet. Until it runs, benchmarks stay on the synthetic seeds even as real consented aggregates accrue.
+**Why deferred:** Scheduling is an ops/deploy concern (Render cron job or external scheduler hitting the endpoint), out of scope for the code task; no production data exists to fold yet.
+**When to fix:** When real consented aggregates start arriving — wire a daily cron (Render scheduled job running `pnpm fold-stats`, or a scheduler calling the admin endpoint). Tune the 8-week window / `MIN_REAL_SAMPLE=20` threshold once real volume is observed.
+
 ## 2026-06-10 | Medium | Verdict overlay window behaviour validated only by unit tests, not on device (B-031)
 
 **Context:** The `:overlay` verdict chip (`OverlayController` + `VerdictChipUi`, `TYPE_ACCESSIBILITY_OVERLAY` attached from `KomparaAccessibilityService`) is verified by JVM/Robolectric unit tests of every piece of logic: OfferCard→TripOffer mapping, verdict→chip state, position clamping + bottom safe-zone math, the show/hide state machine with the 500 ms grace (virtual time), threshold-sheet persistence, and the manual `OverlayLifecycleOwner` state walk. No emulator/device was available, so the actual window behaviour was never exercised.

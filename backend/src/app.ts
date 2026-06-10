@@ -11,6 +11,7 @@ import { telemetryRoutes } from "./routes/telemetry.js";
 import { fixtureReportsRoutes } from "./routes/fixture-reports.js";
 import { importsRoutes } from "./routes/imports.js";
 import { subscriptionsRoutes } from "./routes/subscriptions.js";
+import { adminRoutes } from "./routes/admin.js";
 import { senderFromEnv, type MessageSender } from "./auth/message-sender.js";
 import type { Database } from "./db/client.js";
 
@@ -37,6 +38,7 @@ export function createApp(db: Database, sender: MessageSender = senderFromEnv())
   app.route("/v1", fixtureReportsRoutes(db));
   app.route("/v1", importsRoutes(db));
   app.route("/v1", subscriptionsRoutes(db));
+  app.route("/v1", adminRoutes(db));
 
   app.onError((err, c) => {
     if (err instanceof HTTPException) {

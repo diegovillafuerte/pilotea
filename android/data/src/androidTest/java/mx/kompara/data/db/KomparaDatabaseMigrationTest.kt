@@ -25,7 +25,17 @@ class KomparaDatabaseMigrationTest {
     @Throws(IOException::class)
     fun migrate_createsVersion1Schema() {
         helper.createDatabase(TEST_DB, 1).close()
-        // When v2 lands: helper.runMigrationsAndValidate(TEST_DB, 2, true, MIGRATION_1_2)
+    }
+
+    /**
+     * v1 → v2 (B-043): adds `weekly_aggregates.lastSyncedAt` and the `population_stats` cache table.
+     * Validates the hand-written [KomparaMigrations.MIGRATION_1_2] produces the exported v2 schema.
+     */
+    @Test
+    @Throws(IOException::class)
+    fun migrate_1_to_2_addsSyncWatermarkAndBenchmarkCache() {
+        helper.createDatabase(TEST_DB, 1).close()
+        helper.runMigrationsAndValidate(TEST_DB, 2, true, KomparaMigrations.MIGRATION_1_2)
     }
 
     companion object {
