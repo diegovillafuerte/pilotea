@@ -164,4 +164,90 @@
     <string name="watchdog_banner_titulo">El lector está apagado</string>
     <string name="watchdog_banner_cuerpo">Tu teléfono apagó el lector. Reactívalo para seguir viendo el veredicto de cada viaje.</string>
     <string name="watchdog_banner_boton">Reactivar lector</string>
+
+    <!-- ============================================================= -->
+    <!-- B-040: Tablero de Inicio, detalle del día, historial y costos -->
+    <!-- ============================================================= -->
+
+    <!-- Encabezado del tablero -->
+    <string name="dashboard_net_label">GANANCIA NETA ESTA SEMANA</string>
+    <string name="dashboard_streak_singular">%1$d semana</string>
+    <string name="dashboard_streak_plural">%1$d semanas</string>
+    <string name="dashboard_goal_progress">%1$s de %2$s</string>
+    <string name="dashboard_goal_reached">¡Meta alcanzada! 🎉</string>
+    <string name="dashboard_goal_remaining">Te faltan %1$s para tu meta</string>
+    <string name="dashboard_goal_set_cta">Pon tu meta semanal</string>
+
+    <!-- Chips de plataforma -->
+    <string name="platform_chip_todas">Todas</string>
+    <string name="platform_chip_uber">Uber</string>
+    <string name="platform_chip_didi">DiDi</string>
+    <string name="platform_chip_indrive">inDrive</string>
+    <string name="platform_chip_desconocida">Otra</string>
+
+    <!-- Tarjetas de métricas -->
+    <string name="metric_per_trip">$ POR VIAJE</string>
+    <string name="metric_per_km">$ POR KM</string>
+    <string name="metric_per_hour">$ POR HORA</string>
+    <string name="metric_trips_per_hour">VIAJES POR HORA</string>
+    <string name="metric_acceptance_rate">TASA DE ACEPTACIÓN</string>
+
+    <!-- Indicador de datos parciales -->
+    <string name="completeness_hours_inferred">Horas estimadas por turnos</string>
+    <string name="completeness_hours_missing">Sin turno detectado — no podemos estimar tus horas todavía</string>
+
+    <!-- Aviso de configuración de costos (primer uso) -->
+    <string name="cost_nudge_title">Configura tus costos para ver ganancias netas</string>
+    <string name="cost_nudge_cta">Configurar costos</string>
+
+    <!-- Estado vacío del tablero (chofer nuevo) -->
+    <string name="dashboard_empty_title">Aún no hay números</string>
+    <string name="dashboard_empty_body">Activa el lector y maneja — tus números aparecen solos.</string>
+    <string name="dashboard_empty_cta">Probar el lector</string>
+
+    <!-- Sección "Hoy" / detalle del día -->
+    <string name="day_today">Hoy</string>
+    <string name="day_view_detail">Ver detalle del día</string>
+    <string name="day_detail_title">Detalle del día</string>
+    <string name="day_shifts_title">Turnos</string>
+    <string name="day_shift_open">en curso</string>
+    <string name="day_shift_line">%1$s–%2$s · %3$d viajes · %4$s</string>
+    <string name="day_shift_line_open">%1$s–%2$s · %3$d viajes · %4$s</string>
+    <string name="day_offers_title">Ofertas</string>
+    <string name="day_offers_funnel">%1$d vistas · %2$d aceptadas · %3$d rechazadas</string>
+    <string name="day_best_hours_title">Mejores horas</string>
+    <string name="day_best_hour_line">%1$s · %2$d viajes</string>
+    <string name="day_empty_title">Sin actividad este día</string>
+    <string name="day_empty_body">No registramos viajes ni ofertas en esta fecha.</string>
+
+    <!-- Historial -->
+    <string name="history_title">Historial</string>
+    <string name="history_badge_capturado">Capturado</string>
+    <string name="history_badge_importado">Importado</string>
+    <string name="history_empty_title">Tu historial está vacío</string>
+    <string name="history_empty_body">Cada semana que manejes con el lector activo aparecerá aquí.</string>
+    <string name="week_summary_title">Resumen de la semana</string>
+
+    <!-- Resumen rápido reutilizable -->
+    <string name="summary_net">Neto</string>
+    <string name="summary_gross">Bruto</string>
+    <string name="summary_trips">Viajes</string>
+    <string name="summary_km">Distancia</string>
+    <string name="summary_hours">Horas en línea</string>
+
+    <!-- Editor de perfil de costos -->
+    <string name="cost_editor_title">Tus costos</string>
+    <string name="cost_editor_intro">Con esto calculamos tu ganancia neta de verdad: lo que ganas menos lo que te cuesta manejar.</string>
+    <string name="cost_editor_ev_toggle">Vehículo eléctrico</string>
+    <string name="cost_editor_rendimiento">Rendimiento (km por litro)</string>
+    <string name="cost_editor_gas_price">Precio de gasolina (MXN por litro)</string>
+    <string name="cost_editor_kwh_per_100">Consumo (kWh por 100 km)</string>
+    <string name="cost_editor_cost_per_kwh">Costo de carga (MXN por kWh)</string>
+    <string name="cost_editor_maintenance">Mantenimiento (MXN por km)</string>
+    <string name="cost_editor_insurance">Seguro (MXN por día)</string>
+    <string name="cost_editor_rent">Renta o financiamiento (MXN por día)</string>
+    <string name="cost_editor_preview_per_km">Tu costo por km: %1$s</string>
+    <string name="cost_editor_preview_sample">En un viaje de %1$s y %2$s, te quedan %3$s netos</string>
+    <string name="cost_editor_save">Guardar costos</string>
+    <string name="cost_editor_saved">Costos guardados</string>
 </resources>

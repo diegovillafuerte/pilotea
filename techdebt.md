@@ -20,6 +20,18 @@ Conscious deferrals. Each entry: date, severity, context, why deferred, when to 
 **Why deferred:** No Play environment, signed build, or device/emulator-with-Play in this environment. Everything testable was put behind interfaces with fakes per the task contract.
 **When to fix:** BEFORE LAUNCH, on the internal test track (B-053): configure the product/base-plan/offer in Play Console; validate the full lifecycle (card-free trial → active → cancel → restore) including grace period and account hold; confirm prices come only from `ProductDetails` at runtime; confirm entitlement is consistent across reinstall + device change (account-linked); and confirm `PlayBillingClientImpl`'s `Purchase.isSuspended`/grace mapping and the free-trial pricing-phase detection match real Play responses.
 
+## 2026-06-10 | Low | EV cost inputs are not round-tripped by the cost-profile editor (B-040)
+
+**Context:** The cost-profile editor (B-040) supports an EV toggle (cost per kWh × consumption). `CostProfileEntity` has no EV-specific columns, so on save we resolve the EV energy cost into the existing `fuelPerKmMxn` (and zero out `rendimientoKmPerLitre`/`gasPricePerLitreMxn`). On reload we detect "EV-ish" (fuel/km set with no rendimiento) but cannot reconstruct the original kWh/consumption inputs, so the EV fields show blank for the driver to re-enter if they edit.
+**Why deferred:** Adding EV columns means a schema change, which would collide with sibling work on `:data` this cycle and isn't needed for correct net math (the resolved $/km is what the engine consumes). The gas path round-trips fully.
+**When to fix:** When `CostProfileEntity` next changes schema, add `isEv`, `kwhPer100Km`, `costPerKwhMxn` columns (with a real Migration once v1 has shipped) so the EV editor round-trips its raw inputs.
+
+## 2026-06-10 | Low | Cost-profile save triggers a fixed ~2-year rollup recompute (B-040)
+
+**Context:** Saving the cost profile kicks `RollupRecomputer.recompute(windowDays = 730)` so historical net views reflect the new costs (acceptance criterion). The window is a fixed generous bound rather than computed from the oldest captured week.
+**Why deferred:** The recomputer only writes buckets that actually have trips, so over-wide is cheap on a fresh install; computing the exact oldest-week bound needs an extra DAO query that wasn't worth it now. The recompute is wrapped in runCatching so a failure never blocks the save.
+**When to fix:** If on-device history grows large enough that a 2-year recompute is noticeably slow, derive the window from the earliest captured day and recompute only that span.
+
 ## 2026-06-10 | Medium | Verdict overlay window behaviour validated only by unit tests, not on device (B-031)
 
 **Context:** The `:overlay` verdict chip (`OverlayController` + `VerdictChipUi`, `TYPE_ACCESSIBILITY_OVERLAY` attached from `KomparaAccessibilityService`) is verified by JVM/Robolectric unit tests of every piece of logic: OfferCard→TripOffer mapping, verdict→chip state, position clamping + bottom safe-zone math, the show/hide state machine with the 500 ms grace (virtual time), threshold-sheet persistence, and the manual `OverlayLifecycleOwner` state walk. No emulator/device was available, so the actual window behaviour was never exercised.

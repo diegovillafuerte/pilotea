@@ -11,15 +11,23 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import mx.kompara.ui.screens.AjustesScreen
 import mx.kompara.ui.screens.CompararScreen
+import mx.kompara.ui.screens.CostProfileScreen
+import mx.kompara.ui.screens.DayDetailScreen
 import mx.kompara.ui.screens.FiscalScreen
-import mx.kompara.ui.screens.InicioScreen
+import mx.kompara.ui.screens.HistoryScreen
+import mx.kompara.ui.screens.InicioDashboardScreen
 import mx.kompara.ui.screens.LectorScreen
+import mx.kompara.ui.screens.WeekSummaryScreen
+import mx.kompara.ui.stats.DayDetailViewModel
+import mx.kompara.ui.stats.WeekSummaryViewModel
 import mx.kompara.ui.theme.KomparaTheme
 
 /**
@@ -80,7 +88,8 @@ fun KomparaApp(
             startDestination = KomparaDestination.START.route,
             modifier = Modifier.padding(innerPadding),
         ) {
-            tabScreens(onOpenSimulator = { navController.navigate(KomparaDestination.SIMULATOR_ROUTE) })
+            tabScreens(navController)
+            statsScreens(navController)
             registerExtraDestinations(navController)
         }
     }
@@ -108,13 +117,54 @@ private fun NavHostController.navigateToReaderTrial() {
     }
 }
 
-/** Registers the placeholder screen for every top-level destination. */
-private fun NavGraphBuilder.tabScreens(onOpenSimulator: () -> Unit) {
-    composable(KomparaDestination.INICIO.route) { InicioScreen() }
+/** Registers the screen for every top-level destination. */
+private fun NavGraphBuilder.tabScreens(navController: NavController) {
+    composable(KomparaDestination.INICIO.route) {
+        InicioDashboardScreen(
+            onOpenCostProfile = { navController.navigate(KomparaDestination.COST_PROFILE_ROUTE) },
+            onOpenToday = { navController.navigate(KomparaDestination.DAY_DETAIL_ROUTE) },
+            onOpenReaderTrial = { navController.navigate(KomparaDestination.SIMULATOR_ROUTE) },
+        )
+    }
     composable(KomparaDestination.COMPARAR.route) { CompararScreen() }
     composable(KomparaDestination.LECTOR.route) { LectorScreen() }
     composable(KomparaDestination.FISCAL.route) { FiscalScreen() }
-    composable(KomparaDestination.AJUSTES.route) { AjustesScreen(onOpenSimulator = onOpenSimulator) }
+    composable(KomparaDestination.AJUSTES.route) {
+        AjustesScreen(
+            onOpenSimulator = { navController.navigate(KomparaDestination.SIMULATOR_ROUTE) },
+            onOpenCostProfile = { navController.navigate(KomparaDestination.COST_PROFILE_ROUTE) },
+            onOpenHistory = { navController.navigate(KomparaDestination.HISTORY_ROUTE) },
+        )
+    }
+}
+
+/**
+ * The B-040 stats detail screens (not bottom-bar tabs): cost-profile editor, history weeks list,
+ * day detail (today by default, or a specific ISO day), and week summary.
+ */
+private fun NavGraphBuilder.statsScreens(navController: NavController) {
+    composable(KomparaDestination.COST_PROFILE_ROUTE) {
+        CostProfileScreen(onSaved = { navController.popBackStack() })
+    }
+    composable(KomparaDestination.HISTORY_ROUTE) {
+        HistoryScreen(
+            onOpenWeek = { weekStart ->
+                navController.navigate("${KomparaDestination.WEEK_SUMMARY_ROUTE}/$weekStart")
+            },
+        )
+    }
+    // Day detail with no arg → today.
+    composable(KomparaDestination.DAY_DETAIL_ROUTE) { DayDetailScreen() }
+    composable(
+        route = "${KomparaDestination.DAY_DETAIL_ROUTE}/{${DayDetailViewModel.ARG_DAY}}",
+        arguments = listOf(navArgument(DayDetailViewModel.ARG_DAY) { type = NavType.StringType }),
+    ) { DayDetailScreen() }
+    composable(
+        route = "${KomparaDestination.WEEK_SUMMARY_ROUTE}/{${WeekSummaryViewModel.ARG_WEEK_START}}",
+        arguments = listOf(
+            navArgument(WeekSummaryViewModel.ARG_WEEK_START) { type = NavType.StringType },
+        ),
+    ) { WeekSummaryScreen() }
 }
 
 @Preview(showBackground = true, name = "KomparaApp shell")

@@ -38,6 +38,13 @@ interface AggregateDao {
     )
     suspend fun capturedWeek(weekStart: String): List<WeeklyAggregateEntity>
 
+    /** Captured daily rows for one local day (one per active platform). Backs the day-detail screen. */
+    @Query(
+        "SELECT * FROM daily_aggregates WHERE day = :day AND source = 'CAPTURED' " +
+            "ORDER BY platform ASC",
+    )
+    suspend fun capturedDay(day: String): List<DailyAggregateEntity>
+
     /**
      * All weekly rows ordered oldest→newest, for the streak calculator. Includes every source so a
      * streak counts both captured and imported weeks that have data.

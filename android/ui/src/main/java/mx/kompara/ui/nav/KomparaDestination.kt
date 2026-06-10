@@ -74,5 +74,23 @@ enum class KomparaDestination(
          * (the simulator embeds the verdict chip, which lives in `:overlay`).
          */
         const val SIMULATOR_ROUTE: String = "simulator"
+
+        /** Cost-profile editor (B-040 req 4), reachable from Ajustes and the Inicio first-run nudge. */
+        const val COST_PROFILE_ROUTE: String = "cost-profile"
+
+        /** History weeks list (B-040 req 3), reachable from Inicio. */
+        const val HISTORY_ROUTE: String = "history"
+
+        /**
+         * Day-detail route (B-040 req 2). The day is an optional ISO arg ([mx.kompara.ui.stats.
+         * DayDetailViewModel.ARG_DAY]); omitting it defaults to today.
+         */
+        const val DAY_DETAIL_ROUTE: String = "day"
+
+        /**
+         * Week-summary route (B-040 req 3). Carries the ISO Monday in
+         * [mx.kompara.ui.stats.WeekSummaryViewModel.ARG_WEEK_START].
+         */
+        const val WEEK_SUMMARY_ROUTE: String = "week"
     }
 }

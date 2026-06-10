@@ -1,51 +1,30 @@
 package mx.kompara.ui.screens
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import mx.kompara.ui.InicioViewModel
+import androidx.compose.ui.unit.dp
 import mx.kompara.ui.R
 import mx.kompara.ui.components.EmptyState
-import mx.kompara.ui.components.WatchdogBanner
-import mx.kompara.ui.onboarding.WatchdogState
+import mx.kompara.ui.components.PrimaryButton
 import mx.kompara.ui.theme.KomparaTheme
 
 /**
- * The placeholder content for each top-level tab. Real screens land in later UI tasks; for now
- * every tab shows a Spanish [EmptyState] so the shell is fully navigable and on-brand. Copy lives
- * in `strings.xml`.
+ * Placeholder content for the tabs that don't yet have a real screen (Comparar, Lector, Fiscal). The
+ * Inicio tab now renders [mx.kompara.ui.screens.InicioDashboardScreen] (B-040); Ajustes is a small
+ * launcher into the cost-profile editor, history and the simulator. Copy lives in `strings.xml`.
  */
-
-@Composable
-fun InicioScreen(
-    modifier: Modifier = Modifier,
-    viewModel: InicioViewModel = hiltViewModel(),
-) {
-    val watchdogState by viewModel.watchdogState.collectAsStateWithLifecycle()
-    Column(modifier = modifier) {
-        if (watchdogState == WatchdogState.DROPPED) {
-            WatchdogBanner(onReEnable = viewModel::reEnableReader)
-        }
-        EmptyState(
-            icon = Icons.Filled.Home,
-            title = stringResource(R.string.inicio_empty_title),
-            body = stringResource(R.string.inicio_empty_body),
-            ctaText = stringResource(R.string.inicio_empty_cta),
-            onCtaClick = {},
-        )
-    }
-}
 
 @Composable
 fun CompararScreen(modifier: Modifier = Modifier) {
@@ -83,38 +62,37 @@ fun FiscalScreen(modifier: Modifier = Modifier) {
     )
 }
 
+/**
+ * Ajustes: a small launcher into the cost-profile editor (B-040), the history weeks list, and the
+ * offer simulator (B-037). The full settings list lands in a later UI task.
+ */
 @Composable
 fun AjustesScreen(
     modifier: Modifier = Modifier,
     onOpenSimulator: () -> Unit = {},
+    onOpenCostProfile: () -> Unit = {},
+    onOpenHistory: () -> Unit = {},
 ) {
-    // The Ajustes tab is still a placeholder, but it already surfaces the offer simulator (B-037)
-    // so drivers can see what Kompara does before their first shift. The CTA opens the simulator
-    // route; the real settings list lands in a later UI task.
-    EmptyState(
-        icon = Icons.Filled.Settings,
-        title = stringResource(R.string.ajustes_empty_title),
-        body = stringResource(R.string.ajustes_empty_body),
-        ctaText = stringResource(R.string.ajustes_open_simulator),
-        onCtaClick = onOpenSimulator,
-        modifier = modifier,
-    )
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(horizontal = 24.dp, vertical = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
+    ) {
+        PrimaryButton(
+            text = stringResource(R.string.cost_editor_title),
+            onClick = onOpenCostProfile,
+            modifier = Modifier.padding(bottom = 0.dp),
+        )
+        PrimaryButton(text = stringResource(R.string.history_title), onClick = onOpenHistory)
+        PrimaryButton(text = stringResource(R.string.ajustes_open_simulator), onClick = onOpenSimulator)
+    }
 }
 
-@Preview(showBackground = true, name = "Inicio — placeholder")
+@Preview(showBackground = true, name = "Ajustes — launcher")
 @Composable
-private fun InicioScreenPreview() {
-    // Render the empty state directly: InicioScreen() resolves a hiltViewModel() which the preview
-    // renderer can't construct.
-    KomparaTheme {
-        EmptyState(
-            icon = Icons.Filled.Home,
-            title = stringResource(R.string.inicio_empty_title),
-            body = stringResource(R.string.inicio_empty_body),
-            ctaText = stringResource(R.string.inicio_empty_cta),
-            onCtaClick = {},
-        )
-    }
+private fun AjustesScreenPreview() {
+    KomparaTheme { AjustesScreen() }
 }
 
 @Preview(showBackground = true, name = "Lector — placeholder")
