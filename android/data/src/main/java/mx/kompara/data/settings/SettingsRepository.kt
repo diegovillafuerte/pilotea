@@ -29,6 +29,8 @@ class SettingsRepository @Inject constructor(
         booleanPreferencesKey(SettingsSerialization.KEY_TELEMETRY_ENABLED)
     private val onboardingCompletedKey =
         booleanPreferencesKey(SettingsSerialization.KEY_ONBOARDING_COMPLETED)
+    private val weeklyNetGoalKey =
+        doublePreferencesKey(SettingsSerialization.KEY_WEEKLY_NET_GOAL)
 
     val settings: Flow<Settings> = dataStore.data.map { prefs -> prefs.toSettings() }
 
@@ -56,6 +58,20 @@ class SettingsRepository @Inject constructor(
                 .toMutableSet()
             if (enabled) current.add(platform) else current.remove(platform)
             prefs[enabledPlatformsKey] = current.map { it.name }.toSet()
+        }
+    }
+
+    /**
+     * Set or clear the weekly net earnings goal in MXN (B-039). A null or non-positive [goalMxn]
+     * clears the goal (no target). Drives goal-progress UI and the streak.
+     */
+    suspend fun setWeeklyNetGoal(goalMxn: Double?) {
+        dataStore.edit { prefs ->
+            if (goalMxn == null || goalMxn <= 0.0) {
+                prefs.remove(weeklyNetGoalKey)
+            } else {
+                prefs[weeklyNetGoalKey] = goalMxn
+            }
         }
     }
 

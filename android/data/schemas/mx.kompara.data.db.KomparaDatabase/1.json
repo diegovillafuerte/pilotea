@@ -2,11 +2,11 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "f0ac7904a53f82bb8c4caf22758d8491",
+    "identityHash": "15e18ec1f008bd28e2cefc44b75e1029",
     "entities": [
       {
         "tableName": "offers",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `seenAt` INTEGER NOT NULL, `platform` TEXT NOT NULL, `fareMxn` REAL NOT NULL, `distanceKm` REAL NOT NULL, `durationMin` REAL NOT NULL, `pickupKm` REAL, `surge` INTEGER NOT NULL, `verdict` TEXT, `accepted` INTEGER NOT NULL)",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `seenAt` INTEGER NOT NULL, `platform` TEXT NOT NULL, `fareMxn` REAL NOT NULL, `distanceKm` REAL NOT NULL, `durationMin` REAL NOT NULL, `pickupKm` REAL, `surge` INTEGER NOT NULL, `verdict` TEXT, `accepted` INTEGER NOT NULL, `outcome` TEXT NOT NULL, `resolvedAt` INTEGER, `shiftId` INTEGER)",
         "fields": [
           {
             "fieldPath": "id",
@@ -65,6 +65,22 @@
             "columnName": "accepted",
             "affinity": "INTEGER",
             "notNull": true
+          },
+          {
+            "fieldPath": "outcome",
+            "columnName": "outcome",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "resolvedAt",
+            "columnName": "resolvedAt",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "shiftId",
+            "columnName": "shiftId",
+            "affinity": "INTEGER"
           }
         ],
         "primaryKey": {
@@ -76,7 +92,7 @@
       },
       {
         "tableName": "trips",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `offerId` INTEGER, `startedAt` INTEGER NOT NULL, `endedAt` INTEGER NOT NULL, `platform` TEXT NOT NULL, `grossMxn` REAL NOT NULL, `distanceKm` REAL NOT NULL, `durationMin` REAL NOT NULL)",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `offerId` INTEGER, `shiftId` INTEGER, `startedAt` INTEGER NOT NULL, `endedAt` INTEGER, `platform` TEXT NOT NULL, `grossMxn` REAL NOT NULL, `distanceKm` REAL NOT NULL, `durationMin` REAL NOT NULL, `estimated` INTEGER NOT NULL)",
         "fields": [
           {
             "fieldPath": "id",
@@ -90,6 +106,11 @@
             "affinity": "INTEGER"
           },
           {
+            "fieldPath": "shiftId",
+            "columnName": "shiftId",
+            "affinity": "INTEGER"
+          },
+          {
             "fieldPath": "startedAt",
             "columnName": "startedAt",
             "affinity": "INTEGER",
@@ -98,8 +119,7 @@
           {
             "fieldPath": "endedAt",
             "columnName": "endedAt",
-            "affinity": "INTEGER",
-            "notNull": true
+            "affinity": "INTEGER"
           },
           {
             "fieldPath": "platform",
@@ -124,6 +144,12 @@
             "columnName": "durationMin",
             "affinity": "REAL",
             "notNull": true
+          },
+          {
+            "fieldPath": "estimated",
+            "columnName": "estimated",
+            "affinity": "INTEGER",
+            "notNull": true
           }
         ],
         "primaryKey": {
@@ -135,7 +161,7 @@
       },
       {
         "tableName": "shifts",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `startedAt` INTEGER NOT NULL, `endedAt` INTEGER, `tripCount` INTEGER NOT NULL, `grossMxn` REAL NOT NULL, `netMxn` REAL NOT NULL, `distanceKm` REAL NOT NULL)",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `startedAt` INTEGER NOT NULL, `endedAt` INTEGER, `lastEventAt` INTEGER NOT NULL, `tripCount` INTEGER NOT NULL, `grossMxn` REAL NOT NULL, `netMxn` REAL NOT NULL, `distanceKm` REAL NOT NULL)",
         "fields": [
           {
             "fieldPath": "id",
@@ -153,6 +179,12 @@
             "fieldPath": "endedAt",
             "columnName": "endedAt",
             "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "lastEventAt",
+            "columnName": "lastEventAt",
+            "affinity": "INTEGER",
+            "notNull": true
           },
           {
             "fieldPath": "tripCount",
@@ -384,11 +416,197 @@
             "id"
           ]
         }
+      },
+      {
+        "tableName": "weekly_aggregates",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`platform` TEXT NOT NULL, `weekStart` TEXT NOT NULL, `source` TEXT NOT NULL, `netEarningsMxn` REAL NOT NULL, `grossEarningsMxn` REAL NOT NULL, `totalTrips` INTEGER NOT NULL, `totalKm` REAL NOT NULL, `hoursOnline` REAL NOT NULL, `earningsPerTrip` REAL, `earningsPerKm` REAL, `earningsPerHour` REAL, `tripsPerHour` REAL, `acceptanceRate` REAL, `computedAt` INTEGER NOT NULL, PRIMARY KEY(`platform`, `weekStart`, `source`))",
+        "fields": [
+          {
+            "fieldPath": "platform",
+            "columnName": "platform",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "weekStart",
+            "columnName": "weekStart",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "source",
+            "columnName": "source",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "netEarningsMxn",
+            "columnName": "netEarningsMxn",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "grossEarningsMxn",
+            "columnName": "grossEarningsMxn",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "totalTrips",
+            "columnName": "totalTrips",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "totalKm",
+            "columnName": "totalKm",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hoursOnline",
+            "columnName": "hoursOnline",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "earningsPerTrip",
+            "columnName": "earningsPerTrip",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "earningsPerKm",
+            "columnName": "earningsPerKm",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "earningsPerHour",
+            "columnName": "earningsPerHour",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "tripsPerHour",
+            "columnName": "tripsPerHour",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "acceptanceRate",
+            "columnName": "acceptanceRate",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "computedAt",
+            "columnName": "computedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "platform",
+            "weekStart",
+            "source"
+          ]
+        }
+      },
+      {
+        "tableName": "daily_aggregates",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`platform` TEXT NOT NULL, `day` TEXT NOT NULL, `source` TEXT NOT NULL, `netEarningsMxn` REAL NOT NULL, `grossEarningsMxn` REAL NOT NULL, `totalTrips` INTEGER NOT NULL, `totalKm` REAL NOT NULL, `hoursOnline` REAL NOT NULL, `earningsPerTrip` REAL, `earningsPerKm` REAL, `earningsPerHour` REAL, `tripsPerHour` REAL, `acceptanceRate` REAL, `computedAt` INTEGER NOT NULL, PRIMARY KEY(`platform`, `day`, `source`))",
+        "fields": [
+          {
+            "fieldPath": "platform",
+            "columnName": "platform",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "day",
+            "columnName": "day",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "source",
+            "columnName": "source",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "netEarningsMxn",
+            "columnName": "netEarningsMxn",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "grossEarningsMxn",
+            "columnName": "grossEarningsMxn",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "totalTrips",
+            "columnName": "totalTrips",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "totalKm",
+            "columnName": "totalKm",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hoursOnline",
+            "columnName": "hoursOnline",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "earningsPerTrip",
+            "columnName": "earningsPerTrip",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "earningsPerKm",
+            "columnName": "earningsPerKm",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "earningsPerHour",
+            "columnName": "earningsPerHour",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "tripsPerHour",
+            "columnName": "tripsPerHour",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "acceptanceRate",
+            "columnName": "acceptanceRate",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "computedAt",
+            "columnName": "computedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "platform",
+            "day",
+            "source"
+          ]
+        }
       }
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'f0ac7904a53f82bb8c4caf22758d8491')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '15e18ec1f008bd28e2cefc44b75e1029')"
     ]
   }
 }

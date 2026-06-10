@@ -8,6 +8,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import mx.kompara.data.db.KomparaDatabase
+import mx.kompara.data.db.dao.AggregateDao
 import mx.kompara.data.db.dao.CostProfileDao
 import mx.kompara.data.db.dao.FixtureReportDao
 import mx.kompara.data.db.dao.OfferDao
@@ -47,4 +48,7 @@ object DatabaseModule {
 
     @Provides
     fun provideFixtureReportDao(db: KomparaDatabase): FixtureReportDao = db.fixtureReportDao()
+
+    @Provides
+    fun provideAggregateDao(db: KomparaDatabase): AggregateDao = db.aggregateDao()
 }

@@ -10,7 +10,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import mx.kompara.capture.OfferEventPipeline
+import mx.kompara.capture.lifecycle.OfferEventLifecycleMapper
+import mx.kompara.capture.lifecycle.TripLifecycleTracker
 import mx.kompara.capture.telemetry.TelemetryCollector
+import mx.kompara.sync.rollup.RollupWorker
 import mx.kompara.sync.spec.SpecConfigRefreshWorker
 import mx.kompara.sync.spec.SpecConfigRepository
 import mx.kompara.sync.telemetry.TelemetryScheduler
@@ -42,6 +45,10 @@ class KomparaApplication : Application(), Configuration.Provider {
     @Inject lateinit var telemetryCollector: TelemetryCollector
     @Inject lateinit var telemetryScheduler: TelemetryScheduler
 
+    // B-039 auto trip-log bootstrap collaborators.
+    @Inject lateinit var lifecycleMapper: OfferEventLifecycleMapper
+    @Inject lateinit var tripLifecycleTracker: TripLifecycleTracker
+
     // B-033 OTA parser-config collaborators.
     @Inject lateinit var specConfigRepository: SpecConfigRepository
     @Inject lateinit var workManager: WorkManager
@@ -66,6 +73,17 @@ class KomparaApplication : Application(), Configuration.Provider {
         }
         // Enqueue the idempotent 12h periodic telemetry upload (network-constrained, with backoff).
         telemetryScheduler.ensurePeriodic()
+
+        // B-039: build the driver's automatic ledger from the same capture stream. The tracker
+        // observes coalesced snapshots (hot SharedFlow → emits nothing until the service connects),
+        // infers offers/trips/shifts, and triggers rollups on trip close. App-scoped so a transient
+        // failure never crashes the app or stops capture, mirroring the telemetry collector.
+        appScope.launch {
+            tripLifecycleTracker.collect(lifecycleMapper.signals())
+        }
+        // Daily background recompute keeps aggregates fresh even when no trip closes (e.g. an open
+        // shift crossing midnight); on-trip-close one-shots handle the prompt case.
+        RollupWorker.schedulePeriodic(workManager)
 
         // Fetch the freshest signed parser bundle now (so a kill switch applies this session), then
         // let the periodic worker keep it current. refresh() never throws and no-ops when nothing is

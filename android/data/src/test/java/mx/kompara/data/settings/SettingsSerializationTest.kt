@@ -3,6 +3,7 @@ package mx.kompara.data.settings
 import mx.kompara.data.model.Platform
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -119,5 +120,19 @@ class SettingsSerializationTest {
             },
         )
         assertTrue(completed.onboardingCompleted)
+    }
+
+    @Test
+    fun `weekly net goal is null when unset and reads a stored value (B-039)`() {
+        val unset = SettingsSerialization.decode(enabledNames = null, lookupDouble = { null })
+        assertNull(unset.weeklyNetGoalMxn)
+
+        val withGoal = SettingsSerialization.decode(
+            enabledNames = null,
+            lookupDouble = { key ->
+                if (key == SettingsSerialization.KEY_WEEKLY_NET_GOAL) 5000.0 else null
+            },
+        )
+        assertEquals(5000.0, withGoal.weeklyNetGoalMxn!!, 0.0001)
     }
 }

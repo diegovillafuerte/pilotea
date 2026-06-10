@@ -40,6 +40,8 @@ dependencies {
     // :parsers for the ParserSpec/SpecBundle model + signature verifier (B-033 OTA specs) and the
     // ParserSnapshot deserialized when rebuilding a fixture-report payload (B-034).
     implementation(project(":parsers"))
+    // :metrics for the B-039 RollupRecomputer (turns the cost profile into a marginal $/km for net).
+    implementation(project(":metrics"))
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.serialization.json)
 

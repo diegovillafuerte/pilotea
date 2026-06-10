@@ -21,6 +21,9 @@ object SettingsSerialization {
     /** Boolean key for whether the onboarding funnel has been completed (B-036). */
     const val KEY_ONBOARDING_COMPLETED = "onboarding_completed"
 
+    /** Double key for the weekly net earnings goal in MXN (B-039); absent ⇒ no goal set. */
+    const val KEY_WEEKLY_NET_GOAL = "weekly_net_goal_mxn"
+
     fun perKmKey(platform: Platform): String = "threshold_${platform.name}_per_km"
     fun perHourKey(platform: Platform): String = "threshold_${platform.name}_per_hour"
 
@@ -63,6 +66,7 @@ object SettingsSerialization {
                 ?: Settings.DEFAULT_TELEMETRY_ENABLED,
             onboardingCompleted = lookupBoolean(KEY_ONBOARDING_COMPLETED)
                 ?: Settings.DEFAULT_ONBOARDING_COMPLETED,
+            weeklyNetGoalMxn = lookupDouble(KEY_WEEKLY_NET_GOAL),
         )
     }
 }

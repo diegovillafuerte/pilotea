@@ -28,6 +28,14 @@ data class Settings(
      * watchdog (B-036).
      */
     val onboardingCompleted: Boolean = DEFAULT_ONBOARDING_COMPLETED,
+
+    /**
+     * The driver's weekly **net** earnings target in MXN (B-039 goals & streaks), or null when no
+     * goal is set. Compared against a week's captured (or imported) net to drive the goal-progress UI
+     * and feed the consecutive-weeks streak. Net, not gross — the whole point of the reader is the
+     * honest number.
+     */
+    val weeklyNetGoalMxn: Double? = null,
 ) {
     /** Threshold for [platform], or the default when none has been set. */
     fun thresholdFor(platform: Platform): PlatformThreshold =
