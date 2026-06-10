@@ -37,6 +37,12 @@ object SettingsSerialization {
     /** Boolean key for the debug premium override (B-046); default OFF, additive over entitlement. */
     const val KEY_DEBUG_PREMIUM = "debug_premium"
 
+    /** Boolean key for the month-end IMSS summary notification toggle (B-051); default ON. */
+    const val KEY_FISCAL_MONTHLY_SUMMARY = "fiscal_monthly_summary_enabled"
+
+    /** String key ("yyyy-MM") for the last month a month-end IMSS summary was posted (B-051). */
+    const val KEY_FISCAL_LAST_NOTIFIED_MONTH = "fiscal_last_notified_month"
+
     fun perKmKey(platform: Platform): String = "threshold_${platform.name}_per_km"
     fun perHourKey(platform: Platform): String = "threshold_${platform.name}_per_hour"
 
@@ -94,6 +100,9 @@ object SettingsSerialization {
             city = decodeCity(lookupString(KEY_CITY)),
             debugPremium = lookupBoolean(KEY_DEBUG_PREMIUM)
                 ?: Settings.DEFAULT_DEBUG_PREMIUM,
+            fiscalMonthlySummaryEnabled = lookupBoolean(KEY_FISCAL_MONTHLY_SUMMARY)
+                ?: Settings.DEFAULT_FISCAL_MONTHLY_SUMMARY_ENABLED,
+            fiscalLastNotifiedMonth = lookupString(KEY_FISCAL_LAST_NOTIFIED_MONTH),
         )
     }
 }

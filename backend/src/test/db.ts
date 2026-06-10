@@ -16,6 +16,7 @@ import { drizzle } from "drizzle-orm/pglite";
 import * as schema from "../db/schema.js";
 import { buildSeedRows } from "../../seed/population-stats.js";
 import { buildParserSpecRows } from "../../seed/parser-specs.js";
+import { buildFiscalConfigRows } from "../../seed/fiscal-config.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const migrationsDir = join(here, "..", "..", "migrations");
@@ -98,12 +99,27 @@ async function seedParserSpecs(db: TestDb): Promise<void> {
 }
 
 /**
- * Build a fresh migrated test DB. Pass `seed: true` to also load the synthetic population_stats and
- * `seedSpecs: true` to load the launch-day parser_configs bundle. Each call is an isolated in-memory
- * database.
+ * Insert the current-year fiscal_config row(s) using the SAME generator as the shipped seed runner
+ * (B-051), so the fiscal-config tests exercise the real seed values.
+ */
+async function seedFiscalConfig(db: TestDb): Promise<void> {
+  const rows = buildFiscalConfigRows();
+  await db.insert(schema.fiscalConfig).values(
+    rows.map((r) => ({
+      year: r.year,
+      minimumWageDailyMxn: String(r.minimumWageDailyMxn),
+      imssMonthlyThresholdMxn: String(r.imssMonthlyThresholdMxn),
+    })),
+  );
+}
+
+/**
+ * Build a fresh migrated test DB. Pass `seed: true` to also load the synthetic population_stats,
+ * `seedSpecs: true` to load the launch-day parser_configs bundle, and `seedFiscal: true` to load the
+ * fiscal_config IMSS-threshold rows (B-051). Each call is an isolated in-memory database.
  */
 export async function makeTestDb(
-  opts: { seed?: boolean; seedSpecs?: boolean } = {},
+  opts: { seed?: boolean; seedSpecs?: boolean; seedFiscal?: boolean } = {},
 ): Promise<TestDb> {
   const client = new PGlite();
   await client.waitReady;
@@ -115,6 +131,9 @@ export async function makeTestDb(
   }
   if (opts.seedSpecs) {
     await seedParserSpecs(db);
+  }
+  if (opts.seedFiscal) {
+    await seedFiscalConfig(db);
   }
   return db;
 }

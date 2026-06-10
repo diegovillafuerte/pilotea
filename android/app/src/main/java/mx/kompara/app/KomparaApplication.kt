@@ -19,6 +19,7 @@ import mx.kompara.sync.aggregate.AggregateSyncScheduler
 import mx.kompara.sync.spec.SpecConfigRefreshWorker
 import mx.kompara.sync.spec.SpecConfigRepository
 import mx.kompara.sync.telemetry.TelemetryScheduler
+import mx.kompara.ui.fiscal.FiscalMonthEndScheduler
 import mx.kompara.ui.onboarding.ServiceWatchdog
 import javax.inject.Inject
 
@@ -63,6 +64,9 @@ class KomparaApplication : Application(), Configuration.Provider {
 
     // B-049 Play Billing entitlement. Hydrates last-known (offline grace) then tracks live purchases.
     @Inject lateinit var entitlementRepository: EntitlementRepository
+
+    // B-051 month-end IMSS summary: daily check + a run on this app open.
+    @Inject lateinit var fiscalMonthEndScheduler: FiscalMonthEndScheduler
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -112,5 +116,11 @@ class KomparaApplication : Application(), Configuration.Provider {
         // acknowledging + syncing to the backend. App-scoped so a transient failure never crashes
         // the app; when Play is unavailable the repo logs loudly and stays on the last-known value.
         entitlementRepository.start(appScope)
+
+        // B-051: keep the daily month-end IMSS check enqueued, and run one now (the "next app open"
+        // path) so a just-ended month's summary fires promptly. Both are idempotent via the per-month
+        // watermark, so an extra run never double-posts.
+        fiscalMonthEndScheduler.ensureScheduled()
+        fiscalMonthEndScheduler.runNow()
     }
 }

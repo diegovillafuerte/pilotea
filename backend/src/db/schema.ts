@@ -321,3 +321,32 @@ export const subscriptions = pgTable(
   },
   (table) => [index("idx_subscriptions_driver").on(table.driverId)],
 );
+
+// ─── fiscal_config ─────────────────────────────────────────────
+// Remote-config for the IMSS threshold tracker (B-051). The 2025 Mexican
+// platform-work reform ties IMSS social-security coverage to earning ≥ 1 monthly
+// minimum wage per platform per calendar month. Both the daily minimum wage and
+// the derived monthly threshold are indexed yearly (CONASAMI sets the minimum
+// wage each December for the following year), so the Android app reads them from
+// here (GET /v1/config/fiscal) rather than baking them into a release — a new
+// year's values are an admin PATCH, not an app update.
+//
+// One row per fiscal `year`. The app fetches the latest (highest year) and falls
+// back to bundled defaults when offline/empty, so it never blocks the UI.
+export const fiscalConfig = pgTable("fiscal_config", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  // The fiscal year these values apply to (e.g. 2026). Unique so a year is
+  // upserted, never duplicated.
+  year: integer("year").notNull().unique(),
+  // General-zone daily minimum wage in MXN (CONASAMI "salario mínimo general").
+  minimumWageDailyMxn: decimal("minimum_wage_daily_mxn", { precision: 10, scale: 2 }).notNull(),
+  // The IMSS coverage threshold = one monthly minimum wage in MXN. Stored
+  // explicitly (rather than derived) because the reform's reporting figure
+  // (~$8,364) is what counsel/IMSS publish, and the daily→monthly factor can
+  // shift; keeping it explicit lets an admin set the authoritative number.
+  imssMonthlyThresholdMxn: decimal("imss_monthly_threshold_mxn", {
+    precision: 10,
+    scale: 2,
+  }).notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});

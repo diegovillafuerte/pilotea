@@ -316,4 +316,39 @@
     <string name="cost_editor_preview_sample">En un viaje de %1$s y %2$s, te quedan %3$s netos</string>
     <string name="cost_editor_save">Guardar costos</string>
     <string name="cost_editor_saved">Costos guardados</string>
+
+    <!-- Fiscal: rastreador del umbral IMSS (B-051) -->
+    <string name="fiscal_title">Cobertura IMSS</string>
+    <string name="fiscal_month_picker_label">Mes</string>
+    <string name="fiscal_threshold_label">Umbral por plataforma este mes: %1$s</string>
+    <string name="fiscal_using_default_config">Usando valores de referencia (sin conexión reciente al servidor).</string>
+    <string name="fiscal_empty_month_title">Sin ingresos registrados este mes</string>
+    <string name="fiscal_empty_month_body">Cuando captures o importes viajes, verás aquí tu avance hacia el umbral del IMSS por cada plataforma.</string>
+    <!-- Por plataforma -->
+    <string name="fiscal_platform_net">%1$s de %2$s</string>
+    <string name="fiscal_pacing">Te faltan %1$s y quedan %2$d días</string>
+    <string name="fiscal_pacing_singular">Te faltan %1$s y queda 1 día</string>
+    <string name="fiscal_projection">Proyección a fin de mes: %1$s</string>
+    <string name="fiscal_covered_amount">Llevas %1$s — ya superaste el umbral</string>
+    <!-- Estado de cobertura (chips) -->
+    <string name="fiscal_status_covered">Cubierto este mes</string>
+    <string name="fiscal_status_on_track">En camino</string>
+    <string name="fiscal_status_unlikely">Difícil este mes</string>
+    <string name="fiscal_status_covered_past">Cubierto</string>
+    <string name="fiscal_status_unlikely_past">No cubierto</string>
+    <!-- Explicador en español sencillo (revisión legal pendiente, ver B-038) -->
+    <string name="fiscal_explainer_title">¿Qué es la cobertura del IMSS para choferes de plataforma?</string>
+    <string name="fiscal_explainer_body">Desde la reforma laboral de plataformas (2025), si en un mes ganas al menos un salario mínimo mensual (el umbral de arriba) en UNA plataforma, esa plataforma debe inscribirte al IMSS ese mes. Así obtienes servicios médicos, riesgos de trabajo y acumulas semanas para tu pensión.</string>
+    <string name="fiscal_explainer_per_platform">La regla es por plataforma, no por la suma. Si ganas el umbral en Uber pero no en DiDi, quedas cubierto por Uber pero no por DiDi ese mes.</string>
+    <string name="fiscal_explainer_pilot">El esquema está en periodo piloto y las reglas pueden cambiar. Kompara estima tu avance con los datos que capturas e importas.</string>
+    <string name="fiscal_disclaimer">Estas son estimaciones con base en tus datos, no asesoría legal ni fiscal. Confirma tu situación con el IMSS o un contador.</string>
+    <!-- Resumen de fin de mes (notificación, B-051) -->
+    <string name="fiscal_channel_name">Cobertura IMSS</string>
+    <string name="fiscal_channel_desc">Aviso a fin de mes de si alcanzaste el umbral del IMSS por plataforma.</string>
+    <string name="fiscal_notif_covered_title">%1$s: cubierto por el IMSS</string>
+    <string name="fiscal_notif_covered_body">El mes pasado alcanzaste el umbral en %1$s. Esa plataforma debe inscribirte al IMSS.</string>
+    <string name="fiscal_notif_uncovered_title">%1$s: no alcanzaste el umbral</string>
+    <string name="fiscal_notif_uncovered_body">El mes pasado no llegaste al umbral del IMSS en %1$s.</string>
+    <!-- Ajuste de notificaciones de fin de mes -->
+    <string name="fiscal_settings_monthly_summary">Resumen de IMSS a fin de mes</string>
 </resources>

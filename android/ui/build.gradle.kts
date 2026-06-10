@@ -27,8 +27,10 @@ dependencies {
     // :ui consumes persistence and metrics; it must NOT depend on :capture internals.
     implementation(project(":data"))
     implementation(project(":metrics"))
-    // :sync for the percentile/benchmarks repositories (B-046) and :billing for the premium
-    // capability flags that gate the percentile UI (B-049 → B-050).
+    // :sync for the percentile/benchmarks repositories (B-046) and the FiscalConfigRepository (B-051
+    // IMSS threshold remote config); :billing for the premium capability flags that gate the
+    // percentile UI (B-049 → B-050). :sync depends on :data/:metrics/:parsers only — never on :ui —
+    // so this stays acyclic.
     implementation(project(":sync"))
     implementation(project(":billing"))
     implementation(libs.kotlinx.coroutines.core)
@@ -53,6 +55,11 @@ dependencies {
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
     implementation(libs.androidx.hilt.navigation.compose)
+
+    // WorkManager + Hilt integration: the month-end IMSS summary worker (B-051).
+    implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.androidx.hilt.work)
+    ksp(libs.androidx.hilt.compiler)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

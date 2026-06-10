@@ -5,6 +5,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import mx.kompara.ui.stats.AppClock
+import mx.kompara.ui.stats.FiscalMonth
 import mx.kompara.ui.stats.WeekClock
 import java.time.ZoneId
 import javax.inject.Singleton
@@ -25,6 +26,10 @@ object StatsModule {
     @Provides
     @Singleton
     fun provideWeekClock(zone: ZoneId): WeekClock = WeekClock(zone)
+
+    @Provides
+    @Singleton
+    fun provideFiscalMonth(zone: ZoneId): FiscalMonth = FiscalMonth(zone)
 
     @Provides
     @Singleton

@@ -38,6 +38,23 @@ class KomparaDatabaseMigrationTest {
         helper.runMigrationsAndValidate(TEST_DB, 2, true, KomparaMigrations.MIGRATION_1_2)
     }
 
+    /**
+     * v2 → v3 (B-051): adds the `fiscal_config` cache table. Validates the hand-written
+     * [KomparaMigrations.MIGRATION_2_3] produces the exported v3 schema.
+     */
+    @Test
+    @Throws(IOException::class)
+    fun migrate_2_to_3_addsFiscalConfigCache() {
+        helper.createDatabase(TEST_DB, 1).close()
+        helper.runMigrationsAndValidate(
+            TEST_DB,
+            3,
+            true,
+            KomparaMigrations.MIGRATION_1_2,
+            KomparaMigrations.MIGRATION_2_3,
+        )
+    }
+
     companion object {
         private const val TEST_DB = "kompara-migration-test"
     }

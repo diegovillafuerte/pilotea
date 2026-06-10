@@ -44,8 +44,11 @@ export function adminRoutes(db: Database) {
  * Throw 401/503 unless the request carries the configured `ADMIN_TOKEN` as a
  * bearer. Fails closed: a missing/blank env var rejects every request (503) so
  * a misconfigured deploy never exposes the endpoint unauthenticated.
+ *
+ * Exported so other operator-only endpoints (e.g. the fiscal-config PATCH,
+ * B-051) share the exact same gate instead of re-implementing it.
  */
-function requireAdmin(authHeader: string | undefined): void {
+export function requireAdmin(authHeader: string | undefined): void {
   const expected = process.env.ADMIN_TOKEN;
   if (!expected || expected.length === 0) {
     throw new HTTPException(503, { message: "Admin endpoint disabled: ADMIN_TOKEN not configured" });

@@ -60,6 +60,7 @@ pnpm db:generate  # drizzle-kit generate (schema -> SQL migration)
 pnpm db:migrate   # apply migrations to DATABASE_URL
 pnpm db:seed      # seed population_stats (needs DATABASE_URL)
 pnpm db:seed:specs # seed parser_configs with the launch-day uber+didi bundle (needs DATABASE_URL)
+pnpm db:seed:fiscal # seed fiscal_config with the current-year IMSS threshold (B-051; needs DATABASE_URL)
 pnpm sign-bundle  # build + sign the active parser-config bundle (DB if DATABASE_URL set, else seed)
 ```
 

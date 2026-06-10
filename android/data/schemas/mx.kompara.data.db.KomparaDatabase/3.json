@@ -1,0 +1,752 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 3,
+    "identityHash": "9ac1f6c076890937f38747e3af356e50",
+    "entities": [
+      {
+        "tableName": "offers",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `seenAt` INTEGER NOT NULL, `platform` TEXT NOT NULL, `fareMxn` REAL NOT NULL, `distanceKm` REAL NOT NULL, `durationMin` REAL NOT NULL, `pickupKm` REAL, `surge` INTEGER NOT NULL, `verdict` TEXT, `accepted` INTEGER NOT NULL, `outcome` TEXT NOT NULL, `resolvedAt` INTEGER, `shiftId` INTEGER)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "seenAt",
+            "columnName": "seenAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "platform",
+            "columnName": "platform",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fareMxn",
+            "columnName": "fareMxn",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "distanceKm",
+            "columnName": "distanceKm",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "durationMin",
+            "columnName": "durationMin",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pickupKm",
+            "columnName": "pickupKm",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "surge",
+            "columnName": "surge",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "verdict",
+            "columnName": "verdict",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "accepted",
+            "columnName": "accepted",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "outcome",
+            "columnName": "outcome",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "resolvedAt",
+            "columnName": "resolvedAt",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "shiftId",
+            "columnName": "shiftId",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "trips",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `offerId` INTEGER, `shiftId` INTEGER, `startedAt` INTEGER NOT NULL, `endedAt` INTEGER, `platform` TEXT NOT NULL, `grossMxn` REAL NOT NULL, `distanceKm` REAL NOT NULL, `durationMin` REAL NOT NULL, `estimated` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "offerId",
+            "columnName": "offerId",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "shiftId",
+            "columnName": "shiftId",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "startedAt",
+            "columnName": "startedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "endedAt",
+            "columnName": "endedAt",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "platform",
+            "columnName": "platform",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "grossMxn",
+            "columnName": "grossMxn",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "distanceKm",
+            "columnName": "distanceKm",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "durationMin",
+            "columnName": "durationMin",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "estimated",
+            "columnName": "estimated",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "shifts",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `startedAt` INTEGER NOT NULL, `endedAt` INTEGER, `lastEventAt` INTEGER NOT NULL, `tripCount` INTEGER NOT NULL, `grossMxn` REAL NOT NULL, `netMxn` REAL NOT NULL, `distanceKm` REAL NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "startedAt",
+            "columnName": "startedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "endedAt",
+            "columnName": "endedAt",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "lastEventAt",
+            "columnName": "lastEventAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tripCount",
+            "columnName": "tripCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "grossMxn",
+            "columnName": "grossMxn",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "netMxn",
+            "columnName": "netMxn",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "distanceKm",
+            "columnName": "distanceKm",
+            "affinity": "REAL",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "cost_profile",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `fuelPerKmMxn` REAL NOT NULL, `maintenancePerKmMxn` REAL NOT NULL, `insurancePerDayMxn` REAL NOT NULL, `rentPerDayMxn` REAL NOT NULL, `rendimientoKmPerLitre` REAL NOT NULL, `gasPricePerLitreMxn` REAL NOT NULL, `workDaysPerWeek` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fuelPerKmMxn",
+            "columnName": "fuelPerKmMxn",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "maintenancePerKmMxn",
+            "columnName": "maintenancePerKmMxn",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "insurancePerDayMxn",
+            "columnName": "insurancePerDayMxn",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "rentPerDayMxn",
+            "columnName": "rentPerDayMxn",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "rendimientoKmPerLitre",
+            "columnName": "rendimientoKmPerLitre",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "gasPricePerLitreMxn",
+            "columnName": "gasPricePerLitreMxn",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "workDaysPerWeek",
+            "columnName": "workDaysPerWeek",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "telemetry_counters",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`hostPackage` TEXT NOT NULL, `hostVersionCode` INTEGER NOT NULL, `specVersion` INTEGER NOT NULL, `variant` TEXT NOT NULL, `dayUtc` TEXT NOT NULL, `attempts` INTEGER NOT NULL, `successes` INTEGER NOT NULL, `failures` INTEGER NOT NULL, PRIMARY KEY(`hostPackage`, `hostVersionCode`, `specVersion`, `variant`, `dayUtc`))",
+        "fields": [
+          {
+            "fieldPath": "hostPackage",
+            "columnName": "hostPackage",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hostVersionCode",
+            "columnName": "hostVersionCode",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "specVersion",
+            "columnName": "specVersion",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "variant",
+            "columnName": "variant",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dayUtc",
+            "columnName": "dayUtc",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "attempts",
+            "columnName": "attempts",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "successes",
+            "columnName": "successes",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "failures",
+            "columnName": "failures",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "hostPackage",
+            "hostVersionCode",
+            "specVersion",
+            "variant",
+            "dayUtc"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_telemetry_counters_dayUtc",
+            "unique": false,
+            "columnNames": [
+              "dayUtc"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_telemetry_counters_dayUtc` ON `${TABLE_NAME}` (`dayUtc`)"
+          }
+        ]
+      },
+      {
+        "tableName": "fixture_reports",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `hostPackage` TEXT NOT NULL, `hostVersionCode` INTEGER, `specVersion` INTEGER, `reason` TEXT NOT NULL, `snapshotJson` TEXT NOT NULL, `consented` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hostPackage",
+            "columnName": "hostPackage",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hostVersionCode",
+            "columnName": "hostVersionCode",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "specVersion",
+            "columnName": "specVersion",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "reason",
+            "columnName": "reason",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "snapshotJson",
+            "columnName": "snapshotJson",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "consented",
+            "columnName": "consented",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "weekly_aggregates",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`platform` TEXT NOT NULL, `weekStart` TEXT NOT NULL, `source` TEXT NOT NULL, `netEarningsMxn` REAL NOT NULL, `grossEarningsMxn` REAL NOT NULL, `totalTrips` INTEGER NOT NULL, `totalKm` REAL NOT NULL, `hoursOnline` REAL NOT NULL, `earningsPerTrip` REAL, `earningsPerKm` REAL, `earningsPerHour` REAL, `tripsPerHour` REAL, `acceptanceRate` REAL, `computedAt` INTEGER NOT NULL, `lastSyncedAt` INTEGER, PRIMARY KEY(`platform`, `weekStart`, `source`))",
+        "fields": [
+          {
+            "fieldPath": "platform",
+            "columnName": "platform",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "weekStart",
+            "columnName": "weekStart",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "source",
+            "columnName": "source",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "netEarningsMxn",
+            "columnName": "netEarningsMxn",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "grossEarningsMxn",
+            "columnName": "grossEarningsMxn",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "totalTrips",
+            "columnName": "totalTrips",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "totalKm",
+            "columnName": "totalKm",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hoursOnline",
+            "columnName": "hoursOnline",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "earningsPerTrip",
+            "columnName": "earningsPerTrip",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "earningsPerKm",
+            "columnName": "earningsPerKm",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "earningsPerHour",
+            "columnName": "earningsPerHour",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "tripsPerHour",
+            "columnName": "tripsPerHour",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "acceptanceRate",
+            "columnName": "acceptanceRate",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "computedAt",
+            "columnName": "computedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastSyncedAt",
+            "columnName": "lastSyncedAt",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "platform",
+            "weekStart",
+            "source"
+          ]
+        }
+      },
+      {
+        "tableName": "daily_aggregates",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`platform` TEXT NOT NULL, `day` TEXT NOT NULL, `source` TEXT NOT NULL, `netEarningsMxn` REAL NOT NULL, `grossEarningsMxn` REAL NOT NULL, `totalTrips` INTEGER NOT NULL, `totalKm` REAL NOT NULL, `hoursOnline` REAL NOT NULL, `earningsPerTrip` REAL, `earningsPerKm` REAL, `earningsPerHour` REAL, `tripsPerHour` REAL, `acceptanceRate` REAL, `computedAt` INTEGER NOT NULL, PRIMARY KEY(`platform`, `day`, `source`))",
+        "fields": [
+          {
+            "fieldPath": "platform",
+            "columnName": "platform",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "day",
+            "columnName": "day",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "source",
+            "columnName": "source",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "netEarningsMxn",
+            "columnName": "netEarningsMxn",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "grossEarningsMxn",
+            "columnName": "grossEarningsMxn",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "totalTrips",
+            "columnName": "totalTrips",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "totalKm",
+            "columnName": "totalKm",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hoursOnline",
+            "columnName": "hoursOnline",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "earningsPerTrip",
+            "columnName": "earningsPerTrip",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "earningsPerKm",
+            "columnName": "earningsPerKm",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "earningsPerHour",
+            "columnName": "earningsPerHour",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "tripsPerHour",
+            "columnName": "tripsPerHour",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "acceptanceRate",
+            "columnName": "acceptanceRate",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "computedAt",
+            "columnName": "computedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "platform",
+            "day",
+            "source"
+          ]
+        }
+      },
+      {
+        "tableName": "population_stats",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`city` TEXT NOT NULL, `platform` TEXT NOT NULL, `metricName` TEXT NOT NULL, `period` TEXT NOT NULL, `sampleSize` INTEGER NOT NULL, `p10` REAL NOT NULL, `p25` REAL NOT NULL, `p50` REAL NOT NULL, `p75` REAL NOT NULL, `p90` REAL NOT NULL, `mean` REAL NOT NULL, `isSynthetic` INTEGER NOT NULL, `fetchedAt` INTEGER NOT NULL, PRIMARY KEY(`city`, `platform`, `metricName`, `period`))",
+        "fields": [
+          {
+            "fieldPath": "city",
+            "columnName": "city",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "platform",
+            "columnName": "platform",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "metricName",
+            "columnName": "metricName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "period",
+            "columnName": "period",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sampleSize",
+            "columnName": "sampleSize",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "p10",
+            "columnName": "p10",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "p25",
+            "columnName": "p25",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "p50",
+            "columnName": "p50",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "p75",
+            "columnName": "p75",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "p90",
+            "columnName": "p90",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mean",
+            "columnName": "mean",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isSynthetic",
+            "columnName": "isSynthetic",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fetchedAt",
+            "columnName": "fetchedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "city",
+            "platform",
+            "metricName",
+            "period"
+          ]
+        }
+      },
+      {
+        "tableName": "fiscal_config",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`year` INTEGER NOT NULL, `minimumWageDailyMxn` REAL NOT NULL, `imssMonthlyThresholdMxn` REAL NOT NULL, `updatedAt` INTEGER NOT NULL, `fetchedAt` INTEGER NOT NULL, PRIMARY KEY(`year`))",
+        "fields": [
+          {
+            "fieldPath": "year",
+            "columnName": "year",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "minimumWageDailyMxn",
+            "columnName": "minimumWageDailyMxn",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "imssMonthlyThresholdMxn",
+            "columnName": "imssMonthlyThresholdMxn",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fetchedAt",
+            "columnName": "fetchedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "year"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '9ac1f6c076890937f38747e3af356e50')"
+    ]
+  }
+}

@@ -52,6 +52,31 @@ interface AggregateDao {
     @Query("SELECT * FROM weekly_aggregates ORDER BY weekStart ASC")
     suspend fun allWeekly(): List<WeeklyAggregateEntity>
 
+    // ─── B-051 IMSS month tracker ───────────────────────────────────────────────────────────────
+
+    /**
+     * Daily rows whose ISO [day] falls in the inclusive range [startDay]..[endDay] (yyyy-MM-dd), all
+     * sources — the IMSS tracker counts captured AND imported earnings. Backs the Fiscal tab's
+     * per-platform monthly net (B-051). Reactive so the tab updates as new days are captured.
+     */
+    @Query(
+        "SELECT * FROM daily_aggregates WHERE day >= :startDay AND day <= :endDay " +
+            "ORDER BY day ASC, platform ASC",
+    )
+    fun observeDailyInRange(startDay: String, endDay: String): Flow<List<DailyAggregateEntity>>
+
+    /**
+     * Weekly rows whose Monday [weekStart] falls in the inclusive range [startWeek]..[endWeek]
+     * (yyyy-MM-dd), all sources. The range is widened by the caller to include any week that could
+     * straddle the target month, so the IMSS tracker can pro-rate a straddling week when it lacks
+     * daily coverage (B-051). Reactive twin of [observeDailyInRange].
+     */
+    @Query(
+        "SELECT * FROM weekly_aggregates WHERE weekStart >= :startWeek AND weekStart <= :endWeek " +
+            "ORDER BY weekStart ASC, platform ASC",
+    )
+    fun observeWeeklyInRange(startWeek: String, endWeek: String): Flow<List<WeeklyAggregateEntity>>
+
     /** Delete the captured daily rows for a day so a recompute replaces (not accumulates) them. */
     @Query("DELETE FROM daily_aggregates WHERE day = :day AND source = 'CAPTURED'")
     suspend fun deleteCapturedDay(day: String)

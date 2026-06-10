@@ -77,6 +77,21 @@ data class Settings(
      * `canSeeBenchmarks || debugPremium`. Remove or hide once B-050 ships a real paywall.
      */
     val debugPremium: Boolean = DEFAULT_DEBUG_PREMIUM,
+
+    /**
+     * Whether the month-end IMSS summary notification is enabled (B-051). On day 1 (or the next app
+     * open) the app posts one notification per platform — covered / not covered the previous month —
+     * on a dedicated "fiscal" channel. Default **ON**: it's a low-frequency, high-value heads-up about
+     * social-security coverage; the driver can turn it off here and the month-end worker short-circuits.
+     */
+    val fiscalMonthlySummaryEnabled: Boolean = DEFAULT_FISCAL_MONTHLY_SUMMARY_ENABLED,
+
+    /**
+     * The "yyyy-MM" of the last month a month-end IMSS summary was posted (B-051), or null if never.
+     * Idempotency watermark so the month-end worker doesn't double-post on a day-1 trigger plus a
+     * next-app-open trigger. Not user-facing.
+     */
+    val fiscalLastNotifiedMonth: String? = null,
 ) {
     /** Threshold for [platform], or the default when none has been set. */
     fun thresholdFor(platform: Platform): PlatformThreshold =
@@ -101,6 +116,9 @@ data class Settings(
         /** The debug premium override is OFF by default — real entitlement decides (B-046). */
         const val DEFAULT_DEBUG_PREMIUM = false
 
+        /** Month-end IMSS summary notification is ON by default (B-051; see [fiscalMonthlySummaryEnabled]). */
+        const val DEFAULT_FISCAL_MONTHLY_SUMMARY_ENABLED = true
+
         /** Launch defaults: Uber + DiDi enabled, default thresholds, telemetry on, onboarding pending. */
         val DEFAULT = Settings(
             enabledPlatforms = setOf(Platform.UBER, Platform.DIDI),
@@ -111,6 +129,7 @@ data class Settings(
             aggregatePromptDismissed = DEFAULT_AGGREGATE_PROMPT_DISMISSED,
             city = City.DEFAULT,
             debugPremium = DEFAULT_DEBUG_PREMIUM,
+            fiscalMonthlySummaryEnabled = DEFAULT_FISCAL_MONTHLY_SUMMARY_ENABLED,
         )
     }
 }

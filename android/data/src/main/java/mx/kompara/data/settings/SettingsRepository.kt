@@ -41,6 +41,10 @@ class SettingsRepository @Inject constructor(
         stringPreferencesKey(SettingsSerialization.KEY_CITY)
     private val debugPremiumKey =
         booleanPreferencesKey(SettingsSerialization.KEY_DEBUG_PREMIUM)
+    private val fiscalMonthlySummaryKey =
+        booleanPreferencesKey(SettingsSerialization.KEY_FISCAL_MONTHLY_SUMMARY)
+    private val fiscalLastNotifiedMonthKey =
+        stringPreferencesKey(SettingsSerialization.KEY_FISCAL_LAST_NOTIFIED_MONTH)
 
     val settings: Flow<Settings> = dataStore.data.map { prefs -> prefs.toSettings() }
 
@@ -86,6 +90,29 @@ class SettingsRepository @Inject constructor(
 
     /** Snapshot read of the driver's benchmark city (B-043). */
     suspend fun currentCity(): City = settings.first().city
+
+    /** Snapshot read of whether the month-end IMSS summary notification is enabled (B-051). */
+    suspend fun isFiscalMonthlySummaryEnabled(): Boolean = settings.first().fiscalMonthlySummaryEnabled
+
+    /**
+     * Turn the month-end IMSS summary notification on or off (B-051). When OFF, the month-end worker
+     * short-circuits and posts nothing. Default ON.
+     */
+    suspend fun setFiscalMonthlySummaryEnabled(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[fiscalMonthlySummaryKey] = enabled }
+    }
+
+    /**
+     * The "yyyy-MM" of the last month a month-end IMSS summary was posted (B-051), or null if never.
+     * The month-end worker compares this against the just-ended month so a day-1 trigger plus a
+     * next-app-open trigger don't double-post (idempotency watermark).
+     */
+    suspend fun fiscalLastNotifiedMonth(): String? = settings.first().fiscalLastNotifiedMonth
+
+    /** Record that the month-end summary for [monthKey] ("yyyy-MM") has been posted (B-051). */
+    suspend fun setFiscalLastNotifiedMonth(monthKey: String) {
+        dataStore.edit { prefs -> prefs[fiscalLastNotifiedMonthKey] = monthKey }
+    }
 
     /**
      * Set the driver's benchmark [city] (B-043). Changing it should invalidate the cached benchmarks

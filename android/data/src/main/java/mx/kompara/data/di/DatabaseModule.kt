@@ -11,6 +11,7 @@ import mx.kompara.data.db.KomparaDatabase
 import mx.kompara.data.db.KomparaMigrations
 import mx.kompara.data.db.dao.AggregateDao
 import mx.kompara.data.db.dao.CostProfileDao
+import mx.kompara.data.db.dao.FiscalConfigDao
 import mx.kompara.data.db.dao.FixtureReportDao
 import mx.kompara.data.db.dao.OfferDao
 import mx.kompara.data.db.dao.PopulationStatDao
@@ -57,4 +58,7 @@ object DatabaseModule {
 
     @Provides
     fun providePopulationStatDao(db: KomparaDatabase): PopulationStatDao = db.populationStatDao()
+
+    @Provides
+    fun provideFiscalConfigDao(db: KomparaDatabase): FiscalConfigDao = db.fiscalConfigDao()
 }

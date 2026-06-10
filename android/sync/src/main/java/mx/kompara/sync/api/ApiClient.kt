@@ -256,6 +256,18 @@ class ApiClient @Inject constructor(
         return res.body()
     }
 
+    /**
+     * GET /v1/config/fiscal — the latest year's IMSS-threshold values (B-051). Public/anonymous: the
+     * figures are the same for every device, so no auth is required (a bearer is attached when present
+     * but ignored by the backend). A 404 (no config seeded) surfaces as an [ApiException] the caller
+     * treats as "use the bundled default".
+     */
+    suspend fun getFiscalConfig(): FiscalConfigResponse {
+        val res = http.get("$baseUrl/v1/config/fiscal") { bearer() }
+        ensureOk(res)
+        return res.body()
+    }
+
     private suspend fun io.ktor.client.request.HttpRequestBuilder.bearer() {
         tokenProvider.currentToken()?.let { header(HttpHeaders.Authorization, "Bearer $it") }
     }

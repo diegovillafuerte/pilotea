@@ -44,6 +44,29 @@ object KomparaMigrations {
         }
     }
 
+    /**
+     * v2 → v3 (B-051 IMSS threshold tracker):
+     *  - creates the `fiscal_config` cache table (the on-device twin of the backend's
+     *    `fiscal_config`), keyed by `year`, holding the minimum-wage + IMSS-threshold values the
+     *    Fiscal tab reads from remote config.
+     *
+     * Additive only — a brand-new table, nothing existing is rewritten or dropped — so this is a safe
+     * forward migration.
+     */
+    val MIGRATION_2_3 = object : Migration(2, 3) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `fiscal_config` (" +
+                    "`year` INTEGER NOT NULL, " +
+                    "`minimumWageDailyMxn` REAL NOT NULL, " +
+                    "`imssMonthlyThresholdMxn` REAL NOT NULL, " +
+                    "`updatedAt` INTEGER NOT NULL, " +
+                    "`fetchedAt` INTEGER NOT NULL, " +
+                    "PRIMARY KEY(`year`))",
+            )
+        }
+    }
+
     /** All migrations, in order — wired into the Room builder in DatabaseModule. */
-    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2)
+    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
 }

@@ -287,4 +287,6 @@ internal class FakeAggregateDao : AggregateDao {
     override suspend fun allWeekly(): List<WeeklyAggregateEntity> = error("unused")
     override suspend fun deleteCapturedDay(day: String) = error("unused")
     override suspend fun deleteCapturedWeek(weekStart: String) = error("unused")
+    override fun observeDailyInRange(startDay: String, endDay: String) = error("unused")
+    override fun observeWeeklyInRange(startWeek: String, endWeek: String) = error("unused")
 }

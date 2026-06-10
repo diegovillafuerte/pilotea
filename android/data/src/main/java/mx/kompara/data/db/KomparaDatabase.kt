@@ -4,6 +4,7 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import mx.kompara.data.db.dao.AggregateDao
 import mx.kompara.data.db.dao.CostProfileDao
+import mx.kompara.data.db.dao.FiscalConfigDao
 import mx.kompara.data.db.dao.FixtureReportDao
 import mx.kompara.data.db.dao.OfferDao
 import mx.kompara.data.db.dao.PopulationStatDao
@@ -12,6 +13,7 @@ import mx.kompara.data.db.dao.TelemetryCounterDao
 import mx.kompara.data.db.dao.TripDao
 import mx.kompara.data.db.entity.CostProfileEntity
 import mx.kompara.data.db.entity.DailyAggregateEntity
+import mx.kompara.data.db.entity.FiscalConfigEntity
 import mx.kompara.data.db.entity.FixtureReportEntity
 import mx.kompara.data.db.entity.OfferEntity
 import mx.kompara.data.db.entity.PopulationStatEntity
@@ -39,10 +41,13 @@ import mx.kompara.data.db.entity.WeeklyAggregateEntity
         WeeklyAggregateEntity::class,
         DailyAggregateEntity::class,
         PopulationStatEntity::class,
+        FiscalConfigEntity::class,
     ],
     // v2 (B-043): adds weekly_aggregates.lastSyncedAt (consented sync watermark) + the
     // population_stats benchmark cache table. See KomparaMigrations.MIGRATION_1_2.
-    version = 2,
+    // v3 (B-051): adds the fiscal_config cache table (IMSS-threshold remote config).
+    // See KomparaMigrations.MIGRATION_2_3.
+    version = 3,
     exportSchema = true,
 )
 abstract class KomparaDatabase : RoomDatabase() {
@@ -54,6 +59,7 @@ abstract class KomparaDatabase : RoomDatabase() {
     abstract fun fixtureReportDao(): FixtureReportDao
     abstract fun aggregateDao(): AggregateDao
     abstract fun populationStatDao(): PopulationStatDao
+    abstract fun fiscalConfigDao(): FiscalConfigDao
 
     companion object {
         const val NAME = "kompara.db"
