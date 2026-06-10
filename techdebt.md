@@ -2,6 +2,12 @@
 
 Conscious deferrals. Each entry: date, severity, context, why deferred, when to fix.
 
+## 2026-06-10 | Medium | Verdict overlay window behaviour validated only by unit tests, not on device (B-031)
+
+**Context:** The `:overlay` verdict chip (`OverlayController` + `VerdictChipUi`, `TYPE_ACCESSIBILITY_OVERLAY` attached from `KomparaAccessibilityService`) is verified by JVM/Robolectric unit tests of every piece of logic: OfferCard→TripOffer mapping, verdict→chip state, position clamping + bottom safe-zone math, the show/hide state machine with the 500 ms grace (virtual time), threshold-sheet persistence, and the manual `OverlayLifecycleOwner` state walk. No emulator/device was available, so the actual window behaviour was never exercised.
+**Why deferred:** No device/emulator in the build environment; compilation + logic tests are the agreed bar for this task. The real-window concerns can only be confirmed on hardware.
+**When to fix:** Before launch, on a physical device with the accessibility service enabled, validate: (1) end-to-end latency card→verdict < 150 ms with the live parser; (2) touch pass-through — taps over the host app (especially the Accept button below the 25% bottom safe zone) never hit the chip (FLAG_NOT_FOCUSABLE + WRAP_CONTENT bounds); (3) real `TYPE_ACCESSIBILITY_OVERLAY` add/remove/updateViewLayout across orientation + IME changes and service restarts with no window leak; (4) drag/snap feel and persisted position restore. Also confirm the chip-footprint fallback px (`DEFAULT_CHIP_WIDTH_PX`/`HEIGHT_PX`) match the measured Compose size, and that the cost-profile/threshold snapshots (warmed in `render()`, one offer behind on cold start) are acceptable or should be pre-warmed at service connect.
+
 ## 2026-06-10 | Low | Room schema v1 regenerated in place for new cost-profile columns (B-032)
 
 **Context:** B-032 added `rendimientoKmPerLitre`, `gasPricePerLitreMxn` and `workDaysPerWeek` to `CostProfileEntity` so the metrics engine can derive fuel $/km and reason about per-shift break-even. Rather than bumping to schema v2 + a `Migration`, the exported `data/schemas/.../1.json` was regenerated in place (the new columns are additive with defaults, and the entity's identity hash changed).
