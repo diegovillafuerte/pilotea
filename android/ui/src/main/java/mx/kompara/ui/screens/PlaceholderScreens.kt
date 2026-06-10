@@ -27,26 +27,6 @@ import mx.kompara.ui.stats.AjustesViewModel
 import mx.kompara.ui.theme.KomparaTheme
 
 /**
- * Placeholder content for the Lector tab (its real screen lands with a later reader task). The Inicio
- * tab renders [mx.kompara.ui.screens.InicioDashboardScreen] (B-040); Comparar renders
- * [mx.kompara.ui.screens.CompararScreen] (B-047); the Fiscal tab renders
- * [mx.kompara.ui.screens.FiscalScreen] (B-051 IMSS tracker); Ajustes is a small launcher into the
- * cost-profile editor, history and the simulator. Copy lives in `strings.xml`.
- */
-
-@Composable
-fun LectorScreen(modifier: Modifier = Modifier) {
-    EmptyState(
-        icon = Icons.Filled.PlayArrow,
-        title = stringResource(R.string.lector_empty_title),
-        body = stringResource(R.string.lector_empty_body),
-        ctaText = stringResource(R.string.lector_empty_cta),
-        onCtaClick = {},
-        modifier = modifier,
-    )
-}
-
-/**
  * Ajustes: a small launcher into the cost-profile editor (B-040), the history weeks list, and the
  * offer simulator (B-037). The full settings list lands in a later UI task.
  */

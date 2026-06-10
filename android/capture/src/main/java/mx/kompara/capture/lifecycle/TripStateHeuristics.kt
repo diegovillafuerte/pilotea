@@ -58,7 +58,7 @@ data class TripStateMarkers(
 
     companion object {
         const val UBER_PACKAGE = "com.ubercab.driver"
-        const val DIDI_PACKAGE = "com.sdu.didi.gsui"
+        const val DIDI_PACKAGE = "com.didiglobal.driver"
 
         /** Best-guess trip-screen markers per platform. NEEDS CALIBRATION against real captures. */
         val DEFAULT_TRIP_MARKERS: Map<String, List<String>> = mapOf(

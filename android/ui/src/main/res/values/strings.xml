@@ -36,6 +36,10 @@
     <string name="lector_empty_title">El lector está apagado</string>
     <string name="lector_empty_body">Enciéndelo y Kompara te dirá al instante cuánto ganas de verdad con cada viaje.</string>
     <string name="lector_empty_cta">Encender lector</string>
+    <string name="lector_on_title">El lector está encendido</string>
+    <string name="lector_on_body">Kompara está leyendo Uber y DiDi. Abre la app de la plataforma y espera una oferta — el veredicto aparecerá solo.</string>
+    <string name="lector_on_cta">Probar en el simulador</string>
+    <string name="lector_settings_cta">Configuración de accesibilidad</string>
 
     <!-- ============================================================= -->
     <!-- Pantalla: Fiscal                                             -->

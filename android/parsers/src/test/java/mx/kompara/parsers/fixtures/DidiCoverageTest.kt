@@ -16,7 +16,7 @@ class DidiCoverageTest {
     @Test
     fun `the didi spec is loadable as a bundled runtime spec`() {
         val registry = BundledSpecs.registry()
-        val didi = registry.all().firstOrNull { it.targetPackage == "com.sdu.didi.gsui" }
+        val didi = registry.all().firstOrNull { it.targetPackage == "com.didiglobal.driver" }
         assertNotNull("didi-mx spec must be bundled for the runtime registry", didi)
         assertEquals(FixtureCorpus.loadSpec("didi-mx").targetPackage, didi!!.targetPackage)
     }

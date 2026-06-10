@@ -6,8 +6,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -48,6 +51,27 @@ fun KomparaBottomBar(
     // [BarHeight]. The coloured bar Surface is docked to the bottom at exactly [BarHeight]; the
     // centre circle and its label rise into the space above it. Drawing the tabs in a sibling Box
     // (not inside the Surface) keeps that raised content from being clipped by the Surface bounds.
+    // System navigation-bar insets are consumed here (Scaffold doesn't inset custom bottom bars):
+    // the tabs sit above the gesture pill and a same-colour strip fills the inset area below.
+    Column(modifier = modifier.fillMaxWidth()) {
+        KomparaBottomBarContent(current = current, onSelect = onSelect)
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .windowInsetsBottomHeight(WindowInsets.navigationBars),
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            tonalElevation = 3.dp,
+            content = {},
+        )
+    }
+}
+
+@Composable
+private fun KomparaBottomBarContent(
+    current: KomparaDestination,
+    onSelect: (KomparaDestination) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Box(modifier = modifier.fillMaxWidth()) {
         Surface(
             modifier = Modifier

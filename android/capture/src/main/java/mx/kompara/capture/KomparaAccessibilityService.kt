@@ -77,6 +77,6 @@ class KomparaAccessibilityService : AccessibilityService() {
         // NOTE: package IDs need on-device verification before launch (see techdebt.md). These are
         // the current best-known production IDs for the MX driver apps.
         const val UBER_DRIVER_PACKAGE = "com.ubercab.driver"
-        const val DIDI_DRIVER_PACKAGE = "com.sdu.didi.gsui"
+        const val DIDI_DRIVER_PACKAGE = "com.didiglobal.driver"
     }
 }

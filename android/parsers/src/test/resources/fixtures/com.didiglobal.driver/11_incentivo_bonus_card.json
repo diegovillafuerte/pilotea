@@ -1,0 +1,31 @@
+{
+  "description": "Bonus via 'Incentivo' wording with '+$8 extra'; Tarjeta; short trip; '5 s' countdown noise near auto-dismiss.",
+  "snapshot": {
+    "packageName": "com.didiglobal.driver",
+    "timestampMs": 1700001000000,
+    "versionCode": 12530,
+    "nodes": [
+      { "text": "Nuevo viaje", "viewId": "com.didiglobal.driver:id/oc_title", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 120, "right": 700, "bottom": 180 }, "depth": 2, "index": 0 },
+      { "text": "5 s", "viewId": "com.didiglobal.driver:id/oc_countdown", "className": "android.widget.TextView", "bounds": { "left": 620, "top": 120, "right": 700, "bottom": 180 }, "depth": 2, "index": 1 },
+      { "text": "Incentivo +$8 extra", "viewId": "com.didiglobal.driver:id/oc_bonus_badge", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 185, "right": 420, "bottom": 215 }, "depth": 3, "index": 2 },
+      { "text": "$38.40", "viewId": "com.didiglobal.driver:id/oc_fare_amount", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 220, "right": 360, "bottom": 300 }, "depth": 3, "index": 3 },
+      { "text": "Recoger", "viewId": "com.didiglobal.driver:id/oc_pickup_label", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 340, "right": 300, "bottom": 380 }, "depth": 3, "index": 4 },
+      { "text": "a 2 min (900 m)", "viewId": "com.didiglobal.driver:id/oc_pickup_eta", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 380, "right": 600, "bottom": 420 }, "depth": 4, "index": 5 },
+      { "text": "Destino", "viewId": "com.didiglobal.driver:id/oc_trip_label", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 460, "right": 300, "bottom": 500 }, "depth": 3, "index": 6 },
+      { "text": "7 min (2.8 km)", "viewId": "com.didiglobal.driver:id/oc_trip_eta", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 500, "right": 600, "bottom": 540 }, "depth": 4, "index": 7 },
+      { "text": "Tarjeta", "viewId": "com.didiglobal.driver:id/oc_payment_chip", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 580, "right": 240, "bottom": 630 }, "depth": 3, "index": 8 },
+      { "text": "Aceptar", "viewId": "com.didiglobal.driver:id/oc_accept_btn", "className": "android.widget.Button", "bounds": { "left": 40, "top": 700, "right": 700, "bottom": 780 }, "depth": 2, "index": 9 }
+    ]
+  },
+  "expected": {
+    "platform": "com.didiglobal.driver",
+    "variant": "bonus",
+    "fare": 38.4,
+    "pickupDistanceKm": 0.9,
+    "pickupEtaMin": 2.0,
+    "tripDistanceKm": 2.8,
+    "tripDurationMin": 7.0,
+    "surge": true,
+    "paymentType": "Tarjeta"
+  }
+}

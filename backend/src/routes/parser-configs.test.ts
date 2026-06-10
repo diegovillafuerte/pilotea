@@ -57,7 +57,7 @@ describe("GET /v1/parser-configs/bundle", () => {
     expect(ok.bundleVersion).toBeGreaterThanOrEqual(1);
     expect(ok.specs).toHaveLength(3);
     const packages = ok.specs.map((s) => (s as { targetPackage: string }).targetPackage).sort();
-    expect(packages).toEqual(["com.sdu.didi.gsui", "com.ubercab.driver", "sinet.startup.inDriver"]);
+    expect(packages).toEqual(["com.didiglobal.driver", "com.ubercab.driver", "sinet.startup.inDriver"]);
     expect(ok.killSwitches).toEqual({});
   });
 
@@ -88,7 +88,7 @@ describe("GET /v1/parser-configs/bundle", () => {
     expect(bundle.killSwitches["com.ubercab.driver"]).toBe(true);
     expect(
       bundle.specs.map((s) => (s as { targetPackage: string }).targetPackage).sort(),
-    ).toEqual(["com.sdu.didi.gsui", "sinet.startup.inDriver"]);
+    ).toEqual(["com.didiglobal.driver", "sinet.startup.inDriver"]);
   });
 
   it("works on an empty table (bundleVersion floored at 1, no specs)", async () => {

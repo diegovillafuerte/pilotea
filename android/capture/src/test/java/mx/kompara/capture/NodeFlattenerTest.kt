@@ -71,7 +71,7 @@ class NodeFlattenerTest {
         val child = FakeNode(text = "fare", rect = Rect(10, 20, 110, 70))
         val root = FakeNode(text = "card", rect = Rect(0, 0, 1080, 600), children = listOf(child))
 
-        val nodes = flattener.flatten("com.sdu.didi.gsui", 0L, root).nodes
+        val nodes = flattener.flatten("com.didiglobal.driver", 0L, root).nodes
 
         assertEquals(Rect(0, 0, 1080, 600), nodes[0].bounds)
         assertEquals(Rect(10, 20, 110, 70), nodes[1].bounds)

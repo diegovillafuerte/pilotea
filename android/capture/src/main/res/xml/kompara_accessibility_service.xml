@@ -5,7 +5,7 @@
     - canRetrieveWindowContent: required to flatten the host app's node tree into snapshots.
     - accessibilityEventTypes: only content/state changes from the target apps; this plus
       packageNames keeps non-target events out of the pipeline entirely.
-    - packageNames: com.ubercab.driver (Uber Driver), com.sdu.didi.gsui (DiDi Conductor).
+    - packageNames: com.ubercab.driver (Uber Driver), com.didiglobal.driver (DiDi Conductor).
       NOTE: these IDs need on-device verification before launch (see techdebt.md).
     - isAccessibilityTool="false": Kompara is not an assistive tool; it augments the driver's
       own workflow, so we must declare it as a non-tool service.
@@ -20,4 +20,4 @@
     android:description="@string/capture_service_description"
     android:isAccessibilityTool="false"
     android:notificationTimeout="100"
-    android:packageNames="com.ubercab.driver,com.sdu.didi.gsui" />
+    android:packageNames="com.ubercab.driver,com.didiglobal.driver" />

@@ -61,11 +61,11 @@ class EventPipelineTest {
         val job = launch(dispatcher) { pipeline.debouncedSnapshots.toList(collected) }
 
         // First burst.
-        repeat(5) { pipeline.submit(CaptureEvent("com.sdu.didi.gsui", it.toLong())) }
+        repeat(5) { pipeline.submit(CaptureEvent("com.didiglobal.driver", it.toLong())) }
         advanceTimeByVirtual(debounceMs + 1)
 
         // Gap, then second burst.
-        repeat(5) { pipeline.submit(CaptureEvent("com.sdu.didi.gsui", 1000L + it)) }
+        repeat(5) { pipeline.submit(CaptureEvent("com.didiglobal.driver", 1000L + it)) }
         advanceTimeByVirtual(debounceMs + 1)
 
         assertEquals(2, collected.size)

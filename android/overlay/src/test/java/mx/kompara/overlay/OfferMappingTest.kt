@@ -30,7 +30,7 @@ class OfferMappingTest {
 
     @Test
     fun `nulls pass through untouched`() {
-        val card = OfferCard(platform = "com.sdu.didi.gsui")
+        val card = OfferCard(platform = "com.didiglobal.driver")
         val trip = OfferMapping.toTripOffer(card)
         assertEquals("didi", trip.platform)
         assertNull(trip.fareMxn)
@@ -59,7 +59,7 @@ class OfferMappingTest {
     @Test
     fun `platform resolution handles packages, names, and unknowns`() {
         assertEquals(Platform.UBER, OfferMapping.platformOf("com.ubercab.driver"))
-        assertEquals(Platform.DIDI, OfferMapping.platformOf("com.sdu.didi.gsui"))
+        assertEquals(Platform.DIDI, OfferMapping.platformOf("com.didiglobal.driver"))
         assertEquals(Platform.UBER, OfferMapping.platformOf("Uber"))
         assertEquals(Platform.DIDI, OfferMapping.platformOf("DiDi"))
         assertEquals(Platform.INDRIVE, OfferMapping.platformOf("sinet.startup.inDriver"))

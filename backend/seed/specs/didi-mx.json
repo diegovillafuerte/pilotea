@@ -1,6 +1,6 @@
 {
-  "_comment": "DiDi Conductor (Mexico) offer-card spec (B-030). PACKAGE ID NEEDS ON-DEVICE VERIFICATION: 'com.sdu.didi.gsui' is the observed DiDi driver package in several markets; some markets ship 'com.didiglobal.driver'. Once a device is available, confirm the live package + versionCode and split this spec by VersionRange if the UI diverges. Anchors are text-pattern-first (es-MX), with viewIdContains hints as a secondary signal and geometry only as the engine's tiebreaker. SYNTHETIC CORPUS: fixtures are reasoned models of DiDi MX cards, not on-device captures (no device in build env).",
-  "targetPackage": "com.sdu.didi.gsui",
+  "_comment": "DiDi Conductor (Mexico) offer-card spec (B-030). PACKAGE ID NEEDS ON-DEVICE VERIFICATION: 'com.didiglobal.driver' is the observed DiDi driver package in several markets; some markets ship 'com.didiglobal.driver'. Once a device is available, confirm the live package + versionCode and split this spec by VersionRange if the UI diverges. Anchors are text-pattern-first (es-MX), with viewIdContains hints as a secondary signal and geometry only as the engine's tiebreaker. SYNTHETIC CORPUS: fixtures are reasoned models of DiDi MX cards, not on-device captures (no device in build env).",
+  "targetPackage": "com.didiglobal.driver",
   "versionCodeRange": { "min": 1, "max": null },
   "specVersion": 1,
   "cardDetector": {

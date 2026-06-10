@@ -1,7 +1,7 @@
 {
   "description": "Text-anchor-first proof: generic viewIds, so extraction relies on 'Recoger'/'Destino' anchors and inline 'Ganas $' fare. Validates the spec degrades gracefully when accessibility ids are unhelpful.",
   "snapshot": {
-    "packageName": "com.sdu.didi.gsui",
+    "packageName": "com.didiglobal.driver",
     "timestampMs": 1700000800000,
     "versionCode": 12480,
     "nodes": [
@@ -17,7 +17,7 @@
     ]
   },
   "expected": {
-    "platform": "com.sdu.didi.gsui",
+    "platform": "com.didiglobal.driver",
     "variant": "standard",
     "fare": 58.0,
     "pickupDistanceKm": 2.0,

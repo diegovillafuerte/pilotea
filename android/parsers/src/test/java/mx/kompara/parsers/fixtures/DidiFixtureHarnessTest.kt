@@ -10,7 +10,7 @@ import org.junit.runners.Parameterized
 
 /**
  * Regression harness for the DiDi Conductor MX corpus (B-030). Runs the `didi-mx` spec against
- * every fixture under `resources/fixtures/com.sdu.didi.gsui/` and asserts the engine reproduces
+ * every fixture under `resources/fixtures/com.didiglobal.driver/` and asserts the engine reproduces
  * each fixture's expected [mx.kompara.parsers.model.OfferCard].
  *
  * Parameterized so each fixture is its own named test case — a spec regression fails loudly,
@@ -54,7 +54,7 @@ class DidiFixtureHarnessTest(
         @JvmStatic
         @Parameterized.Parameters(name = "{0}")
         fun fixtures(): List<NamedFixture> {
-            val corpus = FixtureCorpus.loadFixtures("com.sdu.didi.gsui")
+            val corpus = FixtureCorpus.loadFixtures("com.didiglobal.driver")
             // Task B-030 requires >= 15 fixtures covering all variants + edge cases.
             require(corpus.size >= 15) {
                 "Expected >= 15 DiDi MX fixtures, found ${corpus.size}"

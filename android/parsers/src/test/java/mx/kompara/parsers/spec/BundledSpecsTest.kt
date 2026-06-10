@@ -19,7 +19,7 @@ class BundledSpecsTest {
         assertEquals(3, specs.size)
         val packages = specs.map { it.targetPackage }.toSet()
         assertTrue("uber spec missing", "com.ubercab.driver" in packages)
-        assertTrue("didi spec missing", "com.sdu.didi.gsui" in packages)
+        assertTrue("didi spec missing", "com.didiglobal.driver" in packages)
         assertTrue("indrive spec missing", "sinet.startup.inDriver" in packages)
     }
 
@@ -30,7 +30,7 @@ class BundledSpecsTest {
             registry.all().firstOrNull { it.targetPackage == "com.ubercab.driver" },
         )
         assertNotNull(
-            registry.all().firstOrNull { it.targetPackage == "com.sdu.didi.gsui" },
+            registry.all().firstOrNull { it.targetPackage == "com.didiglobal.driver" },
         )
         assertNotNull(
             registry.all().firstOrNull { it.targetPackage == "sinet.startup.inDriver" },

@@ -1,0 +1,27 @@
+{
+  "description": "Trip rendered inline with 'Viaje' prefix in one node: 'Viaje 25 min (13.0 km)'. Same-node regex fallback path for trip distance/duration. Card payment.",
+  "snapshot": {
+    "packageName": "com.didiglobal.driver",
+    "timestampMs": 1700001200000,
+    "versionCode": 12550,
+    "nodes": [
+      { "text": "Nuevo viaje", "viewId": "com.didiglobal.driver:id/oc_title", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 120, "right": 700, "bottom": 180 }, "depth": 2, "index": 0 },
+      { "text": "$95.10", "viewId": "com.didiglobal.driver:id/oc_fare_amount", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 200, "right": 360, "bottom": 280 }, "depth": 3, "index": 1 },
+      { "text": "Recoger a 3 min (1.5 km)", "viewId": "com.didiglobal.driver:id/oc_pickup_eta", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 320, "right": 600, "bottom": 360 }, "depth": 3, "index": 2 },
+      { "text": "Viaje 25 min (13.0 km)", "viewId": "com.didiglobal.driver:id/oc_trip_eta", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 400, "right": 600, "bottom": 440 }, "depth": 3, "index": 3 },
+      { "text": "Tarjeta", "viewId": "com.didiglobal.driver:id/oc_payment_chip", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 480, "right": 240, "bottom": 530 }, "depth": 3, "index": 4 },
+      { "text": "Aceptar", "viewId": "com.didiglobal.driver:id/oc_accept_btn", "className": "android.widget.Button", "bounds": { "left": 40, "top": 600, "right": 700, "bottom": 680 }, "depth": 2, "index": 5 }
+    ]
+  },
+  "expected": {
+    "platform": "com.didiglobal.driver",
+    "variant": "standard",
+    "fare": 95.1,
+    "pickupDistanceKm": 1.5,
+    "pickupEtaMin": 3.0,
+    "tripDistanceKm": 13.0,
+    "tripDurationMin": 25.0,
+    "surge": false,
+    "paymentType": "Tarjeta"
+  }
+}

@@ -156,7 +156,11 @@ private fun NavGraphBuilder.tabScreens(navController: NavController) {
             },
         )
     }
-    composable(KomparaDestination.LECTOR.route) { LectorScreen() }
+    composable(KomparaDestination.LECTOR.route) {
+        LectorScreen(
+            onOpenSimulator = { navController.navigate(KomparaDestination.SIMULATOR_ROUTE) },
+        )
+    }
     composable(KomparaDestination.FISCAL.route) {
         FiscalScreen(onUpgrade = { surface -> navController.navigateToPaywall(surface) })
     }
