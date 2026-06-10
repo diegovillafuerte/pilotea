@@ -101,6 +101,7 @@ fun AjustesScreen(
     onOpenSimulator: () -> Unit = {},
     onOpenCostProfile: () -> Unit = {},
     onOpenHistory: () -> Unit = {},
+    onOpenReferral: () -> Unit = {},
     viewModel: AjustesViewModel = hiltViewModel(),
 ) {
     val fiscalSummaryEnabled by viewModel.fiscalMonthlySummaryEnabled.collectAsStateWithLifecycle()
@@ -109,6 +110,7 @@ fun AjustesScreen(
         onOpenSimulator = onOpenSimulator,
         onOpenCostProfile = onOpenCostProfile,
         onOpenHistory = onOpenHistory,
+        onOpenReferral = onOpenReferral,
         fiscalSummaryEnabled = fiscalSummaryEnabled,
         onFiscalSummaryToggled = viewModel::setFiscalMonthlySummaryEnabled,
     )
@@ -120,6 +122,7 @@ private fun AjustesContent(
     onOpenSimulator: () -> Unit = {},
     onOpenCostProfile: () -> Unit = {},
     onOpenHistory: () -> Unit = {},
+    onOpenReferral: () -> Unit = {},
     fiscalSummaryEnabled: Boolean = true,
     onFiscalSummaryToggled: (Boolean) -> Unit = {},
 ) {
@@ -136,6 +139,7 @@ private fun AjustesContent(
         )
         PrimaryButton(text = stringResource(R.string.history_title), onClick = onOpenHistory)
         PrimaryButton(text = stringResource(R.string.ajustes_open_simulator), onClick = onOpenSimulator)
+        PrimaryButton(text = stringResource(R.string.referral_entry_title), onClick = onOpenReferral)
 
         Row(
             modifier = Modifier.fillMaxWidth(),

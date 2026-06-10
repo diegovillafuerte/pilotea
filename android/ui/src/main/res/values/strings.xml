@@ -396,4 +396,30 @@
     <!-- Comparar: superficie premium (se construye en la siguiente ola). -->
     <string name="comparar_locked_title">Comparativa entre plataformas</string>
     <string name="comparar_locked_body">Pronto: compara lado a lado tus ganancias en Uber y DiDi.</string>
+
+    <!-- ============================================================= -->
+    <!-- Invita y gana — programa de referidos y partners (B-056)      -->
+    <!-- ============================================================= -->
+    <string name="referral_entry_title">Invita y gana</string>
+    <string name="referral_title">Invita y gana</string>
+    <string name="referral_intro">Comparte tu código con otros choferes. Cuando lo usan, ¡los dos ganan días de premium gratis!</string>
+    <string name="referral_your_code">Tu código</string>
+    <string name="referral_copy">Copiar código</string>
+    <string name="referral_copied">Código copiado</string>
+    <string name="referral_share_whatsapp">Compartir por WhatsApp</string>
+    <!-- %1$s = el código de referido. El enlace de Play es un placeholder hasta tener deep links dinámicos. -->
+    <string name="referral_share_message">¡Únete a Kompara, la app para choferes! Usa mi código %1$s al registrarte y los dos ganamos premium gratis. Descárgala: https://play.google.com/store/apps/details?id=mx.kompara</string>
+    <string name="referral_stat_redemptions">choferes invitados</string>
+    <string name="referral_stat_days_earned">días premium ganados</string>
+    <string name="referral_redeem_title">¿Te recomendaron?</string>
+    <string name="referral_redeem_subtitle">Ingresa el código que te compartió otro chofer.</string>
+    <string name="referral_redeem_hint">Código de invitación</string>
+    <string name="referral_redeem_cta">Canjear código</string>
+    <!-- %1$d = días de premium otorgados al canjear. -->
+    <string name="referral_redeem_success">¡Listo! Ganaste %1$d días de premium.</string>
+    <string name="referral_retry">Reintentar</string>
+    <!-- Estado sin cuenta (UI de cuenta aún diferida, TD-008) -->
+    <string name="referral_signed_out_title">Necesitas una cuenta</string>
+    <string name="referral_signed_out_body">Para invitar a otros choferes y ganar días de premium necesitas crear tu cuenta. Pronto podrás hacerlo desde aquí.</string>
+    <string name="referral_signed_out_back">Volver</string>
 </resources>

@@ -14,6 +14,7 @@ import { subscriptionsRoutes } from "./routes/subscriptions.js";
 import { adminRoutes } from "./routes/admin.js";
 import { fiscalConfigRoutes } from "./routes/fiscal-config.js";
 import { appConfigRoutes } from "./routes/app-config.js";
+import { referralRoutes } from "./routes/referrals.js";
 import { senderFromEnv, type MessageSender } from "./auth/message-sender.js";
 import type { Database } from "./db/client.js";
 
@@ -43,6 +44,7 @@ export function createApp(db: Database, sender: MessageSender = senderFromEnv())
   app.route("/v1", adminRoutes(db));
   app.route("/v1", fiscalConfigRoutes(db));
   app.route("/v1", appConfigRoutes(db));
+  app.route("/v1", referralRoutes(db));
 
   app.onError((err, c) => {
     if (err instanceof HTTPException) {

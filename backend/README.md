@@ -86,6 +86,10 @@ pglite, so the function and schema are exercised exactly as they ship.
 | GET | `/v1/parser-configs/bundle` | active SIGNED OTA bundle (specs + kill switches) — see below |
 | POST | `/v1/telemetry` | parser-health counter ingest |
 | POST | `/v1/imports` | Claude Vision import (multipart; bearer required) |
+| GET | `/v1/referrals/mine` | own referral code + stats (bearer; auto-creates code) |
+| POST | `/v1/referrals/redeem` | redeem a referral/partner code (bearer) — see below |
+| POST | `/v1/admin/partners` | mint a partner code (ADMIN_TOKEN) |
+| GET | `/v1/admin/partners` | partner attribution export (ADMIN_TOKEN) |
 
 ### `POST /v1/imports`
 
@@ -114,6 +118,39 @@ parser-config posture used by the Android capture engine). Requires
 real Anthropic call (so a key is still needed for a live call).
 
 Secrets are provided via env only and are never committed.
+
+### Referrals & partners (B-056)
+
+Two growth loops over one set of tables (`referral_codes`, `referral_redemptions`,
+`premium_grants`) plus a `drivers.premium_until` timestamp:
+
+- **Driver-to-driver referrals.** `GET /v1/referrals/mine` returns the driver's
+  code (auto-minted on first call, idempotent) plus `redemptions_count` and
+  `premium_days_earned`. `POST /v1/referrals/redeem { code, deviceId }` grants
+  **14 days** of premium to BOTH the referrer and the redeemer.
+- **Ruta Rentable Partners.** `POST /v1/admin/partners { name }` (ADMIN_TOKEN)
+  mints a driver-less `type=partner` code for a driver-influencer; redeeming it
+  grants **14 days** to the **redeemer only** (the influencer is paid manually
+  off the attribution export). `GET /v1/admin/partners` returns per-code
+  redemption counts (last 30 days + all-time) as export-ready JSON.
+
+**Abuse guardrails on redemption** (each returns a specific Spanish error):
+unknown code (404), self-referral (400), already redeemed once (409), redeeming
+account ≥ 30 days old (403, new-driver requirement), device already used for a
+redemption (409, fraud heuristic). The account/device caps are also enforced by
+unique constraints so a race can't double-grant.
+
+**Effective tier.** A driver is `premium` iff an entitled Play subscription is
+active **OR** `premium_until > now()` (see `effectiveTier` in
+`src/subscriptions/status.ts`). `GET /v1/me` returns `premiumUntilMillis` and
+re-derives `driver.tier` on every read, so a referral/partner grant unlocks
+premium with **no Play purchase** and the denormalized `drivers.tier` column
+never blocks entitlement. Grants **stack**: each grant extends `premium_until`
+by its days from `max(now, current premium_until)`, so two 14-day grants → 28
+days.
+
+K-factor dashboards and partner payout tooling are manual for v1 (the attribution
+JSON is the export) — see `techdebt.md`.
 
 ### `GET /v1/parser-configs/bundle` — signed OTA parser config (B-033)
 

@@ -91,6 +91,13 @@ enum class KomparaDestination(
         const val IMPORT_ROUTE: String = "import"
 
         /**
+         * Referral / "Invita y gana" flow (B-056), reachable from Ajustes. Also the target of the
+         * `kompara://referral?code=X` deep link (registered in the app manifest, handled in
+         * MainActivity → the screen prefills the code once signed in).
+         */
+        const val REFERRAL_ROUTE: String = "referral"
+
+        /**
          * Day-detail route (B-040 req 2). The day is an optional ISO arg ([mx.kompara.ui.stats.
          * DayDetailViewModel.ARG_DAY]); omitting it defaults to today.
          */

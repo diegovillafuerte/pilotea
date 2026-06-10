@@ -37,6 +37,11 @@ export const drivers = pgTable("drivers", {
   // because accounts created from a fresh phone (no prior anonymous use) won't
   // have one. Unique so a device maps to at most one account.
   anonymousDeviceId: uuid("anonymous_device_id").unique(),
+  // Grant-based premium expiry (B-056 referrals/partners). NULL = no grant. The
+  // effective tier is "premium" iff an entitled Play subscription is active OR
+  // premiumUntil > now() — a referral/partner grant entitles premium WITHOUT a
+  // Play purchase. Extended (stacked) by referral redemptions via premium_grants.
+  premiumUntil: timestamp("premium_until", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -372,3 +377,83 @@ export const appConfig = pgTable("app_config", {
   paywallEnabled: boolean("paywall_enabled").notNull().default(true),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// ─── referral_codes ────────────────────────────────────────────
+// One shareable code per driver (type=driver) plus operator-minted partner codes
+// (type=partner) for the Ruta Rentable driver-influencer model (B-056).
+//
+//  - driver codes: auto-created on the driver's first GET /v1/referrals/mine.
+//    Redeeming one grants premium days to BOTH the referrer and the redeemer.
+//  - partner codes: created by an operator (POST /v1/admin/partners) and bound to
+//    no driver (driverId NULL). Redeeming one grants premium days to the redeemer
+//    only; the operator pays the influencer manually off the attribution export.
+//
+// The code uses an 8-char UNAMBIGUOUS alphabet (no 0/O/1/I/L) so it survives being
+// read aloud / typed by hand. Unique so a code maps to at most one referrer.
+export const referralCodes = pgTable(
+  "referral_codes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    // The owning driver for a driver code; NULL for a partner code (operator-owned).
+    driverId: uuid("driver_id")
+      .references(() => drivers.id, { onDelete: "cascade" })
+      .unique(),
+    code: varchar("code", { length: 16 }).notNull().unique(),
+    // driver | partner — gates the grant policy (both-ways vs redeemer-only).
+    type: varchar("type", { length: 20 }).notNull().default("driver"),
+    // Free-text label for partner codes (the influencer's name); NULL for driver codes.
+    name: varchar("name", { length: 100 }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("idx_referral_codes_type").on(table.type)],
+);
+
+// ─── referral_redemptions ──────────────────────────────────────
+// One row per successful redemption (B-056). A driver can redeem at most one code
+// for their whole account life (redeemerDriverId unique), and a device can be used
+// for at most one redemption (redeemerDeviceId unique — a coarse fraud heuristic
+// against one person farming codes across throwaway accounts on the same phone).
+// The granted-day columns record what each side received so the math is auditable.
+export const referralRedemptions = pgTable(
+  "referral_redemptions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    codeId: uuid("code_id")
+      .notNull()
+      .references(() => referralCodes.id, { onDelete: "cascade" }),
+    // One redemption per redeeming account, ever.
+    redeemerDriverId: uuid("redeemer_driver_id")
+      .notNull()
+      .references(() => drivers.id, { onDelete: "cascade" })
+      .unique(),
+    // The redeemer's install device; one redemption per device, ever (fraud heuristic).
+    redeemerDeviceId: uuid("redeemer_device_id").notNull().unique(),
+    grantedDaysReferrer: integer("granted_days_referrer").notNull().default(0),
+    grantedDaysRedeemer: integer("granted_days_redeemer").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("idx_referral_redemptions_code_created").on(table.codeId, table.createdAt)],
+);
+
+// ─── premium_grants ────────────────────────────────────────────
+// Append-only ledger of every premium-day grant (B-056). Each redemption writes
+// up to two rows (referrer + redeemer); a partner redemption writes one. Grants
+// stack: each grant extends the recipient's drivers.premiumUntil by `days` from
+// max(now, current premiumUntil), so two grants in a row sum to 28 days. The
+// ledger is the audit trail (premiumUntil is the fast-read materialized value).
+export const premiumGrants = pgTable(
+  "premium_grants",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    driverId: uuid("driver_id")
+      .notNull()
+      .references(() => drivers.id, { onDelete: "cascade" }),
+    days: integer("days").notNull(),
+    // Why this grant happened: referral_referrer | referral_redeemer | partner_redeemer.
+    reason: varchar("reason", { length: 40 }).notNull(),
+    // The redemption (or other event) that caused it, for traceability.
+    sourceId: uuid("source_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("idx_premium_grants_driver_created").on(table.driverId, table.createdAt)],
+);

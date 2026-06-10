@@ -4,7 +4,7 @@ import { z } from "zod";
 import { desc, eq, sql } from "drizzle-orm";
 import { drivers, subscriptions } from "../db/schema.js";
 import { requireBearer } from "../middleware/auth.js";
-import { tierForStatus } from "../subscriptions/status.js";
+import { effectiveTier } from "../subscriptions/status.js";
 import type { SubscriptionStatus } from "../subscriptions/verifier.js";
 import type { DriverProfile } from "../auth/otp.js";
 import type { Database } from "../db/client.js";
@@ -38,14 +38,24 @@ interface SubscriptionView {
 }
 
 /**
- * Resolve the driver's current subscription (most-recently-updated row) and the derived tier
- * (B-049). Tier is computed from the live subscription status so it can never drift from the
- * `drivers.tier` column — a driver is "premium" iff they hold an entitled subscription.
+ * Resolve the driver's current subscription (most-recently-updated row) and the EFFECTIVE tier
+ * (B-049, extended B-056). Tier is "premium" iff an entitled Play subscription is active OR a
+ * referral/partner grant is still live (`premiumUntil > now`); see {@link effectiveTier}. Computing
+ * it from live state means it can never drift from the `drivers.tier` column.
+ *
+ * The driver's `premiumUntil` is passed in (read from the driver row by the caller) so the grant is
+ * surfaced to the client (`premiumUntilMillis`) and the Android entitlement merge can unlock premium
+ * without a Play purchase.
  */
 async function resolveSubscription(
   db: Database,
   driverId: string,
-): Promise<{ tier: "premium" | "free"; subscription: SubscriptionView | null }> {
+  premiumUntil: Date | null,
+): Promise<{
+  tier: "premium" | "free";
+  subscription: SubscriptionView | null;
+  premiumUntilMillis: number | null;
+}> {
   const [sub] = await db
     .select()
     .from(subscriptions)
@@ -53,16 +63,18 @@ async function resolveSubscription(
     .orderBy(desc(subscriptions.updatedAt))
     .limit(1);
 
-  if (!sub) return { tier: "free", subscription: null };
-
-  const status = sub.status as SubscriptionStatus;
+  const status = sub ? (sub.status as SubscriptionStatus) : null;
+  const premiumUntilMillis = premiumUntil ? premiumUntil.getTime() : null;
   return {
-    tier: tierForStatus(status),
-    subscription: {
-      status,
-      trial: sub.trial,
-      expiresAtMillis: sub.expiresAt ? sub.expiresAt.getTime() : null,
-    },
+    tier: effectiveTier(status, premiumUntil),
+    subscription: sub
+      ? {
+          status: status!,
+          trial: sub.trial,
+          expiresAtMillis: sub.expiresAt ? sub.expiresAt.getTime() : null,
+        }
+      : null,
+    premiumUntilMillis,
   };
 }
 
@@ -78,8 +90,12 @@ export function meRoutes(db: Database) {
     const driverId = c.get("driverId");
     const [row] = await db.select().from(drivers).where(eq(drivers.id, driverId)).limit(1);
     if (!row) return c.json({ error: "Driver not found" }, 404);
-    const { tier, subscription } = await resolveSubscription(db, driverId);
-    return c.json({ driver: profileOf(row, tier), subscription }, 200);
+    const { tier, subscription, premiumUntilMillis } = await resolveSubscription(
+      db,
+      driverId,
+      row.premiumUntil,
+    );
+    return c.json({ driver: profileOf(row, tier), subscription, premiumUntilMillis }, 200);
   });
 
   app.patch("/me", guard, zValidator("json", updateInput), async (c) => {
@@ -97,8 +113,12 @@ export function meRoutes(db: Database) {
       .where(eq(drivers.id, driverId))
       .returning();
     if (!row) return c.json({ error: "Driver not found" }, 404);
-    const { tier, subscription } = await resolveSubscription(db, driverId);
-    return c.json({ driver: profileOf(row, tier), subscription }, 200);
+    const { tier, subscription, premiumUntilMillis } = await resolveSubscription(
+      db,
+      driverId,
+      row.premiumUntil,
+    );
+    return c.json({ driver: profileOf(row, tier), subscription, premiumUntilMillis }, 200);
   });
 
   return app;

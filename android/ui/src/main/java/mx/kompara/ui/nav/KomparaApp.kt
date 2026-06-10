@@ -20,6 +20,7 @@ import androidx.navigation.navArgument
 import mx.kompara.ui.imports.importDestination
 import mx.kompara.ui.paywall.GateSurface
 import mx.kompara.ui.paywall.PaywallScreen
+import mx.kompara.ui.referral.referralDestination
 import mx.kompara.ui.screens.AjustesScreen
 import mx.kompara.ui.screens.CompararScreen
 import mx.kompara.ui.screens.CostProfileScreen
@@ -147,6 +148,7 @@ private fun NavGraphBuilder.tabScreens(navController: NavController) {
             onOpenSimulator = { navController.navigate(KomparaDestination.SIMULATOR_ROUTE) },
             onOpenCostProfile = { navController.navigate(KomparaDestination.COST_PROFILE_ROUTE) },
             onOpenHistory = { navController.navigate(KomparaDestination.HISTORY_ROUTE) },
+            onOpenReferral = { navController.navigate(KomparaDestination.REFERRAL_ROUTE) },
         )
     }
 }
@@ -183,6 +185,8 @@ private fun NavGraphBuilder.statsScreens(navController: NavController) {
         PaywallScreen(surface = surface, onClose = { navController.popBackStack() })
     }
     importDestination(navController)
+    // B-056 referral / "Invita y gana" flow.
+    referralDestination(navController)
     // Day detail with no arg → today.
     composable(KomparaDestination.DAY_DETAIL_ROUTE) { DayDetailScreen() }
     composable(

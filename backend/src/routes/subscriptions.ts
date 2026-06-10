@@ -4,7 +4,7 @@ import { z } from "zod";
 import { eq, sql } from "drizzle-orm";
 import { drivers, subscriptions } from "../db/schema.js";
 import { requireBearer } from "../middleware/auth.js";
-import { tierForStatus } from "../subscriptions/status.js";
+import { effectiveTier } from "../subscriptions/status.js";
 import { StubVerifier, type PlayVerifier, type SubscriptionStatus } from "../subscriptions/verifier.js";
 import type { Database } from "../db/client.js";
 
@@ -147,11 +147,21 @@ export function subscriptionsRoutes(db: Database, verifier: PlayVerifier = new S
   return app;
 }
 
-/** Reflect a subscription status onto the driver's tier ("premium" | "free"). */
+/**
+ * Reflect a subscription status onto the driver's denormalized tier column ("premium" | "free").
+ * Uses {@link effectiveTier} so an active referral/partner grant (`premiumUntil > now`, B-056) is
+ * never clobbered to "free" when a subscription expires — the grant keeps the driver premium. The
+ * /v1/me handler re-derives the tier on read regardless, so this column is only a fast-read cache.
+ */
 async function applyTier(db: Database, driverId: string, status: SubscriptionStatus): Promise<void> {
+  const [row] = await db
+    .select({ premiumUntil: drivers.premiumUntil })
+    .from(drivers)
+    .where(eq(drivers.id, driverId))
+    .limit(1);
   await db
     .update(drivers)
-    .set({ tier: tierForStatus(status), updatedAt: sql`now()` })
+    .set({ tier: effectiveTier(status, row?.premiumUntil ?? null), updatedAt: sql`now()` })
     .where(eq(drivers.id, driverId));
 }
 

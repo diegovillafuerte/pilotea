@@ -28,6 +28,12 @@ import javax.inject.Singleton
  *
  * Account-linking: [obfuscatedAccountId] is the driver id when signed in, passed into the purchase
  * flow so entitlements are account-linked and survive reinstall + device change.
+ *
+ * Grant-based premium (B-056): a referral/partner redemption grants premium days on the server with
+ * NO Play purchase ([PremiumGrantSource], backed by `premium_until` from GET /v1/me). The repository
+ * MERGES the grant into the entitlement — a live grant makes the driver PREMIUM even with no owned
+ * purchase, and when both a purchase and a grant are present the later expiry wins. The grant source
+ * defaults to [PremiumGrantSource.NONE] so the Play-only flow (and its tests) is unchanged.
  */
 @Singleton
 class EntitlementRepository @Inject constructor(
@@ -35,6 +41,7 @@ class EntitlementRepository @Inject constructor(
     private val backend: SubscriptionBackend,
     private val store: EntitlementCache,
     private val logger: BillingLogger,
+    private val grantSource: PremiumGrantSource = PremiumGrantSource.NONE,
 ) {
     private val _entitlement = MutableStateFlow<Entitlement>(Entitlement.Free)
 
@@ -66,6 +73,9 @@ class EntitlementRepository @Inject constructor(
             when (val conn = billing.ensureConnected()) {
                 is BillingConnectionResult.Unavailable -> {
                     logger.w("Play Billing unavailable (${conn.reason}); staying on last-known entitlement")
+                    // A backend grant (B-056) can still entitle premium without Play — merge it onto
+                    // the last-known so a referral grant unlocks premium even with no billing.
+                    updateEntitlement(mergeGrant(_entitlement.value))
                     return@launch
                 }
                 BillingConnectionResult.Connected -> Unit
@@ -90,6 +100,15 @@ class EntitlementRepository @Inject constructor(
         return _entitlement.value
     }
 
+    /**
+     * Re-fetch the backend grant ([PremiumGrantSource]) and merge it into the current entitlement
+     * (B-056). Call after a successful referral redemption so premium unlocks immediately without a
+     * Play purchase. No-ops gracefully (keeps the current entitlement) when there is no live grant.
+     */
+    suspend fun refreshGrant() {
+        updateEntitlement(mergeGrant(_entitlement.value))
+    }
+
     /** Process a fresh set of purchases: acknowledge, sync to backend, derive + persist. */
     private suspend fun onPurchases(purchases: List<BillingPurchase>) {
         val premiumPurchase = purchases
@@ -98,7 +117,8 @@ class EntitlementRepository @Inject constructor(
             .maxByOrNull { entitlementRank(it.state) }
 
         if (premiumPurchase == null) {
-            updateEntitlement(Entitlement.Free)
+            // No owned purchase — a backend grant can still entitle premium (B-056).
+            updateEntitlement(mergeGrant(Entitlement.Free))
             return
         }
 
@@ -121,7 +141,35 @@ class EntitlementRepository @Inject constructor(
                 null
             }
 
-        updateEntitlement(deriveEntitlement(premiumPurchase, server))
+        updateEntitlement(mergeGrant(deriveEntitlement(premiumPurchase, server)))
+    }
+
+    /**
+     * Merge the backend grant ([PremiumGrantSource], B-056) into a Play-derived entitlement.
+     *
+     *  - A live grant (`premiumUntil > now`) makes the driver PREMIUM even when [playEntitlement] is
+     *    FREE (grant-based premium, no Play purchase). The grant is never a trial.
+     *  - When both a paid purchase and a grant are present, the LATER expiry wins (a grant stacked on
+     *    top of a paid sub shouldn't shorten coverage; a paid sub outlasting a grant keeps its expiry).
+     *  - No grant (or the source failed / returned null) leaves [playEntitlement] untouched.
+     */
+    private suspend fun mergeGrant(playEntitlement: Entitlement): Entitlement {
+        val grantUntil = runCatching { grantSource.premiumUntilMillis() }
+            .getOrElse { e ->
+                logger.w("Premium-grant source failed; using Play-derived entitlement", e)
+                null
+            }
+        if (grantUntil == null || grantUntil <= System.currentTimeMillis()) return playEntitlement
+
+        return when (playEntitlement) {
+            is Entitlement.Premium -> {
+                val playExpiry = playEntitlement.expiresAt
+                // A null Play expiry means "unknown / open-ended" — keep it (don't clamp to the grant).
+                val merged = if (playExpiry == null) null else maxOf(playExpiry, grantUntil)
+                playEntitlement.copy(expiresAt = merged)
+            }
+            Entitlement.Free -> Entitlement.Premium(trial = false, expiresAt = grantUntil)
+        }
     }
 
     /** Set, persist, and publish the entitlement. */

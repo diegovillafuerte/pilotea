@@ -98,6 +98,42 @@ class ApiClient @Inject constructor(
     }
 
     /**
+     * GET /v1/me — the full profile envelope incl. the grant-based `premiumUntilMillis` (B-056).
+     * Used by the billing layer to merge a referral/partner grant into the entitlement (premium with
+     * no Play purchase). Bearer-authed; a signed-out call yields a 401 [ApiException].
+     */
+    suspend fun getMeFull(): MeResponse {
+        val res = http.get("$baseUrl/v1/me") { bearer() }
+        ensureOk(res)
+        return res.body()
+    }
+
+    /**
+     * GET /v1/referrals/mine — the driver's own referral code + stats (B-056). The backend auto-mints
+     * the code on first call. Bearer-authed; a signed-out call yields a 401 [ApiException].
+     */
+    suspend fun getReferralMine(): ReferralMineResponse {
+        val res = http.get("$baseUrl/v1/referrals/mine") { bearer() }
+        ensureOk(res)
+        return res.body()
+    }
+
+    /**
+     * POST /v1/referrals/redeem — redeem a referral/partner code (B-056). Bearer-authed. A validation
+     * failure (unknown code, self-referral, already redeemed, account too old, device reused) surfaces
+     * as an [ApiException] carrying the backend's exact Spanish error string.
+     */
+    suspend fun redeemReferral(body: ReferralRedeemBody): ReferralRedeemResponse {
+        val res = http.post("$baseUrl/v1/referrals/redeem") {
+            bearer()
+            contentType(ContentType.Application.Json)
+            setBody(body)
+        }
+        ensureOk(res)
+        return res.body()
+    }
+
+    /**
      * GET /v1/parser-configs/bundle — the active signed parser-config bundle (B-033).
      *
      * Anonymous-allowed: the bundle is the same for every device, so this works pre-login (a bearer

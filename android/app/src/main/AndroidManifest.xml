@@ -25,6 +25,16 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!--
+              Referral deep link (B-056): kompara://referral?code=XXXXXXXX. Opens the "Invita y gana"
+              screen and prefills the code once the driver is signed in. Handled in MainActivity.
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="kompara" android:host="referral" />
+            </intent-filter>
         </activity>
 
         <!--

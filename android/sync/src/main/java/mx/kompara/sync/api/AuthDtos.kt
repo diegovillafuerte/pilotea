@@ -43,7 +43,15 @@ data class VerifyResponse(
 
 /** Response of GET /v1/me and PATCH /v1/me. */
 @Serializable
-data class MeResponse(val driver: DriverDto)
+data class MeResponse(
+    val driver: DriverDto,
+    /**
+     * Grant-based premium expiry as epoch millis, or null when the driver holds no referral/partner
+     * grant (B-056). The billing layer merges this into the [mx.kompara.billing.Entitlement] so a
+     * grant unlocks premium without a Play purchase.
+     */
+    val premiumUntilMillis: Long? = null,
+)
 
 /** Body for PATCH /v1/me. Null fields are omitted server-side as no-ops. */
 @Serializable
