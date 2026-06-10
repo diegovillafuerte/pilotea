@@ -36,6 +36,18 @@ sealed interface OfferEvent {
         val reason: Reason,
     ) : OfferEvent
 
+    /**
+     * The host package is recognized but its parser was DISABLED by a remote kill switch (B-033):
+     * the active OTA bundle flipped this package off because its parser is known-broken. Distinct
+     * from [NoCard] so the overlay can show "actualizando soporte para Uber/DiDi…" instead of
+     * silently doing nothing. The overlay copy/wiring is owned by `:overlay` (a sibling task); this
+     * just surfaces the state.
+     */
+    data class SpecDisabled(
+        override val packageName: String,
+        override val timestampMs: Long,
+    ) : OfferEvent
+
     enum class Reason {
         /** No bundled/active spec targets this package + version code. */
         NO_SPEC,

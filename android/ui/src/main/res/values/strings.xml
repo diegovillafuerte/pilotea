@@ -50,6 +50,7 @@
     <string name="ajustes_empty_title">Ajustes en construcción</string>
     <string name="ajustes_empty_body">Aquí podrás configurar tus plataformas, costos y umbrales de ganancia.</string>
     <string name="ajustes_empty_cta">Entendido</string>
+    <string name="ajustes_open_simulator">Ver el simulador</string>
 
     <!-- ============================================================= -->
     <!-- Componente: VerdictBadge (semáforo de veredicto)             -->
@@ -63,4 +64,204 @@
     <!-- ============================================================= -->
     <string name="metric_percentile_format">Top %1$d%%</string>
     <string name="progress_label_format">%1$d%%</string>
+
+    <!-- ============================================================= -->
+    <!-- Componente: Percentiles / comparativas (B-046)               -->
+    <!-- ============================================================= -->
+    <!-- contentDescription de la barra de 20 personas (mayor es mejor). -->
+    <string name="percentile_bar_description">Estás por encima del %1$d%% de los choferes de tu ciudad</string>
+    <!-- contentDescription cuando se usó el promedio nacional (muestra local pequeña). -->
+    <string name="percentile_bar_description_national">Estás por encima del %1$d%% de los choferes a nivel nacional</string>
+    <!-- contentDescription del badge "Top X%". -->
+    <string name="percentile_badge_description">Mejor que el %1$d%% de los choferes</string>
+    <!-- Etiqueta cuando la comparativa usa datos sintéticos (aún no hay suficientes datos reales). -->
+    <string name="percentile_synthetic_tag">Datos de muestra</string>
+    <!-- Pista de upsell en el estado bloqueado (gratis por defecto; B-050 aplica el bloqueo). -->
+    <string name="percentile_premium_hint">Kompara Premium</string>
+
+    <!-- ============================================================= -->
+    <!-- Onboarding (B-036): embudo de bienvenida y permisos.          -->
+    <!-- ============================================================= -->
+
+    <!-- Comunes -->
+    <string name="onb_continuar">Continuar</string>
+    <string name="onb_atras">Atrás</string>
+    <string name="onb_saltar">Saltar</string>
+    <string name="onb_paso_indicador">Paso %1$d de %2$d</string>
+
+    <!-- Pitch de valor (3 páginas) -->
+    <string name="onb_pitch_1_titulo">Sabe si conviene antes de aceptar</string>
+    <string name="onb_pitch_1_cuerpo">Kompara lee la oferta en tu pantalla y te dice al instante, con un semáforo, si ese viaje te deja ganancia de verdad — antes de que toques \"Aceptar\".</string>
+    <string name="onb_pitch_2_titulo">Hasta un +30%% mejor por turno</string>
+    <string name="onb_pitch_2_cuerpo">Rechazar los viajes que no convienen sube tu ganancia por hora. Es el promedio reportado por apps similares; tus resultados dependen de tu zona y tus horarios.</string>
+    <string name="onb_pitch_3_titulo">Tus datos nunca salen de tu teléfono</string>
+    <string name="onb_pitch_3_cuerpo">Todo el cálculo ocurre en tu celular. Kompara funciona sin cuenta y no vende ni comparte lo que aparece en tu pantalla.</string>
+    <string name="onb_pitch_cta">Empezar</string>
+
+    <!-- ===== Divulgación destacada (Prominent disclosure) =====       -->
+    <!-- TODO(legal-B038): COPIA PROVISIONAL. Debe ser revisada y         -->
+    <!-- aprobada por asesoría legal (tarea B-038) ANTES del lanzamiento. -->
+    <!-- La estructura cumple el estándar de "prominent disclosure" de    -->
+    <!-- Google Play: qué se lee, por qué, dónde se procesa, consentimiento -->
+    <!-- explícito y advertencia de riesgo de Términos de Servicio.       -->
+    <string name="onb_disc_titulo">Antes de continuar: qué hace Kompara</string>
+    <string name="onb_disc_intro">Para darte el veredicto de cada viaje, Kompara necesita usar el servicio de accesibilidad de Android. Lee esto con calma antes de aceptar.</string>
+    <string name="onb_disc_que_titulo">Qué lee</string>
+    <!-- TODO(legal-B038) -->
+    <string name="onb_disc_que_cuerpo">Kompara lee el contenido de pantalla de las apps de Uber y DiDi mientras manejas — los textos de la oferta del viaje (tarifa, distancia, tiempo y destino).</string>
+    <string name="onb_disc_porque_titulo">Para qué</string>
+    <!-- TODO(legal-B038) -->
+    <string name="onb_disc_porque_cuerpo">Únicamente para calcular las métricas del viaje (ganancia por km, por hora y por viaje) y mostrarte el semáforo de si conviene o no.</string>
+    <string name="onb_disc_donde_titulo">Dónde se procesa</string>
+    <!-- TODO(legal-B038) -->
+    <string name="onb_disc_donde_cuerpo">El procesamiento ocurre solo en tu teléfono. Kompara no vende, no comparte ni sube a internet el contenido de tu pantalla. La app funciona sin cuenta.</string>
+    <string name="onb_disc_riesgo_titulo">Riesgo a tener en cuenta</string>
+    <!-- TODO(legal-B038) -->
+    <string name="onb_disc_riesgo_cuerpo">Usar herramientas de terceros puede contravenir los términos de las plataformas (Uber, DiDi). Kompara solo lee información y nunca actúa por ti dentro de esas apps, pero la decisión de usarla es tuya y bajo tu responsabilidad.</string>
+    <string name="onb_disc_aceptar">Aceptar y continuar</string>
+    <string name="onb_disc_rechazar">No acepto</string>
+
+    <!-- Pantalla limitada (tras rechazar la divulgación) -->
+    <string name="onb_limit_titulo">Sin el lector, Kompara es limitada</string>
+    <string name="onb_limit_cuerpo">Respetamos tu decisión. Sin el servicio de accesibilidad no podemos leer las ofertas, así que el semáforo en tiempo real no estará disponible. Aún puedes registrar viajes a mano y ver tu resumen fiscal. Puedes activar el lector cuando quieras desde Ajustes.</string>
+    <string name="onb_limit_revisar">Revisar de nuevo</string>
+    <string name="onb_limit_continuar">Continuar sin el lector</string>
+
+    <!-- Concesión de accesibilidad -->
+    <string name="onb_acc_titulo">Activa el lector de Kompara</string>
+    <string name="onb_acc_intro">Te llevamos a los Ajustes de accesibilidad de Android. Sigue estos pasos:</string>
+    <string name="onb_acc_paso_1">1. Busca \"Kompara\" en la lista de servicios.</string>
+    <string name="onb_acc_paso_2">2. Toca Kompara y activa el interruptor.</string>
+    <string name="onb_acc_paso_3">3. Confirma en el aviso del sistema y regresa aquí.</string>
+    <string name="onb_acc_boton">Abrir ajustes de accesibilidad</string>
+    <string name="onb_acc_esperando">Esperando a que actives el lector…</string>
+    <string name="onb_acc_listo_titulo">¡Listo! El lector está activo</string>
+    <string name="onb_acc_listo_cuerpo">Kompara ya puede leer tus ofertas y darte el veredicto al instante.</string>
+
+    <!-- Kit de supervivencia OEM -->
+    <string name="onb_oem_titulo">Que tu teléfono no apague el lector</string>
+    <string name="onb_oem_intro">Tu teléfono puede cerrar Kompara en segundo plano para ahorrar batería. Sigue estos pasos para que siga funcionando mientras manejas:</string>
+    <string name="onb_oem_bateria_boton">Abrir ajustes de batería</string>
+    <string name="onb_oem_recientes_tip">Tip: en la pantalla de apps recientes, mantén presionada la tarjeta de Kompara y elige el candado para fijarla y que no se cierre sola.</string>
+    <string name="onb_oem_boton_continuar">Ya lo configuré</string>
+
+    <!-- Pasos por fabricante (dontkillmyapp). -->
+    <string name="onb_oem_xiaomi_1">Activa el inicio automático: Ajustes → Apps → Kompara → Inicio automático.</string>
+    <string name="onb_oem_xiaomi_2">Sin restricciones de batería: Ajustes → Batería → Kompara → Sin restricciones.</string>
+    <string name="onb_oem_xiaomi_3">En Recientes, fija Kompara con el candado para que MIUI/HyperOS no la cierre.</string>
+    <string name="onb_oem_oppo_1">Permite el inicio automático: Ajustes → Apps → Kompara → Permitir inicio automático.</string>
+    <string name="onb_oem_oppo_2">Uso de batería: Ajustes → Batería → Kompara → Permitir actividad en segundo plano.</string>
+    <string name="onb_oem_oppo_3">En Recientes, fija Kompara con el candado (ColorOS suele cerrarla).</string>
+    <string name="onb_oem_vivo_1">Activa el inicio automático: Ajustes → Apps → Inicio automático → activa Kompara.</string>
+    <string name="onb_oem_vivo_2">Alto consumo en segundo plano: Ajustes → Batería → Consumo elevado → permite Kompara.</string>
+    <string name="onb_oem_vivo_3">En Recientes, fija Kompara con el candado (Funtouch/OriginOS la cierra agresivamente).</string>
+    <string name="onb_oem_samsung_1">Quita Kompara de \"Apps en suspensión\": Ajustes → Batería → Límites de uso en segundo plano.</string>
+    <string name="onb_oem_samsung_2">Sin restricción: Ajustes → Apps → Kompara → Batería → Sin restricciones.</string>
+    <string name="onb_oem_huawei_1">Gestión manual de inicio: Ajustes → Batería → Inicio de apps → Kompara → administrar manualmente y activar todo.</string>
+    <string name="onb_oem_huawei_2">En Recientes, fija Kompara con el candado para que EMUI/HarmonyOS no la cierre.</string>
+    <string name="onb_oem_generic_1">Permite la actividad en segundo plano de Kompara en los ajustes de batería.</string>
+    <string name="onb_oem_generic_2">En Recientes, fija Kompara para que el sistema no la cierre.</string>
+
+    <!-- Pantalla final / listo -->
+    <string name="onb_done_titulo">¡Todo listo para manejar!</string>
+    <string name="onb_done_cuerpo">Kompara ya está leyendo tus ofertas. Prueba el lector con un viaje de ejemplo para ver cómo se ve el veredicto.</string>
+    <string name="onb_done_cta">Probar el lector</string>
+    <string name="onb_done_notif_titulo">Avísame si el lector se apaga</string>
+    <string name="onb_done_notif_cuerpo">Activa las notificaciones para que te avisemos si tu teléfono apaga el lector mientras manejas.</string>
+    <string name="onb_done_notif_boton">Activar avisos</string>
+
+    <!-- ===== Watchdog (vigilancia del servicio) =====                  -->
+    <string name="watchdog_channel_name">Estado del lector</string>
+    <string name="watchdog_channel_desc">Avisos cuando el lector de Kompara se desactiva o lo apaga el teléfono.</string>
+    <string name="watchdog_notif_title">El lector de Kompara se apagó</string>
+    <string name="watchdog_notif_body">Toca para reactivarlo y seguir viendo el veredicto de cada viaje.</string>
+    <string name="watchdog_banner_titulo">El lector está apagado</string>
+    <string name="watchdog_banner_cuerpo">Tu teléfono apagó el lector. Reactívalo para seguir viendo el veredicto de cada viaje.</string>
+    <string name="watchdog_banner_boton">Reactivar lector</string>
+
+    <!-- ============================================================= -->
+    <!-- B-040: Tablero de Inicio, detalle del día, historial y costos -->
+    <!-- ============================================================= -->
+
+    <!-- Encabezado del tablero -->
+    <string name="dashboard_net_label">GANANCIA NETA ESTA SEMANA</string>
+    <string name="dashboard_streak_singular">%1$d semana</string>
+    <string name="dashboard_streak_plural">%1$d semanas</string>
+    <string name="dashboard_goal_progress">%1$s de %2$s</string>
+    <string name="dashboard_goal_reached">¡Meta alcanzada! 🎉</string>
+    <string name="dashboard_goal_remaining">Te faltan %1$s para tu meta</string>
+    <string name="dashboard_goal_set_cta">Pon tu meta semanal</string>
+
+    <!-- Chips de plataforma -->
+    <string name="platform_chip_todas">Todas</string>
+    <string name="platform_chip_uber">Uber</string>
+    <string name="platform_chip_didi">DiDi</string>
+    <string name="platform_chip_indrive">inDrive</string>
+    <string name="platform_chip_desconocida">Otra</string>
+
+    <!-- Tarjetas de métricas -->
+    <string name="metric_per_trip">$ POR VIAJE</string>
+    <string name="metric_per_km">$ POR KM</string>
+    <string name="metric_per_hour">$ POR HORA</string>
+    <string name="metric_trips_per_hour">VIAJES POR HORA</string>
+    <string name="metric_acceptance_rate">TASA DE ACEPTACIÓN</string>
+
+    <!-- Indicador de datos parciales -->
+    <string name="completeness_hours_inferred">Horas estimadas por turnos</string>
+    <string name="completeness_hours_missing">Sin turno detectado — no podemos estimar tus horas todavía</string>
+
+    <!-- Aviso de configuración de costos (primer uso) -->
+    <string name="cost_nudge_title">Configura tus costos para ver ganancias netas</string>
+    <string name="cost_nudge_cta">Configurar costos</string>
+
+    <!-- Estado vacío del tablero (chofer nuevo) -->
+    <string name="dashboard_empty_title">Aún no hay números</string>
+    <string name="dashboard_empty_body">Activa el lector y maneja — tus números aparecen solos.</string>
+    <string name="dashboard_empty_cta">Probar el lector</string>
+
+    <!-- Sección "Hoy" / detalle del día -->
+    <string name="day_today">Hoy</string>
+    <string name="day_view_detail">Ver detalle del día</string>
+    <string name="day_detail_title">Detalle del día</string>
+    <string name="day_shifts_title">Turnos</string>
+    <string name="day_shift_open">en curso</string>
+    <string name="day_shift_line">%1$s–%2$s · %3$d viajes · %4$s</string>
+    <string name="day_shift_line_open">%1$s–%2$s · %3$d viajes · %4$s</string>
+    <string name="day_offers_title">Ofertas</string>
+    <string name="day_offers_funnel">%1$d vistas · %2$d aceptadas · %3$d rechazadas</string>
+    <string name="day_best_hours_title">Mejores horas</string>
+    <string name="day_best_hour_line">%1$s · %2$d viajes</string>
+    <string name="day_empty_title">Sin actividad este día</string>
+    <string name="day_empty_body">No registramos viajes ni ofertas en esta fecha.</string>
+
+    <!-- Historial -->
+    <string name="history_title">Historial</string>
+    <string name="history_badge_capturado">Capturado</string>
+    <string name="history_badge_importado">Importado</string>
+    <string name="history_empty_title">Tu historial está vacío</string>
+    <string name="history_empty_body">Cada semana que manejes con el lector activo aparecerá aquí.</string>
+    <string name="week_summary_title">Resumen de la semana</string>
+
+    <!-- Resumen rápido reutilizable -->
+    <string name="summary_net">Neto</string>
+    <string name="summary_gross">Bruto</string>
+    <string name="summary_trips">Viajes</string>
+    <string name="summary_km">Distancia</string>
+    <string name="summary_hours">Horas en línea</string>
+
+    <!-- Editor de perfil de costos -->
+    <string name="cost_editor_title">Tus costos</string>
+    <string name="cost_editor_intro">Con esto calculamos tu ganancia neta de verdad: lo que ganas menos lo que te cuesta manejar.</string>
+    <string name="cost_editor_ev_toggle">Vehículo eléctrico</string>
+    <string name="cost_editor_rendimiento">Rendimiento (km por litro)</string>
+    <string name="cost_editor_gas_price">Precio de gasolina (MXN por litro)</string>
+    <string name="cost_editor_kwh_per_100">Consumo (kWh por 100 km)</string>
+    <string name="cost_editor_cost_per_kwh">Costo de carga (MXN por kWh)</string>
+    <string name="cost_editor_maintenance">Mantenimiento (MXN por km)</string>
+    <string name="cost_editor_insurance">Seguro (MXN por día)</string>
+    <string name="cost_editor_rent">Renta o financiamiento (MXN por día)</string>
+    <string name="cost_editor_preview_per_km">Tu costo por km: %1$s</string>
+    <string name="cost_editor_preview_sample">En un viaje de %1$s y %2$s, te quedan %3$s netos</string>
+    <string name="cost_editor_save">Guardar costos</string>
+    <string name="cost_editor_saved">Costos guardados</string>
 </resources>

@@ -254,3 +254,70 @@ export const telemetryCounters = pgTable(
     ),
   ],
 );
+
+// ─── fixture_reports ───────────────────────────────────────────
+// Driver-submitted "Reportar tarjeta no leída" reports: a PII-scrubbed
+// accessibility snapshot the on-device SnapshotScrubber failed to parse, sent
+// with explicit per-report consent so it can feed the parser-spec corpus
+// (B-028). Device-authed (anonymous deviceId), rate-limited per device, and
+// capped at 50 KB. The `snapshot` jsonb holds ONLY the scrubbed structural
+// shape (packageName, versionCode, masked node texts/bounds/viewIds) — no raw
+// passenger names, plates, phones, or addresses survive the on-device scrub.
+export const fixtureReports = pgTable(
+  "fixture_reports",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    // The reporting device (anonymous-first). References devices.device_id via
+    // app logic (validated at the route) rather than an FK, so a report from an
+    // un-registered device is rejected with a 401 instead of an FK error.
+    deviceId: uuid("device_id").notNull(),
+    hostPackage: varchar("host_package", { length: 255 }).notNull(),
+    hostVersion: varchar("host_version", { length: 100 }),
+    specVersion: integer("spec_version"),
+    // Why the on-device parser produced no card (NO_SPEC / NOT_AN_OFFER / other).
+    reason: varchar("reason", { length: 40 }),
+    // The scrubbed ParserSnapshot shape. Structural only; PII already masked.
+    snapshot: jsonb("snapshot").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    // Rate-limit lookups count a device's reports in the trailing window.
+    index("idx_fixture_reports_device_created").on(table.deviceId, table.createdAt),
+  ],
+);
+
+// ─── subscriptions ─────────────────────────────────────────────
+// Play Billing subscription state per driver (B-049). One row per purchase
+// token (a token is the stable id of a single subscription purchase across its
+// renewals). The client posts the token + its observed state after a
+// purchase/restore (POST /v1/subscriptions/sync); Real-time Developer
+// Notifications (POST /v1/rtdn) drive subsequent status transitions.
+//
+// `status` mirrors the lifecycle the app gates on:
+//   active   — purchased/renewing (incl. trial); entitled
+//   canceled — auto-renew off but still within the paid period; entitled
+//   grace    — renewal payment failing, grace window; entitled
+//   hold     — past grace (account hold); NOT entitled
+//   expired  — ended/revoked; NOT entitled
+//
+// SECURITY: server-side verification against the Google Play Developer API and
+// signed RTDN/Pub-Sub validation are NOT yet implemented (StubVerifier trusts
+// the client). Tracked as a LAUNCH BLOCKER in techdebt.
+export const subscriptions = pgTable(
+  "subscriptions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    driverId: uuid("driver_id")
+      .notNull()
+      .references(() => drivers.id, { onDelete: "cascade" }),
+    // The Play purchase token — the unique, stable handle for a subscription.
+    purchaseToken: text("purchase_token").notNull().unique(),
+    productId: varchar("product_id", { length: 100 }).notNull(),
+    status: varchar("status", { length: 20 }).notNull().default("active"),
+    trial: boolean("trial").notNull().default(false),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("idx_subscriptions_driver").on(table.driverId)],
+);

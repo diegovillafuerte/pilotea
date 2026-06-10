@@ -32,6 +32,9 @@ dependencies {
     implementation(project(":metrics"))
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.android)
+    // Runtime only: serializes the `:parsers` @Serializable ParserSnapshot for fixture reports.
+    // No serialization compiler plugin needed here — the serializer is generated in :parsers.
+    implementation(libs.kotlinx.serialization.json)
 
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)

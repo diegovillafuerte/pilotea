@@ -4,33 +4,62 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
+import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import mx.kompara.ui.screens.AjustesScreen
 import mx.kompara.ui.screens.CompararScreen
+import mx.kompara.ui.screens.CostProfileScreen
+import mx.kompara.ui.screens.DayDetailScreen
 import mx.kompara.ui.screens.FiscalScreen
-import mx.kompara.ui.screens.InicioScreen
+import mx.kompara.ui.screens.HistoryScreen
+import mx.kompara.ui.screens.InicioDashboardScreen
 import mx.kompara.ui.screens.LectorScreen
+import mx.kompara.ui.screens.WeekSummaryScreen
+import mx.kompara.ui.stats.DayDetailViewModel
+import mx.kompara.ui.stats.WeekSummaryViewModel
 import mx.kompara.ui.theme.KomparaTheme
 
 /**
  * The whole app shell: a [Scaffold] with the [KomparaBottomBar] hosting a [NavHost] over the five
  * top-level destinations. Launches into [KomparaDestination.START] (Inicio). `:app`'s MainActivity
  * just wraps this in [KomparaTheme], keeping the app module thin.
+ *
+ * [registerExtraDestinations] lets a module that `:ui` cannot depend on (e.g. `:overlay`, which owns
+ * the offer simulator screen) inject its own routes into the shared [NavHost]. `:app` is the only
+ * place that depends on both `:ui` and those modules, so it supplies this. The lambda receives the
+ * [NavController] so extra screens can navigate too.
+ *
+ * @param navigateToReaderTrial when true (set right after onboarding's "Probar el lector" CTA), the
+ *   shell navigates on first composition to the offer simulator if its route is present in the graph
+ *   (registered via [registerExtraDestinations]), otherwise to the Lector tab. Checked at runtime so
+ *   this file does not have to know whether the simulator has been registered.
  */
 @Composable
-fun KomparaApp(modifier: Modifier = Modifier) {
+fun KomparaApp(
+    modifier: Modifier = Modifier,
+    navigateToReaderTrial: Boolean = false,
+    registerExtraDestinations: NavGraphBuilder.(NavController) -> Unit = {},
+) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val current = backStackEntry?.destination?.route
         ?.let { route -> KomparaDestination.entries.firstOrNull { it.route == route } }
         ?: KomparaDestination.START
+
+    if (navigateToReaderTrial) {
+        LaunchedEffect(Unit) { navController.navigateToReaderTrial() }
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -59,18 +88,83 @@ fun KomparaApp(modifier: Modifier = Modifier) {
             startDestination = KomparaDestination.START.route,
             modifier = Modifier.padding(innerPadding),
         ) {
-            tabScreens()
+            tabScreens(navController)
+            statsScreens(navController)
+            registerExtraDestinations(navController)
         }
     }
 }
 
-/** Registers the placeholder screen for every top-level destination. */
-private fun NavGraphBuilder.tabScreens() {
-    composable(KomparaDestination.INICIO.route) { InicioScreen() }
+/**
+ * Navigate to the offer simulator if its route was registered into the graph (via
+ * [KomparaApp]'s `registerExtraDestinations`), otherwise fall back to the Lector tab. Backs the
+ * onboarding "Probar el lector" CTA — see [KomparaApp]'s `navigateToReaderTrial`. The runtime graph
+ * check keeps `:ui` from hard-depending on whether `:overlay` registered the simulator.
+ */
+private fun NavHostController.navigateToReaderTrial() {
+    val hasSimulator = runCatching {
+        graph.any { node -> node.route == KomparaDestination.SIMULATOR_ROUTE }
+    }.getOrDefault(false)
+    val target = if (hasSimulator) {
+        KomparaDestination.SIMULATOR_ROUTE
+    } else {
+        KomparaDestination.LECTOR.route
+    }
+    navigate(target) {
+        popUpTo(KomparaDestination.START.route) { saveState = true }
+        launchSingleTop = true
+        restoreState = true
+    }
+}
+
+/** Registers the screen for every top-level destination. */
+private fun NavGraphBuilder.tabScreens(navController: NavController) {
+    composable(KomparaDestination.INICIO.route) {
+        InicioDashboardScreen(
+            onOpenCostProfile = { navController.navigate(KomparaDestination.COST_PROFILE_ROUTE) },
+            onOpenToday = { navController.navigate(KomparaDestination.DAY_DETAIL_ROUTE) },
+            onOpenReaderTrial = { navController.navigate(KomparaDestination.SIMULATOR_ROUTE) },
+        )
+    }
     composable(KomparaDestination.COMPARAR.route) { CompararScreen() }
     composable(KomparaDestination.LECTOR.route) { LectorScreen() }
     composable(KomparaDestination.FISCAL.route) { FiscalScreen() }
-    composable(KomparaDestination.AJUSTES.route) { AjustesScreen() }
+    composable(KomparaDestination.AJUSTES.route) {
+        AjustesScreen(
+            onOpenSimulator = { navController.navigate(KomparaDestination.SIMULATOR_ROUTE) },
+            onOpenCostProfile = { navController.navigate(KomparaDestination.COST_PROFILE_ROUTE) },
+            onOpenHistory = { navController.navigate(KomparaDestination.HISTORY_ROUTE) },
+        )
+    }
+}
+
+/**
+ * The B-040 stats detail screens (not bottom-bar tabs): cost-profile editor, history weeks list,
+ * day detail (today by default, or a specific ISO day), and week summary.
+ */
+private fun NavGraphBuilder.statsScreens(navController: NavController) {
+    composable(KomparaDestination.COST_PROFILE_ROUTE) {
+        CostProfileScreen(onSaved = { navController.popBackStack() })
+    }
+    composable(KomparaDestination.HISTORY_ROUTE) {
+        HistoryScreen(
+            onOpenWeek = { weekStart ->
+                navController.navigate("${KomparaDestination.WEEK_SUMMARY_ROUTE}/$weekStart")
+            },
+        )
+    }
+    // Day detail with no arg → today.
+    composable(KomparaDestination.DAY_DETAIL_ROUTE) { DayDetailScreen() }
+    composable(
+        route = "${KomparaDestination.DAY_DETAIL_ROUTE}/{${DayDetailViewModel.ARG_DAY}}",
+        arguments = listOf(navArgument(DayDetailViewModel.ARG_DAY) { type = NavType.StringType }),
+    ) { DayDetailScreen() }
+    composable(
+        route = "${KomparaDestination.WEEK_SUMMARY_ROUTE}/{${WeekSummaryViewModel.ARG_WEEK_START}}",
+        arguments = listOf(
+            navArgument(WeekSummaryViewModel.ARG_WEEK_START) { type = NavType.StringType },
+        ),
+    ) { WeekSummaryScreen() }
 }
 
 @Preview(showBackground = true, name = "KomparaApp shell")

@@ -27,6 +27,12 @@ coverage/
 # misc
 .DS_Store
 *.pem
+# B-033: the parser-bundle DEV signing keypair is committed ON PURPOSE (it is NOT a secret —
+# real key management via KMS is tracked in techdebt TD-014). The embedded public key the app
+# verifies against is committed too. Production keys are env-injected and never committed.
+!backend/keys/dev/spec-signing-private.pem
+!backend/keys/dev/spec-signing-public.pem
+!android/parsers/src/main/resources/keys/spec-signing-public.pem
 *.log
 
 # debug

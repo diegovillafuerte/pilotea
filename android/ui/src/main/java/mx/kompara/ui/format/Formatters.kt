@@ -1,6 +1,8 @@
 package mx.kompara.ui.format
 
 import java.text.NumberFormat
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 /**
@@ -41,4 +43,70 @@ object Formatters {
      * the money part stays consistent.
      */
     fun formatPerHour(amountPerHour: Double): String = formatMxn(amountPerHour) + "/h"
+
+    /**
+     * A money-per-km rate, e.g. `formatPerKm(8.4)` → "$8.40/km". The $/viaje and $/km cards use this
+     * shape (with a "/viaje" or "/km" suffix the caller picks via [formatMxn] when needed).
+     */
+    fun formatPerKm(amountPerKm: Double): String = formatMxn(amountPerKm) + "/km"
+
+    /** A count-per-hour rate with one decimal, e.g. `formatPerHourCount(2.34)` → "2.3/h". */
+    fun formatPerHourCount(countPerHour: Double): String {
+        val nf = NumberFormat.getNumberInstance(MX).apply {
+            minimumFractionDigits = 1
+            maximumFractionDigits = 1
+        }
+        return nf.format(countPerHour) + "/h"
+    }
+
+    /** A 0..1 fraction as a whole-number percent, e.g. `formatPercent(0.834)` → "83 %". */
+    fun formatPercent(fraction: Double): String {
+        val pct = (fraction.coerceIn(0.0, 1.0) * 100).toInt()
+        return "$pct %"
+    }
+
+    /** Hours with one decimal and an "h" suffix, e.g. `formatHours(7.5)` → "7.5 h". */
+    fun formatHours(hours: Double): String {
+        val nf = NumberFormat.getNumberInstance(MX).apply {
+            minimumFractionDigits = 1
+            maximumFractionDigits = 1
+        }
+        return nf.format(hours) + " h"
+    }
+
+    /** "12" placeholder dash for an unknown rate — every card uses this when its denominator is 0. */
+    const val DASH: String = "—"
+
+    /**
+     * A short es-MX day label for a day-detail header, e.g. "mié 10 jun" for 2026-06-10. Falls back
+     * to the raw ISO string if it can't be parsed.
+     */
+    fun formatDayLabel(dayIso: String): String =
+        runCatching { LocalDate.parse(dayIso, ISO).format(DAY_LABEL) }.getOrDefault(dayIso)
+
+    /**
+     * A short es-MX week label, e.g. "Semana del 8 jun" for the Monday 2026-06-08. Falls back to the
+     * raw ISO string if it can't be parsed.
+     */
+    fun formatWeekLabel(weekStartIso: String): String =
+        runCatching { "Semana del " + LocalDate.parse(weekStartIso, ISO).format(WEEK_LABEL) }
+            .getOrDefault(weekStartIso)
+
+    /** An hour-of-day block range, e.g. `formatHourRange(18)` → "18:00–19:00". */
+    fun formatHourRange(hour: Int): String {
+        val h = ((hour % 24) + 24) % 24
+        val next = (h + 1) % 24
+        return "%02d:00–%02d:00".format(h, next)
+    }
+
+    /** A clock time (HH:mm) for a shift bound, in the device-local rendering of [epochMs]. */
+    fun formatClock(epochMs: Long): String =
+        java.time.Instant.ofEpochMilli(epochMs)
+            .atZone(java.time.ZoneId.systemDefault())
+            .format(CLOCK)
+
+    private val ISO: DateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE
+    private val DAY_LABEL: DateTimeFormatter = DateTimeFormatter.ofPattern("EEE d MMM", MX)
+    private val WEEK_LABEL: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM", MX)
+    private val CLOCK: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm", MX)
 }

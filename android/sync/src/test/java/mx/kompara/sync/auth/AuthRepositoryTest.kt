@@ -78,7 +78,7 @@ class AuthRepositoryTest {
             expectSuccess = false
             install(ContentNegotiation) { json(json) }
         }
-        return ApiClient(http, "http://test.local", tokenProvider)
+        return ApiClient(http, "http://test.local", tokenProvider, { "test-device-id" })
     }
 
     private fun newDataStore(): DataStore<Preferences> =

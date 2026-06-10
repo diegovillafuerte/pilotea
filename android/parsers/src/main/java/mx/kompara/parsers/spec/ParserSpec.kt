@@ -26,6 +26,32 @@ data class ParserSpec(
     val extractors: List<FieldExtractor> = emptyList(),
     /** Optional variant-override rules layered on top of the detector's base tag. */
     val variants: List<VariantRule> = emptyList(),
+    /**
+     * Optional list-mode config. inDrive (and any future bid-list host) renders MANY offer cards in
+     * a single scrollable list; [listMode] tells the engine how to segment one snapshot into N
+     * per-card sub-snapshots so each bid gets its own [mx.kompara.parsers.model.OfferCard]. When
+     * null the spec is single-card: the engine extracts exactly one card per snapshot (the existing
+     * Uber/DiDi behavior, untouched). See [mx.kompara.parsers.engine.SpecEngine.evaluateAll].
+     */
+    val listMode: ListMode? = null,
+)
+
+/**
+ * How to segment a multi-card snapshot into per-card slices. The engine finds every node whose text
+ * matches [cardAnchor] (the repeating "start of card" marker — e.g. inDrive's per-card bid amount or
+ * accept button), orders them in reading order, and slices the node list at each anchor: card *i* is
+ * every node from anchor *i* (inclusive) up to anchor *i+1* (exclusive). Each slice is evaluated as
+ * its own sub-snapshot through the normal extractor chains, so list mode reuses 100% of the
+ * single-card extraction logic — it only changes *which nodes* each extraction sees.
+ *
+ * This is text-anchor segmentation, consistent with the engine's anchors-first rule: it never slices
+ * by absolute child index or raw coordinates. A snapshot with a single matching anchor degrades to a
+ * one-element list (a single bid card), so a list-mode spec also handles the single-card variant.
+ */
+@Serializable
+data class ListMode(
+    /** The repeating per-card anchor that marks the start of each card in the list. */
+    val cardAnchor: TextPattern,
 )
 
 /** Inclusive version-code window. `null` bound means unbounded on that side. */
@@ -132,4 +158,11 @@ object FieldNames {
     const val TRIP_DISTANCE_KM = "tripDistanceKm"
     const val TRIP_DURATION_MIN = "tripDurationMin"
     const val PAYMENT_TYPE = "paymentType"
+
+    /**
+     * Count of other simultaneous bids on a list-mode (inDrive) snapshot, stamped by the engine into
+     * the top card's `raw` when [mx.kompara.parsers.engine.SpecEngine.evaluate] runs in list mode.
+     * Not a typed [mx.kompara.parsers.model.OfferCard] column — it only ever appears in `raw`.
+     */
+    const val ADDITIONAL_BIDS = "additional_bids"
 }

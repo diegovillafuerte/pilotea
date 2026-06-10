@@ -8,9 +8,13 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.test.TestDispatcher
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.flow.MutableStateFlow
 import mx.kompara.parsers.engine.SpecEngine
 import mx.kompara.parsers.scrub.SnapshotScrubber
+import mx.kompara.parsers.spec.ActiveSpecProvider
 import mx.kompara.parsers.spec.BundledSpecs
+import mx.kompara.parsers.spec.LoadedSpecs
+import mx.kompara.parsers.spec.SpecRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -35,9 +39,19 @@ class OfferEventPipelineTest {
         reader: SnapshotReader = SnapshotReader { _, _ -> null },
     ) = EventPipeline(reader, dispatcher, debounceMs = 80L)
 
-    private fun offerPipeline(source: EventPipeline) = OfferEventPipeline(
+    /** An [ActiveSpecProvider] that emits a fixed [LoadedSpecs]. */
+    private fun providerOf(loaded: LoadedSpecs) = object : ActiveSpecProvider {
+        override val specs = MutableStateFlow(loaded)
+    }
+
+    private fun bundledProvider() = providerOf(LoadedSpecs.bundled(BundledSpecs.load()))
+
+    private fun offerPipeline(
+        source: EventPipeline,
+        provider: ActiveSpecProvider = bundledProvider(),
+    ) = OfferEventPipeline(
         source = source,
-        registry = BundledSpecs.registry(),
+        activeSpecs = provider,
         engine = SpecEngine(),
         scrubber = SnapshotScrubber(),
         versionCodes = versionCodes,
@@ -146,5 +160,24 @@ class OfferEventPipelineTest {
 
         assertEquals(1, collected.size)
         assertTrue(collected.single() is OfferEvent.Parsed)
+    }
+
+    @Test
+    fun `a remotely kill-switched package yields SpecDisabled instead of a parsed card`() = runTest {
+        // The active bundle still carries the Uber spec, but the kill switch disabled the package.
+        val killed = LoadedSpecs(
+            registry = SpecRegistry(BundledSpecs.load().filter { it.targetPackage != "com.ubercab.driver" }),
+            source = LoadedSpecs.Source.REMOTE,
+            bundleVersion = 7,
+            disabledPackages = setOf("com.ubercab.driver"),
+        )
+        val pipeline = offerPipeline(eventPipeline(UnconfinedTestDispatcher()), providerOf(killed))
+        // Start tracking so the pipeline picks up the kill-switched LoadedSpecs from the provider.
+        pipeline.trackActiveSpecs(backgroundScope)
+        testScheduler.runCurrent()
+
+        val event = pipeline.process(uberOfferSnapshot())
+        assertTrue("expected SpecDisabled, got $event", event is OfferEvent.SpecDisabled)
+        assertEquals("com.ubercab.driver", event.packageName)
     }
 }

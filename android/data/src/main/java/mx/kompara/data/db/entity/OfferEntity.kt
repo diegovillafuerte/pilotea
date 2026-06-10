@@ -41,4 +41,16 @@ data class OfferEntity(
 
     /** True once the driver accepted (card dismissed + state transition inferred). */
     val accepted: Boolean = false,
+
+    /**
+     * Lifecycle outcome ([OfferOutcome] name): PENDING until resolved, then ACCEPTED / DECLINED /
+     * EXPIRED. Drives acceptance-rate analytics; only ACCEPTED offers feed earnings. Added in B-039.
+     */
+    val outcome: String = OfferOutcome.PENDING.name,
+
+    /** Epoch millis the outcome was decided; null while still [OfferOutcome.PENDING]. */
+    val resolvedAt: Long? = null,
+
+    /** FK to the [ShiftEntity] this offer was seen during, when a shift was open. */
+    val shiftId: Long? = null,
 )

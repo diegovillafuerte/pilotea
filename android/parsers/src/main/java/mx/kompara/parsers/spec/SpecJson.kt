@@ -30,4 +30,10 @@ object SpecJson {
         json.decodeFromString(OfferCard.serializer(), text)
     fun encodeOfferCard(card: OfferCard): String =
         json.encodeToString(OfferCard.serializer(), card)
+
+    fun decodeBundle(text: String): SpecBundle =
+        json.decodeFromString(SpecBundle.serializer(), text)
+
+    fun decodeSignedBundle(text: String): SignedSpecBundle =
+        json.decodeFromString(SignedSpecBundle.serializer(), text)
 }

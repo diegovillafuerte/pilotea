@@ -55,8 +55,19 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     debugImplementation(libs.androidx.compose.ui.tooling)
 
+    // The app wires the offer-simulator route (:overlay) into the shared nav host (:ui), so it needs
+    // the navigation API on its own classpath (KomparaApp's registerExtraDestinations lambda type).
+    implementation(libs.androidx.navigation.compose)
+
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
+
+    // WorkManager + Hilt integration: the app supplies the HiltWorkerFactory and schedules the
+    // background workers — the telemetry upload worker (B-034) and the periodic OTA parser-config
+    // refresh (B-033).
+    implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.androidx.hilt.work)
+    ksp(libs.androidx.hilt.compiler)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

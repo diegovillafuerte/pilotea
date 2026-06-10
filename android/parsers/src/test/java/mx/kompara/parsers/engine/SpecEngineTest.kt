@@ -8,6 +8,7 @@ import mx.kompara.parsers.spec.CardDetector
 import mx.kompara.parsers.spec.ExtractStrategy
 import mx.kompara.parsers.spec.FieldExtractor
 import mx.kompara.parsers.spec.FieldNames
+import mx.kompara.parsers.spec.ListMode
 import mx.kompara.parsers.spec.ParserSpec
 import mx.kompara.parsers.spec.TextPattern
 import mx.kompara.parsers.spec.VariantRule
@@ -300,5 +301,90 @@ class SpecEngineTest {
     fun `empty snapshot is not an offer card`() {
         val spec = ParserSpec(targetPackage = pkg, cardDetector = baseDetector)
         assertNull(engine.evaluate(ParserSnapshot(packageName = pkg, timestampMs = 0L), spec))
+    }
+
+    // --- List mode (B-035) ----------------------------------------------------------------------
+
+    private fun bidNode(amount: String, index: Int) =
+        node("$$amount", viewId = "x:id/bid_price", index = index, bounds = RectBox(0, index * 100, 600, index * 100 + 50))
+
+    private val bidSpec = ParserSpec(
+        targetPackage = pkg,
+        cardDetector = baseDetector.copy(baseVariant = "single_bid"),
+        listMode = ListMode(cardAnchor = TextPattern("""\$\s*[0-9][0-9.,]*""")),
+        extractors = listOf(
+            FieldExtractor(
+                field = FieldNames.FARE,
+                normalizer = Normalizer.CURRENCY,
+                strategies = listOf(ExtractStrategy(viewIdContains = "bid", regexOnSameNode = """\$\s*([0-9.,]+)""")),
+            ),
+        ),
+    )
+
+    @Test
+    fun `non-list spec evaluateAll returns exactly the single card evaluate would`() {
+        // Backward compat: a spec without listMode must behave identically through both entry points.
+        val spec = ParserSpec(
+            targetPackage = pkg,
+            cardDetector = baseDetector,
+            extractors = listOf(
+                FieldExtractor(
+                    field = FieldNames.FARE,
+                    normalizer = Normalizer.CURRENCY,
+                    strategies = listOf(ExtractStrategy(regexOnSameNode = """\$\s*([0-9.,]+)""")),
+                ),
+            ),
+        )
+        val snap = snapshot(node("Nuevo viaje"), node("$ 42.00", index = 1))
+        val all = engine.evaluateAll(snap, spec)
+        assertEquals(1, all.size)
+        assertEquals(engine.evaluate(snap, spec), all.single())
+    }
+
+    @Test
+    fun `list mode evaluateAll segments by the repeating card anchor`() {
+        val snap = snapshot(
+            node("Nuevo viaje"),
+            bidNode("100", index = 1),
+            bidNode("80", index = 2),
+            bidNode("60", index = 3),
+        )
+        val cards = engine.evaluateAll(snap, bidSpec)
+        assertEquals(3, cards.size)
+        assertEquals(listOf(100.0, 80.0, 60.0), cards.map { it.fare })
+    }
+
+    @Test
+    fun `list mode evaluate returns the top bid and stamps additional_bids`() {
+        val snap = snapshot(
+            node("Nuevo viaje"),
+            bidNode("100", index = 1),
+            bidNode("80", index = 2),
+        )
+        val top = engine.evaluate(snap, bidSpec)!!
+        assertEquals(100.0, top.fare!!, 1e-9)
+        assertEquals("1", top.raw[FieldNames.ADDITIONAL_BIDS])
+    }
+
+    @Test
+    fun `list mode with a single matching anchor is one card without additional_bids`() {
+        val snap = snapshot(node("Nuevo viaje"), bidNode("90", index = 1))
+        val top = engine.evaluate(snap, bidSpec)!!
+        assertEquals(90.0, top.fare!!, 1e-9)
+        assertNull(top.raw[FieldNames.ADDITIONAL_BIDS])
+        assertEquals(1, engine.evaluateAll(snap, bidSpec).size)
+    }
+
+    @Test
+    fun `list mode segments do not bleed fields across cards`() {
+        // Each card has its OWN bid_price node; segment isolation must keep them separate.
+        val snap = snapshot(
+            node("Nuevo viaje"),
+            bidNode("100", index = 1),
+            bidNode("70", index = 2),
+        )
+        val cards = engine.evaluateAll(snap, bidSpec)
+        assertEquals(100.0, cards[0].fare!!, 1e-9)
+        assertEquals(70.0, cards[1].fare!!, 1e-9)
     }
 }

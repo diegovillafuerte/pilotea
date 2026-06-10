@@ -1,0 +1,35 @@
+{
+  "description": "Three bids with three rating formats: plain '4.9', star-suffixed '4.4 ★', and a labelled 'Calificación' + '4.1'. Top bid $125; raw.additional_bids=2.",
+  "snapshot": {
+    "packageName": "sinet.startup.inDriver",
+    "timestampMs": 1700000000000,
+    "versionCode": 8600,
+    "nodes": [
+      { "text": "Pedidos disponibles", "viewId": "sinet.startup.inDriver:id/oc_title", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 80, "right": 700, "bottom": 130 }, "depth": 2, "index": 0 },
+      { "text": "$125", "viewId": "sinet.startup.inDriver:id/bid_price", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 160, "right": 300, "bottom": 220 }, "depth": 4, "index": 1 },
+      { "text": "2.0 km", "viewId": "sinet.startup.inDriver:id/pickup_distance", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 230, "right": 360, "bottom": 270 }, "depth": 4, "index": 2 },
+      { "text": "29 min · 14.5 km", "viewId": "sinet.startup.inDriver:id/trip_info", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 280, "right": 500, "bottom": 320 }, "depth": 4, "index": 3 },
+      { "text": "4.9", "viewId": "sinet.startup.inDriver:id/passenger_rating", "className": "android.widget.TextView", "bounds": { "left": 520, "top": 160, "right": 620, "bottom": 200 }, "depth": 4, "index": 4 },
+      { "text": "$108", "viewId": "sinet.startup.inDriver:id/bid_price", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 360, "right": 300, "bottom": 420 }, "depth": 4, "index": 5 },
+      { "text": "2.9 km", "viewId": "sinet.startup.inDriver:id/pickup_distance", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 430, "right": 360, "bottom": 470 }, "depth": 4, "index": 6 },
+      { "text": "24 min · 12 km", "viewId": "sinet.startup.inDriver:id/trip_info", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 480, "right": 500, "bottom": 520 }, "depth": 4, "index": 7 },
+      { "text": "4.4 ★", "viewId": "sinet.startup.inDriver:id/tag_chip", "className": "android.widget.TextView", "bounds": { "left": 520, "top": 360, "right": 660, "bottom": 400 }, "depth": 4, "index": 8 },
+      { "text": "$99", "viewId": "sinet.startup.inDriver:id/bid_price", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 560, "right": 300, "bottom": 620 }, "depth": 4, "index": 9 },
+      { "text": "3.6 km", "viewId": "sinet.startup.inDriver:id/pickup_distance", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 630, "right": 360, "bottom": 670 }, "depth": 4, "index": 10 },
+      { "text": "22 min · 10.8 km", "viewId": "sinet.startup.inDriver:id/trip_info", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 680, "right": 500, "bottom": 720 }, "depth": 4, "index": 11 },
+      { "text": "Calificación", "viewId": "sinet.startup.inDriver:id/rating_label", "className": "android.widget.TextView", "bounds": { "left": 520, "top": 555, "right": 700, "bottom": 590 }, "depth": 4, "index": 12 },
+      { "text": "4.1", "viewId": "sinet.startup.inDriver:id/rating_value_secondary", "className": "android.widget.TextView", "bounds": { "left": 520, "top": 595, "right": 620, "bottom": 635 }, "depth": 4, "index": 13 }
+    ]
+  },
+  "expected": {
+    "platform": "sinet.startup.inDriver",
+    "variant": "bid_list",
+    "fare": 125.0,
+    "pickupDistanceKm": 2.0,
+    "pickupEtaMin": null,
+    "tripDistanceKm": 14.5,
+    "tripDurationMin": 29.0,
+    "surge": false,
+    "paymentType": null
+  }
+}

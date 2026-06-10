@@ -15,7 +15,10 @@
     "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:seed": "tsx seed/population-stats.ts"
+    "db:seed": "tsx seed/population-stats.ts",
+    "db:seed:specs": "tsx seed/parser-specs.ts",
+    "sign-bundle": "tsx scripts/sign-spec-bundle.ts",
+    "fold-stats": "tsx scripts/fold-population-stats.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",

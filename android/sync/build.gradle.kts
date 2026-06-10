@@ -37,6 +37,11 @@ android {
 
 dependencies {
     implementation(project(":data"))
+    // :parsers for the ParserSpec/SpecBundle model + signature verifier (B-033 OTA specs) and the
+    // ParserSnapshot deserialized when rebuilding a fixture-report payload (B-034).
+    implementation(project(":parsers"))
+    // :metrics for the B-039 RollupRecomputer (turns the cost profile into a marginal $/km for net).
+    implementation(project(":metrics"))
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.serialization.json)
 
@@ -48,6 +53,12 @@ dependencies {
 
     // Anonymous device id + session token persistence.
     implementation(libs.androidx.datastore.preferences)
+
+    // WorkManager: periodic + on-demand telemetry upload (B-034) and periodic OTA parser-config
+    // refresh (B-033).
+    implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.androidx.hilt.work)
+    ksp(libs.androidx.hilt.compiler)
 
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)

@@ -59,6 +59,8 @@ pnpm test         # vitest (pglite, no DB server needed)
 pnpm db:generate  # drizzle-kit generate (schema -> SQL migration)
 pnpm db:migrate   # apply migrations to DATABASE_URL
 pnpm db:seed      # seed population_stats (needs DATABASE_URL)
+pnpm db:seed:specs # seed parser_configs with the launch-day uber+didi bundle (needs DATABASE_URL)
+pnpm sign-bundle  # build + sign the active parser-config bundle (DB if DATABASE_URL set, else seed)
 ```
 
 ## Migrations
@@ -78,7 +80,8 @@ pglite, so the function and schema are exercised exactly as they ship.
 | GET/PATCH | `/v1/me` | current driver profile (bearer required) |
 | POST | `/v1/aggregates` | upsert weekly aggregate (bearer required) |
 | GET | `/v1/benchmarks?city=&platform=&period=` | population_stats breakpoints |
-| GET | `/v1/parser-configs?package=&versionCode=` | active spec bundle |
+| GET | `/v1/parser-configs?package=&versionCode=` | active spec rows for a package (legacy list) |
+| GET | `/v1/parser-configs/bundle` | active SIGNED OTA bundle (specs + kill switches) — see below |
 | POST | `/v1/telemetry` | parser-health counter ingest |
 | POST | `/v1/imports` | Claude Vision import (multipart; bearer required) |
 
@@ -109,3 +112,38 @@ parser-config posture used by the Android capture engine). Requires
 real Anthropic call (so a key is still needed for a live call).
 
 Secrets are provided via env only and are never committed.
+
+### `GET /v1/parser-configs/bundle` — signed OTA parser config (B-033)
+
+Returns the active **signed** parser-config bundle the Android capture engine
+fetches so a host-app UI fix or a kill switch reaches drivers in hours, not a
+Play release. Response shape:
+
+```json
+{ "payload": "<canonical JSON of the bundle>", "signature": "<base64 ECDSA-P256/SHA-256>" }
+```
+
+`payload` is the exact JSON string that was signed — the client verifies those
+literal bytes against the public key embedded in the app, then parses it (ECDSA
+is non-deterministic and JSON re-serialization isn't byte-stable, so we never
+re-serialize). The decoded bundle is `{ bundleVersion, generatedAt, specs[],
+killSwitches{} }`:
+
+- `specs` — every `active=true` `parser_configs` row's spec.
+- `killSwitches` — packages that have row(s) but **no active row**; flipping a
+  package's rows to `active=false` is the kill switch (the client drops that
+  platform's spec and surfaces a "support updating" state).
+- `bundleVersion` — `max(spec_version)` across rows (monotonic); the client
+  rejects any bundle whose version is ≤ its last-known-good, blocking
+  downgrade/replay.
+
+Signing uses an ECDSA **P-256** key (`SHA256withECDSA`) — Ed25519 isn't
+available on Android < API 33 and minSdk is 26. The key is resolved by
+`src/spec/signing-key.ts`: `SPEC_SIGNING_PRIVATE_KEY` (raw PEM) or
+`SPEC_SIGNING_PRIVATE_KEY_PATH` env in prod, else the **committed dev key** at
+`keys/dev/` (NOT a secret — see techdebt TD-014 for the KMS/launch plan). The
+matching public key is embedded in `android/parsers/.../keys/spec-signing-public.pem`.
+
+Seed the launch-day bundle with `pnpm db:seed:specs`; emit a signed bundle to
+stdout or a file with `pnpm sign-bundle [--out file.json]` (the static-hosting
+alternative — see TD-015). `pnpm sign-bundle --gen-key` rotates the dev keypair.

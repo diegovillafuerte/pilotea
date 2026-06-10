@@ -1,0 +1,31 @@
+{
+  "description": "Bid list under the 'Pedidos disponibles' header with a '2 ofertas' count sub-header. Two bids; top $98 returned by evaluate(); variant bid_list; raw.additional_bids=1.",
+  "snapshot": {
+    "packageName": "sinet.startup.inDriver",
+    "timestampMs": 1700000000000,
+    "versionCode": 8400,
+    "nodes": [
+      { "text": "Pedidos disponibles", "viewId": "sinet.startup.inDriver:id/oc_title", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 60, "right": 700, "bottom": 110 }, "depth": 2, "index": 0 },
+      { "text": "2 ofertas", "viewId": "sinet.startup.inDriver:id/oc_count", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 115, "right": 400, "bottom": 150 }, "depth": 2, "index": 1 },
+      { "text": "$98", "viewId": "sinet.startup.inDriver:id/bid_price", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 160, "right": 300, "bottom": 220 }, "depth": 4, "index": 2 },
+      { "text": "1.9 km", "viewId": "sinet.startup.inDriver:id/pickup_distance", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 230, "right": 360, "bottom": 270 }, "depth": 4, "index": 3 },
+      { "text": "19 min · 8 km", "viewId": "sinet.startup.inDriver:id/trip_info", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 280, "right": 500, "bottom": 320 }, "depth": 4, "index": 4 },
+      { "text": "4.6", "viewId": "sinet.startup.inDriver:id/passenger_rating", "className": "android.widget.TextView", "bounds": { "left": 520, "top": 160, "right": 620, "bottom": 200 }, "depth": 4, "index": 5 },
+      { "text": "$88", "viewId": "sinet.startup.inDriver:id/bid_price", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 400, "right": 300, "bottom": 460 }, "depth": 4, "index": 6 },
+      { "text": "2.7 km", "viewId": "sinet.startup.inDriver:id/pickup_distance", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 470, "right": 360, "bottom": 510 }, "depth": 4, "index": 7 },
+      { "text": "17 min · 7.5 km", "viewId": "sinet.startup.inDriver:id/trip_info", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 520, "right": 500, "bottom": 560 }, "depth": 4, "index": 8 },
+      { "text": "4.3", "viewId": "sinet.startup.inDriver:id/passenger_rating", "className": "android.widget.TextView", "bounds": { "left": 520, "top": 400, "right": 620, "bottom": 440 }, "depth": 4, "index": 9 }
+    ]
+  },
+  "expected": {
+    "platform": "sinet.startup.inDriver",
+    "variant": "bid_list",
+    "fare": 98.0,
+    "pickupDistanceKm": 1.9,
+    "pickupEtaMin": null,
+    "tripDistanceKm": 8.0,
+    "tripDurationMin": 19.0,
+    "surge": false,
+    "paymentType": null
+  }
+}

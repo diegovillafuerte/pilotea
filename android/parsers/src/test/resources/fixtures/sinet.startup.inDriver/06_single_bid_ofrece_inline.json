@@ -1,0 +1,28 @@
+{
+  "description": "Single bid where the price is inline 'Ofrece $90' with no fare-specific viewId -> extracted via the 'Ofrece $' same-node regex. Pickup via 'Recoger · 1.1 km', trip 14 min / 6.2 km, rating 4.5.",
+  "snapshot": {
+    "packageName": "sinet.startup.inDriver",
+    "timestampMs": 1700000000000,
+    "versionCode": 8200,
+    "nodes": [
+      { "text": "Oferta de pasajero", "viewId": "sinet.startup.inDriver:id/tvHeader", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 100, "right": 700, "bottom": 150 }, "depth": 2, "index": 0 },
+      { "text": "Ofrece $90", "viewId": "sinet.startup.inDriver:id/tvHeadline", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 170, "right": 360, "bottom": 240 }, "depth": 3, "index": 1 },
+      { "text": "Recoger · 1.1 km", "viewId": "sinet.startup.inDriver:id/tvOriginLine", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 270, "right": 420, "bottom": 310 }, "depth": 3, "index": 2 },
+      { "text": "Viaje · 14 min · 6.2 km", "viewId": "sinet.startup.inDriver:id/tvDestLine", "className": "android.widget.TextView", "bounds": { "left": 40, "top": 320, "right": 560, "bottom": 360 }, "depth": 3, "index": 3 },
+      { "text": "Calificación", "viewId": "sinet.startup.inDriver:id/tvRatingLabel", "className": "android.widget.TextView", "bounds": { "left": 520, "top": 160, "right": 700, "bottom": 195 }, "depth": 3, "index": 4 },
+      { "text": "4.5", "viewId": "sinet.startup.inDriver:id/tvRatingValue", "className": "android.widget.TextView", "bounds": { "left": 520, "top": 200, "right": 620, "bottom": 240 }, "depth": 3, "index": 5 },
+      { "text": "Aceptar oferta", "viewId": "sinet.startup.inDriver:id/btnAccept", "className": "android.widget.Button", "bounds": { "left": 40, "top": 400, "right": 700, "bottom": 470 }, "depth": 2, "index": 6 }
+    ]
+  },
+  "expected": {
+    "platform": "sinet.startup.inDriver",
+    "variant": "single_bid",
+    "fare": 90.0,
+    "pickupDistanceKm": 1.1,
+    "pickupEtaMin": null,
+    "tripDistanceKm": 6.2,
+    "tripDurationMin": 14.0,
+    "surge": false,
+    "paymentType": null
+  }
+}

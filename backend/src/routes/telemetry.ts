@@ -1,8 +1,11 @@
 import { Hono } from "hono";
+import { HTTPException } from "hono/http-exception";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { sql } from "drizzle-orm";
+import { timingSafeEqual } from "node:crypto";
 import { telemetryCounters } from "../db/schema.js";
+import { computeAlerts } from "../telemetry/alerts.js";
 import type { Database } from "../db/client.js";
 
 const telemetryInput = z.object({
@@ -56,5 +59,40 @@ export function telemetryRoutes(db: Database) {
     return c.json({ counter: row }, 200);
   });
 
+  // GET /v1/telemetry/alerts — admin-only breakage report. Computes per
+  // (host_package, host_version) failure rate over the trailing 48h and flags
+  // pairs above the threshold with enough attempts. Guarded by a static admin
+  // token in `Authorization: Bearer <ADMIN_TOKEN>` (env), constant-time
+  // compared. Intended for an internal dashboard + the cron alert script.
+  app.get("/telemetry/alerts", async (c) => {
+    requireAdminToken(c.req.header("authorization"));
+
+    const stats = await computeAlerts(db);
+    const flagged = stats.filter((s) => s.flagged);
+    return c.json({ flagged, stats }, 200);
+  });
+
   return app;
+}
+
+/**
+ * Validate the admin bearer token against env ADMIN_TOKEN, constant-time. Throws
+ * 401 on a missing/malformed header and 403 on a wrong token. A missing
+ * ADMIN_TOKEN env disables the endpoint entirely (503) rather than letting it
+ * run open.
+ */
+function requireAdminToken(header: string | undefined): void {
+  const expected = process.env.ADMIN_TOKEN;
+  if (!expected || expected.length === 0) {
+    throw new HTTPException(503, { message: "Alerts endpoint not configured" });
+  }
+  if (!header || !header.toLowerCase().startsWith("bearer ")) {
+    throw new HTTPException(401, { message: "Missing or malformed admin token" });
+  }
+  const provided = header.slice(7).trim();
+  const a = Buffer.from(provided);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !timingSafeEqual(a, b)) {
+    throw new HTTPException(403, { message: "Invalid admin token" });
+  }
 }

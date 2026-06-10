@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Verdict overlay chip copy. Spanish (es-MX), the only locale the chofer sees. -->
+
+    <!-- Collapsed chip labels -->
+    <string name="overlay_per_km_label">por km</string>
+    <string name="overlay_net_profit_label">ganancia neta</string>
+
+    <!-- Expanded detail row -->
+    <string name="overlay_per_min_label">por min</string>
+    <string name="overlay_gross_per_km_label">bruto por km</string>
+    <string name="overlay_net_per_km_label">neto por km</string>
+
+    <!-- Missing-data hints -->
+    <string name="overlay_missing_distance">Sin datos de distancia</string>
+    <string name="overlay_missing_fare">Sin tarifa</string>
+    <string name="overlay_missing_generic">Datos incompletos</string>
+
+    <!-- Quick threshold sheet (long-press) -->
+    <string name="overlay_threshold_title">Piso mínimo por km</string>
+    <string name="overlay_threshold_value">$%1$s/km</string>
+    <string name="overlay_threshold_hint">Mantén presionado para ajustar tu piso por km sin salir de la app.</string>
+    <string name="overlay_threshold_close">Listo</string>
+
+    <!-- Content descriptions (accessibility / TalkBack) -->
+    <string name="overlay_chip_content_description">Veredicto del viaje. Toca para ver el detalle, mantén presionado para ajustar el piso.</string>
+
+    <!-- ============================================================= -->
+    <!-- Simulador de viajes (B-037)                                   -->
+    <!-- Demo en la app: reproduce viajes reales por el motor real.    -->
+    <!-- ============================================================= -->
+    <string name="sim_title">Simulador de viajes</string>
+    <string name="sim_intro">Así se ve Kompara mientras manejas: te llega un viaje y, al instante, te decimos cuánto ganas de verdad — después de gasolina y desgaste.</string>
+
+    <!-- Platform toggle -->
+    <string name="sim_platform_uber">Uber</string>
+    <string name="sim_platform_didi">DiDi</string>
+    <string name="sim_platform_toggle_desc">Cambia entre viajes de ejemplo de Uber y DiDi</string>
+
+    <!-- Mock host card -->
+    <string name="sim_mock_uber_header">Nuevo viaje · Uber</string>
+    <string name="sim_mock_didi_header">Nuevo viaje · DiDi</string>
+    <string name="sim_mock_card_desc">Ejemplo de tarjeta de viaje con el veredicto de Kompara encima</string>
+
+    <!-- Guided script: per-shape headline. %1$s = net $/km, e.g. "$15.00/km". -->
+    <string name="sim_verdict_good">Verde: ganas %1$s neto — conviene</string>
+    <string name="sim_verdict_marginal">Amarillo: %1$s neto — está en el límite</string>
+    <string name="sim_verdict_bad">Rojo: solo %1$s neto — no conviene</string>
+
+    <!-- Guided script: why. Spanish explanations referencing cost profile + pickup leg. -->
+    <string name="sim_why_good">La tarifa es buena para la distancia y el punto de recogida está cerca, así que casi todo lo que ves se queda en tu bolsillo después de gasolina y desgaste.</string>
+    <string name="sim_why_marginal">Apenas pasa uno de tus pisos. El viaje rinde por hora, pero los kilómetros — sumando el trayecto para recoger — dejan poca ganancia por km una vez que descuentas tus costos.</string>
+    <string name="sim_why_bad">El punto de recogida está lejos: esos kilómetros muertos gastan gasolina sin pagarte. Al restar tus costos, lo que queda por km y por hora cae por debajo de tus pisos.</string>
+
+    <!-- Step navigation -->
+    <string name="sim_next">Siguiente</string>
+    <string name="sim_previous">Anterior</string>
+    <string name="sim_step_label">Viaje %1$d de %2$d</string>
+    <string name="sim_step_dot_desc">Ir al viaje %1$d</string>
+
+    <!-- Threshold playground -->
+    <string name="sim_playground_title">Tu piso por km</string>
+    <string name="sim_playground_value">$%1$s/km</string>
+    <string name="sim_playground_hint">Mueve el piso y mira cómo el semáforo recalifica los tres viajes al instante. Se guarda y es el mismo piso que usa el lector.</string>
+
+    <!-- Net detail line under the chip -->
+    <string name="sim_net_per_km_label">neto por km</string>
+    <string name="sim_gross_per_km_label">bruto por km</string>
+    <string name="sim_pickup_label">Recoger</string>
+    <string name="sim_trip_label">Viaje</string>
+</resources>

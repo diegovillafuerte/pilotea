@@ -1,0 +1,154 @@
+{
+  "targetPackage": "com.ubercab.driver",
+  "versionCodeRange": {},
+  "specVersion": 1,
+  "cardDetector": {
+    "allOf": [
+      { "regex": "MX\\$|\\$\\s*[0-9]" }
+    ],
+    "anyOf": [
+      { "regex": "de\\s+viaje\\b" },
+      { "regex": "de\\s+distancia\\b" },
+      { "regex": "Aceptar|Coincidir" },
+      { "regex": "Radar\\s+de\\s+viajes" },
+      { "regex": "Reserva\\b" }
+    ],
+    "noneOf": [
+      { "regex": "Viaje\\s+en\\s+curso" },
+      { "regex": "Finaliza(r|ndo)\\s+viaje" },
+      { "regex": "Iniciar\\s+viaje" }
+    ],
+    "baseVariant": "standard"
+  },
+  "extractors": [
+    {
+      "field": "fare",
+      "normalizer": "CURRENCY",
+      "strategies": [
+        { "viewIdContains": "fare", "regexOnSameNode": "MX\\$\\s*([0-9][0-9.,]*)" },
+        { "viewIdContains": "upfront", "regexOnSameNode": "MX\\$\\s*([0-9][0-9.,]*)" },
+        { "regexOnSameNode": "MX\\$\\s*([0-9][0-9.,]*)" },
+        { "regexOnSameNode": "(?<![0-9])\\$\\s*([0-9][0-9.,]*)" }
+      ]
+    },
+    {
+      "field": "pickupDistanceKm",
+      "normalizer": "DISTANCE_KM",
+      "strategies": [
+        { "regexOnSameNode": "\\(([0-9][0-9.,]*\\s*(?:km|m))\\)\\s*de\\s+(?:distancia|camino|recorrido)" },
+        { "afterAnchor": { "regex": "Recoger|Recogida|Punto de partida" }, "extractRegex": "\\(?([0-9][0-9.,]*\\s*(?:km|m))\\)?" },
+        { "regexOnSameNode": "[0-9]+\\s*min\\s*\\(([0-9][0-9.,]*\\s*(?:km|m))\\)\\s*de\\s+(?:distancia|camino|recorrido)" }
+      ]
+    },
+    {
+      "field": "pickupEtaMin",
+      "normalizer": "DURATION_MIN",
+      "strategies": [
+        { "regexOnSameNode": "([0-9]+\\s*(?:h\\s*[0-9]+\\s*)?min)\\s*\\([0-9][0-9.,]*\\s*(?:km|m)\\)\\s*de\\s+(?:distancia|camino|recorrido)" },
+        { "regexOnSameNode": "([0-9]+\\s*min)\\b[^()]*\\bde\\s+(?:distancia|camino|recorrido)" },
+        { "afterAnchor": { "regex": "Recoger|Recogida|Punto de partida" }, "extractRegex": "([0-9]+\\s*min)" }
+      ]
+    },
+    {
+      "field": "tripDistanceKm",
+      "normalizer": "DISTANCE_KM",
+      "strategies": [
+        { "regexOnSameNode": "\\(([0-9][0-9.,]*\\s*(?:km|m))\\)\\s*de\\s+viaje" },
+        { "regexOnSameNode": "[0-9]+\\s*(?:h\\s*[0-9]+\\s*)?min\\s*\\(([0-9][0-9.,]*\\s*(?:km|m))\\)\\s*de\\s+viaje" },
+        { "afterAnchor": { "regex": "Destino|Viaje\\b" }, "extractRegex": "\\(?([0-9][0-9.,]*\\s*(?:km|m))\\)?" }
+      ]
+    },
+    {
+      "field": "tripDurationMin",
+      "normalizer": "DURATION_MIN",
+      "strategies": [
+        { "regexOnSameNode": "([0-9]+\\s*h\\s*[0-9]+\\s*min|[0-9]+\\s*h|[0-9]+\\s*min)\\s*\\([0-9][0-9.,]*\\s*(?:km|m)\\)\\s*de\\s+viaje" },
+        { "regexOnSameNode": "([0-9]+\\s*h\\s*[0-9]+\\s*min|[0-9]+\\s*min)\\b[^()]*\\bde\\s+viaje" }
+      ]
+    },
+    {
+      "field": "passengerRating",
+      "normalizer": "NUMBER",
+      "strategies": [
+        { "viewIdContains": "rating", "regexOnSameNode": "([0-9](?:[.,][0-9]{1,2})?)" },
+        { "regexOnSameNode": "([0-5][.,][0-9]{1,2})\\s*(?:★|⭐|estrella)" },
+        { "regexOnSameNode": "(?:★|⭐)\\s*([0-5][.,][0-9]{1,2})" },
+        { "afterAnchor": { "regex": "Calificaci[oó]n" }, "extractRegex": "([0-5][.,][0-9]{1,2})" }
+      ]
+    },
+    {
+      "field": "uberPerKmBadge",
+      "normalizer": "NONE",
+      "strategies": [
+        { "regexOnSameNode": "(MX\\$\\s*[0-9][0-9.,]*\\s*/\\s*km)" },
+        { "regexOnSameNode": "(MX\\$\\s*[0-9][0-9.,]*\\s*por\\s*km)" }
+      ]
+    },
+    {
+      "field": "surgeMultiplier",
+      "normalizer": "NONE",
+      "strategies": [
+        { "afterAnchor": { "regex": "Tarifa\\s+din[aá]mica" }, "extractRegex": "([0-9]+(?:[.,][0-9]+)?\\s*x|x\\s*[0-9]+(?:[.,][0-9]+)?)" },
+        { "regexOnSameNode": "Tarifa\\s+din[aá]mica\\s*[·\\-]?\\s*([0-9]+(?:[.,][0-9]+)?\\s*x)" }
+      ]
+    },
+    {
+      "field": "stopsCount",
+      "normalizer": "NONE",
+      "strategies": [
+        { "regexOnSameNode": "([0-9]+)\\s+paradas" },
+        { "regexOnSameNode": "(Varias)\\s+paradas" }
+      ]
+    },
+    {
+      "field": "reservationTime",
+      "normalizer": "NONE",
+      "strategies": [
+        { "afterAnchor": { "regex": "Reserva\\b|Recogida\\s+programada" }, "extractRegex": "([0-9]{1,2}:[0-9]{2}\\s*(?:a\\.?\\s?m\\.?|p\\.?\\s?m\\.?|AM|PM)?)" },
+        { "regexOnSameNode": "Reserva.*?([0-9]{1,2}:[0-9]{2}\\s*(?:a\\.?\\s?m\\.?|p\\.?\\s?m\\.?|AM|PM)?)" }
+      ]
+    }
+  ],
+  "variants": [
+    {
+      "tag": "reservation",
+      "whenAnyOf": [
+        { "regex": "\\bReserva\\b" },
+        { "regex": "Recogida\\s+programada" },
+        { "regex": "Viaje\\s+reservado" },
+        { "regex": "Programad[oa]" }
+      ]
+    },
+    {
+      "tag": "multi_stop",
+      "whenAnyOf": [
+        { "regex": "[0-9]+\\s+paradas" },
+        { "regex": "Varias\\s+paradas" },
+        { "regex": "M[uú]ltiples\\s+paradas" }
+      ]
+    },
+    {
+      "tag": "trip_radar",
+      "whenAnyOf": [
+        { "regex": "Radar\\s+de\\s+viajes" },
+        { "regex": "Trip\\s+Radar" }
+      ]
+    },
+    {
+      "tag": "exclusive",
+      "whenAnyOf": [
+        { "regex": "Exclusivo" },
+        { "regex": "Viaje\\s+exclusivo" }
+      ]
+    },
+    {
+      "tag": "surge",
+      "whenAnyOf": [
+        { "regex": "Tarifa\\s+din[aá]mica" },
+        { "regex": "Aumento\\s+de\\s+tarifa" },
+        { "regex": "[0-9]+(?:[.,][0-9]+)?\\s*x\\b" }
+      ],
+      "setsSurge": true
+    }
+  ]
+}
