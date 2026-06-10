@@ -29,4 +29,14 @@ class AjustesViewModel @Inject constructor(
     fun setFiscalMonthlySummaryEnabled(enabled: Boolean) {
         viewModelScope.launch { settingsRepository.setFiscalMonthlySummaryEnabled(enabled) }
     }
+
+    /** Whether the Monday week-close share reminder is enabled (B-055; default ON). */
+    val shareWeeklyReminderEnabled: StateFlow<Boolean> =
+        settingsRepository.settings
+            .map { it.shareWeeklyReminderEnabled }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+
+    fun setShareWeeklyReminderEnabled(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.setShareWeeklyReminderEnabled(enabled) }
+    }
 }

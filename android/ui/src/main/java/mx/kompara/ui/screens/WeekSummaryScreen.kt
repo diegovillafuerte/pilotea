@@ -20,6 +20,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import mx.kompara.ui.R
 import mx.kompara.ui.components.EmptyState
+import mx.kompara.ui.components.PrimaryButton
 import mx.kompara.ui.format.Formatters
 import mx.kompara.ui.stats.WeekSummaryUiState
 import mx.kompara.ui.stats.WeekSummaryViewModel
@@ -32,12 +33,14 @@ import mx.kompara.ui.stats.WeekSummaryViewModel
 @Composable
 fun WeekSummaryScreen(
     modifier: Modifier = Modifier,
+    onOpenShareCard: () -> Unit = {},
     viewModel: WeekSummaryViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     WeekSummaryContent(
         state = state,
         onSelectPlatform = viewModel::selectPlatform,
+        onOpenShareCard = onOpenShareCard,
         modifier = modifier,
     )
 }
@@ -46,6 +49,7 @@ fun WeekSummaryScreen(
 private fun WeekSummaryContent(
     state: WeekSummaryUiState,
     onSelectPlatform: (mx.kompara.data.model.Platform?) -> Unit,
+    onOpenShareCard: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     if (!state.loading && !state.hasData) {
@@ -86,5 +90,11 @@ private fun WeekSummaryContent(
 
         Spacer(Modifier.padding(top = 0.dp))
         MetricCardsBlock(state.period, percentiles = state.percentiles)
+
+        // B-055: share this week as a "Tu Semana" card.
+        PrimaryButton(
+            text = stringResource(R.string.share_card_share_cta),
+            onClick = onOpenShareCard,
+        )
     }
 }

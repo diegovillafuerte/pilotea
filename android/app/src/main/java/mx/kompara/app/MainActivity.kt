@@ -7,6 +7,7 @@ import androidx.activity.enableEdgeToEdge
 import dagger.hilt.android.AndroidEntryPoint
 import mx.kompara.overlay.simulator.simulatorDestination
 import mx.kompara.ui.nav.KomparaRoot
+import mx.kompara.ui.share.WeekCloseNotifier
 import mx.kompara.ui.theme.KomparaTheme
 
 /**
@@ -23,12 +24,18 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // B-055: the Monday week-close notification launches us with this extra to deep-link the
+        // share-card preview. Read once at startup; KomparaRoot honours it after onboarding.
+        val openShareCard = intent?.getBooleanExtra(WeekCloseNotifier.EXTRA_OPEN_SHARE_CARD, false) ?: false
         setContent {
             KomparaTheme {
                 // `:app` is the only module that depends on both `:ui` (nav shell) and `:overlay`
                 // (the verdict chip the simulator embeds), so it injects the simulator route here.
                 // KomparaRoot threads it through to the main shell once onboarding completes (B-036).
-                KomparaRoot(registerExtraDestinations = { simulatorDestination() })
+                KomparaRoot(
+                    navigateToShareCard = openShareCard,
+                    registerExtraDestinations = { simulatorDestination() },
+                )
             }
         }
     }

@@ -30,6 +30,7 @@ import mx.kompara.ui.screens.HistoryScreen
 import mx.kompara.ui.screens.InicioDashboardScreen
 import mx.kompara.ui.screens.LectorScreen
 import mx.kompara.ui.screens.WeekSummaryScreen
+import mx.kompara.ui.share.ShareCardScreen
 import mx.kompara.ui.stats.DayDetailViewModel
 import mx.kompara.ui.stats.WeekSummaryViewModel
 import mx.kompara.ui.theme.KomparaTheme
@@ -53,6 +54,7 @@ import mx.kompara.ui.theme.KomparaTheme
 fun KomparaApp(
     modifier: Modifier = Modifier,
     navigateToReaderTrial: Boolean = false,
+    navigateToShareCard: Boolean = false,
     registerExtraDestinations: NavGraphBuilder.(NavController) -> Unit = {},
 ) {
     val navController = rememberNavController()
@@ -63,6 +65,11 @@ fun KomparaApp(
 
     if (navigateToReaderTrial) {
         LaunchedEffect(Unit) { navController.navigateToReaderTrial() }
+    }
+
+    // Week-close notification deep link (B-055): jump straight to the share-card preview.
+    if (navigateToShareCard) {
+        LaunchedEffect(Unit) { navController.navigate(KomparaDestination.SHARE_CARD_ROUTE) }
     }
 
     Scaffold(
@@ -134,6 +141,7 @@ private fun NavGraphBuilder.tabScreens(navController: NavController) {
             onOpenToday = { navController.navigate(KomparaDestination.DAY_DETAIL_ROUTE) },
             onOpenReaderTrial = { navController.navigate(KomparaDestination.SIMULATOR_ROUTE) },
             onUpgrade = { surface -> navController.navigateToPaywall(surface) },
+            onOpenShareCard = { navController.navigate(KomparaDestination.SHARE_CARD_ROUTE) },
         )
     }
     composable(KomparaDestination.COMPARAR.route) {
@@ -198,7 +206,14 @@ private fun NavGraphBuilder.statsScreens(navController: NavController) {
         arguments = listOf(
             navArgument(WeekSummaryViewModel.ARG_WEEK_START) { type = NavType.StringType },
         ),
-    ) { WeekSummaryScreen() }
+    ) {
+        WeekSummaryScreen(
+            onOpenShareCard = { navController.navigate(KomparaDestination.SHARE_CARD_ROUTE) },
+        )
+    }
+    // B-055 share-card preview, reachable from the Inicio header icon, the week-summary CTA, and the
+    // Monday week-close notification.
+    composable(KomparaDestination.SHARE_CARD_ROUTE) { ShareCardScreen() }
 }
 
 @Preview(showBackground = true, name = "KomparaApp shell")

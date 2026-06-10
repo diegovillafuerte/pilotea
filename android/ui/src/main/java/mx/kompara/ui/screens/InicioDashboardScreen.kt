@@ -13,10 +13,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -59,6 +61,7 @@ import mx.kompara.ui.theme.KomparaType
  * @param onOpenCostProfile open the cost-profile editor (nudge CTA).
  * @param onOpenToday open the day-detail for today ("Hoy" section).
  * @param onOpenReaderTrial CTA on the new-driver empty state.
+ * @param onOpenShareCard open the shareable earnings-card preview (B-055; header share icon).
  */
 @Composable
 fun InicioDashboardScreen(
@@ -67,6 +70,7 @@ fun InicioDashboardScreen(
     onOpenToday: () -> Unit = {},
     onOpenReaderTrial: () -> Unit = {},
     onUpgrade: (GateSurface) -> Unit = {},
+    onOpenShareCard: () -> Unit = {},
     dashboardViewModel: InicioDashboardViewModel = hiltViewModel(),
 ) {
     val watchdogState by dashboardViewModel.watchdogState.collectAsStateWithLifecycle()
@@ -92,6 +96,7 @@ fun InicioDashboardScreen(
                 onOpenToday = onOpenToday,
                 gateFunnel = dashboardViewModel.gateFunnel,
                 onUpgrade = onUpgrade,
+                onOpenShareCard = onOpenShareCard,
             )
         }
     }
@@ -105,6 +110,7 @@ private fun DashboardContent(
     onOpenToday: () -> Unit,
     gateFunnel: GateFunnel? = null,
     onUpgrade: (GateSurface) -> Unit = {},
+    onOpenShareCard: () -> Unit = {},
 ) {
     Column(
         modifier = Modifier
@@ -113,7 +119,7 @@ private fun DashboardContent(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Header(net = state.period.netEarningsMxn, streak = state.streak)
+        Header(net = state.period.netEarningsMxn, streak = state.streak, onOpenShareCard = onOpenShareCard)
 
         if (state.goal.hasGoal) {
             GoalBar(goal = state.goal)
@@ -179,7 +185,7 @@ private fun DashboardContent(
 }
 
 @Composable
-private fun Header(net: Double, streak: StreakDisplay) {
+private fun Header(net: Double, streak: StreakDisplay, onOpenShareCard: () -> Unit = {}) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = stringResource(R.string.dashboard_net_label),
@@ -197,8 +203,17 @@ private fun Header(net: Double, streak: StreakDisplay) {
                 style = KomparaType.metricValueLarge,
                 color = MaterialTheme.colorScheme.onSurface,
             )
-            if (streak.visible) {
-                StreakBadge(streak)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (streak.visible) {
+                    StreakBadge(streak)
+                }
+                IconButton(onClick = onOpenShareCard) {
+                    Icon(
+                        imageVector = Icons.Filled.Share,
+                        contentDescription = stringResource(R.string.share_card_open_desc),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                }
             }
         }
     }

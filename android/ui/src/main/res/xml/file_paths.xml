@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  FileProvider paths for the shareable earnings card (B-055). Only the share_cards/ cache subdir is
+  exposed, so the provider can hand a share target a read grant for a rendered card PNG without ever
+  exposing the rest of the app's cache. Must match ShareCardWriter.SUBDIR.
+-->
+<paths>
+    <cache-path name="share_cards" path="share_cards/" />
+</paths>

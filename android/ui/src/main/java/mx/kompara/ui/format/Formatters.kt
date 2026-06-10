@@ -92,6 +92,38 @@ object Formatters {
         runCatching { "Semana del " + LocalDate.parse(weekStartIso, ISO).format(WEEK_LABEL) }
             .getOrDefault(weekStartIso)
 
+    /**
+     * The es-MX range label for the week opening at [weekStartIso] (the Monday), spanning Mon–Sun,
+     * e.g. "Semana del 1–7 jun" for 2026-06-01, or "Semana del 29 jun–5 jul" when the week straddles
+     * two months. Used on the shareable earnings card (B-055). Falls back to [formatWeekLabel] if the
+     * ISO string can't be parsed.
+     */
+    fun formatWeekRangeLabel(weekStartIso: String): String {
+        val start = runCatching { LocalDate.parse(weekStartIso, ISO) }.getOrNull()
+            ?: return formatWeekLabel(weekStartIso)
+        val end = start.plusDays(6)
+        val startDay = start.dayOfMonth
+        val endDay = end.dayOfMonth
+        return if (start.month == end.month) {
+            // Same month: "Semana del 1–7 jun".
+            "Semana del $startDay–$endDay ${start.format(MONTH_ABBREV)}"
+        } else {
+            // Straddles two months: "Semana del 29 jun–5 jul".
+            "Semana del $startDay ${start.format(MONTH_ABBREV)}–$endDay ${end.format(MONTH_ABBREV)}"
+        }
+    }
+
+    /**
+     * The es-MX month-and-year label for the first-of-month [monthStartIso], e.g. "Junio 2026" for
+     * 2026-06-01. Capitalised so it reads as a heading on the share card (B-055). Falls back to the
+     * raw ISO string if it can't be parsed.
+     */
+    fun formatMonthLabel(monthStartIso: String): String =
+        runCatching {
+            LocalDate.parse(monthStartIso, ISO).format(MONTH_YEAR)
+                .replaceFirstChar { if (it.isLowerCase()) it.titlecase(MX) else it.toString() }
+        }.getOrDefault(monthStartIso)
+
     /** An hour-of-day block range, e.g. `formatHourRange(18)` → "18:00–19:00". */
     fun formatHourRange(hour: Int): String {
         val h = ((hour % 24) + 24) % 24
@@ -108,5 +140,7 @@ object Formatters {
     private val ISO: DateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE
     private val DAY_LABEL: DateTimeFormatter = DateTimeFormatter.ofPattern("EEE d MMM", MX)
     private val WEEK_LABEL: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM", MX)
+    private val MONTH_ABBREV: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM", MX)
+    private val MONTH_YEAR: DateTimeFormatter = DateTimeFormatter.ofPattern("MMMM yyyy", MX)
     private val CLOCK: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm", MX)
 }

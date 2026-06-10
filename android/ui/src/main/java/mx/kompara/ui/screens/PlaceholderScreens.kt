@@ -105,6 +105,7 @@ fun AjustesScreen(
     viewModel: AjustesViewModel = hiltViewModel(),
 ) {
     val fiscalSummaryEnabled by viewModel.fiscalMonthlySummaryEnabled.collectAsStateWithLifecycle()
+    val shareReminderEnabled by viewModel.shareWeeklyReminderEnabled.collectAsStateWithLifecycle()
     AjustesContent(
         modifier = modifier,
         onOpenSimulator = onOpenSimulator,
@@ -113,6 +114,8 @@ fun AjustesScreen(
         onOpenReferral = onOpenReferral,
         fiscalSummaryEnabled = fiscalSummaryEnabled,
         onFiscalSummaryToggled = viewModel::setFiscalMonthlySummaryEnabled,
+        shareReminderEnabled = shareReminderEnabled,
+        onShareReminderToggled = viewModel::setShareWeeklyReminderEnabled,
     )
 }
 
@@ -125,6 +128,8 @@ private fun AjustesContent(
     onOpenReferral: () -> Unit = {},
     fiscalSummaryEnabled: Boolean = true,
     onFiscalSummaryToggled: (Boolean) -> Unit = {},
+    shareReminderEnabled: Boolean = true,
+    onShareReminderToggled: (Boolean) -> Unit = {},
 ) {
     Column(
         modifier = modifier
@@ -141,18 +146,32 @@ private fun AjustesContent(
         PrimaryButton(text = stringResource(R.string.ajustes_open_simulator), onClick = onOpenSimulator)
         PrimaryButton(text = stringResource(R.string.referral_entry_title), onClick = onOpenReferral)
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = stringResource(R.string.fiscal_settings_monthly_summary),
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.padding(end = 12.dp),
-            )
-            Switch(checked = fiscalSummaryEnabled, onCheckedChange = onFiscalSummaryToggled)
-        }
+        SettingToggleRow(
+            label = stringResource(R.string.fiscal_settings_monthly_summary),
+            checked = fiscalSummaryEnabled,
+            onToggled = onFiscalSummaryToggled,
+        )
+        SettingToggleRow(
+            label = stringResource(R.string.share_settings_weekly_reminder),
+            checked = shareReminderEnabled,
+            onToggled = onShareReminderToggled,
+        )
+    }
+}
+
+@Composable
+private fun SettingToggleRow(label: String, checked: Boolean, onToggled: (Boolean) -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.padding(end = 12.dp),
+        )
+        Switch(checked = checked, onCheckedChange = onToggled)
     }
 }
 

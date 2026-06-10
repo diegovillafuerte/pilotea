@@ -24,8 +24,9 @@ android {
 
     testOptions {
         unitTests {
-            // The paywall viewmodel test launches the (fake) billing flow with a real Activity;
-            // Robolectric provides it on the JVM without an emulator (B-050). The rest is pure-JVM.
+            // The paywall viewmodel test launches the (fake) billing flow with a real Activity (B-050);
+            // the share-card renderer smoke test (B-055) draws to a real android.graphics.Bitmap/Canvas.
+            // Robolectric provides both on the JVM without an emulator. The rest is pure-JVM.
             isIncludeAndroidResources = true
         }
     }
@@ -71,7 +72,8 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
-    // A real Activity for the paywall billing-flow launch test (no emulator), B-050.
+    // Robolectric + a real Activity: the paywall billing-flow launch test (B-050) and the share-card
+    // bitmap render smoke test (B-055) both need real android.* on the JVM without an emulator.
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.ext.junit)
 }

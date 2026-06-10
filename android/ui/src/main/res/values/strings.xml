@@ -422,4 +422,22 @@
     <string name="referral_signed_out_title">Necesitas una cuenta</string>
     <string name="referral_signed_out_body">Para invitar a otros choferes y ganar días de premium necesitas crear tu cuenta. Pronto podrás hacerlo desde aquí.</string>
     <string name="referral_signed_out_back">Volver</string>
+
+    <!-- ============================================================= -->
+    <!-- Tarjeta para compartir "Tu Semana / Tu Mes" (B-055)           -->
+    <!-- ============================================================= -->
+    <string name="share_card_title">Tu Semana</string>
+    <string name="share_card_preview_desc">Vista previa de tu tarjeta para compartir</string>
+    <string name="share_card_open_desc">Compartir tu resumen</string>
+    <string name="share_card_share_cta">Compartir</string>
+    <string name="share_card_hide_amounts">Ocultar mis ganancias</string>
+    <string name="share_card_variant_story">Historia</string>
+    <string name="share_card_variant_landscape">Horizontal</string>
+    <!-- Notificación de cierre de semana (lunes 9am) -->
+    <string name="share_channel_name">Resúmenes</string>
+    <string name="share_channel_desc">Aviso semanal cuando tu resumen para compartir está listo.</string>
+    <string name="share_week_close_notif_title">Tu resumen de la semana está listo</string>
+    <string name="share_week_close_notif_body">Comparte tu semana en Kompara con tu grupo de choferes.</string>
+    <!-- Ajuste del recordatorio semanal -->
+    <string name="share_settings_weekly_reminder">Recordatorio semanal para compartir</string>
 </resources>

@@ -211,6 +211,67 @@ class SettingsSerializationTest {
     }
 
     @Test
+    fun `share hide-amounts defaults OFF and reads a stored value (B-055)`() {
+        val fresh = SettingsSerialization.decode(
+            enabledNames = null,
+            lookupDouble = { null },
+            lookupBoolean = { null },
+        )
+        assertFalse(fresh.shareHideAmounts)
+
+        val hidden = SettingsSerialization.decode(
+            enabledNames = null,
+            lookupDouble = { null },
+            lookupBoolean = { key ->
+                if (key == SettingsSerialization.KEY_SHARE_HIDE_AMOUNTS) true else null
+            },
+        )
+        assertTrue(hidden.shareHideAmounts)
+    }
+
+    @Test
+    fun `share weekly reminder defaults ON and reads a stored value (B-055)`() {
+        val fresh = SettingsSerialization.decode(
+            enabledNames = null,
+            lookupDouble = { null },
+            lookupBoolean = { null },
+        )
+        assertTrue(fresh.shareWeeklyReminderEnabled)
+
+        val off = SettingsSerialization.decode(
+            enabledNames = null,
+            lookupDouble = { null },
+            lookupBoolean = { key ->
+                if (key == SettingsSerialization.KEY_SHARE_WEEKLY_REMINDER) false else null
+            },
+        )
+        assertFalse(off.shareWeeklyReminderEnabled)
+    }
+
+    @Test
+    fun `share watermark and count default empty and round-trip (B-055)`() {
+        val fresh = SettingsSerialization.decode(
+            enabledNames = null,
+            lookupDouble = { null },
+        )
+        assertNull(fresh.shareLastReminderWeek)
+        assertEquals(0, fresh.shareCount)
+
+        val stored = SettingsSerialization.decode(
+            enabledNames = null,
+            lookupDouble = { null },
+            lookupString = { key ->
+                if (key == SettingsSerialization.KEY_SHARE_LAST_REMINDER_WEEK) "2026-06-01" else null
+            },
+            lookupInt = { key ->
+                if (key == SettingsSerialization.KEY_SHARE_COUNT) 7 else null
+            },
+        )
+        assertEquals("2026-06-01", stored.shareLastReminderWeek)
+        assertEquals(7, stored.shareCount)
+    }
+
+    @Test
     fun `city keys match the backend benchmark city slugs (B-043)`() {
         // The 10 seeded benchmark cities — keys MUST stay in lockstep with the backend CITIES list.
         assertEquals("cdmx", City.CDMX.key)

@@ -44,4 +44,32 @@ class FormattersTest {
         assertEquals("$185.50/h", Formatters.formatPerHour(185.5))
         assertEquals("$0.00/h", Formatters.formatPerHour(0.0))
     }
+
+    @Test
+    fun `formatWeekRangeLabel renders a same-month Mon to Sun range`() {
+        // 2026-06-01 is a Monday; the week runs Mon 1 – Sun 7 June.
+        assertEquals("Semana del 1–7 jun", Formatters.formatWeekRangeLabel("2026-06-01"))
+    }
+
+    @Test
+    fun `formatWeekRangeLabel renders a month-straddling range`() {
+        // 2026-06-29 Monday → Sun 5 July; spans June into July.
+        assertEquals("Semana del 29 jun–5 jul", Formatters.formatWeekRangeLabel("2026-06-29"))
+    }
+
+    @Test
+    fun `formatWeekRangeLabel falls back on unparseable input`() {
+        assertEquals("garbage", Formatters.formatWeekRangeLabel("garbage"))
+    }
+
+    @Test
+    fun `formatMonthLabel renders a capitalised month and year`() {
+        assertEquals("Junio 2026", Formatters.formatMonthLabel("2026-06-01"))
+        assertEquals("Enero 2026", Formatters.formatMonthLabel("2026-01-15"))
+    }
+
+    @Test
+    fun `formatMonthLabel falls back on unparseable input`() {
+        assertEquals("nope", Formatters.formatMonthLabel("nope"))
+    }
 }

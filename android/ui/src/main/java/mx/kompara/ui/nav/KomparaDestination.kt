@@ -122,5 +122,12 @@ enum class KomparaDestination(
 
         /** Build the navigable paywall destination for an originating surface name. */
         fun paywallRoute(surface: String): String = "$PAYWALL_ROUTE/$surface"
+
+        /**
+         * Shareable earnings-card preview (B-055), reachable from the Inicio header share icon, the
+         * week-summary CTA, and the Monday week-close notification. Renders the card bitmap with a
+         * hide-amounts toggle, a story/landscape variant toggle, and the "Compartir" button.
+         */
+        const val SHARE_CARD_ROUTE: String = "share-card"
     }
 }

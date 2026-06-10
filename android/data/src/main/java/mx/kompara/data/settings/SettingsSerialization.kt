@@ -43,6 +43,18 @@ object SettingsSerialization {
     /** String key ("yyyy-MM") for the last month a month-end IMSS summary was posted (B-051). */
     const val KEY_FISCAL_LAST_NOTIFIED_MONTH = "fiscal_last_notified_month"
 
+    /** Boolean key for the share-card hide-amounts default (B-055); default OFF. */
+    const val KEY_SHARE_HIDE_AMOUNTS = "share_hide_amounts"
+
+    /** Boolean key for the Monday week-close share reminder toggle (B-055); default ON. */
+    const val KEY_SHARE_WEEKLY_REMINDER = "share_weekly_reminder_enabled"
+
+    /** String key (ISO Monday) for the last week a share reminder was posted (B-055). */
+    const val KEY_SHARE_LAST_REMINDER_WEEK = "share_last_reminder_week"
+
+    /** Int key for the anonymous local share-tap funnel counter (B-055). */
+    const val KEY_SHARE_COUNT = "share_count"
+
     fun perKmKey(platform: Platform): String = "threshold_${platform.name}_per_km"
     fun perHourKey(platform: Platform): String = "threshold_${platform.name}_per_hour"
 
@@ -73,6 +85,7 @@ object SettingsSerialization {
         lookupDouble: (String) -> Double?,
         lookupBoolean: (String) -> Boolean? = { null },
         lookupString: (String) -> String? = { null },
+        lookupInt: (String) -> Int? = { null },
     ): Settings {
         val thresholds = mutableMapOf<Platform, PlatformThreshold>()
         for (platform in Platform.entries) {
@@ -103,6 +116,12 @@ object SettingsSerialization {
             fiscalMonthlySummaryEnabled = lookupBoolean(KEY_FISCAL_MONTHLY_SUMMARY)
                 ?: Settings.DEFAULT_FISCAL_MONTHLY_SUMMARY_ENABLED,
             fiscalLastNotifiedMonth = lookupString(KEY_FISCAL_LAST_NOTIFIED_MONTH),
+            shareHideAmounts = lookupBoolean(KEY_SHARE_HIDE_AMOUNTS)
+                ?: Settings.DEFAULT_SHARE_HIDE_AMOUNTS,
+            shareWeeklyReminderEnabled = lookupBoolean(KEY_SHARE_WEEKLY_REMINDER)
+                ?: Settings.DEFAULT_SHARE_WEEKLY_REMINDER_ENABLED,
+            shareLastReminderWeek = lookupString(KEY_SHARE_LAST_REMINDER_WEEK),
+            shareCount = lookupInt(KEY_SHARE_COUNT) ?: 0,
         )
     }
 }

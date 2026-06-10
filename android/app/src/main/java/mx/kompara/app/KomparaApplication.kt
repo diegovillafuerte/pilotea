@@ -22,6 +22,7 @@ import mx.kompara.sync.spec.SpecConfigRepository
 import mx.kompara.sync.telemetry.TelemetryScheduler
 import mx.kompara.ui.fiscal.FiscalMonthEndScheduler
 import mx.kompara.ui.onboarding.ServiceWatchdog
+import mx.kompara.ui.share.WeekCloseScheduler
 import javax.inject.Inject
 
 /**
@@ -71,6 +72,9 @@ class KomparaApplication : Application(), Configuration.Provider {
 
     // B-050 remote paywall kill switch: refresh the cached flag on app open (TTL-gated, best-effort).
     @Inject lateinit var paywallConfigRepository: PaywallConfigRepository
+
+    // B-055 Monday week-close share reminder: weekly Monday-09:00 check + a run on this app open.
+    @Inject lateinit var weekCloseScheduler: WeekCloseScheduler
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -131,5 +135,11 @@ class KomparaApplication : Application(), Configuration.Provider {
         // watermark, so an extra run never double-posts.
         fiscalMonthEndScheduler.ensureScheduled()
         fiscalMonthEndScheduler.runNow()
+
+        // B-055: keep the weekly Monday-09:00 share reminder enqueued, and run one now (the "next app
+        // open" path) so a just-closed week's reminder fires even if the device was off all Monday.
+        // Both are idempotent via the per-week watermark, so an extra run never double-posts.
+        weekCloseScheduler.ensureScheduled()
+        weekCloseScheduler.runNow()
     }
 }

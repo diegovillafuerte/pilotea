@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.doublePreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import kotlinx.coroutines.flow.Flow
@@ -45,6 +46,14 @@ class SettingsRepository @Inject constructor(
         booleanPreferencesKey(SettingsSerialization.KEY_FISCAL_MONTHLY_SUMMARY)
     private val fiscalLastNotifiedMonthKey =
         stringPreferencesKey(SettingsSerialization.KEY_FISCAL_LAST_NOTIFIED_MONTH)
+    private val shareHideAmountsKey =
+        booleanPreferencesKey(SettingsSerialization.KEY_SHARE_HIDE_AMOUNTS)
+    private val shareWeeklyReminderKey =
+        booleanPreferencesKey(SettingsSerialization.KEY_SHARE_WEEKLY_REMINDER)
+    private val shareLastReminderWeekKey =
+        stringPreferencesKey(SettingsSerialization.KEY_SHARE_LAST_REMINDER_WEEK)
+    private val shareCountKey =
+        intPreferencesKey(SettingsSerialization.KEY_SHARE_COUNT)
 
     val settings: Flow<Settings> = dataStore.data.map { prefs -> prefs.toSettings() }
 
@@ -114,6 +123,54 @@ class SettingsRepository @Inject constructor(
         dataStore.edit { prefs -> prefs[fiscalLastNotifiedMonthKey] = monthKey }
     }
 
+    // ─── B-055 shareable earnings card ───────────────────────────────────────────────────────────
+
+    /** Snapshot read of the share-card hide-amounts default (B-055). */
+    suspend fun isShareHideAmounts(): Boolean = settings.first().shareHideAmounts
+
+    /**
+     * Set the share-card hide-amounts default (B-055). When ON the card redacts peso earnings,
+     * showing only the percentile flex, streak and trip count. Remembered as the default the next
+     * share-preview opens with; the preview screen can still flip it per-share.
+     */
+    suspend fun setShareHideAmounts(hide: Boolean) {
+        dataStore.edit { prefs -> prefs[shareHideAmountsKey] = hide }
+    }
+
+    /** Snapshot read of whether the Monday week-close share reminder is enabled (B-055). */
+    suspend fun isShareWeeklyReminderEnabled(): Boolean = settings.first().shareWeeklyReminderEnabled
+
+    /**
+     * Turn the Monday week-close share reminder on or off (B-055). When OFF the week-close worker
+     * short-circuits and posts nothing. Default ON.
+     */
+    suspend fun setShareWeeklyReminderEnabled(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[shareWeeklyReminderKey] = enabled }
+    }
+
+    /**
+     * The ISO Monday (yyyy-MM-dd) of the last week a share reminder was posted (B-055), or null if
+     * never. The week-close worker compares this against the just-closed week so a Monday periodic
+     * trigger plus a next-app-open trigger don't double-post (idempotency watermark).
+     */
+    suspend fun shareLastReminderWeek(): String? = settings.first().shareLastReminderWeek
+
+    /** Record that the week-close reminder for [weekStartIso] (ISO Monday) has been posted (B-055). */
+    suspend fun setShareLastReminderWeek(weekStartIso: String) {
+        dataStore.edit { prefs -> prefs[shareLastReminderWeekKey] = weekStartIso }
+    }
+
+    /**
+     * Increment the anonymous local share-tap funnel counter (B-055). No personal data — just a
+     * count of how many times the driver shared a card, for measuring the acquisition loop.
+     */
+    suspend fun incrementShareCount() {
+        dataStore.edit { prefs ->
+            val current = (prefs[shareCountKey] ?: 0).coerceAtLeast(0)
+            prefs[shareCountKey] = if (current == Int.MAX_VALUE) current else current + 1
+        }
+    }
+
     /**
      * Set the driver's benchmark [city] (B-043). Changing it should invalidate the cached benchmarks
      * (the caller — BenchmarksRepository — keys its cache on city and re-fetches on change).
@@ -168,6 +225,7 @@ class SettingsRepository @Inject constructor(
     private fun Preferences.toSettings(): Settings =
         SettingsSerialization.decode(
             enabledNames = this[enabledPlatformsKey],
+            lookupInt = { key -> this[intPreferencesKey(key)] },
             lookupDouble = { key -> this[doublePreferencesKey(key)] },
             lookupBoolean = { key -> this[booleanPreferencesKey(key)] },
             lookupString = { key -> this[stringPreferencesKey(key)] },

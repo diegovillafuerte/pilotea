@@ -31,6 +31,7 @@ import mx.kompara.ui.onboarding.RootViewModel
 @Composable
 fun KomparaRoot(
     modifier: Modifier = Modifier,
+    navigateToShareCard: Boolean = false,
     registerExtraDestinations: NavGraphBuilder.(NavController) -> Unit = {},
     rootViewModel: RootViewModel = hiltViewModel(),
 ) {
@@ -46,6 +47,8 @@ fun KomparaRoot(
             )
             RootRoute.MAIN -> KomparaApp(
                 navigateToReaderTrial = justCompletedOnboarding,
+                // Week-close notification deep link (B-055): only honoured once onboarding is done.
+                navigateToShareCard = navigateToShareCard,
                 registerExtraDestinations = registerExtraDestinations,
             )
         }

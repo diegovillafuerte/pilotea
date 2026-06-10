@@ -92,6 +92,38 @@ data class Settings(
      * next-app-open trigger. Not user-facing.
      */
     val fiscalLastNotifiedMonth: String? = null,
+
+    /**
+     * Whether the shareable earnings card (B-055) redacts peso amounts by default. When ON the
+     * "Tu Semana / Tu Mes" card shows only the percentile flex, streak and trip count — never net
+     * earnings — so a driver can share their standing in a WhatsApp group without revealing income.
+     * Default **OFF** (amounts visible): most drivers proudly share the number, and the toggle on
+     * the share-preview screen flips it per-share; this persisted value is just the remembered default.
+     */
+    val shareHideAmounts: Boolean = DEFAULT_SHARE_HIDE_AMOUNTS,
+
+    /**
+     * Whether the Monday week-close share reminder notification is enabled (B-055). On Monday ~9am
+     * local the app posts "Tu resumen de la semana está listo" on a dedicated "resúmenes" channel,
+     * opening the share-preview screen. Default **ON**: it's a once-a-week, opt-out heads-up that
+     * drives the acquisition loop; the driver can turn it off here and the week-close worker
+     * short-circuits.
+     */
+    val shareWeeklyReminderEnabled: Boolean = DEFAULT_SHARE_WEEKLY_REMINDER_ENABLED,
+
+    /**
+     * The ISO Monday (yyyy-MM-dd) of the last week a week-close share reminder was posted (B-055), or
+     * null if never. Idempotency watermark so the Monday periodic trigger plus a next-app-open trigger
+     * don't double-post. Not user-facing.
+     */
+    val shareLastReminderWeek: String? = null,
+
+    /**
+     * How many times the driver has tapped "Compartir" on the share-card preview (B-055), an
+     * anonymous local-only funnel counter for measuring the acquisition loop. No personal data; never
+     * uploaded by itself. Default 0.
+     */
+    val shareCount: Int = 0,
 ) {
     /** Threshold for [platform], or the default when none has been set. */
     fun thresholdFor(platform: Platform): PlatformThreshold =
@@ -118,6 +150,12 @@ data class Settings(
 
         /** Month-end IMSS summary notification is ON by default (B-051; see [fiscalMonthlySummaryEnabled]). */
         const val DEFAULT_FISCAL_MONTHLY_SUMMARY_ENABLED = true
+
+        /** The share card shows amounts by default — most drivers share the number (B-055). */
+        const val DEFAULT_SHARE_HIDE_AMOUNTS = false
+
+        /** The Monday week-close share reminder is ON by default (B-055; see [shareWeeklyReminderEnabled]). */
+        const val DEFAULT_SHARE_WEEKLY_REMINDER_ENABLED = true
 
         /** Launch defaults: Uber + DiDi enabled, default thresholds, telemetry on, onboarding pending. */
         val DEFAULT = Settings(
