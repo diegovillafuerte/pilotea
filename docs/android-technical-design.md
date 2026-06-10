@@ -55,6 +55,7 @@
 
 - Scope: auth (WhatsApp OTP — port the concept), consented aggregate sync, **city benchmarks/percentiles** (port the engine + synthetic seeds), upload-import parsing (Claude Vision — port prompts), remote parser-config hosting, subscription state.
 - Stack decided at implementation task (bias: boring + managed — e.g. Postgres + a thin TypeScript or Kotlin service; reuse of web percentile SQL and parser prompts is encouraged even though the deployment is new).
+- **Stack chosen (B-041):** TypeScript + Hono on Node 24, Drizzle ORM + `postgres` driver over managed Postgres, zod validation, Vitest + `@electric-sql/pglite` (in-memory Postgres) for zero-infra DB tests; deploys as a containerless Node service on Render. Lives in `backend/` (own pnpm workspace, never touches the web app); the web app's `get_percentile` SQL and synthetic population seeds are ported verbatim.
 - **Anonymous-first**: the reader works with no account; account required only for sync/benchmarks/premium.
 
 ## 5. Risk register
