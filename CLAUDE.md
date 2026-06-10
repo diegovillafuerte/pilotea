@@ -1,6 +1,8 @@
 # Kompara
 
-A web app for uber drivers. (Details TBD — project scaffolding phase.)
+Earnings analytics for ride-hailing drivers in Mexico. **Pivoted 2026-06-10 to a native Android rebuild** (Kotlin + Jetpack Compose): the hook feature reads Uber/DiDi trip-offer cards in real time via AccessibilityService and overlays an instant profitability verdict (net $/km, $/min, traffic light) before the driver accepts — like Ruta Rentable, StopClub, and GigU. The reader is free; benchmarks/compare/history are the paid layer.
+
+Current roadmap: epics E-005+ in `pming/`. The Next.js web MVP (epics E-001–E-004, now superseded) remains in `src/` as the reference implementation until E-010 sunsets it — its parsers, percentile engine, and metric definitions get ported, not discarded. Key docs: `docs/competitive-analysis.md` (rivals, legal posture) and `docs/android-technical-design.md` (capture architecture, Play policy strategy).
 
 ## How to work
 
@@ -31,7 +33,9 @@ The project uses a markdown-based PM system in `pming/` (epics → stories → t
 
 ## Architecture
 
-Next.js 15 monolith (App Router) deployed on Render. React frontend + API routes in a single deployable unit.
+**Android (forward):** see `docs/android-technical-design.md` — modules `:capture` (AccessibilityService), `:parsers` (declarative specs + remote config), `:overlay`, `:metrics`, `:data` (Room), `:sync`, `:ui`, `:billing`. All capture/parsing/verdicts on-device (legal + Play-policy posture); thin greenfield backend for auth, benchmarks, imports.
+
+**Web (legacy reference):** Next.js 15 monolith (App Router) deployed on Render. React frontend + API routes in a single deployable unit.
 
 **Layers and boundaries:**
 - `src/app/` — Next.js pages and API routes. Pages can import from `components/`, `hooks/`, `lib/`. API routes can import from `lib/`.
@@ -80,6 +84,9 @@ Track tech debt in `techdebt.md`. Whenever you make a conscious decision to defe
 
 | Question | Read |
 |---|---|
-| System architecture | `ARCHITECTURE.md` (TBD) |
+| Android architecture & capture design | `docs/android-technical-design.md` |
+| Competitors & legal posture | `docs/competitive-analysis.md` |
+| Web-era system design (reference) | `docs/technical-design.md` |
+| Business context | `docs/project-context.md` |
 | Tech debt tracking | `techdebt.md` |
 | PM system quick reference | `pming/skills.md` |
