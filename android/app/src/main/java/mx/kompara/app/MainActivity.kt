@@ -4,19 +4,17 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
 import dagger.hilt.android.AndroidEntryPoint
-import mx.kompara.app.ui.theme.KomparaTheme
-import mx.kompara.ui.HomeScreen
+import mx.kompara.ui.nav.KomparaApp
+import mx.kompara.ui.theme.KomparaTheme
 
 /**
- * Single-activity host. [@AndroidEntryPoint][AndroidEntryPoint] makes this a Hilt injection
- * target so the home screen's [mx.kompara.ui.HomeViewModel] (which pulls the injected
- * SettingsRepository from `:data`) resolves end-to-end — proving the cross-module DI graph.
+ * Single-activity host. [@AndroidEntryPoint][AndroidEntryPoint] makes this a Hilt injection target
+ * so screens deeper in `:ui` can resolve their ViewModels (which pull injected dependencies from
+ * `:data`) end-to-end.
+ *
+ * The activity stays deliberately thin: the design system and the whole navigable shell live in
+ * `:ui` ([KomparaApp] + [KomparaTheme]); `:app` only wires modules together and launches the shell.
  */
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -25,9 +23,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             KomparaTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    HomeScreen(modifier = Modifier.padding(innerPadding))
-                }
+                KomparaApp()
             }
         }
     }

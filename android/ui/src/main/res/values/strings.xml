@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ============================================================= -->
+    <!-- Navegación: las 5 pestañas de la barra inferior.              -->
+    <!-- ============================================================= -->
+    <string name="nav_inicio">Inicio</string>
+    <string name="nav_comparar">Comparar</string>
+    <string name="nav_lector">Lector</string>
+    <string name="nav_fiscal">Fiscal</string>
+    <string name="nav_ajustes">Ajustes</string>
+
+    <!-- Descripciones de accesibilidad para los iconos de navegación. -->
+    <string name="nav_inicio_desc">Pantalla de inicio con tus estadísticas</string>
+    <string name="nav_comparar_desc">Compara tus ganancias entre plataformas</string>
+    <string name="nav_lector_desc">Activa el lector de pantalla</string>
+    <string name="nav_fiscal_desc">Resumen fiscal de tus ingresos</string>
+    <string name="nav_ajustes_desc">Ajustes de la aplicación</string>
+
+    <!-- ============================================================= -->
+    <!-- Pantalla: Inicio                                              -->
+    <!-- ============================================================= -->
+    <string name="inicio_empty_title">Sin datos todavía</string>
+    <string name="inicio_empty_body">Activa el lector y maneja — tus números aparecen solos.</string>
+    <string name="inicio_empty_cta">Activar lector</string>
+
+    <!-- ============================================================= -->
+    <!-- Pantalla: Comparar                                            -->
+    <!-- ============================================================= -->
+    <string name="comparar_empty_title">Aún no hay nada que comparar</string>
+    <string name="comparar_empty_body">Cuando completes viajes en distintas plataformas, aquí verás cuál te conviene más.</string>
+    <string name="comparar_empty_cta">Ver plataformas</string>
+
+    <!-- ============================================================= -->
+    <!-- Pantalla: Lector                                             -->
+    <!-- ============================================================= -->
+    <string name="lector_empty_title">El lector está apagado</string>
+    <string name="lector_empty_body">Enciéndelo y Kompara te dirá al instante cuánto ganas de verdad con cada viaje.</string>
+    <string name="lector_empty_cta">Encender lector</string>
+
+    <!-- ============================================================= -->
+    <!-- Pantalla: Fiscal                                             -->
+    <!-- ============================================================= -->
+    <string name="fiscal_empty_title">Tu resumen fiscal está vacío</string>
+    <string name="fiscal_empty_body">Registra tus viajes y costos para tener listo tu resumen de ingresos y deducciones.</string>
+    <string name="fiscal_empty_cta">Configurar costos</string>
+
+    <!-- ============================================================= -->
+    <!-- Pantalla: Ajustes                                            -->
+    <!-- ============================================================= -->
+    <string name="ajustes_empty_title">Ajustes en construcción</string>
+    <string name="ajustes_empty_body">Aquí podrás configurar tus plataformas, costos y umbrales de ganancia.</string>
+    <string name="ajustes_empty_cta">Entendido</string>
+
+    <!-- ============================================================= -->
+    <!-- Componente: VerdictBadge (semáforo de veredicto)             -->
+    <!-- ============================================================= -->
+    <string name="verdict_green">Conviene</string>
+    <string name="verdict_yellow">Regular</string>
+    <string name="verdict_red">No conviene</string>
+
+    <!-- ============================================================= -->
+    <!-- Componente: MetricCard / generales                           -->
+    <!-- ============================================================= -->
+    <string name="metric_percentile_format">Top %1$d%%</string>
+    <string name="progress_label_format">%1$d%%</string>
+</resources>
