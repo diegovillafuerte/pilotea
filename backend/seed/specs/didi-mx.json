@@ -1,0 +1,100 @@
+{
+  "_comment": "DiDi Conductor (Mexico) offer-card spec (B-030). PACKAGE ID NEEDS ON-DEVICE VERIFICATION: 'com.sdu.didi.gsui' is the observed DiDi driver package in several markets; some markets ship 'com.didiglobal.driver'. Once a device is available, confirm the live package + versionCode and split this spec by VersionRange if the UI diverges. Anchors are text-pattern-first (es-MX), with viewIdContains hints as a secondary signal and geometry only as the engine's tiebreaker. SYNTHETIC CORPUS: fixtures are reasoned models of DiDi MX cards, not on-device captures (no device in build env).",
+  "targetPackage": "com.sdu.didi.gsui",
+  "versionCodeRange": { "min": 1, "max": null },
+  "specVersion": 1,
+  "cardDetector": {
+    "allOf": [],
+    "anyOf": [
+      { "regex": "Nuevo viaje" },
+      { "regex": "Solicitud de viaje" },
+      { "regex": "Viaje expr[eé]s" },
+      { "regex": "Tienes un viaje" }
+    ],
+    "noneOf": [
+      { "regex": "Viaje en curso" },
+      { "regex": "En viaje" },
+      { "regex": "Recogiendo" }
+    ],
+    "baseVariant": "standard"
+  },
+  "extractors": [
+    {
+      "field": "fare",
+      "normalizer": "CURRENCY",
+      "strategies": [
+        { "viewIdContains": "fare", "regexOnSameNode": "\\$\\s*([0-9][0-9.,]*)" },
+        { "afterAnchor": { "regex": "^Ganancia$|^Ganas$|^Tarifa$|Ganancia estimada" }, "extractRegex": "\\$\\s*([0-9][0-9.,]*)" },
+        { "regexOnSameNode": "Ganas?\\s*\\$\\s*([0-9][0-9.,]*)" },
+        { "regexOnSameNode": "\\$\\s*([0-9][0-9.,]*)" }
+      ]
+    },
+    {
+      "field": "pickupDistanceKm",
+      "normalizer": "DISTANCE_KM",
+      "strategies": [
+        { "viewIdContains": "pickup", "regexOnSameNode": "\\(\\s*([0-9.,]+\\s*(?:km|m))\\s*\\)" },
+        { "afterAnchor": { "regex": "Recoger|Recogida|Punto de origen" }, "extractRegex": "\\(\\s*([0-9.,]+\\s*(?:km|m))\\s*\\)" },
+        { "regexOnSameNode": "a\\s+\\d+\\s*min\\s*\\(\\s*([0-9.,]+\\s*(?:km|m))\\s*\\)" }
+      ]
+    },
+    {
+      "field": "pickupEtaMin",
+      "normalizer": "DURATION_MIN",
+      "strategies": [
+        { "viewIdContains": "pickup", "regexOnSameNode": "a\\s+(\\d+\\s*min)" },
+        { "afterAnchor": { "regex": "Recoger|Recogida|Punto de origen" }, "extractRegex": "a\\s+(\\d+\\s*min)" },
+        { "regexOnSameNode": "a\\s+(\\d+\\s*min)\\s*\\([0-9.,]+\\s*(?:km|m)\\)" }
+      ]
+    },
+    {
+      "field": "tripDistanceKm",
+      "normalizer": "DISTANCE_KM",
+      "strategies": [
+        { "viewIdContains": "trip", "regexOnSameNode": "\\(\\s*([0-9.,]+\\s*(?:km|m))\\s*\\)" },
+        { "afterAnchor": { "regex": "^Viaje$|^Trayecto$|^Destino$|Punto de destino" }, "extractRegex": "\\(\\s*([0-9.,]+\\s*(?:km|m))\\s*\\)" },
+        { "regexOnSameNode": "Viaje\\s*[:·]?\\s*\\d+\\s*min\\s*\\(\\s*([0-9.,]+\\s*(?:km|m))\\s*\\)" }
+      ]
+    },
+    {
+      "field": "tripDurationMin",
+      "normalizer": "DURATION_MIN",
+      "strategies": [
+        { "viewIdContains": "trip", "regexOnSameNode": "(\\d+\\s*(?:h\\s*\\d+\\s*min|min))\\s*\\([0-9.,]+\\s*(?:km|m)\\)" },
+        { "afterAnchor": { "regex": "^Viaje$|^Trayecto$|^Destino$|Punto de destino" }, "extractRegex": "(\\d+\\s*(?:h\\s*\\d+\\s*min|min))\\s*\\(" },
+        { "regexOnSameNode": "Viaje\\s*[:·]?\\s*(\\d+\\s*(?:h\\s*\\d+\\s*min|min))\\s*\\(" }
+      ]
+    },
+    {
+      "field": "paymentType",
+      "normalizer": "NONE",
+      "strategies": [
+        { "viewIdContains": "payment", "regexOnSameNode": "(Efectivo|Tarjeta)" },
+        { "afterAnchor": { "regex": "^Pago$|M[eé]todo de pago|Forma de pago" }, "extractRegex": "(Efectivo|Tarjeta)" },
+        { "regexOnSameNode": "(Efectivo|Tarjeta)" }
+      ]
+    }
+  ],
+  "variants": [
+    {
+      "tag": "bonus",
+      "whenAnyOf": [
+        { "regex": "\\+\\s*\\$\\s*[0-9][0-9.,]*\\s*extra" },
+        { "regex": "Bono" },
+        { "regex": "Garantizado" },
+        { "regex": "Incentivo" }
+      ],
+      "setsSurge": true
+    },
+    {
+      "tag": "stacked",
+      "whenAnyOf": [
+        { "regex": "Viaje consecutivo" },
+        { "regex": "Siguiente viaje" },
+        { "regex": "Pr[oó]ximo viaje" },
+        { "regex": "Viaje en cadena" },
+        { "regex": "[0-9]+\\s+viajes seguidos" }
+      ]
+    }
+  ]
+}

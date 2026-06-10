@@ -4,6 +4,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.get
 import io.ktor.client.request.header
+import io.ktor.client.request.parameter
 import io.ktor.client.request.patch
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -12,6 +13,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
+import mx.kompara.parsers.spec.SignedSpecBundle
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -90,6 +92,29 @@ class ApiClient @Inject constructor(
         val res = http.get("$baseUrl/v1/me") { bearer() }
         ensureOk(res)
         return res.body<MeResponse>().driver
+    }
+
+    /**
+     * GET /v1/parser-configs/bundle — the active signed parser-config bundle (B-033).
+     *
+     * Anonymous-allowed: the bundle is the same for every device, so this works pre-login (a bearer
+     * is attached when present but isn't required). The response is the signed envelope; the caller
+     * ([mx.kompara.sync.spec.SpecConfigRepository]) verifies the signature before trusting it.
+     *
+     * [packageName]/[versionCode] are sent as advisory hints so a future backend can pre-filter by
+     * host version; today the backend returns the full bundle and the client resolves ranges locally.
+     */
+    suspend fun getParserConfigBundle(
+        packageName: String? = null,
+        versionCode: Long? = null,
+    ): SignedSpecBundle {
+        val res = http.get("$baseUrl/v1/parser-configs/bundle") {
+            bearer()
+            packageName?.let { parameter("package", it) }
+            versionCode?.let { parameter("versionCode", it.toString()) }
+        }
+        ensureOk(res)
+        return res.body()
     }
 
     /** PATCH /v1/me — update profile fields (bearer). */

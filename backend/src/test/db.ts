@@ -15,6 +15,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import * as schema from "../db/schema.js";
 import { buildSeedRows } from "../../seed/population-stats.js";
+import { buildParserSpecRows } from "../../seed/parser-specs.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const migrationsDir = join(here, "..", "..", "migrations");
@@ -80,10 +81,30 @@ async function seedPopulationStats(db: TestDb): Promise<void> {
 }
 
 /**
- * Build a fresh migrated test DB. Pass `seed: true` to also load the synthetic
- * population_stats. Each call is an isolated in-memory database.
+ * Insert the launch-day parser specs (uber + didi) into parser_configs using the SAME rows the
+ * shipped `seed/parser-specs.ts` builds, so the OTA-bundle tests exercise the real seed.
  */
-export async function makeTestDb(opts: { seed?: boolean } = {}): Promise<TestDb> {
+async function seedParserSpecs(db: TestDb): Promise<void> {
+  const rows = buildParserSpecRows();
+  await db.insert(schema.parserConfigs).values(
+    rows.map((r) => ({
+      targetPackage: r.targetPackage,
+      versionRange: r.versionRange,
+      specVersion: r.specVersion,
+      spec: r.spec,
+      active: true,
+    })),
+  );
+}
+
+/**
+ * Build a fresh migrated test DB. Pass `seed: true` to also load the synthetic population_stats and
+ * `seedSpecs: true` to load the launch-day parser_configs bundle. Each call is an isolated in-memory
+ * database.
+ */
+export async function makeTestDb(
+  opts: { seed?: boolean; seedSpecs?: boolean } = {},
+): Promise<TestDb> {
   const client = new PGlite();
   await client.waitReady;
   await applyMigrations(client);
@@ -91,6 +112,9 @@ export async function makeTestDb(opts: { seed?: boolean } = {}): Promise<TestDb>
   const db = drizzle(client, { schema }) as TestDb;
   if (opts.seed) {
     await seedPopulationStats(db);
+  }
+  if (opts.seedSpecs) {
+    await seedParserSpecs(db);
   }
   return db;
 }

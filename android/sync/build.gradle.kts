@@ -37,7 +37,8 @@ android {
 
 dependencies {
     implementation(project(":data"))
-    // ParserSnapshot is deserialized when rebuilding a fixture-report payload (B-034).
+    // :parsers for the ParserSpec/SpecBundle model + signature verifier (B-033 OTA specs) and the
+    // ParserSnapshot deserialized when rebuilding a fixture-report payload (B-034).
     implementation(project(":parsers"))
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.serialization.json)
@@ -51,7 +52,8 @@ dependencies {
     // Anonymous device id + session token persistence.
     implementation(libs.androidx.datastore.preferences)
 
-    // WorkManager for the periodic + on-demand telemetry upload (B-034).
+    // WorkManager: periodic + on-demand telemetry upload (B-034) and periodic OTA parser-config
+    // refresh (B-033).
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.androidx.hilt.work)
     ksp(libs.androidx.hilt.compiler)

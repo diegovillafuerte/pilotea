@@ -54,6 +54,13 @@ class OverlayStateMachine(
                         kotlinx.coroutines.delay(graceMs)
                         emit(OverlayVisibility.Hidden)
                     }
+                    is OfferEvent.SpecDisabled -> {
+                        // The platform's parser was remotely kill-switched (B-033). There's no
+                        // verdict to show — hide the chip. A dedicated "actualizando soporte para
+                        // Uber/DiDi" overlay state can layer on later (owned by the overlay task);
+                        // hiding immediately is the safe default so we never show a stale verdict.
+                        emit(OverlayVisibility.Hidden)
+                    }
                 }
             }
             .distinctUntilChanged()

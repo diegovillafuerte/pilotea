@@ -58,9 +58,12 @@ dependencies {
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
 
-    // WorkManager + Hilt worker factory for the telemetry upload worker (B-034).
+    // WorkManager + Hilt integration: the app supplies the HiltWorkerFactory and schedules the
+    // background workers — the telemetry upload worker (B-034) and the periodic OTA parser-config
+    // refresh (B-033).
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.androidx.hilt.work)
+    ksp(libs.androidx.hilt.compiler)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
