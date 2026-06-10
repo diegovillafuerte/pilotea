@@ -398,6 +398,33 @@
     <string name="comparar_locked_body">Pronto: compara lado a lado tus ganancias en Uber y DiDi.</string>
 
     <!-- ============================================================= -->
+    <!-- Pantalla: Comparar (B-047)                                    -->
+    <!-- ============================================================= -->
+    <!-- Estado sin datos: invita a activar el lector. -->
+    <string name="comparar_no_data_title">Aún no hay nada que comparar</string>
+    <string name="comparar_no_data_body">Activa el lector y maneja en varias plataformas — aquí verás cuál te paga mejor.</string>
+    <string name="comparar_no_data_cta">Activar lector</string>
+    <!-- Estado con una sola plataforma: anima a sumar otra y muestra un ejemplo. -->
+    <string name="comparar_single_title">Agrega otra plataforma para comparar</string>
+    <!-- %1$s = nombre de la plataforma que ya tiene datos (Uber, DiDi…). -->
+    <string name="comparar_single_body">Ya tienes datos de %1$s. Cuando manejes también en otra plataforma, aquí verás lado a lado cuál te paga mejor.</string>
+    <!-- Etiqueta sobre el ejemplo difuminado para que quede claro que no son datos reales. -->
+    <string name="comparar_example_tag">Ejemplo</string>
+    <!-- Título del resumen del veredicto. -->
+    <string name="comparar_verdict_title">Veredicto de la semana</string>
+    <!-- Encabezado de la sección con el detalle por métrica. -->
+    <string name="comparar_breakdown_title">Detalle por métrica</string>
+    <!-- Fila no comparable: %1$s = plataforma que no reporta esa métrica. -->
+    <string name="comparar_not_comparable">No comparable</string>
+    <string name="comparar_not_comparable_reason">%1$s no reporta este dato</string>
+    <!-- Insignia de ganador sobre la barra verde. -->
+    <string name="comparar_winner_badge">Gana</string>
+    <!-- Etiqueta del selector de semana. -->
+    <string name="comparar_week_picker_label">Semana</string>
+    <!-- Pista de valor de una línea para el gate del detalle. -->
+    <string name="comparar_gate_breakdown_hint">Desbloquea el detalle por métrica con Premium</string>
+
+    <!-- ============================================================= -->
     <!-- Invita y gana — programa de referidos y partners (B-056)      -->
     <!-- ============================================================= -->
     <string name="referral_entry_title">Invita y gana</string>

@@ -145,7 +145,16 @@ private fun NavGraphBuilder.tabScreens(navController: NavController) {
         )
     }
     composable(KomparaDestination.COMPARAR.route) {
-        CompararScreen(onUpgrade = { surface -> navController.navigateToPaywall(surface) })
+        CompararScreen(
+            onUpgrade = { surface -> navController.navigateToPaywall(surface) },
+            onOpenReader = {
+                navController.navigate(KomparaDestination.LECTOR.route) {
+                    popUpTo(KomparaDestination.START.route) { saveState = true }
+                    launchSingleTop = true
+                    restoreState = true
+                }
+            },
+        )
     }
     composable(KomparaDestination.LECTOR.route) { LectorScreen() }
     composable(KomparaDestination.FISCAL.route) {
