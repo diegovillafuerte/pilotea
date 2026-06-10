@@ -31,6 +31,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import mx.kompara.ui.R
 import mx.kompara.ui.components.EmptyState
+import mx.kompara.ui.components.PrimaryButton
 import mx.kompara.ui.format.Formatters
 import mx.kompara.ui.stats.HistoryUiState
 import mx.kompara.ui.stats.HistoryViewModel
@@ -40,36 +41,54 @@ import mx.kompara.ui.theme.KomparaTheme
 
 /**
  * The History tab (B-040 req 3): the weeks list with a source badge (capturado/importado). Tapping a
- * week opens its summary ([onOpenWeek]).
+ * week opens its summary ([onOpenWeek]). The "Importar semana" CTA ([onImportWeek]) opens the B-045
+ * import flow to backfill weeks the reader didn't capture live.
  */
 @Composable
 fun HistoryScreen(
     modifier: Modifier = Modifier,
     onOpenWeek: (String) -> Unit = {},
+    onImportWeek: () -> Unit = {},
     viewModel: HistoryViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    HistoryContent(state = state, onOpenWeek = onOpenWeek, modifier = modifier)
+    HistoryContent(state = state, onOpenWeek = onOpenWeek, onImportWeek = onImportWeek, modifier = modifier)
 }
 
 @Composable
 private fun HistoryContent(
     state: HistoryUiState,
     onOpenWeek: (String) -> Unit,
+    onImportWeek: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     when {
         state.loading -> Spacer(modifier.fillMaxSize())
-        state.isEmpty -> EmptyState(
-            icon = Icons.Filled.DateRange,
-            title = stringResource(R.string.history_empty_title),
-            body = stringResource(R.string.history_empty_body),
-            modifier = modifier,
-        )
+        state.isEmpty -> Column(
+            modifier = modifier.fillMaxSize().padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            EmptyState(
+                icon = Icons.Filled.DateRange,
+                title = stringResource(R.string.history_empty_title),
+                body = stringResource(R.string.history_empty_body),
+                modifier = Modifier.weight(1f),
+            )
+            PrimaryButton(
+                text = stringResource(R.string.history_import_cta),
+                onClick = onImportWeek,
+            )
+        }
         else -> LazyColumn(
             modifier = modifier.fillMaxSize().padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            item(key = "import-cta") {
+                PrimaryButton(
+                    text = stringResource(R.string.history_import_cta),
+                    onClick = onImportWeek,
+                )
+            }
             items(state.weeks, key = { it.weekStart + it.source.name }) { week ->
                 WeekRow(week = week, onClick = { onOpenWeek(week.weekStart) })
             }
@@ -162,6 +181,7 @@ private fun HistoryContentPreview() {
                 ),
             ),
             onOpenWeek = {},
+            onImportWeek = {},
         )
     }
 }

@@ -17,6 +17,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import mx.kompara.ui.imports.importDestination
 import mx.kompara.ui.screens.AjustesScreen
 import mx.kompara.ui.screens.CompararScreen
 import mx.kompara.ui.screens.CostProfileScreen
@@ -151,8 +152,11 @@ private fun NavGraphBuilder.statsScreens(navController: NavController) {
             onOpenWeek = { weekStart ->
                 navController.navigate("${KomparaDestination.WEEK_SUMMARY_ROUTE}/$weekStart")
             },
+            // B-045 import flow (registered below via importDestination).
+            onImportWeek = { navController.navigate(KomparaDestination.IMPORT_ROUTE) },
         )
     }
+    importDestination(navController)
     // Day detail with no arg → today.
     composable(KomparaDestination.DAY_DETAIL_ROUTE) { DayDetailScreen() }
     composable(

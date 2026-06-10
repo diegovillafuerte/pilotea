@@ -113,6 +113,7 @@ function postImport(opts: {
   uploadType?: string;
   files?: { name: string; type: string; bytes?: Uint8Array }[];
   auth?: string;
+  dryRun?: boolean;
 }) {
   const form = new FormData();
   if (opts.platform !== undefined) form.set("platform", opts.platform);
@@ -125,7 +126,8 @@ function postImport(opts: {
     new Uint8Array(ab).set(bytes);
     form.append("files", new File([ab], f.name, { type: f.type }));
   }
-  return app.request("/v1/imports", {
+  const url = opts.dryRun ? "/v1/imports?dry_run=true" : "/v1/imports";
+  return app.request(url, {
     method: "POST",
     headers: opts.auth === undefined ? {} : { authorization: `Bearer ${opts.auth}` },
     body: form,
@@ -419,6 +421,105 @@ describe("captured-beats-imported conflict rule", () => {
     const [imp] = await db.select().from(imports).where(eq(imports.id, body.import_id));
     expect(imp!.status).toBe("parsed");
     expect(imp!.weeklyAggregateId).toBe(aggs[0]!.id);
+  });
+});
+
+// ─── Dry-run preview (B-045) ──────────────────────────────────
+describe("dry_run preview", () => {
+  it("returns parsed metrics + dry_run:true without persisting anything", async () => {
+    vision.setJson(UBER_PDF_EXTRACTION);
+
+    const res = await postImport({
+      platform: "uber",
+      uploadType: "pdf",
+      files: [{ name: "report.pdf", type: "application/pdf" }],
+      auth: token,
+      dryRun: true,
+    });
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      import_id: string | null;
+      metrics: Record<string, unknown>;
+      data_completeness: number;
+      dry_run: boolean;
+    };
+
+    // Same metrics shape as a real import.
+    expect(body.dry_run).toBe(true);
+    expect(body.import_id).toBeNull();
+    expect(body.metrics.week_start).toBe("2025-03-24");
+    expect(body.metrics.net_earnings).toBe(3850.5);
+    expect(body.metrics.earnings_per_trip).toBe(53.48); // derived identically
+    expect(body.data_completeness).toBeGreaterThanOrEqual(0.85);
+
+    // The parser still ran (Claude was called once).
+    expect(vision.calls).toHaveLength(1);
+
+    // NOTHING durable was written: no imports row, no aggregate.
+    const imps = await db.select().from(imports).where(eq(imports.driverId, driverId));
+    expect(imps).toHaveLength(0);
+    const aggs = await db
+      .select()
+      .from(weeklyAggregates)
+      .where(eq(weeklyAggregates.driverId, driverId));
+    expect(aggs).toHaveLength(0);
+  });
+
+  it("returns 422 with the Spanish error on a parse failure and still persists nothing", async () => {
+    vision.setJson({ week_start: 12345, net_earnings: "not a number" });
+
+    const res = await postImport({
+      platform: "uber",
+      uploadType: "pdf",
+      files: [{ name: "report.pdf", type: "application/pdf" }],
+      auth: token,
+      dryRun: true,
+    });
+
+    expect(res.status).toBe(422);
+    expect(await errorOf(res)).toContain("formato esperado");
+
+    // No failed import row recorded in dry-run.
+    const imps = await db.select().from(imports).where(eq(imports.driverId, driverId));
+    expect(imps).toHaveLength(0);
+  });
+
+  it("a real import after a dry-run persists exactly one durable record", async () => {
+    vision.setJson(UBER_PDF_EXTRACTION);
+
+    // Preview first…
+    const preview = await postImport({
+      platform: "uber",
+      uploadType: "pdf",
+      files: [{ name: "report.pdf", type: "application/pdf" }],
+      auth: token,
+      dryRun: true,
+    });
+    expect(preview.status).toBe(200);
+
+    // …then confirm (real import).
+    const real = await postImport({
+      platform: "uber",
+      uploadType: "pdf",
+      files: [{ name: "report.pdf", type: "application/pdf" }],
+      auth: token,
+    });
+    expect(real.status).toBe(200);
+    const body = (await real.json()) as { import_id: string; dry_run: boolean };
+    expect(body.dry_run).toBe(false);
+    expect(body.import_id).not.toBeNull();
+
+    // The dry-run left nothing behind, so there is exactly ONE import row and
+    // ONE aggregate after the confirm.
+    const imps = await db.select().from(imports).where(eq(imports.driverId, driverId));
+    expect(imps).toHaveLength(1);
+    const aggs = await db
+      .select()
+      .from(weeklyAggregates)
+      .where(eq(weeklyAggregates.driverId, driverId));
+    expect(aggs).toHaveLength(1);
+    expect(aggs[0]!.source).toBe("imported");
   });
 });
 

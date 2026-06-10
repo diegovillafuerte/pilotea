@@ -82,6 +82,15 @@ enum class KomparaDestination(
         const val HISTORY_ROUTE: String = "history"
 
         /**
+         * Import flow (B-045), reachable from the History screen's "Importar semana" CTA. The screen +
+         * ViewModel live in `:sync` (which owns the upload + local-backfill repository); `:app`
+         * registers the composable into the shared graph via `registerExtraDestinations`, the same
+         * dependency inversion the offer simulator uses ([SIMULATOR_ROUTE]). The route key lives here
+         * so `:ui` (which owns the History CTA) can navigate to it without depending on `:sync`.
+         */
+        const val IMPORT_ROUTE: String = "import"
+
+        /**
          * Day-detail route (B-040 req 2). The day is an optional ISO arg ([mx.kompara.ui.stats.
          * DayDetailViewModel.ARG_DAY]); omitting it defaults to today.
          */

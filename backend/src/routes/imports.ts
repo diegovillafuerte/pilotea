@@ -17,6 +17,17 @@
  * the import still succeeds and links to the existing row, but its parsed values
  * are not written. Imported-over-imported re-imports DO overwrite (idempotent
  * re-import of the same week).
+ *
+ * Dry-run mode (`?dry_run=true`, B-045): validate + store the original + run the
+ * full Claude Vision parse, but DO NOT mutate the durable record — no `imports`
+ * row is inserted and no weekly_aggregates upsert is performed. The original IS
+ * still stored (the storage write is cheap, idempotent on the import id, and a
+ * later real import reuses a fresh id anyway), but nothing is recorded against
+ * it. The response shape is identical to a real import plus `dry_run: true`, so
+ * the Android review screen can preview the parsed week before the driver
+ * confirms. A real import (`dry_run` absent/false) returns `dry_run: false` and
+ * persists as before. This lets the client show parsed metrics for confirmation
+ * without leaving orphaned import rows for every preview.
  */
 
 import { Hono } from "hono";
@@ -96,6 +107,12 @@ export function importsRoutes(
 
   app.post("/imports", requireBearer(db), async (c) => {
     const driverId = c.get("driverId");
+
+    // Dry-run preview (B-045): full parse, no durable record (no imports row,
+    // no aggregate upsert). Any value other than the exact strings "true"/"1"
+    // is treated as a real import, so a missing/garbage param is safe.
+    const dryRunRaw = c.req.query("dry_run");
+    const dryRun = dryRunRaw === "true" || dryRunRaw === "1";
 
     // 1. Parse multipart form
     let form: FormData;
@@ -183,32 +200,55 @@ export function importsRoutes(
     // 6. Create the import record (status: pending). Reuse `importId` as the
     //    primary key so the row id and the storage key scheme agree (the web
     //    app used a single id for both the upload row and the R2 object key).
-    const [importRow] = await db
-      .insert(imports)
-      .values({ id: importId, driverId, platform, uploadType, fileKey, status: "pending" })
-      .returning();
-    if (!importRow) {
-      // INSERT … RETURNING always yields a row; defensive guard for the type.
-      return c.json({ error: "Error interno del servidor. Intentalo de nuevo." }, 500);
+    //    Skipped in dry-run: a preview never leaves a durable record behind.
+    let importRow: typeof imports.$inferSelect | undefined;
+    if (!dryRun) {
+      [importRow] = await db
+        .insert(imports)
+        .values({ id: importId, driverId, platform, uploadType, fileKey, status: "pending" })
+        .returning();
+      if (!importRow) {
+        // INSERT … RETURNING always yields a row; defensive guard for the type.
+        return c.json({ error: "Error interno del servidor. Intentalo de nuevo." }, 500);
+      }
     }
 
     // 7. Parse via the ported Claude Vision pipeline
     const parseResult = await parseUpload(platform, uploadType, { files: fileBuffers, mimeType }, vision);
 
-    // 8. Parser failure → mark failed, return 422 with Spanish error
+    // 8. Parser failure → mark failed (real import only), return 422 with Spanish error
     if (!parseResult.success || !parseResult.metrics) {
       const errorMsg =
         parseResult.error ??
         "No pudimos leer tus datos. Asegurate que el screenshot sea claro y completo.";
-      await db
-        .update(imports)
-        .set({ status: "failed", errorMessage: errorMsg, parsedPayload: parseResult.raw_extraction })
-        .where(eq(imports.id, importRow.id));
+      if (!dryRun && importRow) {
+        await db
+          .update(imports)
+          .set({ status: "failed", errorMessage: errorMsg, parsedPayload: parseResult.raw_extraction })
+          .where(eq(imports.id, importRow.id));
+      }
       return c.json({ error: errorMsg }, 422);
     }
 
-    // 9. Success → upsert weekly_aggregates with captured-beats-imported rule.
     const metrics = parseResult.metrics;
+
+    // Dry-run preview: parse succeeded — return the metrics for the review
+    // screen WITHOUT persisting anything (no imports row was created in step 6,
+    // and no aggregate upsert happens here). The response shape matches a real
+    // import; `import_id` is null because no durable row exists yet.
+    if (dryRun) {
+      return c.json(
+        {
+          import_id: null,
+          metrics,
+          data_completeness: parseResult.data_completeness,
+          dry_run: true,
+        },
+        200,
+      );
+    }
+
+    // 9. Success → upsert weekly_aggregates with captured-beats-imported rule.
     const values = aggregateValuesFrom(driverId, platform, metrics);
 
     const [upserted] = await db
@@ -254,7 +294,12 @@ export function importsRoutes(
         .limit(1);
     }
 
-    // 10. Mark the import parsed + link to the aggregate row
+    // 10. Mark the import parsed + link to the aggregate row. `importRow` is
+    //     guaranteed defined here — the dry-run path returned above, and the
+    //     real path created it in step 6.
+    if (!importRow) {
+      return c.json({ error: "Error interno del servidor. Intentalo de nuevo." }, 500);
+    }
     await db
       .update(imports)
       .set({
@@ -271,6 +316,7 @@ export function importsRoutes(
         import_id: importRow.id,
         metrics,
         data_completeness: parseResult.data_completeness,
+        dry_run: false,
       },
       200,
     );

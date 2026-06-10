@@ -240,7 +240,59 @@
     <string name="history_badge_importado">Importado</string>
     <string name="history_empty_title">Tu historial está vacío</string>
     <string name="history_empty_body">Cada semana que manejes con el lector activo aparecerá aquí.</string>
+    <string name="history_import_cta">Importar semana</string>
     <string name="week_summary_title">Resumen de la semana</string>
+
+    <!-- Importar semana (B-045) -->
+    <string name="import_title">Importar semana</string>
+    <string name="import_intro">Trae semanas que el lector no capturó: tu historial de antes de instalar Kompara o turnos que se te pasaron.</string>
+
+    <!-- Estado sin cuenta -->
+    <string name="import_signed_out_title">Para importar necesitas una cuenta</string>
+    <string name="import_signed_out_body">Importar tus semanas requiere una cuenta para guardarlas de forma segura. La pantalla para crear cuenta aún no está lista; estará disponible muy pronto.</string>
+    <string name="import_signed_out_back">Volver</string>
+
+    <!-- Selector de plataforma -->
+    <string name="import_pick_platform">¿De qué plataforma?</string>
+    <string name="import_platform_uber_pdf">Uber — PDF semanal</string>
+    <string name="import_platform_uber_pdf_hint">Recomendado: el PDF semanal que Uber te envía por correo extrae ~95% de los datos.</string>
+    <string name="import_platform_uber_screenshot">Uber — captura de pantalla</string>
+    <string name="import_platform_uber_screenshot_hint">La captura del desglose de tarifa extrae datos limitados (~40%). Para mejores resultados usa el PDF.</string>
+    <string name="import_platform_didi">DiDi — 2 capturas</string>
+    <string name="import_platform_didi_hint">Necesitamos 2 capturas: tu pantalla de ganancias y el tablero. Así extraemos casi todo (~85%).</string>
+    <string name="import_platform_indrive">inDrive — captura de pantalla</string>
+    <string name="import_platform_indrive_hint">Sube una captura de tu resumen de ganancias en inDrive.</string>
+
+    <!-- Selección de archivos -->
+    <string name="import_pick_file">Elegir archivo</string>
+    <string name="import_pick_file_1">1. Pantalla de ganancias</string>
+    <string name="import_pick_file_2">2. Tablero</string>
+    <string name="import_pick_another_platform">Elegir otra plataforma</string>
+    <string name="import_file_selected">Archivo listo</string>
+
+    <!-- Progreso (4 pasos, portado del web) -->
+    <string name="import_step_reading">Leyendo archivos…</string>
+    <string name="import_step_extracting">Extrayendo datos con IA…</string>
+    <string name="import_step_calculating">Calculando métricas…</string>
+    <string name="import_step_comparing">Comparando con conductores…</string>
+    <string name="import_progress_wait">Esto toma entre 5 y 15 segundos</string>
+
+    <!-- Revisión del resultado (dry-run) -->
+    <string name="import_review_title">Revisa tus datos</string>
+    <string name="import_review_subtitle">Esto leímos de tu resumen. Si se ve bien, guárdalo en tu historial.</string>
+    <string name="import_review_completeness">Datos extraídos</string>
+    <string name="import_review_save">Guardar</string>
+    <string name="import_review_discard">Descartar</string>
+
+    <!-- Resultado -->
+    <string name="import_saved_title">¡Semana importada!</string>
+    <string name="import_saved_body">Ya aparece en tu historial con la etiqueta Importado.</string>
+    <string name="import_saved_done">Listo</string>
+
+    <!-- Errores -->
+    <string name="import_error_title">No se pudo importar</string>
+    <string name="import_error_retry">Intentar de nuevo</string>
+    <string name="import_error_back">Volver</string>
 
     <!-- Resumen rápido reutilizable -->
     <string name="summary_net">Neto</string>

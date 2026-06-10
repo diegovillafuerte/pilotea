@@ -2,6 +2,8 @@ package mx.kompara.sync.api
 
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
+import io.ktor.client.request.forms.MultiPartFormDataContent
+import io.ktor.client.request.forms.formData
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
@@ -10,6 +12,7 @@ import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.http.ContentType
+import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
@@ -187,6 +190,50 @@ class ApiClient @Inject constructor(
                 setBody(body)
             },
         )
+    }
+
+    /**
+     * POST /v1/imports — upload a weekly summary (PDF/screenshot) for Claude Vision parsing (B-044),
+     * driving B-045's import flow. Bearer-authed: the backend derives the driver id from the session,
+     * so a signed-out call yields a 401 [ApiException] the caller treats as "necesitas una cuenta".
+     *
+     * Multipart body: `platform` (uber|didi|indrive), `upload_type` (pdf|screenshot), and one or more
+     * `files` parts (DiDi sends 2). Each part carries its filename + Content-Type so the backend's
+     * MIME validation matches the on-device pick.
+     *
+     * When [dryRun] is true the request adds `?dry_run=true`: the backend fully parses but persists
+     * nothing, returning the metrics for the review screen (`import_id == null`, `dry_run == true`).
+     * A confirmed import ([dryRun] false) persists and returns a non-null id. Both shapes deserialize
+     * to [ImportResponse]; a parse/validation failure surfaces as an [ApiException] carrying the exact
+     * Spanish error string from the backend.
+     */
+    suspend fun importWeek(
+        platform: String,
+        uploadType: String,
+        files: List<ImportFile>,
+        dryRun: Boolean = false,
+    ): ImportResponse {
+        val parts = formData {
+            append("platform", platform)
+            append("upload_type", uploadType)
+            for (file in files) {
+                append(
+                    key = "files",
+                    value = file.bytes,
+                    headers = Headers.build {
+                        append(HttpHeaders.ContentType, file.mimeType)
+                        append(HttpHeaders.ContentDisposition, "filename=\"${file.fileName}\"")
+                    },
+                )
+            }
+        }
+        val res = http.post("$baseUrl/v1/imports") {
+            bearer()
+            if (dryRun) parameter("dry_run", "true")
+            setBody(MultiPartFormDataContent(parts))
+        }
+        ensureOk(res)
+        return res.body()
     }
 
     /**
