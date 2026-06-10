@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Verdict overlay chip copy. Spanish (es-MX), the only locale the chofer sees. -->
+
+    <!-- Collapsed chip labels -->
+    <string name="overlay_per_km_label">por km</string>
+    <string name="overlay_net_profit_label">ganancia neta</string>
+
+    <!-- Expanded detail row -->
+    <string name="overlay_per_min_label">por min</string>
+    <string name="overlay_gross_per_km_label">bruto por km</string>
+    <string name="overlay_net_per_km_label">neto por km</string>
+
+    <!-- Missing-data hints -->
+    <string name="overlay_missing_distance">Sin datos de distancia</string>
+    <string name="overlay_missing_fare">Sin tarifa</string>
+    <string name="overlay_missing_generic">Datos incompletos</string>
+
+    <!-- Quick threshold sheet (long-press) -->
+    <string name="overlay_threshold_title">Piso mínimo por km</string>
+    <string name="overlay_threshold_value">$%1$s/km</string>
+    <string name="overlay_threshold_hint">Mantén presionado para ajustar tu piso por km sin salir de la app.</string>
+    <string name="overlay_threshold_close">Listo</string>
+
+    <!-- Content descriptions (accessibility / TalkBack) -->
+    <string name="overlay_chip_content_description">Veredicto del viaje. Toca para ver el detalle, mantén presionado para ajustar el piso.</string>
+</resources>
