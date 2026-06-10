@@ -1,30 +1,16 @@
 plugins {
-    alias(libs.plugins.android.application)
+    alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
 }
 
 android {
-    namespace = "mx.kompara.app"
+    namespace = "mx.kompara.ui"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "mx.kompara.app"
         minSdk = 26
-        targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
-    }
-
-    buildTypes {
-        release {
-            isMinifyEnabled = false
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
-        }
     }
 
     compileOptions {
@@ -38,15 +24,10 @@ android {
 }
 
 dependencies {
-    // The app wires together all feature modules.
-    implementation(project(":capture"))
-    implementation(project(":parsers"))
-    implementation(project(":overlay"))
-    implementation(project(":metrics"))
+    // :ui consumes persistence and metrics; it must NOT depend on :capture internals.
     implementation(project(":data"))
-    implementation(project(":sync"))
-    implementation(project(":ui"))
-    implementation(project(":billing"))
+    implementation(project(":metrics"))
+    implementation(libs.kotlinx.coroutines.core)
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
@@ -55,8 +36,12 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     debugImplementation(libs.androidx.compose.ui.tooling)
 
+    implementation(libs.androidx.lifecycle.viewmodel.ktx)
+    implementation(libs.androidx.lifecycle.runtime.compose)
+
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
+    implementation(libs.androidx.hilt.navigation.compose)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

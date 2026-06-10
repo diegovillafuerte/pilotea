@@ -22,3 +22,11 @@ dependencyResolutionManagement {
 
 rootProject.name = "kompara"
 include(":app")
+include(":capture")
+include(":parsers")
+include(":overlay")
+include(":metrics")
+include(":data")
+include(":sync")
+include(":ui")
+include(":billing")
