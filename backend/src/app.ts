@@ -8,6 +8,7 @@ import { aggregatesRoutes } from "./routes/aggregates.js";
 import { benchmarksRoutes } from "./routes/benchmarks.js";
 import { parserConfigsRoutes } from "./routes/parser-configs.js";
 import { telemetryRoutes } from "./routes/telemetry.js";
+import { importsRoutes } from "./routes/imports.js";
 import { senderFromEnv, type MessageSender } from "./auth/message-sender.js";
 import type { Database } from "./db/client.js";
 
@@ -31,6 +32,7 @@ export function createApp(db: Database, sender: MessageSender = senderFromEnv())
   app.route("/v1", benchmarksRoutes(db));
   app.route("/v1", parserConfigsRoutes(db));
   app.route("/v1", telemetryRoutes(db));
+  app.route("/v1", importsRoutes(db));
 
   app.onError((err, c) => {
     if (err instanceof HTTPException) {

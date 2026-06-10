@@ -140,6 +140,38 @@ export const weeklyAggregates = pgTable(
   ],
 );
 
+// ─── imports ───────────────────────────────────────────────────
+// One row per upload import attempt (Uber PDF, Uber/DiDi/InDrive screenshots).
+// Ported from the legacy web app's `uploads` table. The original file(s) live in
+// object storage (key scheme `{driverId}/{importId}.{ext}`); the parsed Claude
+// Vision payload is kept for audit/debugging. On a successful parse the row links
+// to the upserted weekly_aggregates row via `weeklyAggregateId`.
+export const imports = pgTable(
+  "imports",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    driverId: uuid("driver_id")
+      .notNull()
+      .references(() => drivers.id, { onDelete: "cascade" }),
+    platform: varchar("platform", { length: 20 }).notNull(),
+    uploadType: varchar("upload_type", { length: 20 }).notNull(),
+    // Comma-joined storage key(s): single file → "{driverId}/{importId}.{ext}";
+    // multi-file (DiDi) → "{driverId}/{importId}_0.{ext},{driverId}/{importId}_1.{ext}".
+    fileKey: text("file_key").notNull(),
+    // pending → parsed (success) | failed (parse error). Mirrors the web flow,
+    // collapsed to the states the backend actually transitions through.
+    status: varchar("status", { length: 20 }).notNull().default("pending"),
+    errorMessage: text("error_message"),
+    // Full Claude Vision extraction (raw_extraction) for audit/debugging.
+    parsedPayload: jsonb("parsed_payload"),
+    weeklyAggregateId: uuid("weekly_aggregate_id").references(() => weeklyAggregates.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("idx_imports_driver_created").on(table.driverId, table.createdAt)],
+);
+
 // ─── population_stats ──────────────────────────────────────────
 // Pre-computed percentile breakpoints per city × platform × metric × period.
 // Seeded with synthetic data (is_synthetic = true) until real data accrues.
