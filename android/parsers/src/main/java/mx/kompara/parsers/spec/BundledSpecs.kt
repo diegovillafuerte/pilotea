@@ -17,6 +17,7 @@ object BundledSpecs {
     /** Stems of every bundled spec under `resources/specs/<name>.json`. Add new hosts here. */
     val SPEC_NAMES: List<String> = listOf(
         "uber-driver",
+        "didi-mx",
     )
 
     /** Decode every bundled spec found on the classpath. Unreadable/missing entries are skipped. */
