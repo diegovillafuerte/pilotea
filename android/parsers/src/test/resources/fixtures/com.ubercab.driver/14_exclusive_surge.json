@@ -1,0 +1,28 @@
+{
+  "description": "Exclusive offer with a concurrent surge chip — tag stays exclusive, surge flag true. Synthetic — on-device validation pending.",
+  "snapshot": {
+    "packageName": "com.ubercab.driver",
+    "timestampMs": 1700000013000,
+    "versionCode": 1000,
+    "nodes": [
+      { "text": "Exclusivo", "viewId": "com.ubercab.driver:id/offer_badge", "className": "android.view.View", "bounds": { "left": 48, "top": 170, "right": 280, "bottom": 210 }, "depth": 6, "index": 0 },
+      { "text": "Tarifa dinámica 2.1x", "viewId": "com.ubercab.driver:id/surge_chip", "className": "android.view.View", "bounds": { "left": 300, "top": 170, "right": 620, "bottom": 210 }, "depth": 6, "index": 1 },
+      { "text": "MX$398.00", "viewId": "com.ubercab.driver:id/upfront_fare", "className": "android.view.View", "bounds": { "left": 48, "top": 280, "right": 460, "bottom": 370 }, "depth": 6, "index": 2 },
+      { "text": "4.97", "viewId": "com.ubercab.driver:id/rider_rating", "className": "android.view.View", "bounds": { "left": 490, "top": 290, "right": 600, "bottom": 340 }, "depth": 7, "index": 3 },
+      { "text": "11 min (5.0 km) de distancia", "viewId": null, "className": "android.view.View", "bounds": { "left": 48, "top": 410, "right": 700, "bottom": 460 }, "depth": 7, "index": 4 },
+      { "text": "44 min (28.0 km) de viaje", "viewId": null, "className": "android.view.View", "bounds": { "left": 48, "top": 470, "right": 700, "bottom": 520 }, "depth": 7, "index": 5 },
+      { "text": "Aceptar", "viewId": null, "className": "android.view.View", "bounds": { "left": 48, "top": 610, "right": 700, "bottom": 710 }, "depth": 5, "index": 6 }
+    ]
+  },
+  "expected": {
+    "platform": "com.ubercab.driver",
+    "variant": "exclusive",
+    "fare": 398.0,
+    "pickupDistanceKm": 5.0,
+    "pickupEtaMin": 11.0,
+    "tripDistanceKm": 28.0,
+    "tripDurationMin": 44.0,
+    "surge": true,
+    "paymentType": null
+  }
+}

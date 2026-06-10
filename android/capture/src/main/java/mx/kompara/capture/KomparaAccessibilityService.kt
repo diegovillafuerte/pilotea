@@ -3,6 +3,7 @@ package mx.kompara.capture
 import android.accessibilityservice.AccessibilityService
 import android.view.accessibility.AccessibilityEvent
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.flow.launchIn
 import javax.inject.Inject
 
 /**
@@ -21,6 +22,8 @@ class KomparaAccessibilityService : AccessibilityService() {
 
     @Inject lateinit var pipeline: EventPipeline
 
+    @Inject lateinit var offerPipeline: OfferEventPipeline
+
     @Inject lateinit var serviceState: ServiceStateRepository
 
     @Inject lateinit var snapshotSource: WindowSnapshotSource
@@ -32,6 +35,9 @@ class KomparaAccessibilityService : AccessibilityService() {
         // Feed the pipeline from the live active window. Read-only: rootInActiveWindow only reads.
         snapshotSource.attach(WindowSnapshotSource.RootProvider { rootInActiveWindow })
         pipeline.start(scope)
+        // Run each coalesced snapshot through the spec engine and publish OfferEvents downstream
+        // (the overlay in B-031 and the trip log in B-039 collect offerPipeline.offers).
+        offerPipeline.offers.launchIn(scope)
         serviceState.setConnected(true)
     }
 

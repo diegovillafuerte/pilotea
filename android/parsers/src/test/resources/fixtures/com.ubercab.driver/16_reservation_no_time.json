@@ -1,0 +1,27 @@
+{
+  "description": "Reservation card with no parseable pickup time, plus a native per-km badge. Confirms reservation tagging without a time token and per-km capture into raw. Synthetic — on-device validation pending.",
+  "snapshot": {
+    "packageName": "com.ubercab.driver",
+    "timestampMs": 1700000015000,
+    "versionCode": 1000,
+    "nodes": [
+      { "text": "Reserva", "viewId": "com.ubercab.driver:id/reservation_badge", "className": "android.view.View", "bounds": { "left": 48, "top": 180, "right": 240, "bottom": 220 }, "depth": 6, "index": 0 },
+      { "text": "MX$280.00", "viewId": "com.ubercab.driver:id/upfront_fare", "className": "android.view.View", "bounds": { "left": 48, "top": 290, "right": 460, "bottom": 380 }, "depth": 6, "index": 1 },
+      { "text": "MX$9.20/km", "viewId": "com.ubercab.driver:id/per_km_badge", "className": "android.view.View", "bounds": { "left": 490, "top": 300, "right": 680, "bottom": 350 }, "depth": 7, "index": 2 },
+      { "text": "18 min (9.0 km) de distancia", "viewId": null, "className": "android.view.View", "bounds": { "left": 48, "top": 420, "right": 700, "bottom": 470 }, "depth": 7, "index": 3 },
+      { "text": "47 min (30.5 km) de viaje", "viewId": null, "className": "android.view.View", "bounds": { "left": 48, "top": 480, "right": 700, "bottom": 530 }, "depth": 7, "index": 4 },
+      { "text": "Aceptar reserva", "viewId": null, "className": "android.view.View", "bounds": { "left": 48, "top": 620, "right": 700, "bottom": 720 }, "depth": 5, "index": 5 }
+    ]
+  },
+  "expected": {
+    "platform": "com.ubercab.driver",
+    "variant": "reservation",
+    "fare": 280.0,
+    "pickupDistanceKm": 9.0,
+    "pickupEtaMin": 18.0,
+    "tripDistanceKm": 30.5,
+    "tripDurationMin": 47.0,
+    "surge": false,
+    "paymentType": null
+  }
+}

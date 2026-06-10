@@ -1,0 +1,27 @@
+{
+  "description": "Long premium trip: thousands-separator fare 'MX$2,480.00', sub-km pickup in meters '850 m', star-prefixed rating '★ 4.83'. Synthetic — on-device validation pending.",
+  "snapshot": {
+    "packageName": "com.ubercab.driver",
+    "timestampMs": 1700000011000,
+    "versionCode": 1000,
+    "nodes": [
+      { "text": "Uber Black", "viewId": null, "className": "android.view.View", "bounds": { "left": 48, "top": 200, "right": 360, "bottom": 250 }, "depth": 6, "index": 0 },
+      { "text": "MX$2,480.00", "viewId": "com.ubercab.driver:id/upfront_fare", "className": "android.view.View", "bounds": { "left": 48, "top": 290, "right": 500, "bottom": 380 }, "depth": 6, "index": 1 },
+      { "text": "★ 4.83", "viewId": null, "className": "android.view.View", "bounds": { "left": 520, "top": 300, "right": 640, "bottom": 350 }, "depth": 7, "index": 2 },
+      { "text": "2 min (850 m) de distancia", "viewId": null, "className": "android.view.View", "bounds": { "left": 48, "top": 420, "right": 700, "bottom": 470 }, "depth": 7, "index": 3 },
+      { "text": "1 h 52 min (95.5 km) de viaje", "viewId": null, "className": "android.view.View", "bounds": { "left": 48, "top": 480, "right": 700, "bottom": 530 }, "depth": 7, "index": 4 },
+      { "text": "Aceptar", "viewId": null, "className": "android.view.View", "bounds": { "left": 48, "top": 620, "right": 700, "bottom": 720 }, "depth": 5, "index": 5 }
+    ]
+  },
+  "expected": {
+    "platform": "com.ubercab.driver",
+    "variant": "standard",
+    "fare": 2480.0,
+    "pickupDistanceKm": 0.85,
+    "pickupEtaMin": 2.0,
+    "tripDistanceKm": 95.5,
+    "tripDurationMin": 112.0,
+    "surge": false,
+    "paymentType": null
+  }
+}

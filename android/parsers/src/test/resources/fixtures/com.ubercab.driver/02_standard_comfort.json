@@ -1,0 +1,27 @@
+{
+  "description": "Uber Comfort standard offer, fare with space after MX$, decimal-comma rating, unstable viewIds (Compose generated). Synthetic — on-device validation pending.",
+  "snapshot": {
+    "packageName": "com.ubercab.driver",
+    "timestampMs": 1700000001000,
+    "versionCode": 1000,
+    "nodes": [
+      { "text": "Comfort", "viewId": null, "className": "android.view.View", "bounds": { "left": 48, "top": 220, "right": 360, "bottom": 280 }, "depth": 6, "index": 0 },
+      { "text": "MX$ 142.00", "viewId": null, "className": "android.view.View", "bounds": { "left": 48, "top": 290, "right": 440, "bottom": 380 }, "depth": 6, "index": 1 },
+      { "text": "4,87", "viewId": null, "className": "android.view.View", "bounds": { "left": 470, "top": 300, "right": 580, "bottom": 350 }, "depth": 7, "index": 2 },
+      { "text": "8 min (3.6 km) de distancia", "viewId": null, "className": "android.view.View", "bounds": { "left": 48, "top": 420, "right": 700, "bottom": 470 }, "depth": 7, "index": 3 },
+      { "text": "31 min (18.2 km) de viaje", "viewId": null, "className": "android.view.View", "bounds": { "left": 48, "top": 480, "right": 700, "bottom": 530 }, "depth": 7, "index": 4 },
+      { "text": "Aceptar", "viewId": null, "className": "android.view.View", "bounds": { "left": 48, "top": 620, "right": 700, "bottom": 720 }, "depth": 5, "index": 5 }
+    ]
+  },
+  "expected": {
+    "platform": "com.ubercab.driver",
+    "variant": "standard",
+    "fare": 142.0,
+    "pickupDistanceKm": 3.6,
+    "pickupEtaMin": 8.0,
+    "tripDistanceKm": 18.2,
+    "tripDurationMin": 31.0,
+    "surge": false,
+    "paymentType": null
+  }
+}

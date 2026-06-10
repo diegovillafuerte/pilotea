@@ -88,12 +88,22 @@ class SpecEngine {
         return hasPositive && allOk && anyOk && noneOk
     }
 
-    /** Returns (variant tag, surge). First matching [VariantRule] wins; else the base variant. */
+    /**
+     * Returns (variant tag, surge). The variant *tag* is the first matching [VariantRule] (order
+     * rules most-specific first), but surge is orthogonal: it is the OR of `setsSurge` across ALL
+     * matched rules. This lets a structural variant (e.g. `multi_stop`) keep its tag while a
+     * co-occurring surge badge still flips the surge flag — Uber renders "Tarifa dinámica" on top
+     * of any card type. When no rule matches, the detector's base variant is used with surge=false.
+     */
     private fun resolveVariant(spec: ParserSpec, texts: List<String>): Pair<String?, Boolean> {
+        var tag: String? = null
+        var surge = false
         for (rule in spec.variants) {
-            if (matchesVariant(rule, texts)) return rule.tag to rule.setsSurge
+            if (!matchesVariant(rule, texts)) continue
+            if (tag == null) tag = rule.tag // first match wins for the tag
+            if (rule.setsSurge) surge = true // any matched surge rule flips the flag
         }
-        return spec.cardDetector.baseVariant to false
+        return (tag ?: spec.cardDetector.baseVariant) to surge
     }
 
     private fun matchesVariant(rule: VariantRule, texts: List<String>): Boolean {

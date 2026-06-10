@@ -1,0 +1,28 @@
+{
+  "description": "Exclusive offer ('Exclusivo' badge) — premium long-trip request. Synthetic — on-device validation pending.",
+  "snapshot": {
+    "packageName": "com.ubercab.driver",
+    "timestampMs": 1700000004000,
+    "versionCode": 1000,
+    "nodes": [
+      { "text": "Exclusivo", "viewId": "com.ubercab.driver:id/offer_badge", "className": "android.view.View", "bounds": { "left": 48, "top": 200, "right": 280, "bottom": 240 }, "depth": 6, "index": 0 },
+      { "text": "Uber Black", "viewId": null, "className": "android.view.View", "bounds": { "left": 48, "top": 250, "right": 360, "bottom": 300 }, "depth": 6, "index": 1 },
+      { "text": "MX$320.00", "viewId": "com.ubercab.driver:id/upfront_fare", "className": "android.view.View", "bounds": { "left": 48, "top": 310, "right": 440, "bottom": 400 }, "depth": 6, "index": 2 },
+      { "text": "4.99", "viewId": "com.ubercab.driver:id/rider_rating", "className": "android.view.View", "bounds": { "left": 470, "top": 320, "right": 580, "bottom": 370 }, "depth": 7, "index": 3 },
+      { "text": "10 min (4.2 km) de distancia", "viewId": null, "className": "android.view.View", "bounds": { "left": 48, "top": 430, "right": 700, "bottom": 480 }, "depth": 7, "index": 4 },
+      { "text": "55 min (41.0 km) de viaje", "viewId": null, "className": "android.view.View", "bounds": { "left": 48, "top": 490, "right": 700, "bottom": 540 }, "depth": 7, "index": 5 },
+      { "text": "Aceptar", "viewId": null, "className": "android.view.View", "bounds": { "left": 48, "top": 630, "right": 700, "bottom": 730 }, "depth": 5, "index": 6 }
+    ]
+  },
+  "expected": {
+    "platform": "com.ubercab.driver",
+    "variant": "exclusive",
+    "fare": 320.0,
+    "pickupDistanceKm": 4.2,
+    "pickupEtaMin": 10.0,
+    "tripDistanceKm": 41.0,
+    "tripDurationMin": 55.0,
+    "surge": false,
+    "paymentType": null
+  }
+}

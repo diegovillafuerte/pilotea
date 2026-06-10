@@ -1,0 +1,28 @@
+{
+  "description": "Reservation offer ('Reserva' for a future scheduled pickup) with a 1 h 30 min trip duration. Synthetic — on-device validation pending.",
+  "snapshot": {
+    "packageName": "com.ubercab.driver",
+    "timestampMs": 1700000008000,
+    "versionCode": 1000,
+    "nodes": [
+      { "text": "Reserva", "viewId": "com.ubercab.driver:id/reservation_badge", "className": "android.view.View", "bounds": { "left": 48, "top": 180, "right": 240, "bottom": 220 }, "depth": 6, "index": 0 },
+      { "text": "Recogida programada 3:45 p. m.", "viewId": null, "className": "android.view.View", "bounds": { "left": 48, "top": 230, "right": 540, "bottom": 280 }, "depth": 6, "index": 1 },
+      { "text": "MX$410.00", "viewId": "com.ubercab.driver:id/upfront_fare", "className": "android.view.View", "bounds": { "left": 48, "top": 290, "right": 460, "bottom": 380 }, "depth": 6, "index": 2 },
+      { "text": "4.96", "viewId": "com.ubercab.driver:id/rider_rating", "className": "android.view.View", "bounds": { "left": 490, "top": 300, "right": 600, "bottom": 350 }, "depth": 7, "index": 3 },
+      { "text": "15 min (7.5 km) de distancia", "viewId": null, "className": "android.view.View", "bounds": { "left": 48, "top": 420, "right": 700, "bottom": 470 }, "depth": 7, "index": 4 },
+      { "text": "1 h 30 min (68.0 km) de viaje", "viewId": null, "className": "android.view.View", "bounds": { "left": 48, "top": 480, "right": 700, "bottom": 530 }, "depth": 7, "index": 5 },
+      { "text": "Aceptar reserva", "viewId": null, "className": "android.view.View", "bounds": { "left": 48, "top": 620, "right": 700, "bottom": 720 }, "depth": 5, "index": 6 }
+    ]
+  },
+  "expected": {
+    "platform": "com.ubercab.driver",
+    "variant": "reservation",
+    "fare": 410.0,
+    "pickupDistanceKm": 7.5,
+    "pickupEtaMin": 15.0,
+    "tripDistanceKm": 68.0,
+    "tripDurationMin": 90.0,
+    "surge": false,
+    "paymentType": null
+  }
+}

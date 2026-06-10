@@ -1,0 +1,27 @@
+{
+  "description": "Standard offer with alternate pickup phrasing 'N min (N km) de camino' (older MX string) — exercises the de-camino fallback in the pickup distance chain. Synthetic — on-device validation pending.",
+  "snapshot": {
+    "packageName": "com.ubercab.driver",
+    "timestampMs": 1700000012000,
+    "versionCode": 950,
+    "nodes": [
+      { "text": "UberX", "viewId": null, "className": "android.view.View", "bounds": { "left": 48, "top": 200, "right": 360, "bottom": 250 }, "depth": 6, "index": 0 },
+      { "text": "MX$73.00", "viewId": "com.ubercab.driver:id/upfront_fare", "className": "android.view.View", "bounds": { "left": 48, "top": 290, "right": 440, "bottom": 380 }, "depth": 6, "index": 1 },
+      { "text": "4.91", "viewId": "com.ubercab.driver:id/rider_rating", "className": "android.view.View", "bounds": { "left": 470, "top": 300, "right": 580, "bottom": 350 }, "depth": 7, "index": 2 },
+      { "text": "6 min (2.5 km) de camino", "viewId": null, "className": "android.view.View", "bounds": { "left": 48, "top": 420, "right": 700, "bottom": 470 }, "depth": 7, "index": 3 },
+      { "text": "21 min (10.8 km) de viaje", "viewId": null, "className": "android.view.View", "bounds": { "left": 48, "top": 480, "right": 700, "bottom": 530 }, "depth": 7, "index": 4 },
+      { "text": "Aceptar", "viewId": null, "className": "android.view.View", "bounds": { "left": 48, "top": 620, "right": 700, "bottom": 720 }, "depth": 5, "index": 5 }
+    ]
+  },
+  "expected": {
+    "platform": "com.ubercab.driver",
+    "variant": "standard",
+    "fare": 73.0,
+    "pickupDistanceKm": 2.5,
+    "pickupEtaMin": 6.0,
+    "tripDistanceKm": 10.8,
+    "tripDurationMin": 21.0,
+    "surge": false,
+    "paymentType": null
+  }
+}

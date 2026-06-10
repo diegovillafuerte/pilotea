@@ -1,0 +1,27 @@
+{
+  "description": "Surge offer showing a 1.8x multiplier chip; thousands-separator fare 'MX$1,234.56'. Synthetic — on-device validation pending.",
+  "snapshot": {
+    "packageName": "com.ubercab.driver",
+    "timestampMs": 1700000003000,
+    "versionCode": 1000,
+    "nodes": [
+      { "text": "UberXL", "viewId": null, "className": "android.view.View", "bounds": { "left": 48, "top": 200, "right": 360, "bottom": 250 }, "depth": 6, "index": 0 },
+      { "text": "Tarifa dinámica 1.8x", "viewId": "com.ubercab.driver:id/surge_chip", "className": "android.view.View", "bounds": { "left": 48, "top": 260, "right": 380, "bottom": 300 }, "depth": 6, "index": 1 },
+      { "text": "MX$1,234.56", "viewId": "com.ubercab.driver:id/upfront_fare", "className": "android.view.View", "bounds": { "left": 48, "top": 310, "right": 500, "bottom": 400 }, "depth": 6, "index": 2 },
+      { "text": "12 min (5.5 km) de distancia", "viewId": null, "className": "android.view.View", "bounds": { "left": 48, "top": 430, "right": 700, "bottom": 480 }, "depth": 7, "index": 3 },
+      { "text": "48 min (33.2 km) de viaje", "viewId": null, "className": "android.view.View", "bounds": { "left": 48, "top": 490, "right": 700, "bottom": 540 }, "depth": 7, "index": 4 },
+      { "text": "Aceptar", "viewId": null, "className": "android.view.View", "bounds": { "left": 48, "top": 630, "right": 700, "bottom": 730 }, "depth": 5, "index": 5 }
+    ]
+  },
+  "expected": {
+    "platform": "com.ubercab.driver",
+    "variant": "surge",
+    "fare": 1234.56,
+    "pickupDistanceKm": 5.5,
+    "pickupEtaMin": 12.0,
+    "tripDistanceKm": 33.2,
+    "tripDurationMin": 48.0,
+    "surge": true,
+    "paymentType": null
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "description": "Multi-stop offer that ALSO carries a surge chip — variant stays multi_stop (structural wins the tag) while surge=true (orthogonal flag). Synthetic — on-device validation pending.",
+  "snapshot": {
+    "packageName": "com.ubercab.driver",
+    "timestampMs": 1700000007000,
+    "versionCode": 1000,
+    "nodes": [
+      { "text": "UberX", "viewId": null, "className": "android.view.View", "bounds": { "left": 48, "top": 180, "right": 360, "bottom": 230 }, "depth": 6, "index": 0 },
+      { "text": "Tarifa dinámica", "viewId": "com.ubercab.driver:id/surge_chip", "className": "android.view.View", "bounds": { "left": 48, "top": 240, "right": 320, "bottom": 280 }, "depth": 6, "index": 1 },
+      { "text": "3 paradas", "viewId": "com.ubercab.driver:id/stops_chip", "className": "android.view.View", "bounds": { "left": 340, "top": 240, "right": 540, "bottom": 280 }, "depth": 6, "index": 2 },
+      { "text": "MX$245.50", "viewId": "com.ubercab.driver:id/upfront_fare", "className": "android.view.View", "bounds": { "left": 48, "top": 290, "right": 460, "bottom": 380 }, "depth": 6, "index": 3 },
+      { "text": "4.81", "viewId": "com.ubercab.driver:id/rider_rating", "className": "android.view.View", "bounds": { "left": 490, "top": 300, "right": 600, "bottom": 350 }, "depth": 7, "index": 4 },
+      { "text": "9 min (4.0 km) de distancia", "viewId": null, "className": "android.view.View", "bounds": { "left": 48, "top": 420, "right": 700, "bottom": 470 }, "depth": 7, "index": 5 },
+      { "text": "52 min (29.8 km) de viaje", "viewId": null, "className": "android.view.View", "bounds": { "left": 48, "top": 480, "right": 700, "bottom": 530 }, "depth": 7, "index": 6 },
+      { "text": "Aceptar", "viewId": null, "className": "android.view.View", "bounds": { "left": 48, "top": 620, "right": 700, "bottom": 720 }, "depth": 5, "index": 7 }
+    ]
+  },
+  "expected": {
+    "platform": "com.ubercab.driver",
+    "variant": "multi_stop",
+    "fare": 245.5,
+    "pickupDistanceKm": 4.0,
+    "pickupEtaMin": 9.0,
+    "tripDistanceKm": 29.8,
+    "tripDurationMin": 52.0,
+    "surge": true,
+    "paymentType": null
+  }
+}

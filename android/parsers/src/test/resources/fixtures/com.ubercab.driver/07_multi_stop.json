@@ -1,0 +1,28 @@
+{
+  "description": "Multi-stop offer ('2 paradas') — variant=multi_stop, no surge. Synthetic — on-device validation pending.",
+  "snapshot": {
+    "packageName": "com.ubercab.driver",
+    "timestampMs": 1700000006000,
+    "versionCode": 1000,
+    "nodes": [
+      { "text": "UberX", "viewId": null, "className": "android.view.View", "bounds": { "left": 48, "top": 200, "right": 360, "bottom": 250 }, "depth": 6, "index": 0 },
+      { "text": "2 paradas", "viewId": "com.ubercab.driver:id/stops_chip", "className": "android.view.View", "bounds": { "left": 48, "top": 260, "right": 260, "bottom": 300 }, "depth": 6, "index": 1 },
+      { "text": "MX$118.00", "viewId": "com.ubercab.driver:id/upfront_fare", "className": "android.view.View", "bounds": { "left": 48, "top": 310, "right": 440, "bottom": 400 }, "depth": 6, "index": 2 },
+      { "text": "4.90", "viewId": "com.ubercab.driver:id/rider_rating", "className": "android.view.View", "bounds": { "left": 470, "top": 320, "right": 580, "bottom": 370 }, "depth": 7, "index": 3 },
+      { "text": "7 min (3.0 km) de distancia", "viewId": null, "className": "android.view.View", "bounds": { "left": 48, "top": 430, "right": 700, "bottom": 480 }, "depth": 7, "index": 4 },
+      { "text": "38 min (21.6 km) de viaje", "viewId": null, "className": "android.view.View", "bounds": { "left": 48, "top": 490, "right": 700, "bottom": 540 }, "depth": 7, "index": 5 },
+      { "text": "Aceptar", "viewId": null, "className": "android.view.View", "bounds": { "left": 48, "top": 630, "right": 700, "bottom": 730 }, "depth": 5, "index": 6 }
+    ]
+  },
+  "expected": {
+    "platform": "com.ubercab.driver",
+    "variant": "multi_stop",
+    "fare": 118.0,
+    "pickupDistanceKm": 3.0,
+    "pickupEtaMin": 7.0,
+    "tripDistanceKm": 21.6,
+    "tripDurationMin": 38.0,
+    "surge": false,
+    "paymentType": null
+  }
+}

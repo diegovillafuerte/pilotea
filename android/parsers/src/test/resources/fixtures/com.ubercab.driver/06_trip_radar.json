@@ -1,0 +1,28 @@
+{
+  "description": "Trip Radar offer ('Radar de viajes') — driver-browsable nearby request list card. Synthetic — on-device validation pending.",
+  "snapshot": {
+    "packageName": "com.ubercab.driver",
+    "timestampMs": 1700000005000,
+    "versionCode": 1000,
+    "nodes": [
+      { "text": "Radar de viajes", "viewId": "com.ubercab.driver:id/radar_header", "className": "android.view.View", "bounds": { "left": 48, "top": 180, "right": 420, "bottom": 230 }, "depth": 5, "index": 0 },
+      { "text": "UberX", "viewId": null, "className": "android.view.View", "bounds": { "left": 48, "top": 240, "right": 360, "bottom": 290 }, "depth": 7, "index": 1 },
+      { "text": "MX$64.00", "viewId": "com.ubercab.driver:id/upfront_fare", "className": "android.view.View", "bounds": { "left": 48, "top": 300, "right": 420, "bottom": 380 }, "depth": 7, "index": 2 },
+      { "text": "4.85", "viewId": "com.ubercab.driver:id/rider_rating", "className": "android.view.View", "bounds": { "left": 450, "top": 310, "right": 560, "bottom": 360 }, "depth": 8, "index": 3 },
+      { "text": "3 min (1.4 km) de distancia", "viewId": null, "className": "android.view.View", "bounds": { "left": 48, "top": 420, "right": 700, "bottom": 470 }, "depth": 8, "index": 4 },
+      { "text": "14 min (6.1 km) de viaje", "viewId": null, "className": "android.view.View", "bounds": { "left": 48, "top": 480, "right": 700, "bottom": 530 }, "depth": 8, "index": 5 },
+      { "text": "Coincidir", "viewId": "com.ubercab.driver:id/match_cta", "className": "android.view.View", "bounds": { "left": 48, "top": 600, "right": 700, "bottom": 690 }, "depth": 6, "index": 6 }
+    ]
+  },
+  "expected": {
+    "platform": "com.ubercab.driver",
+    "variant": "trip_radar",
+    "fare": 64.0,
+    "pickupDistanceKm": 1.4,
+    "pickupEtaMin": 3.0,
+    "tripDistanceKm": 6.1,
+    "tripDurationMin": 14.0,
+    "surge": false,
+    "paymentType": null
+  }
+}

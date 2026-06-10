@@ -1,0 +1,28 @@
+{
+  "description": "Reservation 90+ min out, '1 h 5 min' duration (tests single-digit minutes after hours) and a long sanitized destination address line. Synthetic — on-device validation pending.",
+  "snapshot": {
+    "packageName": "com.ubercab.driver",
+    "timestampMs": 1700000009000,
+    "versionCode": 1000,
+    "nodes": [
+      { "text": "Reserva para 8:00 a. m.", "viewId": "com.ubercab.driver:id/reservation_badge", "className": "android.view.View", "bounds": { "left": 48, "top": 180, "right": 420, "bottom": 220 }, "depth": 6, "index": 0 },
+      { "text": "MX$525.00", "viewId": "com.ubercab.driver:id/upfront_fare", "className": "android.view.View", "bounds": { "left": 48, "top": 290, "right": 460, "bottom": 380 }, "depth": 6, "index": 1 },
+      { "text": "4.88", "viewId": "com.ubercab.driver:id/rider_rating", "className": "android.view.View", "bounds": { "left": 490, "top": 300, "right": 600, "bottom": 350 }, "depth": 7, "index": 2 },
+      { "text": "Destino: «addr», Polanco, Miguel Hidalgo", "viewId": null, "className": "android.view.View", "bounds": { "left": 48, "top": 390, "right": 700, "bottom": 440 }, "depth": 7, "index": 3 },
+      { "text": "20 min (10.0 km) de distancia", "viewId": null, "className": "android.view.View", "bounds": { "left": 48, "top": 450, "right": 700, "bottom": 500 }, "depth": 7, "index": 4 },
+      { "text": "1 h 5 min (58.4 km) de viaje", "viewId": null, "className": "android.view.View", "bounds": { "left": 48, "top": 510, "right": 700, "bottom": 560 }, "depth": 7, "index": 5 },
+      { "text": "Aceptar reserva", "viewId": null, "className": "android.view.View", "bounds": { "left": 48, "top": 640, "right": 700, "bottom": 740 }, "depth": 5, "index": 6 }
+    ]
+  },
+  "expected": {
+    "platform": "com.ubercab.driver",
+    "variant": "reservation",
+    "fare": 525.0,
+    "pickupDistanceKm": 10.0,
+    "pickupEtaMin": 20.0,
+    "tripDistanceKm": 58.4,
+    "tripDurationMin": 65.0,
+    "surge": false,
+    "paymentType": null
+  }
+}

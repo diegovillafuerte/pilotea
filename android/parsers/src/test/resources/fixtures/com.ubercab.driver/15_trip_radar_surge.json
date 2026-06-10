@@ -1,0 +1,28 @@
+{
+  "description": "Trip Radar card with surge pricing — tag trip_radar, surge flag true; 'Coincidir' CTA. Synthetic — on-device validation pending.",
+  "snapshot": {
+    "packageName": "com.ubercab.driver",
+    "timestampMs": 1700000014000,
+    "versionCode": 1000,
+    "nodes": [
+      { "text": "Radar de viajes", "viewId": "com.ubercab.driver:id/radar_header", "className": "android.view.View", "bounds": { "left": 48, "top": 160, "right": 420, "bottom": 210 }, "depth": 5, "index": 0 },
+      { "text": "Tarifa dinámica", "viewId": "com.ubercab.driver:id/surge_chip", "className": "android.view.View", "bounds": { "left": 48, "top": 220, "right": 320, "bottom": 260 }, "depth": 7, "index": 1 },
+      { "text": "MX$72.50", "viewId": "com.ubercab.driver:id/upfront_fare", "className": "android.view.View", "bounds": { "left": 48, "top": 270, "right": 420, "bottom": 350 }, "depth": 7, "index": 2 },
+      { "text": "4.80", "viewId": "com.ubercab.driver:id/rider_rating", "className": "android.view.View", "bounds": { "left": 450, "top": 280, "right": 560, "bottom": 330 }, "depth": 8, "index": 3 },
+      { "text": "4 min (1.9 km) de distancia", "viewId": null, "className": "android.view.View", "bounds": { "left": 48, "top": 390, "right": 700, "bottom": 440 }, "depth": 8, "index": 4 },
+      { "text": "16 min (7.0 km) de viaje", "viewId": null, "className": "android.view.View", "bounds": { "left": 48, "top": 450, "right": 700, "bottom": 500 }, "depth": 8, "index": 5 },
+      { "text": "Coincidir", "viewId": "com.ubercab.driver:id/match_cta", "className": "android.view.View", "bounds": { "left": 48, "top": 580, "right": 700, "bottom": 670 }, "depth": 6, "index": 6 }
+    ]
+  },
+  "expected": {
+    "platform": "com.ubercab.driver",
+    "variant": "trip_radar",
+    "fare": 72.5,
+    "pickupDistanceKm": 1.9,
+    "pickupEtaMin": 4.0,
+    "tripDistanceKm": 7.0,
+    "tripDurationMin": 16.0,
+    "surge": true,
+    "paymentType": null
+  }
+}
