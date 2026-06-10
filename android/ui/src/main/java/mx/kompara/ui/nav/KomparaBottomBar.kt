@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -45,17 +44,25 @@ fun KomparaBottomBar(
     onSelect: (KomparaDestination) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        tonalElevation = 3.dp,
-    ) {
+    // The raised centre button is taller than the flat tabs, so the whole component grows past
+    // [BarHeight]. The coloured bar Surface is docked to the bottom at exactly [BarHeight]; the
+    // centre circle and its label rise into the space above it. Drawing the tabs in a sibling Box
+    // (not inside the Surface) keeps that raised content from being clipped by the Surface bounds.
+    Box(modifier = modifier.fillMaxWidth()) {
+        Surface(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .height(BarHeight),
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            tonalElevation = 3.dp,
+            content = {},
+        )
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(BarHeight)
                 .padding(horizontal = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            verticalAlignment = Alignment.Bottom,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             KomparaDestination.barItems.forEach { destination ->
@@ -93,6 +100,7 @@ private fun FlatTab(
     }
     Column(
         modifier = modifier
+            .height(BarHeight)
             .selectable(
                 selected = selected,
                 role = Role.Tab,
@@ -124,16 +132,16 @@ private fun CenterTab(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // The reader button is always the brand circle; selection only deepens the label colour.
+    // The reader button is always the brand circle. The column flows from the raised circle down to
+    // the label; the parent Box is taller than the bar so the circle rises above it, and the bottom
+    // padding drops the label onto the same baseline as the flat tabs' labels.
     val circleColor = MaterialTheme.colorScheme.primary
     Column(
-        modifier = modifier,
+        modifier = modifier.padding(bottom = 10.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
     ) {
         Box(
             modifier = Modifier
-                .offset(y = (-14).dp)
                 .size(CenterButtonSize)
                 .shadow(elevation = 8.dp, shape = CircleShape, clip = false)
                 .clip(CircleShape)
@@ -152,11 +160,11 @@ private fun CenterTab(
                 modifier = Modifier.size(30.dp),
             )
         }
+        Spacer(modifier = Modifier.height(2.dp))
         Text(
             text = stringResource(destination.labelRes),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.offset(y = (-10).dp),
         )
     }
 }
