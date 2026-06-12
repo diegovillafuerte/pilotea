@@ -13,6 +13,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
+import mx.kompara.ui.auth.SignupFlowScreen
 import mx.kompara.ui.onboarding.OnboardingNavGraph
 import mx.kompara.ui.onboarding.RootRoute
 import mx.kompara.ui.onboarding.RootViewModel
@@ -45,6 +46,10 @@ fun KomparaRoot(
             RootRoute.ONBOARDING -> OnboardingNavGraph(
                 onComplete = { justCompletedOnboarding = true },
             )
+            // Standalone signup for installs that completed onboarding before accounts became
+            // required (or after logout). The route flips to MAIN by itself once the session
+            // persists — no callback wiring needed.
+            RootRoute.AUTH -> SignupFlowScreen(onComplete = {})
             RootRoute.MAIN -> KomparaApp(
                 navigateToReaderTrial = justCompletedOnboarding,
                 // Week-close notification deep link (B-055): only honoured once onboarding is done.

@@ -17,17 +17,19 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import mx.kompara.ui.auth.SignupFlowScreen
 
 /**
  * The onboarding funnel navigation graph (B-036), kept entirely in its own file so the shared nav
  * host ([mx.kompara.ui.nav.KomparaApp]) needs only a one-line root routing decision and merges are
  * minimal. Routes are private to this graph.
  *
- * Flow: pitch → disclosure → (accept) accessibility → oem → done → [onComplete];
- *                            (decline) limitedInfo → [onComplete] (skips the grant entirely).
+ * Flow: pitch → signup → disclosure → (accept) accessibility → oem → done → [onComplete];
+ *                                     (decline) limitedInfo → [onComplete] (skips the grant entirely).
  */
 object OnboardingRoutes {
     const val PITCH = "onb_pitch"
+    const val SIGNUP = "onb_signup"
     const val DISCLOSURE = "onb_disclosure"
     const val LIMITED_INFO = "onb_limited_info"
     const val ACCESSIBILITY = "onb_accessibility"
@@ -63,7 +65,17 @@ private fun NavGraphBuilder.onboardingDestinations(
     composable(OnboardingRoutes.PITCH) {
         LaunchedEffect(Unit) { viewModel.record(OnboardingStep.PITCH) }
         PitchScreen(
-            onFinished = { navController.navigate(OnboardingRoutes.DISCLOSURE) },
+            onFinished = { navController.navigate(OnboardingRoutes.SIGNUP) },
+        )
+    }
+
+    composable(OnboardingRoutes.SIGNUP) {
+        LaunchedEffect(Unit) { viewModel.record(OnboardingStep.SIGNUP) }
+        SignupFlowScreen(
+            onComplete = {
+                viewModel.record(OnboardingStep.SIGNUP_DONE)
+                navController.navigate(OnboardingRoutes.DISCLOSURE)
+            },
         )
     }
 

@@ -94,13 +94,41 @@
     <string name="onb_paso_indicador">Paso %1$d de %2$d</string>
 
     <!-- Pitch de valor (3 páginas) -->
-    <string name="onb_pitch_1_titulo">Sabe si conviene antes de aceptar</string>
+    <string name="onb_pitch_1_titulo">Entérate si conviene antes de aceptar</string>
     <string name="onb_pitch_1_cuerpo">Kompara lee la oferta en tu pantalla y te dice al instante, con un semáforo, si ese viaje te deja ganancia de verdad — antes de que toques \"Aceptar\".</string>
-    <string name="onb_pitch_2_titulo">Hasta un +30%% mejor por turno</string>
+    <string name="onb_pitch_2_titulo">Gana hasta 30%% más por turno</string>
     <string name="onb_pitch_2_cuerpo">Rechazar los viajes que no convienen sube tu ganancia por hora. Es el promedio reportado por apps similares; tus resultados dependen de tu zona y tus horarios.</string>
-    <string name="onb_pitch_3_titulo">Tus datos nunca salen de tu teléfono</string>
-    <string name="onb_pitch_3_cuerpo">Todo el cálculo ocurre en tu celular. Kompara funciona sin cuenta y no vende ni comparte lo que aparece en tu pantalla.</string>
+    <string name="onb_pitch_3_titulo">Lo que ves en tu pantalla se queda en tu teléfono</string>
+    <string name="onb_pitch_3_cuerpo">Todo el cálculo ocurre en tu celular. Kompara no vende ni comparte lo que aparece en tu pantalla; tu cuenta solo guarda tu configuración y tus totales.</string>
     <string name="onb_pitch_cta">Empezar</string>
+
+    <!-- ===== Crear cuenta (teléfono → código por WhatsApp → perfil) ===== -->
+    <string name="auth_phone_titulo">Crea tu cuenta</string>
+    <string name="auth_phone_cuerpo">Tu cuenta guarda tu configuración y tus números de forma segura, para que no pierdas nada si cambias de teléfono. Solo necesitas tu número de WhatsApp.</string>
+    <string name="auth_phone_hint">Número de WhatsApp</string>
+    <string name="auth_phone_prefijo">"+52 "</string>
+    <string name="auth_phone_cta">Recibir código por WhatsApp</string>
+    <string name="auth_phone_error_invalido">Revisa tu número: deben ser 10 dígitos, por ejemplo 5512345678.</string>
+    <string name="auth_phone_error_red">No pudimos enviar el código. Revisa tu conexión e inténtalo de nuevo.</string>
+    <string name="auth_phone_privacidad">Usamos tu número únicamente para tu cuenta. Lo que el lector ve en tu pantalla se queda en tu teléfono.</string>
+
+    <string name="auth_code_titulo">Escribe el código</string>
+    <string name="auth_code_cuerpo">Te enviamos un código de 6 dígitos por WhatsApp al %1$s.</string>
+    <string name="auth_code_hint">Código de 6 dígitos</string>
+    <string name="auth_code_cta">Confirmar código</string>
+    <string name="auth_code_reenviar">Reenviar código</string>
+    <string name="auth_code_reenviar_en">Reenviar en %1$d s</string>
+    <string name="auth_code_cambiar">Cambiar número</string>
+    <string name="auth_code_error_invalido">El código no es válido o ya venció. Revísalo o pide uno nuevo.</string>
+    <string name="auth_code_error_red">No pudimos verificar el código. Revisa tu conexión e inténtalo de nuevo.</string>
+
+    <string name="auth_profile_titulo">Cuéntanos de ti</string>
+    <string name="auth_profile_cuerpo">Con tu ciudad comparamos tus ganancias con las de otros choferes cerca de ti. Puedes cambiarla cuando quieras.</string>
+    <string name="auth_profile_nombre_hint">Tu nombre (opcional)</string>
+    <string name="auth_profile_ciudad_label">Tu ciudad</string>
+    <string name="auth_profile_cta">Guardar y continuar</string>
+    <string name="auth_profile_saltar">Completar después</string>
+    <string name="auth_profile_error">No pudimos guardar tu perfil. Revisa tu conexión e inténtalo de nuevo.</string>
 
     <!-- ===== Divulgación destacada (Prominent disclosure) =====       -->
     <!-- TODO(legal-B038): COPIA PROVISIONAL. Debe ser revisada y         -->
@@ -118,7 +146,7 @@
     <string name="onb_disc_porque_cuerpo">Únicamente para calcular las métricas del viaje (ganancia por km, por hora y por viaje) y mostrarte el semáforo de si conviene o no.</string>
     <string name="onb_disc_donde_titulo">Dónde se procesa</string>
     <!-- TODO(legal-B038) -->
-    <string name="onb_disc_donde_cuerpo">El procesamiento ocurre solo en tu teléfono. Kompara no vende, no comparte ni sube a internet el contenido de tu pantalla. La app funciona sin cuenta.</string>
+    <string name="onb_disc_donde_cuerpo">El procesamiento ocurre solo en tu teléfono. Kompara no vende, no comparte ni sube a internet el contenido de tu pantalla. Tu cuenta solo guarda tu número de WhatsApp, tu configuración y tus totales.</string>
     <string name="onb_disc_riesgo_titulo">Riesgo a tener en cuenta</string>
     <!-- TODO(legal-B038) -->
     <string name="onb_disc_riesgo_cuerpo">Usar herramientas de terceros puede contravenir los términos de las plataformas (Uber, DiDi). Kompara solo lee información y nunca actúa por ti dentro de esas apps, pero la decisión de usarla es tuya y bajo tu responsabilidad.</string>
@@ -126,7 +154,7 @@
     <string name="onb_disc_rechazar">No acepto</string>
 
     <!-- Pantalla limitada (tras rechazar la divulgación) -->
-    <string name="onb_limit_titulo">Sin el lector, Kompara es limitada</string>
+    <string name="onb_limit_titulo">Sin el lector, Kompara queda limitada</string>
     <string name="onb_limit_cuerpo">Respetamos tu decisión. Sin el servicio de accesibilidad no podemos leer las ofertas, así que el semáforo en tiempo real no estará disponible. Aún puedes registrar viajes a mano y ver tu resumen fiscal. Puedes activar el lector cuando quieras desde Ajustes.</string>
     <string name="onb_limit_revisar">Revisar de nuevo</string>
     <string name="onb_limit_continuar">Continuar sin el lector</string>
@@ -252,8 +280,8 @@
     <string name="import_intro">Trae semanas que el lector no capturó: tu historial de antes de instalar Kompara o turnos que se te pasaron.</string>
 
     <!-- Estado sin cuenta -->
-    <string name="import_signed_out_title">Para importar necesitas una cuenta</string>
-    <string name="import_signed_out_body">Importar tus semanas requiere una cuenta para guardarlas de forma segura. La pantalla para crear cuenta aún no está lista; estará disponible muy pronto.</string>
+    <string name="import_signed_out_title">Para importar necesitas tu cuenta</string>
+    <string name="import_signed_out_body">Importar tus semanas requiere una cuenta para guardarlas de forma segura. Inicia sesión con tu número de WhatsApp y vuelve a intentarlo.</string>
     <string name="import_signed_out_back">Volver</string>
 
     <!-- Selector de plataforma -->
@@ -494,8 +522,8 @@
     <string name="referral_redeem_success">¡Listo! Ganaste %1$d días de premium.</string>
     <string name="referral_retry">Reintentar</string>
     <!-- Estado sin cuenta (UI de cuenta aún diferida, TD-008) -->
-    <string name="referral_signed_out_title">Necesitas una cuenta</string>
-    <string name="referral_signed_out_body">Para invitar a otros choferes y ganar días de premium necesitas crear tu cuenta. Pronto podrás hacerlo desde aquí.</string>
+    <string name="referral_signed_out_title">Necesitas tu cuenta</string>
+    <string name="referral_signed_out_body">Para invitar a otros choferes y ganar días de premium necesitas iniciar sesión con tu cuenta. Entra con tu número de WhatsApp y vuelve a intentarlo.</string>
     <string name="referral_signed_out_back">Volver</string>
 
     <!-- ============================================================= -->

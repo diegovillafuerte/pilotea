@@ -10,6 +10,12 @@ enum class OnboardingStep(val key: String) {
     /** Funnel started — first value-pitch page shown. */
     PITCH("pitch"),
 
+    /** Signup flow shown (phone → WhatsApp code → profile). */
+    SIGNUP("signup"),
+
+    /** OTP verified — the account exists and the session is live. */
+    SIGNUP_DONE("signup_done"),
+
     /** Prominent disclosure screen shown (Play-policy + legal posture). */
     DISCLOSURE("disclosure"),
 

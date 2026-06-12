@@ -5,11 +5,13 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import mx.kompara.data.service.ServiceStatusProvider
 import mx.kompara.data.settings.SettingsRepository
+import mx.kompara.sync.auth.AuthRepository
+import mx.kompara.sync.auth.SessionState
 import javax.inject.Inject
 
 /**
@@ -48,19 +50,24 @@ class OnboardingViewModel @Inject constructor(
 }
 
 /**
- * Root-level state holder: observes [SettingsRepository] for the onboarding-completed flag and maps
- * it to a [RootRoute] for the app root composable. Kept separate from [OnboardingViewModel] so the
- * root can decide onboarding-vs-shell without constructing the funnel machinery.
+ * Root-level state holder: observes [SettingsRepository] for the onboarding-completed flag plus
+ * [AuthRepository] for the session, and maps them to a [RootRoute] for the app root composable.
+ * Kept separate from [OnboardingViewModel] so the root can decide onboarding-vs-signup-vs-shell
+ * without constructing the funnel machinery.
  */
 @HiltViewModel
 class RootViewModel @Inject constructor(
     settingsRepository: SettingsRepository,
+    authRepository: AuthRepository,
 ) : ViewModel() {
 
-    /** LOADING until settings emit, then ONBOARDING or MAIN. */
+    /** LOADING until settings + session emit, then ONBOARDING, AUTH, or MAIN. */
     val route: StateFlow<RootRoute> =
-        settingsRepository.settings.map { settings ->
-            RootRouter.route(settings.onboardingCompleted)
+        combine(settingsRepository.settings, authRepository.sessionState) { settings, session ->
+            RootRouter.route(
+                onboardingCompleted = settings.onboardingCompleted,
+                authenticated = session is SessionState.Authenticated,
+            )
         }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
