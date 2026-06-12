@@ -32,6 +32,7 @@ class VerdictChipStateTest {
         val state = VerdictChipState.from(metrics)
         // total km = 10, total min = 20; net = gross (zero cost) = 100
         assertEquals("$10.00/km", state.netPerKm)
+        assertEquals("$300/h", state.netPerHour) // 100 / (20/60), whole pesos for glanceability
         assertEquals("$100.00", state.netProfit)
         assertEquals("$5.00/min", state.netPerMin)
         assertEquals("$10.00/km", state.grossPerKm)
@@ -61,8 +62,20 @@ class VerdictChipStateTest {
         val state = VerdictChipState.from(metrics)
         assertEquals(VerdictChipState.MISSING, state.netProfit)
         assertEquals(VerdictChipState.MISSING, state.netPerKm)
+        assertEquals(VerdictChipState.MISSING, state.netPerHour)
         assertEquals(VerdictLevel.RED, state.level)
         assertEquals(VerdictChipState.MissingHintKind.FARE, state.missingHintKind)
+    }
+
+    @Test
+    fun `missing time yields em-dash per-hour but keeps per-km`() {
+        val metrics = metricsFor(
+            TripOffer("uber", fareMxn = 80.0, pickupKm = 2.0, pickupMin = null, tripKm = 8.0, tripMin = null),
+        )
+        val state = VerdictChipState.from(metrics)
+        assertEquals("$8.00/km", state.netPerKm)
+        assertEquals(VerdictChipState.MISSING, state.netPerHour)
+        assertTrue(state.hasMissingData)
     }
 
     @Test

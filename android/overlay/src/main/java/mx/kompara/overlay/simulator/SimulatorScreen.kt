@@ -321,6 +321,7 @@ private fun previewStep(shape: DemoSnapshots.Shape, level: VerdictLevel, netPerK
         chipState = VerdictChipState(
             level = level,
             netPerKm = netPerKm,
+            netPerHour = "$450/h",
             netProfit = "$120.00",
             netPerMin = "$6.00/min",
             grossPerKm = netPerKm,

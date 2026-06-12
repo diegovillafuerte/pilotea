@@ -12,7 +12,9 @@ import mx.kompara.ui.format.Formatters
  *
  * @property level traffic-light level (drives the colour)
  * @property netPerKm collapsed hero figure, e.g. "$7.20/km" or [MISSING] when distance was unknown
- * @property netProfit collapsed secondary figure, e.g. "$87.50" or [MISSING]
+ * @property netPerHour collapsed second figure, e.g. "$186/h" or [MISSING] when time was unknown
+ * @property netProfit expanded detail, e.g. "$87.50" or [MISSING] (the host app already shows the
+ *           gross fare, so the net total is context, not the headline)
  * @property netPerMin expanded detail, e.g. "$3.40/min" or [MISSING]
  * @property grossPerKm expanded detail (what Uber shows), e.g. "$9.10/km" or [MISSING]
  * @property hasMissingData true when the engine judged on partial data; the chip shows a hint
@@ -21,6 +23,7 @@ import mx.kompara.ui.format.Formatters
 data class VerdictChipState(
     val level: VerdictLevel,
     val netPerKm: String,
+    val netPerHour: String,
     val netProfit: String,
     val netPerMin: String,
     val grossPerKm: String,
@@ -60,6 +63,7 @@ data class VerdictChipState(
             return VerdictChipState(
                 level = metrics.verdict.level,
                 netPerKm = perKm(metrics.netPerKm),
+                netPerHour = perHour(metrics.netPerHour),
                 netProfit = money(metrics.netMxn),
                 netPerMin = perMin(metrics.netPerMin),
                 grossPerKm = perKm(metrics.grossPerKm),
@@ -76,5 +80,8 @@ data class VerdictChipState(
 
         private fun perMin(value: Double?): String =
             value?.let { Formatters.formatMxn(it) + "/min" } ?: MISSING
+
+        private fun perHour(value: Double?): String =
+            value?.let(Formatters::formatPerHourWhole) ?: MISSING
     }
 }

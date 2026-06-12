@@ -90,13 +90,14 @@ class SimulatorViewModel @Inject constructor(
     }
 
     /**
-     * The threshold-playground slider moved. Persist the new $/km floor for the current platform
-     * via the shared [SettingsRepository] (the combine above then re-grades all three offers live).
+     * The threshold-playground slider moved. Persist the new green $/km floor for the current
+     * platform via the shared [SettingsRepository] (the combine above then re-grades all three
+     * offers live). The red floor follows the green one down if they would cross.
      */
     fun setPerKmFloor(perKm: Double) {
         val plat = platform.value
         val current = latestSettings.thresholdFor(plat)
-        val updated = ThresholdSheet.withPerKm(current, perKm)
+        val updated = ThresholdSheet.withGreenPerKm(current, perKm)
         viewModelScope.launch { settingsRepository.setThreshold(plat, updated) }
     }
 

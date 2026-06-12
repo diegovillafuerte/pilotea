@@ -233,6 +233,10 @@ class SettingsRepository @Inject constructor(
                 threshold.minPerKmMxn
             prefs[doublePreferencesKey(SettingsSerialization.perHourKey(platform))] =
                 threshold.minPerHourMxn
+            prefs[doublePreferencesKey(SettingsSerialization.perKmRedKey(platform))] =
+                threshold.redPerKmMxn
+            prefs[doublePreferencesKey(SettingsSerialization.perHourRedKey(platform))] =
+                threshold.redPerHourMxn
         }
     }
 

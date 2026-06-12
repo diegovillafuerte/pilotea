@@ -46,6 +46,14 @@ class FormattersTest {
     }
 
     @Test
+    fun `formatPerHourWhole rounds to whole pesos`() {
+        assertEquals("$186/h", Formatters.formatPerHourWhole(185.5))
+        assertEquals("$185/h", Formatters.formatPerHourWhole(185.4))
+        assertEquals("$1,200/h", Formatters.formatPerHourWhole(1200.0))
+        assertEquals("$0/h", Formatters.formatPerHourWhole(0.0))
+    }
+
+    @Test
     fun `formatWeekRangeLabel renders a same-month Mon to Sun range`() {
         // 2026-06-01 is a Monday; the week runs Mon 1 – Sun 7 June.
         assertEquals("Semana del 1–7 jun", Formatters.formatWeekRangeLabel("2026-06-01"))

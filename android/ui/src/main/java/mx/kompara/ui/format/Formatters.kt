@@ -45,6 +45,18 @@ object Formatters {
     fun formatPerHour(amountPerHour: Double): String = formatMxn(amountPerHour) + "/h"
 
     /**
+     * A per-hour rate rounded to whole pesos for glanceable surfaces (the overlay chip), e.g.
+     * `formatPerHourWhole(185.5)` → "$186/h". Cent precision is noise at a one-second read.
+     */
+    fun formatPerHourWhole(amountPerHour: Double): String {
+        val nf = NumberFormat.getNumberInstance(MX).apply {
+            minimumFractionDigits = 0
+            maximumFractionDigits = 0
+        }
+        return "$" + nf.format(amountPerHour) + "/h"
+    }
+
+    /**
      * A money-per-km rate, e.g. `formatPerKm(8.4)` → "$8.40/km". The $/viaje and $/km cards use this
      * shape (with a "/viaje" or "/km" suffix the caller picks via [formatMxn] when needed).
      */

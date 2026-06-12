@@ -17,9 +17,11 @@
     <string name="overlay_missing_generic">Datos incompletos</string>
 
     <!-- Quick threshold sheet (long-press) -->
-    <string name="overlay_threshold_title">Piso mínimo por km</string>
+    <string name="overlay_threshold_title">Tu semáforo por km</string>
+    <string name="overlay_threshold_green_label">Verde desde</string>
+    <string name="overlay_threshold_red_label">Rojo por debajo de</string>
     <string name="overlay_threshold_value">$%1$s/km</string>
-    <string name="overlay_threshold_hint">Mantén presionado para ajustar tu piso por km sin salir de la app.</string>
+    <string name="overlay_threshold_hint">Entre los dos pisos, el viaje se marca en amarillo.</string>
     <string name="overlay_threshold_close">Listo</string>
 
     <!-- Content descriptions (accessibility / TalkBack) -->

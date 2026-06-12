@@ -3,9 +3,13 @@ package mx.kompara.overlay
 import mx.kompara.data.settings.PlatformThreshold
 
 /**
- * Pure logic backing the long-press "quick threshold" sheet: the $/km floor slider's range and the
- * value clamping, plus how an edited floor folds back into a [PlatformThreshold] (the per-hour
- * floor is left untouched — the inline sheet only exposes the single most-used knob, $/km).
+ * Pure logic backing the long-press "quick threshold" sheet: the $/km slider range and value
+ * clamping for the *two* floors (green = "conviene desde", red = "no conviene debajo de"), plus how
+ * an edited floor folds back into a [PlatformThreshold]. The per-hour floors are left untouched —
+ * the inline sheet only exposes the most-used knobs, $/km.
+ *
+ * Invariant kept here: the red floor never exceeds the green floor. Moving green below red drags
+ * red down with it; moving red above green caps it at green.
  *
  * Kept Android-free so the slider math and the persisted-value construction are unit-testable
  * without Compose or DataStore.
@@ -32,9 +36,28 @@ object ThresholdSheet {
     }
 
     /**
-     * Fold an edited $/km floor into [current], preserving its per-hour floor. The value is clamped
-     * and snapped first, so the caller can pass a raw slider position.
+     * Fold an edited green $/km floor into [current], preserving the per-hour floors. If the new
+     * green floor falls below the red floor, the red floor follows it down (red ≤ green).
      */
-    fun withPerKm(current: PlatformThreshold, newPerKm: Double): PlatformThreshold =
-        current.copy(minPerKmMxn = clampPerKm(newPerKm))
+    fun withGreenPerKm(current: PlatformThreshold, newPerKm: Double): PlatformThreshold {
+        val green = clampPerKm(newPerKm)
+        return current.copy(
+            minPerKmMxn = green,
+            redPerKmMxn = minOf(current.redPerKmMxn, green),
+        )
+    }
+
+    /**
+     * Fold an edited red $/km floor into [current], preserving the per-hour floors. The red floor
+     * is capped at the green floor (red ≤ green).
+     */
+    fun withRedPerKm(current: PlatformThreshold, newPerKm: Double): PlatformThreshold =
+        current.copy(redPerKmMxn = minOf(clampPerKm(newPerKm), current.minPerKmMxn))
+
+    /**
+     * Snap a persisted threshold onto the sheet's slider grid (both $/km floors clamped + stepped,
+     * red ≤ green) so the sliders open exactly on their thumb positions.
+     */
+    fun snapped(threshold: PlatformThreshold): PlatformThreshold =
+        withRedPerKm(withGreenPerKm(threshold, threshold.minPerKmMxn), threshold.redPerKmMxn)
 }

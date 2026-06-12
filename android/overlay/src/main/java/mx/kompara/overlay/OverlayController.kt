@@ -153,7 +153,7 @@ class OverlayController @Inject constructor(
                         callbacks = VerdictChipCallbacks(
                             onDrag = { dx, dy -> onDrag(dx, dy) },
                             onDragEnd = { scope.launch { onDragEnd() } },
-                            onThresholdChange = { perKm -> scope.launch { onThresholdChange(perKm) } },
+                            onThresholdChange = { updated -> scope.launch { onThresholdChange(updated) } },
                         ),
                     )
                 }
@@ -231,8 +231,7 @@ class OverlayController @Inject constructor(
         prefs.savePosition(snapped)
     }
 
-    private suspend fun onThresholdChange(perKm: Double) {
-        val updated = ThresholdSheet.withPerKm(currentThreshold, perKm)
+    private suspend fun onThresholdChange(updated: PlatformThreshold) {
         currentThreshold = updated
         // Persist via the shared SettingsRepository so the engine + Ajustes share one floor.
         val platform = if (currentPlatform == Platform.UNKNOWN) Platform.UBER else currentPlatform

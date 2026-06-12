@@ -61,6 +61,10 @@ object SettingsSerialization {
     fun perKmKey(platform: Platform): String = "threshold_${platform.name}_per_km"
     fun perHourKey(platform: Platform): String = "threshold_${platform.name}_per_hour"
 
+    /** Red floors (two-tier verdict). Absent on installs that predate them ⇒ derived from green. */
+    fun perKmRedKey(platform: Platform): String = "threshold_${platform.name}_per_km_red"
+    fun perHourRedKey(platform: Platform): String = "threshold_${platform.name}_per_hour_red"
+
     /** Names of platforms that should be persisted as enabled. */
     fun encodeEnabledPlatforms(settings: Settings): Set<String> =
         settings.enabledPlatforms.map { it.name }.toSet()
@@ -95,9 +99,17 @@ object SettingsSerialization {
             val perKm = lookupDouble(perKmKey(platform))
             val perHour = lookupDouble(perHourKey(platform))
             if (perKm != null || perHour != null) {
+                val greenPerKm = perKm ?: PlatformThreshold.DEFAULT.minPerKmMxn
+                val greenPerHour = perHour ?: PlatformThreshold.DEFAULT.minPerHourMxn
+                // Red floors landed after green floors shipped: absent keys derive from the green
+                // floor (and a stored red is clamped to it) so pre-existing installs migrate free.
                 thresholds[platform] = PlatformThreshold(
-                    minPerKmMxn = perKm ?: PlatformThreshold.DEFAULT.minPerKmMxn,
-                    minPerHourMxn = perHour ?: PlatformThreshold.DEFAULT.minPerHourMxn,
+                    minPerKmMxn = greenPerKm,
+                    minPerHourMxn = greenPerHour,
+                    redPerKmMxn = lookupDouble(perKmRedKey(platform))?.coerceAtMost(greenPerKm)
+                        ?: (greenPerKm * PlatformThreshold.DEFAULT_RED_FRACTION),
+                    redPerHourMxn = lookupDouble(perHourRedKey(platform))?.coerceAtMost(greenPerHour)
+                        ?: (greenPerHour * PlatformThreshold.DEFAULT_RED_FRACTION),
                 )
             }
         }

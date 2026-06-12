@@ -94,13 +94,15 @@ class NetProfitEngine @Inject constructor() {
     }
 
     /**
-     * Decide the traffic-light level.
+     * Decide the traffic-light level from two-tier floors.
      *
-     * Both floors must pass for GREEN. If exactly one passes → YELLOW. If neither passes → RED.
-     * A floor that can't be tested (its rate is null) is treated as *not passing* so it can never
-     * manufacture a GREEN out of missing data, but it also doesn't by itself force RED as long as
-     * the other floor passes. When the fare is missing nothing can be judged → RED. When any input
-     * was missing the result is capped at YELLOW (a provisional read is never a confident GREEN).
+     * Each testable metric classifies independently: at/above its green floor → GREEN, below its
+     * red floor → RED, in between → YELLOW. The verdict is GREEN only when every testable metric
+     * is GREEN, RED only when every testable metric is RED (or nothing is testable), and YELLOW
+     * for any mix — so one strong metric never makes a confident GREEN, and one weak metric never
+     * sinks an otherwise-good offer to RED. When the fare is missing nothing can be judged → RED.
+     * When any input was missing the result is capped at YELLOW (a provisional read is never a
+     * confident GREEN).
      */
     private fun decideLevel(
         netPerKm: Double?,
@@ -111,17 +113,35 @@ class NetProfitEngine @Inject constructor() {
     ): VerdictLevel {
         if (!fareKnown) return VerdictLevel.RED
 
-        val kmOk = netPerKm != null && netPerKm >= threshold.minPerKmMxn
-        val hourOk = netPerHour != null && netPerHour >= threshold.minPerHourMxn
+        val levels = listOfNotNull(
+            metricLevel(netPerKm, green = threshold.minPerKmMxn, red = threshold.redPerKmMxn),
+            metricLevel(netPerHour, green = threshold.minPerHourMxn, red = threshold.redPerHourMxn),
+        )
+        if (levels.isEmpty()) return VerdictLevel.RED
 
         val base = when {
-            kmOk && hourOk -> VerdictLevel.GREEN
-            kmOk || hourOk -> VerdictLevel.YELLOW
-            else -> VerdictLevel.RED
+            levels.all { it == VerdictLevel.GREEN } -> VerdictLevel.GREEN
+            levels.all { it == VerdictLevel.RED } -> VerdictLevel.RED
+            else -> VerdictLevel.YELLOW
         }
 
         // Partial data is never a confident GREEN.
         return if (hasMissingInputs && base == VerdictLevel.GREEN) VerdictLevel.YELLOW else base
+    }
+
+    /**
+     * Classify one metric against its two floors, or null when the rate itself is unknown
+     * (untestable). The red floor is clamped to the green floor so a misconfigured pair
+     * (red > green) can never produce a band where RED outranks GREEN.
+     */
+    private fun metricLevel(value: Double?, green: Double, red: Double): VerdictLevel? {
+        if (value == null) return null
+        val redFloor = minOf(red, green)
+        return when {
+            value >= green -> VerdictLevel.GREEN
+            value >= redFloor -> VerdictLevel.YELLOW
+            else -> VerdictLevel.RED
+        }
     }
 
     /** Sum two optional legs; null only when both are absent. A present part counts; absent ⇒ 0. */

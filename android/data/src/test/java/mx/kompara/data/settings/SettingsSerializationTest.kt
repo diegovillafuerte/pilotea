@@ -52,6 +52,52 @@ class SettingsSerializationTest {
     }
 
     @Test
+    fun `decode reads stored red floors`() {
+        val stored = mapOf(
+            SettingsSerialization.perKmKey(Platform.UBER) to 10.0,
+            SettingsSerialization.perHourKey(Platform.UBER) to 120.0,
+            SettingsSerialization.perKmRedKey(Platform.UBER) to 7.0,
+            SettingsSerialization.perHourRedKey(Platform.UBER) to 80.0,
+        )
+        val settings = SettingsSerialization.decode(
+            enabledNames = setOf("UBER"),
+            lookupDouble = { key -> stored[key] },
+        )
+        val uber = settings.thresholdFor(Platform.UBER)
+        assertEquals(7.0, uber.redPerKmMxn, 0.0001)
+        assertEquals(80.0, uber.redPerHourMxn, 0.0001)
+    }
+
+    @Test
+    fun `missing red floors derive from the stored green floors`() {
+        // An install that tuned its green floors before red floors existed.
+        val stored = mapOf(
+            SettingsSerialization.perKmKey(Platform.UBER) to 10.0,
+            SettingsSerialization.perHourKey(Platform.UBER) to 120.0,
+        )
+        val settings = SettingsSerialization.decode(
+            enabledNames = setOf("UBER"),
+            lookupDouble = { key -> stored[key] },
+        )
+        val uber = settings.thresholdFor(Platform.UBER)
+        assertEquals(10.0 * PlatformThreshold.DEFAULT_RED_FRACTION, uber.redPerKmMxn, 0.0001)
+        assertEquals(120.0 * PlatformThreshold.DEFAULT_RED_FRACTION, uber.redPerHourMxn, 0.0001)
+    }
+
+    @Test
+    fun `stored red floor above the green floor is clamped down to it`() {
+        val stored = mapOf(
+            SettingsSerialization.perKmKey(Platform.UBER) to 8.0,
+            SettingsSerialization.perKmRedKey(Platform.UBER) to 11.0,
+        )
+        val settings = SettingsSerialization.decode(
+            enabledNames = setOf("UBER"),
+            lookupDouble = { key -> stored[key] },
+        )
+        assertEquals(8.0, settings.thresholdFor(Platform.UBER).redPerKmMxn, 0.0001)
+    }
+
+    @Test
     fun `partial threshold falls back to default for the missing field`() {
         val stored = mapOf(SettingsSerialization.perKmKey(Platform.DIDI) to 9.0)
         val settings = SettingsSerialization.decode(

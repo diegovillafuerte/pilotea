@@ -103,6 +103,70 @@ class NetProfitEngineTest {
         assertEquals(VerdictLevel.GREEN, m.verdict.level)
     }
 
+    // ── Verdict branching: two-tier floors (yellow band between red and green) ───────────────
+
+    @Test
+    fun `YELLOW when both metrics land between their red and green floors`() {
+        // netPerKm 10 in [9, 12); netPerHour 200 in [150, 250) -> both YELLOW -> YELLOW.
+        val t = PlatformThreshold(
+            minPerKmMxn = 12.0, minPerHourMxn = 250.0,
+            redPerKmMxn = 9.0, redPerHourMxn = 150.0,
+        )
+        val m = engine.evaluate(fullOffer(), profile, t)
+        assertEquals(VerdictLevel.YELLOW, m.verdict.level)
+    }
+
+    @Test
+    fun `RED only when both metrics fall below their red floors`() {
+        // netPerKm 10 < 11; netPerHour 200 < 220 -> both RED -> RED.
+        val t = PlatformThreshold(
+            minPerKmMxn = 15.0, minPerHourMxn = 300.0,
+            redPerKmMxn = 11.0, redPerHourMxn = 220.0,
+        )
+        val m = engine.evaluate(fullOffer(), profile, t)
+        assertEquals(VerdictLevel.RED, m.verdict.level)
+    }
+
+    @Test
+    fun `one GREEN metric lifts a below-red metric to overall YELLOW`() {
+        // netPerKm 10 < red 11 -> RED; netPerHour 200 >= 90 -> GREEN; mixed -> YELLOW.
+        val t = PlatformThreshold(
+            minPerKmMxn = 15.0, minPerHourMxn = 90.0,
+            redPerKmMxn = 11.0, redPerHourMxn = 67.5,
+        )
+        val m = engine.evaluate(fullOffer(), profile, t)
+        assertEquals(VerdictLevel.YELLOW, m.verdict.level)
+    }
+
+    @Test
+    fun `red floor boundary is inclusive into the yellow band`() {
+        // netPerKm exactly at the red floor reads YELLOW (>= red), not RED.
+        val t = PlatformThreshold(
+            minPerKmMxn = 15.0, minPerHourMxn = 250.0,
+            redPerKmMxn = 10.0, redPerHourMxn = 150.0,
+        )
+        val m = engine.evaluate(fullOffer(), profile, t)
+        assertEquals(VerdictLevel.YELLOW, m.verdict.level)
+    }
+
+    @Test
+    fun `red floor above green floor is clamped to green, never inverting the band`() {
+        // Misconfigured: red 14 > green 6. Clamped red = 6, so netPerKm 10 >= 6 -> GREEN.
+        val t = PlatformThreshold(
+            minPerKmMxn = 6.0, minPerHourMxn = 90.0,
+            redPerKmMxn = 14.0, redPerHourMxn = 67.5,
+        )
+        val m = engine.evaluate(fullOffer(), profile, t)
+        assertEquals(VerdictLevel.GREEN, m.verdict.level)
+    }
+
+    @Test
+    fun `default red floors derive from the green floors`() {
+        val t = PlatformThreshold(minPerKmMxn = 8.0, minPerHourMxn = 90.0)
+        assertEquals(6.0, t.redPerKmMxn, 1e-9)    // 8 * 0.75
+        assertEquals(67.5, t.redPerHourMxn, 1e-9) // 90 * 0.75
+    }
+
     // ── Verdict branching: missing fare ──────────────────────────────────────────────────────
 
     @Test
