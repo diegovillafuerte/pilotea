@@ -1,5 +1,6 @@
 package mx.kompara.overlay.simulator
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -196,14 +197,24 @@ private fun MockOfferCardWithChip(platform: Platform, step: SimulatorStep) {
 private fun fareLineIndex(step: SimulatorStep): Int =
     step.visibleText.indexOfFirst { it.contains('$') }.let { if (it >= 0) it else -1 }
 
+/**
+ * The headline copy follows the **live** verdict [level], not the demo's fixed shape: once the
+ * playground floor re-grades the chip (e.g. rojo → amarillo) the text and the chip colour must agree
+ * (B-074 F4). Kept as a pure function so the mapping is unit-testable without Compose.
+ */
+@StringRes
+internal fun headlineResFor(level: VerdictLevel): Int = when (level) {
+    VerdictLevel.GREEN -> R.string.sim_verdict_good
+    VerdictLevel.YELLOW -> R.string.sim_verdict_marginal
+    VerdictLevel.RED -> R.string.sim_verdict_bad
+}
+
 @Composable
 private fun VerdictHeadline(step: SimulatorStep) {
     val netPerKm = step.chipState.netPerKm
-    val headlineRes = when (step.shape) {
-        DemoSnapshots.Shape.GOOD -> R.string.sim_verdict_good
-        DemoSnapshots.Shape.MARGINAL -> R.string.sim_verdict_marginal
-        DemoSnapshots.Shape.BAD -> R.string.sim_verdict_bad
-    }
+    val headlineRes = headlineResFor(step.chipState.level)
+    // The "¿por qué?" narrative stays keyed to the demo shape — it tells that scenario's
+    // pickup-distance story, which the slider doesn't change.
     val whyRes = when (step.shape) {
         DemoSnapshots.Shape.GOOD -> R.string.sim_why_good
         DemoSnapshots.Shape.MARGINAL -> R.string.sim_why_marginal

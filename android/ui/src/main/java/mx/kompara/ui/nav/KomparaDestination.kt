@@ -68,6 +68,18 @@ enum class KomparaDestination(
         val barItems: List<KomparaDestination> = entries
 
         /**
+         * The tab to highlight for a given nav back stack, by route. Detail screens (Ayuda,
+         * Historial, Tu semáforo…) are pushed on top of the tab they were opened from but are not
+         * tabs themselves, so we pick the topmost route in [backStackRoutes] that *is* a tab and fall
+         * back to [START]. This keeps the parent tab lit on detail screens and lets a re-tap pop back
+         * to its root (B-074 F5). [backStackRoutes] runs root → top (oldest entry first).
+         */
+        fun activeTab(backStackRoutes: List<String?>): KomparaDestination =
+            backStackRoutes.asReversed()
+                .firstNotNullOfOrNull { route -> entries.firstOrNull { it.route == route } }
+                ?: START
+
+        /**
          * Route for the offer simulator (B-037). It is NOT a bottom-bar tab — it's a detail screen
          * reachable from Ajustes (and the onboarding done-screen). The route key lives here so `:ui`
          * (which owns Ajustes) can navigate to it, while `:overlay` registers the actual composable

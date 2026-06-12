@@ -8,13 +8,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import mx.kompara.ui.imports.importDestination
@@ -60,10 +60,11 @@ fun KomparaApp(
     registerExtraDestinations: NavGraphBuilder.(NavController) -> Unit = {},
 ) {
     val navController = rememberNavController()
-    val backStackEntry by navController.currentBackStackEntryAsState()
-    val current = backStackEntry?.destination?.route
-        ?.let { route -> KomparaDestination.entries.firstOrNull { it.route == route } }
-        ?: KomparaDestination.START
+    val backStack by navController.currentBackStack.collectAsStateWithLifecycle()
+    // The highlighted tab is the topmost tab in the back stack: on a detail screen (Ayuda, Historial,
+    // Tu semáforo…) this lights the tab it was opened from rather than falling back to Inicio, so a
+    // re-tap can pop that detail stack back to the tab root (B-074 F5).
+    val current = KomparaDestination.activeTab(backStack.map { it.destination.route })
 
     if (navigateToReaderTrial) {
         LaunchedEffect(Unit) { navController.navigateToReaderTrial() }
@@ -91,6 +92,10 @@ fun KomparaApp(
                             launchSingleTop = true
                             restoreState = true
                         }
+                    } else {
+                        // Re-tapping the active tab pops its detail stack back to the tab root (B-074
+                        // F5) — standard bottom-nav behaviour. No-op when already at the root.
+                        navController.popBackStack(destination.route, inclusive = false)
                     }
                 },
             )
