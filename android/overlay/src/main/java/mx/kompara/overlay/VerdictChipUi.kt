@@ -147,10 +147,29 @@ private fun CollapsedContent(state: VerdictChipState) {
 private fun ExpandedDetail(state: VerdictChipState) {
     val onColor = state.level.onBrandColor
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        ExplainLine(state.explainKind, color = onColor)
         DetailRow(label = androidx.compose.ui.res.stringResource(R.string.overlay_net_profit_label), value = state.netProfit, color = onColor)
         DetailRow(label = androidx.compose.ui.res.stringResource(R.string.overlay_per_min_label), value = state.netPerMin, color = onColor)
         DetailRow(label = androidx.compose.ui.res.stringResource(R.string.overlay_gross_per_km_label), value = state.grossPerKm, color = onColor)
     }
+}
+
+/** The one-line "¿por qué?" — which floor passed/failed — at the top of the expanded detail. */
+@Composable
+private fun ExplainLine(kind: VerdictChipState.ExplainKind, color: androidx.compose.ui.graphics.Color) {
+    val res = when (kind) {
+        VerdictChipState.ExplainKind.NONE -> return
+        VerdictChipState.ExplainKind.BOTH_STRONG -> R.string.overlay_explain_both_strong
+        VerdictChipState.ExplainKind.KM_WEAK -> R.string.overlay_explain_km_weak
+        VerdictChipState.ExplainKind.HOUR_WEAK -> R.string.overlay_explain_hour_weak
+        VerdictChipState.ExplainKind.BOTH_WEAK -> R.string.overlay_explain_both_weak
+    }
+    Text(
+        text = androidx.compose.ui.res.stringResource(res),
+        color = color,
+        fontSize = 11.sp,
+        modifier = Modifier.widthIn(max = 180.dp).padding(bottom = 2.dp),
+    )
 }
 
 @Composable

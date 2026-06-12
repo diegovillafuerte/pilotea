@@ -19,6 +19,9 @@ package mx.kompara.metrics
  *   null if the fare was missing
  * @property grossPerKm gross MXN per total km, before costs; null if total distance was unknown
  * @property missingInputs names of the inputs that were absent from the [TripOffer]
+ * @property netPerKmLevel how the km metric alone classified against its two floors; null when
+ *   the rate was untestable. Lets the UI explain *why* the overall light landed where it did.
+ * @property netPerHourLevel same for the hour metric
  */
 data class Verdict(
     val level: VerdictLevel,
@@ -27,4 +30,6 @@ data class Verdict(
     val netProfitMxn: Double?,
     val grossPerKm: Double?,
     val missingInputs: List<String>,
+    val netPerKmLevel: VerdictLevel? = null,
+    val netPerHourLevel: VerdictLevel? = null,
 )

@@ -167,6 +167,30 @@ class NetProfitEngineTest {
         assertEquals(67.5, t.redPerHourMxn, 1e-9) // 90 * 0.75
     }
 
+    @Test
+    fun `verdict exposes per-metric levels for the UI explainer`() {
+        // netPerKm 10 -> GREEN at floor 6; netPerHour 200 in [187.5, 250) -> YELLOW.
+        val t = PlatformThreshold(minPerKmMxn = 6.0, minPerHourMxn = 250.0)
+        val m = engine.evaluate(fullOffer(), profile, t)
+        assertEquals(VerdictLevel.GREEN, m.verdict.netPerKmLevel)
+        assertEquals(VerdictLevel.YELLOW, m.verdict.netPerHourLevel)
+    }
+
+    @Test
+    fun `untestable metric exposes a null level`() {
+        val offer = TripOffer(
+            platform = "uber",
+            fareMxn = 120.0,
+            pickupKm = 2.0,
+            pickupMin = null,
+            tripKm = 8.0,
+            tripMin = null,
+        )
+        val m = engine.evaluate(offer, profile, lenient)
+        assertNull(m.verdict.netPerHourLevel)
+        assertEquals(VerdictLevel.GREEN, m.verdict.netPerKmLevel)
+    }
+
     // ── Verdict branching: missing fare ──────────────────────────────────────────────────────
 
     @Test

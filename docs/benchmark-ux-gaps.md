@@ -37,10 +37,10 @@ Key external facts to keep in view:
 
 ## 3. Prioritized gaps (next)
 
-**P0 — credibility at first contact (pre-Play-submission)**
-1. **In-app verdict explainer ("¿por qué?")** — tap the expanded chip → one sentence on which floor failed (DecideRider does this with a progress bar). The engine already knows; it's a UI-only change.
-2. **Per-hour floors in Ajustes** — the quick sheet edits $/km floors; $/hr floors are only defaults today. A real settings surface (per platform, green+red, with the city-seeded defaults shown) closes the loop the simulator/threshold UX opened.
-3. **Help center seed** — a public FAQ page (or in-app screen) covering: activating the reader, OEM battery kills, what the verdict means, account/privacy. StopClub/Gridwise both have one; reviews cite it. Cheap: static pages.
+**P0 — credibility at first contact (pre-Play-submission)** — *all three shipped 2026-06-12 (B-070, B-071)*
+1. ~~**In-app verdict explainer ("¿por qué?")**~~ ✅ — the expanded chip opens with one line naming which floor passed/failed, driven by per-metric levels the engine now exposes on `Verdict`.
+2. ~~**Per-hour floors in Ajustes**~~ ✅ — Ajustes → "Tu semáforo": all four floors (verde/rojo × $/km/$/hr) per platform, immediate persistence shared with the quick sheet, plus "Volver a la mediana de <ciudad>" (first consumer of the city-seeded defaults table).
+3. ~~**Help center seed**~~ ✅ — Ajustes → "Ayuda": seven offline es-MX FAQ entries (reader activation incl. DiDi screen capture, semáforo semantics, OEM battery, privacy, account, price, troubleshooting). Public web version deferred until the marketing site exists.
 
 **P1 — retention & trust**
 4. **Logout + account management in Ajustes** — signup exists now; the mirror surface (see phone, edit name/city, cerrar sesión, borrar cuenta for Play data-safety) does not. Play's data-deletion policy will require it at submission.

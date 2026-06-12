@@ -78,6 +78,12 @@ enum class KomparaDestination(
         /** Cost-profile editor (B-040 req 4), reachable from Ajustes and the Inicio first-run nudge. */
         const val COST_PROFILE_ROUTE: String = "cost-profile"
 
+        /** Threshold editor (B-070): all four semáforo floors per platform, reachable from Ajustes. */
+        const val THRESHOLDS_ROUTE: String = "thresholds"
+
+        /** In-app help center (B-071), reachable from Ajustes. */
+        const val HELP_ROUTE: String = "help"
+
         /** History weeks list (B-040 req 3), reachable from Inicio. */
         const val HISTORY_ROUTE: String = "history"
 

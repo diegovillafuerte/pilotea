@@ -62,12 +62,13 @@ class NetProfitEngine @Inject constructor() {
             null
         }
 
+        val kmLevel = metricLevel(netPerKm, green = threshold.minPerKmMxn, red = threshold.redPerKmMxn)
+        val hourLevel = metricLevel(netPerHour, green = threshold.minPerHourMxn, red = threshold.redPerHourMxn)
         val level = decideLevel(
-            netPerKm = netPerKm,
-            netPerHour = netPerHour,
+            kmLevel = kmLevel,
+            hourLevel = hourLevel,
             fareKnown = gross != null,
             hasMissingInputs = missing.isNotEmpty(),
-            threshold = threshold,
         )
 
         val verdict = Verdict(
@@ -77,6 +78,8 @@ class NetProfitEngine @Inject constructor() {
             netProfitMxn = net,
             grossPerKm = grossPerKm,
             missingInputs = missing.toList(),
+            netPerKmLevel = kmLevel,
+            netPerHourLevel = hourLevel,
         )
 
         return OfferMetrics(
@@ -105,18 +108,14 @@ class NetProfitEngine @Inject constructor() {
      * confident GREEN).
      */
     private fun decideLevel(
-        netPerKm: Double?,
-        netPerHour: Double?,
+        kmLevel: VerdictLevel?,
+        hourLevel: VerdictLevel?,
         fareKnown: Boolean,
         hasMissingInputs: Boolean,
-        threshold: PlatformThreshold,
     ): VerdictLevel {
         if (!fareKnown) return VerdictLevel.RED
 
-        val levels = listOfNotNull(
-            metricLevel(netPerKm, green = threshold.minPerKmMxn, red = threshold.redPerKmMxn),
-            metricLevel(netPerHour, green = threshold.minPerHourMxn, red = threshold.redPerHourMxn),
-        )
+        val levels = listOfNotNull(kmLevel, hourLevel)
         if (levels.isEmpty()) return VerdictLevel.RED
 
         val base = when {

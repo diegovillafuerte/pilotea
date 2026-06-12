@@ -19,6 +19,9 @@ import mx.kompara.ui.format.Formatters
  * @property grossPerKm expanded detail (what Uber shows), e.g. "$9.10/km" or [MISSING]
  * @property hasMissingData true when the engine judged on partial data; the chip shows a hint
  * @property missingHintKind which gap to surface in the hint (distance vs. fare vs. generic)
+ * @property explainKind the one-line "¿por qué?" shown in the expanded detail, derived from the
+ *   per-metric levels (which floor passed/failed); [ExplainKind.NONE] when a metric was untestable
+ *   (the missing-data hint already covers that case)
  */
 data class VerdictChipState(
     val level: VerdictLevel,
@@ -29,7 +32,26 @@ data class VerdictChipState(
     val grossPerKm: String,
     val hasMissingData: Boolean,
     val missingHintKind: MissingHintKind,
+    val explainKind: ExplainKind,
 ) {
+    /** Which one-line verdict explanation to show in the expanded detail. */
+    enum class ExplainKind {
+        /** A metric was untestable (missing data) — no explanation, the hint covers it. */
+        NONE,
+
+        /** Both metrics at/above their green floors. */
+        BOTH_STRONG,
+
+        /** Hour is green but km fell below its green floor. */
+        KM_WEAK,
+
+        /** Km is green but hour fell below its green floor. */
+        HOUR_WEAK,
+
+        /** Neither metric reached its green floor. */
+        BOTH_WEAK,
+    }
+
     enum class MissingHintKind {
         /** Nothing missing — no hint shown. */
         NONE,
@@ -69,7 +91,17 @@ data class VerdictChipState(
                 grossPerKm = perKm(metrics.grossPerKm),
                 hasMissingData = missing.isNotEmpty(),
                 missingHintKind = hint,
+                explainKind = explain(metrics.verdict.netPerKmLevel, metrics.verdict.netPerHourLevel),
             )
+        }
+
+        /** Map the per-metric levels to the one-line explanation. */
+        private fun explain(km: VerdictLevel?, hour: VerdictLevel?): ExplainKind = when {
+            km == null || hour == null -> ExplainKind.NONE
+            km == VerdictLevel.GREEN && hour == VerdictLevel.GREEN -> ExplainKind.BOTH_STRONG
+            hour == VerdictLevel.GREEN -> ExplainKind.KM_WEAK
+            km == VerdictLevel.GREEN -> ExplainKind.HOUR_WEAK
+            else -> ExplainKind.BOTH_WEAK
         }
 
         private fun money(value: Double?): String =

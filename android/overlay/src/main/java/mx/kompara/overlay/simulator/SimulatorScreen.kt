@@ -327,6 +327,7 @@ private fun previewStep(shape: DemoSnapshots.Shape, level: VerdictLevel, netPerK
             grossPerKm = netPerKm,
             hasMissingData = false,
             missingHintKind = VerdictChipState.MissingHintKind.NONE,
+            explainKind = VerdictChipState.ExplainKind.BOTH_STRONG,
         ),
         visibleText = listOf("UberX", "MX\$135.00", "4 min (1.5 km) de distancia", "14 min (7.5 km) de viaje", "Aceptar"),
         result = SimulatorResult(

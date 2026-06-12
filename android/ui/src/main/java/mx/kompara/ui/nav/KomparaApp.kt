@@ -26,9 +26,11 @@ import mx.kompara.ui.screens.CompararScreen
 import mx.kompara.ui.screens.CostProfileScreen
 import mx.kompara.ui.screens.DayDetailScreen
 import mx.kompara.ui.screens.FiscalScreen
+import mx.kompara.ui.screens.HelpScreen
 import mx.kompara.ui.screens.HistoryScreen
 import mx.kompara.ui.screens.InicioDashboardScreen
 import mx.kompara.ui.screens.LectorScreen
+import mx.kompara.ui.screens.ThresholdsScreen
 import mx.kompara.ui.screens.WeekSummaryScreen
 import mx.kompara.ui.share.ShareCardScreen
 import mx.kompara.ui.stats.DayDetailViewModel
@@ -170,6 +172,8 @@ private fun NavGraphBuilder.tabScreens(navController: NavController) {
             onOpenCostProfile = { navController.navigate(KomparaDestination.COST_PROFILE_ROUTE) },
             onOpenHistory = { navController.navigate(KomparaDestination.HISTORY_ROUTE) },
             onOpenReferral = { navController.navigate(KomparaDestination.REFERRAL_ROUTE) },
+            onOpenThresholds = { navController.navigate(KomparaDestination.THRESHOLDS_ROUTE) },
+            onOpenHelp = { navController.navigate(KomparaDestination.HELP_ROUTE) },
         )
     }
 }
@@ -182,6 +186,9 @@ private fun NavGraphBuilder.statsScreens(navController: NavController) {
     composable(KomparaDestination.COST_PROFILE_ROUTE) {
         CostProfileScreen(onSaved = { navController.popBackStack() })
     }
+    // B-070 threshold editor and B-071 help center, both reached from Ajustes.
+    composable(KomparaDestination.THRESHOLDS_ROUTE) { ThresholdsScreen() }
+    composable(KomparaDestination.HELP_ROUTE) { HelpScreen() }
     composable(KomparaDestination.HISTORY_ROUTE) {
         HistoryScreen(
             onOpenWeek = { weekStart ->

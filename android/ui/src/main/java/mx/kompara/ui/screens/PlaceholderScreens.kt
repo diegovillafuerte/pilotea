@@ -37,6 +37,8 @@ fun AjustesScreen(
     onOpenCostProfile: () -> Unit = {},
     onOpenHistory: () -> Unit = {},
     onOpenReferral: () -> Unit = {},
+    onOpenThresholds: () -> Unit = {},
+    onOpenHelp: () -> Unit = {},
     viewModel: AjustesViewModel = hiltViewModel(),
 ) {
     val fiscalSummaryEnabled by viewModel.fiscalMonthlySummaryEnabled.collectAsStateWithLifecycle()
@@ -47,6 +49,8 @@ fun AjustesScreen(
         onOpenCostProfile = onOpenCostProfile,
         onOpenHistory = onOpenHistory,
         onOpenReferral = onOpenReferral,
+        onOpenThresholds = onOpenThresholds,
+        onOpenHelp = onOpenHelp,
         fiscalSummaryEnabled = fiscalSummaryEnabled,
         onFiscalSummaryToggled = viewModel::setFiscalMonthlySummaryEnabled,
         shareReminderEnabled = shareReminderEnabled,
@@ -61,6 +65,8 @@ private fun AjustesContent(
     onOpenCostProfile: () -> Unit = {},
     onOpenHistory: () -> Unit = {},
     onOpenReferral: () -> Unit = {},
+    onOpenThresholds: () -> Unit = {},
+    onOpenHelp: () -> Unit = {},
     fiscalSummaryEnabled: Boolean = true,
     onFiscalSummaryToggled: (Boolean) -> Unit = {},
     shareReminderEnabled: Boolean = true,
@@ -77,9 +83,11 @@ private fun AjustesContent(
             onClick = onOpenCostProfile,
             modifier = Modifier.padding(bottom = 0.dp),
         )
+        PrimaryButton(text = stringResource(R.string.thresholds_title), onClick = onOpenThresholds)
         PrimaryButton(text = stringResource(R.string.history_title), onClick = onOpenHistory)
         PrimaryButton(text = stringResource(R.string.ajustes_open_simulator), onClick = onOpenSimulator)
         PrimaryButton(text = stringResource(R.string.referral_entry_title), onClick = onOpenReferral)
+        PrimaryButton(text = stringResource(R.string.help_title), onClick = onOpenHelp)
 
         SettingToggleRow(
             label = stringResource(R.string.fiscal_settings_monthly_summary),

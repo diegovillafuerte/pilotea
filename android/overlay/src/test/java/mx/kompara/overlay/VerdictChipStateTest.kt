@@ -76,6 +76,48 @@ class VerdictChipStateTest {
         assertEquals("$8.00/km", state.netPerKm)
         assertEquals(VerdictChipState.MISSING, state.netPerHour)
         assertTrue(state.hasMissingData)
+        // An untestable metric gets no explainer — the missing-data hint covers it.
+        assertEquals(VerdictChipState.ExplainKind.NONE, state.explainKind)
+    }
+
+    @Test
+    fun `explainer names which floor fell short`() {
+        // Floors 8/140 (zero costs): full offer nets 10/km and 300/h -> both strong.
+        val strong = metricsFor(
+            TripOffer("uber", fareMxn = 100.0, pickupKm = 2.0, pickupMin = 5.0, tripKm = 8.0, tripMin = 15.0),
+        )
+        assertEquals(
+            VerdictChipState.ExplainKind.BOTH_STRONG,
+            VerdictChipState.from(strong).explainKind,
+        )
+
+        // Long slow trip: 100 over 20 km / 60 min -> 5/km (below 8) but 100/h... below 140 too.
+        // Use a fare that keeps the hour green: 150 over 20 km / 60 min -> 7.5/km weak, 150/h green.
+        val kmWeak = metricsFor(
+            TripOffer("uber", fareMxn = 150.0, pickupKm = 5.0, pickupMin = 10.0, tripKm = 15.0, tripMin = 50.0),
+        )
+        assertEquals(
+            VerdictChipState.ExplainKind.KM_WEAK,
+            VerdictChipState.from(kmWeak).explainKind,
+        )
+
+        // Short well-paid km but slow: 80 over 5 km / 60 min -> 16/km green, 80/h below 140.
+        val hourWeak = metricsFor(
+            TripOffer("uber", fareMxn = 80.0, pickupKm = 1.0, pickupMin = 10.0, tripKm = 4.0, tripMin = 50.0),
+        )
+        assertEquals(
+            VerdictChipState.ExplainKind.HOUR_WEAK,
+            VerdictChipState.from(hourWeak).explainKind,
+        )
+
+        // Lowball: 40 over 10 km / 30 min -> 4/km and 80/h, both under their green floors.
+        val bothWeak = metricsFor(
+            TripOffer("uber", fareMxn = 40.0, pickupKm = 2.0, pickupMin = 6.0, tripKm = 8.0, tripMin = 24.0),
+        )
+        assertEquals(
+            VerdictChipState.ExplainKind.BOTH_WEAK,
+            VerdictChipState.from(bothWeak).explainKind,
+        )
     }
 
     @Test

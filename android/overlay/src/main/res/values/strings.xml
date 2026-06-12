@@ -16,6 +16,12 @@
     <string name="overlay_missing_fare">Sin tarifa</string>
     <string name="overlay_missing_generic">Datos incompletos</string>
 
+    <!-- "¿Por qué?" — una línea que explica qué piso pasó o falló (detalle expandido) -->
+    <string name="overlay_explain_both_strong">Rinde bien por km y por hora.</string>
+    <string name="overlay_explain_km_weak">Rinde por hora, pero deja poco por km.</string>
+    <string name="overlay_explain_hour_weak">Paga bien el km, pero es lento: rinde poco por hora.</string>
+    <string name="overlay_explain_both_weak">Por debajo de tus pisos por km y por hora.</string>
+
     <!-- Quick threshold sheet (long-press) -->
     <string name="overlay_threshold_title">Tu semáforo por km</string>
     <string name="overlay_threshold_green_label">Verde desde</string>
