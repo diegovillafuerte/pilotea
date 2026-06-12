@@ -35,6 +35,7 @@ function asDb(d: TestDb) {
   return d as unknown as Parameters<typeof createApp>[0];
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- response bodies are asserted field-by-field
 async function json(res: Response): Promise<any> {
   return res.json();
 }

@@ -23,6 +23,7 @@ const asDb = (d: TestDb) => d as unknown as Parameters<typeof createApp>[0];
 const ADMIN = "test-admin-secret";
 let savedAdmin: string | undefined;
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- response bodies are asserted field-by-field
 async function json(res: Response): Promise<any> {
   return res.json();
 }
@@ -291,7 +292,7 @@ describe("partner codes", () => {
     const res = await adminReq("GET", "/v1/admin/partners");
     expect(res.status).toBe(200);
     const body = await json(res);
-    const partner = body.partners.find((p: any) => p.code === code);
+    const partner = body.partners.find((p) => p.code === code);
     expect(partner.name).toBe("Influencer A");
     expect(partner.redemptionsAllTime).toBe(2);
     expect(partner.redemptionsLast30d).toBe(1);

@@ -22,6 +22,7 @@ const asDb = (d: TestDb) => d as unknown as Parameters<typeof createApp>[0];
 const TOKEN = "purchase-token-xyz";
 const PRODUCT = "kompara_premium";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- response bodies are asserted field-by-field
 async function json(res: Response): Promise<any> {
   return res.json();
 }
