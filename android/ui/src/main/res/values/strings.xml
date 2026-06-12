@@ -138,7 +138,8 @@
     <!-- Pitch de valor (3 páginas) -->
     <string name="onb_pitch_1_titulo">Entérate si conviene antes de aceptar</string>
     <string name="onb_pitch_1_cuerpo">Kompara lee la oferta en tu pantalla y te dice al instante, con un semáforo, si ese viaje te deja ganancia de verdad — antes de que toques \"Aceptar\".</string>
-    <string name="onb_pitch_2_titulo">Gana hasta 30%% más por turno</string>
+    <!-- formatted=false: sin argumentos de formato, un %% se renderizaría literal. -->
+    <string name="onb_pitch_2_titulo" formatted="false">Gana hasta 30% más por turno</string>
     <string name="onb_pitch_2_cuerpo">Rechazar los viajes que no convienen sube tu ganancia por hora. Es el promedio reportado por apps similares; tus resultados dependen de tu zona y tus horarios.</string>
     <string name="onb_pitch_3_titulo">Lo que ves en tu pantalla se queda en tu teléfono</string>
     <string name="onb_pitch_3_cuerpo">Todo el cálculo ocurre en tu celular. Kompara no vende ni comparte lo que aparece en tu pantalla; tu cuenta solo guarda tu configuración y tus totales.</string>
@@ -460,7 +461,8 @@
     <string name="fiscal_pdf_month_totals">Totales del mes</string>
     <string name="fiscal_pdf_ytd_totals">Acumulado del año</string>
     <string name="fiscal_pdf_approx_note">* El neto de esta plataforma es una aproximación (no reporta su comisión); se usa el bruto. Las retenciones se calculan sobre el bruto.</string>
-    <string name="fiscal_pdf_rates_note">Estimación bajo el régimen de plataformas tecnológicas (LISR art. 113-A): ISR 2.1%% e IVA 8%% sobre tarifas brutas, para transporte de pasajeros con RFC. No es asesoría fiscal.</string>
+    <!-- formatted=false: sin argumentos de formato, un %% se renderizaría literal. -->
+    <string name="fiscal_pdf_rates_note" formatted="false">Estimación bajo el régimen de plataformas tecnológicas (LISR art. 113-A): ISR 2.1% e IVA 8% sobre tarifas brutas, para transporte de pasajeros con RFC. No es asesoría fiscal.</string>
     <string name="fiscal_pdf_disclaimer">Documento generado por Kompara con base en los datos que el usuario capturó o importó. Son estimaciones, no asesoría legal ni fiscal ni un comprobante oficial. El dato fiscal autoritativo es tu CFDI/constancia de la plataforma y el SAT.</string>
     <string name="fiscal_pdf_generated_on">Generado el %1$s</string>
     <string name="fiscal_pdf_imss_covered_prefix">IMSS: cobertura alcanzada este mes en</string>

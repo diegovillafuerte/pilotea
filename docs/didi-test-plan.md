@@ -104,4 +104,16 @@ For each received offer, before it expires, note: fare, pickup ("a X min (Y km/m
 
 | Date | Build (commit) | Suite | Pass | Fail | Notes / filed tasks |
 |---|---|---|---|---|---|
-| | | | | | |
+| 2026-06-12 | 3863caa + session fixes | A (signup/onboarding) | A1–A7, A9, A10 | — | A8/A11 not run. OTP, error path, resend cooldown, profile→backend (name+city in drivers row), city→settings mirror all verified on device. Findings F1, F2 (fixed in-session) |
+| 2026-06-12 | ″ | B (reader setup) | B1, B2, B4 | — | Accessibility auto-advance celebration works; OCR consent (Android 15 full-screen mode) starts the FGS; B3 battery not exercised |
+| 2026-06-12 | ″ | C (proxy via rendered DiDi card) | C1, C2, C3, C5, C9, C13 | — | Full OCR→parser→engine→overlay pipeline on a synthetic DiDi card displayed fullscreen: chip "Conviene $15.00/km / $400/h" matches hand calc exactly; explainer + detail correct; chip hides ≤1.5 s after leaving; never covers Aceptar. **Live offers (C6–C8, C12, C14) still need a real driving session** |
+| 2026-06-12 | ″ | D (simulator + Tu semáforo) | D1–D8 | — | RED→YELLOW live re-grade with HOUR_WEAK explainer; red≤green invariant both directions; reset to **Monterrey** medians ($7.70/$5.78/km, $154/$116/h) proves city plumbing; per-platform isolation (DiDi untouched); cross-surface sync (playground↔editor). Finding F4 |
+| 2026-06-12 | ″ | E (resilience subset) | E2 | — | Watchdog notification (canal "Estado del lector") + red Inicio banner with Reactivar on verified service kill. ⚠️ Methodology: OneUI silently restores `settings put secure enabled_accessibility_services ""` — use `settings delete` to simulate the kill. E1/E3–E6 not run |
+
+### Findings (2026-06-12 session)
+
+- **F1 (low, filed B-073):** bottom CTA on onboarding screens renders under the gesture-nav inset ("Continuar"/"Empezar"/"No acepto" partially covered; taps near the bottom edge can be eaten by the system).
+- **F2 (fixed in-session):** `%%` rendered literally in unformatted strings — "Gana hasta 30%% más" on pitch page 2 and the fiscal PDF rates note. Fixed with `formatted="false"` + single `%`.
+- **F3 (fixed in-session, launch-class):** Android blocks cleartext HTTP, so debug builds could never reach a dev backend (OTP, spec fetch, device registration all silently failing on device). Fixed with a debug-only network security config allowing 127.0.0.1/localhost/10.0.2.2; release keeps the platform default.
+- **F4 (low, filed B-074):** the simulator's guided headline text is static per demo shape while its color is live — after moving the playground floor the chip says amarillo but the script still reads "Rojo: …".
+- **F5 (low, filed B-074):** tapping the already-selected bottom tab from a detail screen (e.g. Ayuda) doesn't pop back to the tab root.
