@@ -20,6 +20,7 @@ import kotlinx.serialization.json.Json
 import mx.kompara.sync.BuildConfig
 import mx.kompara.sync.api.ApiClient
 import mx.kompara.sync.api.DeviceIdProvider
+import mx.kompara.sync.api.SessionInvalidator
 import mx.kompara.sync.api.TokenProvider
 import java.util.UUID
 import javax.inject.Qualifier
@@ -50,6 +51,10 @@ object ApiModule {
 
     private const val AUTH_FILE = "kompara_auth"
     private const val KEY_SESSION_TOKEN = "session_token"
+
+    // MUST match AuthRepository.KEY_DRIVER_JSON so clearing the expired session also drops the cached
+    // profile (both keys gate SessionState.Authenticated).
+    private const val KEY_DRIVER_JSON = "driver_profile_json"
 
     // MUST match AuthRepository.KEY_DEVICE_ID so the device-id provider and the
     // repository share the one stable anonymous install id.
@@ -83,6 +88,24 @@ object ApiModule {
         @AuthDataStore dataStore: DataStore<Preferences>,
     ): TokenProvider = TokenProvider {
         dataStore.data.first()[stringPreferencesKey(KEY_SESSION_TOKEN)]
+    }
+
+    /**
+     * Clears the persisted token + cached driver when a bearer call 401s (expired/revoked session,
+     * B-069). Writes the SAME DataStore keys as [mx.kompara.sync.auth.AuthRepository] directly (not via
+     * the repository) to keep the graph acyclic — ApiClient depends on this, and AuthRepository depends
+     * on ApiClient. Dropping both keys flips [mx.kompara.sync.auth.SessionState] to Anonymous, so the
+     * root gate routes to the signup flow. The device id is intentionally retained.
+     */
+    @Provides
+    @Singleton
+    fun provideSessionInvalidator(
+        @AuthDataStore dataStore: DataStore<Preferences>,
+    ): SessionInvalidator = SessionInvalidator {
+        dataStore.edit { prefs ->
+            prefs.remove(stringPreferencesKey(KEY_SESSION_TOKEN))
+            prefs.remove(stringPreferencesKey(KEY_DRIVER_JSON))
+        }
     }
 
     /**
@@ -120,5 +143,6 @@ object ApiModule {
         @ApiBaseUrl baseUrl: String,
         tokenProvider: TokenProvider,
         deviceIdProvider: DeviceIdProvider,
-    ): ApiClient = ApiClient(http, baseUrl, tokenProvider, deviceIdProvider)
+        sessionInvalidator: SessionInvalidator,
+    ): ApiClient = ApiClient(http, baseUrl, tokenProvider, deviceIdProvider, sessionInvalidator)
 }

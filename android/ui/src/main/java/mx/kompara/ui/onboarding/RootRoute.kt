@@ -35,4 +35,15 @@ object RootRouter {
         !authenticated -> RootRoute.AUTH
         else -> RootRoute.MAIN
     }
+
+    /**
+     * Holds the standalone signup gate open until the WHOLE flow finishes (B-069 item 4). The session —
+     * and thus [route] — flips to [RootRoute.MAIN] the moment the OTP verifies, but the profile
+     * (name/ciudad) step hasn't shown yet. While [authFlowActive] (set once we've entered AUTH this
+     * session, cleared by the flow's onComplete), keep rendering AUTH instead of MAIN so the profile
+     * step runs. ONBOARDING/LOADING are passed through untouched (a returning, already-authenticated
+     * user — authFlowActive false — goes straight to MAIN; only an in-session signup is held).
+     */
+    fun effectiveRoute(route: RootRoute, authFlowActive: Boolean): RootRoute =
+        if (authFlowActive && route == RootRoute.MAIN) RootRoute.AUTH else route
 }

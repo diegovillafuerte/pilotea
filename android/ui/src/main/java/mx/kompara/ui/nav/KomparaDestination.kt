@@ -96,6 +96,9 @@ enum class KomparaDestination(
         /** In-app help center (B-071), reachable from Ajustes. */
         const val HELP_ROUTE: String = "help"
 
+        /** Account management ("Tu cuenta", B-069): profile edit, logout, delete; reachable from Ajustes. */
+        const val ACCOUNT_ROUTE: String = "account"
+
         /** History weeks list (B-040 req 3), reachable from Inicio. */
         const val HISTORY_ROUTE: String = "history"
 

@@ -3,6 +3,7 @@ package mx.kompara.sync.auth
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.edit
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.MockRequestHandleScope
@@ -230,6 +231,85 @@ class AuthRepositoryTest {
         // The logout request carried the bearer token.
         val logoutReq = recorded.last { it.url.encodedPath.endsWith("/v1/auth/logout") }
         assertEquals("Bearer tok", logoutReq.headers[HttpHeaders.Authorization])
+    }
+
+    @Test
+    fun `deleteAccount calls DELETE me and clears the session, keeping the device id`() = runTest {
+        dataStore = newDataStore()
+        val tokenProvider = TokenProvider { dataStore.data.first()[
+            androidx.datastore.preferences.core.stringPreferencesKey("session_token")
+        ] }
+        val api = buildApi(tokenProvider) { req ->
+            when {
+                req.url.encodedPath.endsWith("/v1/auth/otp/verify") -> jsonResponse(
+                    """{"token":"tok","driver":{"id":"d-1","phone":"+521","tier":"free"}}""",
+                )
+                req.url.encodedPath.endsWith("/v1/me") -> jsonResponse("""{"ok":true}""")
+                else -> jsonResponse("""{"ok":true}""")
+            }
+        }
+        val repo = AuthRepository(dataStore, api, json)
+
+        val deviceId = repo.deviceId()
+        repo.verifyOtp("+521", "123456")
+        assertTrue(repo.sessionState.first() is SessionState.Authenticated)
+
+        repo.deleteAccount()
+
+        assertEquals(SessionState.Anonymous, repo.sessionState.first())
+        assertNull(repo.currentToken())
+        assertEquals(deviceId, repo.deviceId())
+        // The delete request hit DELETE /v1/me with the bearer token.
+        val delReq = recorded.last { it.url.encodedPath.endsWith("/v1/me") }
+        assertEquals("DELETE", delReq.method.value)
+        assertEquals("Bearer tok", delReq.headers[HttpHeaders.Authorization])
+    }
+
+    @Test
+    fun `a 401 on a bearer call clears the session via the invalidator`() = runTest {
+        dataStore = newDataStore()
+        val tokenKey = androidx.datastore.preferences.core.stringPreferencesKey("session_token")
+        val tokenProvider = TokenProvider { dataStore.data.first()[tokenKey] }
+        // The invalidator mirrors the DI provider: drop the token + driver keys.
+        val invalidator = mx.kompara.sync.api.SessionInvalidator {
+            dataStore.edit { prefs ->
+                prefs.remove(tokenKey)
+                prefs.remove(androidx.datastore.preferences.core.stringPreferencesKey("driver_profile_json"))
+            }
+        }
+        val engine = MockEngine { req ->
+            recorded += req
+            when {
+                req.url.encodedPath.endsWith("/v1/auth/otp/verify") -> jsonResponse(
+                    """{"token":"tok","driver":{"id":"d-1","phone":"+521","tier":"free"}}""",
+                )
+                // The expired-session case: a valid-looking bearer call comes back 401.
+                req.url.encodedPath.endsWith("/v1/me") -> jsonResponse(
+                    """{"error":"Invalid or expired session"}""",
+                    HttpStatusCode.Unauthorized,
+                )
+                else -> jsonResponse("""{"ok":true}""")
+            }
+        }
+        val http = HttpClient(engine) {
+            expectSuccess = false
+            install(ContentNegotiation) { json(json) }
+        }
+        val api = ApiClient(http, "http://test.local", tokenProvider, { "dev" }, invalidator)
+        val repo = AuthRepository(dataStore, api, json)
+
+        repo.verifyOtp("+521", "123456")
+        assertTrue(repo.sessionState.first() is SessionState.Authenticated)
+
+        // A profile refresh now 401s (session expired); the invalidator clears local auth.
+        try {
+            repo.refreshProfile()
+            fail("expected ApiException")
+        } catch (e: ApiException) {
+            assertEquals(401, e.status)
+        }
+        assertEquals(SessionState.Anonymous, repo.sessionState.first())
+        assertNull(repo.currentToken())
     }
 
     @Test

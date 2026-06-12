@@ -327,9 +327,15 @@ Conscious deferrals. Each entry: date, severity, context, why deferred, when to 
 - **Why deferred:** The signup UI/flow was the deliverable; infra (backend deploy, Twilio sender approval, possibly a debug "dev OTP" escape hatch) is ops work tracked toward launch (E-009).
 - **When to fix:** Before any beta distribution (B-054). Either deploy the backend + approve the Twilio sender, or add a debug-only bypass (e.g. fixed dev code via the backend's dev logger MessageSender) so on-device testing doesn't require local infra.
 
-## TD-023: Standalone signup gate skips the profile step; no logout/account UI (B-067)
+## TD-023: Standalone signup gate skips the profile step; no logout/account UI (B-067) — RESOLVED by B-069
 - **Date:** 2026-06-12
 - **Severity:** medium
-- **Context:** `RootRoute.AUTH` (completed-onboarding installs without a session) flips to MAIN the moment the OTP verifies, because the root observes `sessionState` — the profile (name/ciudad) step never shows on that path. Inside onboarding the full phone→code→profile flow runs as designed. There is also no way to log out, edit the profile, or delete the account from Ajustes, and no 401-driven re-auth when the 30-day session expires.
+- **Status:** RESOLVED (2026-06-12, B-069). The standalone AUTH gate now holds open until the flow
+  completes (one-shot `authFlowActive` latch in `KomparaRoot` + pure `RootRouter.effectiveRoute`), so the
+  profile step shows. Ajustes has a "Tu cuenta" screen (profile edit, cerrar sesión, delete account via
+  `DELETE /v1/me`). 401-driven re-auth is wired via `ApiClient`'s `SessionInvalidator`: a 401 on a
+  bearer-required call clears local auth so the root re-gates to signup. Remaining: on-device verification
+  (noted in the B-069 task file).
+- **Context:** `RootRoute.AUTH` (completed-onboarding installs without a session) flipped to MAIN the moment the OTP verified, because the root observes `sessionState` — the profile (name/ciudad) step never showed on that path. Inside onboarding the full phone→code→profile flow runs as designed. There was also no way to log out, edit the profile, or delete the account from Ajustes, and no 401-driven re-auth when the 30-day session expired.
 - **Why deferred:** Acceptable for the main (new-install) funnel; the standalone gate mostly serves pre-account installs (the dev device today). Account management is a coherent follow-up.
-- **When to fix:** B-069 (account management in Ajustes + session-expiry re-auth) — required before Play submission (data-deletion policy).
+- **When to fix:** B-069 (account management in Ajustes + session-expiry re-auth) — required before Play submission (data-deletion policy). DONE.

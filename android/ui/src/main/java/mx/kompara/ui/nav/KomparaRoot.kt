@@ -17,6 +17,7 @@ import androidx.navigation.NavGraphBuilder
 import mx.kompara.ui.auth.SignupFlowScreen
 import mx.kompara.ui.onboarding.OnboardingNavGraph
 import mx.kompara.ui.onboarding.RootRoute
+import mx.kompara.ui.onboarding.RootRouter
 import mx.kompara.ui.onboarding.RootViewModel
 
 /**
@@ -40,9 +41,20 @@ fun KomparaRoot(
     val route by rootViewModel.route.collectAsStateWithLifecycle()
     // One-shot: did onboarding just complete this session? Drives the reader-trial deep link.
     var justCompletedOnboarding by remember { mutableStateOf(false) }
+    // B-069 item 4: hold the standalone signup gate until the WHOLE flow finishes. Once we enter the
+    // AUTH route we stay on the signup flow until its onComplete fires (profile saved or skipped),
+    // even though the session — and thus the route — flips to MAIN the moment the OTP verifies. Without
+    // this latch the root would swap to MAIN on verify and the profile (name/ciudad) step would never
+    // show, which is exactly the bug this task fixes. name/ciudad feed the benchmarks, so we want them.
+    var authFlowActive by remember { mutableStateOf(false) }
+    if (route == RootRoute.AUTH) authFlowActive = true
+    // The latch only matters while we'd otherwise be in MAIN with a session; ONBOARDING/LOADING clear
+    // it so a later logout re-enters AUTH cleanly.
+    if (route == RootRoute.ONBOARDING || route == RootRoute.LOADING) authFlowActive = false
+    val effectiveRoute = RootRouter.effectiveRoute(route, authFlowActive)
 
     Surface(modifier = modifier.fillMaxSize()) {
-        when (route) {
+        when (effectiveRoute) {
             RootRoute.LOADING -> Box(Modifier.fillMaxSize())
             // B-073: the funnel branches draw edge-to-edge with no system-bar handling of their own
             // (unlike the MAIN shell's Scaffold), so their bottom CTAs landed under the gesture-nav
@@ -53,10 +65,10 @@ fun KomparaRoot(
                 modifier = Modifier.safeDrawingPadding(),
             )
             // Standalone signup for installs that completed onboarding before accounts became
-            // required (or after logout). The route flips to MAIN by itself once the session
-            // persists — no callback wiring needed.
+            // required (or after logout). Held open until onComplete (profile saved/skipped) so the
+            // profile step shows even after the session persists on OTP verify (see authFlowActive).
             RootRoute.AUTH -> SignupFlowScreen(
-                onComplete = {},
+                onComplete = { authFlowActive = false },
                 modifier = Modifier.safeDrawingPadding(),
             )
             RootRoute.MAIN -> KomparaApp(

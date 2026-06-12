@@ -121,5 +121,18 @@ export function meRoutes(db: Database) {
     return c.json({ driver: profileOf(row, tier), subscription, premiumUntilMillis }, 200);
   });
 
+  // DELETE /v1/me — hard-delete the driver account (Play data-safety requirement: B-069).
+  // Every child table that references drivers.id is ON DELETE CASCADE (sessions, weekly_aggregates,
+  // imports, subscriptions, referral_codes, referral_redemptions, premium_grants) or SET NULL
+  // (devices — the anonymous install identity survives so the reader keeps working post-deletion), so
+  // a single delete removes all of the driver's PII and consented data. The bearer session is revoked
+  // implicitly by the sessions cascade.
+  app.delete("/me", guard, async (c) => {
+    const driverId = c.get("driverId");
+    const [row] = await db.delete(drivers).where(eq(drivers.id, driverId)).returning();
+    if (!row) return c.json({ error: "Driver not found" }, 404);
+    return c.json({ ok: true }, 200);
+  });
+
   return app;
 }

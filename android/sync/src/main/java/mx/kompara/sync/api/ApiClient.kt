@@ -4,6 +4,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.forms.MultiPartFormDataContent
 import io.ktor.client.request.forms.formData
+import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
@@ -44,12 +45,24 @@ fun interface DeviceIdProvider {
     suspend fun deviceId(): String
 }
 
+/**
+ * Invoked when a bearer-authed request comes back 401, i.e. the 30-day session expired or was
+ * revoked server-side (B-069). The implementation clears the persisted token + driver so the root
+ * gate flips to the signup flow instead of every authed call silently failing. Only fires for
+ * requests that actually carried a bearer token, so anonymous endpoints that legitimately 401 when
+ * signed out (benchmarks, imports, …) never trip it.
+ */
+fun interface SessionInvalidator {
+    suspend fun onSessionExpired()
+}
+
 @Singleton
 class ApiClient @Inject constructor(
     private val http: HttpClient,
     private val baseUrl: String,
     private val tokenProvider: TokenProvider,
     private val deviceIdProvider: DeviceIdProvider,
+    private val sessionInvalidator: SessionInvalidator = SessionInvalidator {},
 ) {
     /** POST /v1/auth/otp/request — request a WhatsApp OTP. Always succeeds (200). */
     suspend fun requestOtp(phone: String) {
@@ -93,7 +106,7 @@ class ApiClient @Inject constructor(
     /** GET /v1/me — fetch the authenticated driver profile (bearer). */
     suspend fun getMe(): DriverDto {
         val res = http.get("$baseUrl/v1/me") { bearer() }
-        ensureOk(res)
+        ensureOkAuthed(res)
         return res.body<MeResponse>().driver
     }
 
@@ -104,7 +117,7 @@ class ApiClient @Inject constructor(
      */
     suspend fun getMeFull(): MeResponse {
         val res = http.get("$baseUrl/v1/me") { bearer() }
-        ensureOk(res)
+        ensureOkAuthed(res)
         return res.body()
     }
 
@@ -114,7 +127,7 @@ class ApiClient @Inject constructor(
      */
     suspend fun getReferralMine(): ReferralMineResponse {
         val res = http.get("$baseUrl/v1/referrals/mine") { bearer() }
-        ensureOk(res)
+        ensureOkAuthed(res)
         return res.body()
     }
 
@@ -129,7 +142,7 @@ class ApiClient @Inject constructor(
             contentType(ContentType.Application.Json)
             setBody(body)
         }
-        ensureOk(res)
+        ensureOkAuthed(res)
         return res.body()
     }
 
@@ -163,8 +176,13 @@ class ApiClient @Inject constructor(
             contentType(ContentType.Application.Json)
             setBody(body)
         }
-        ensureOk(res)
+        ensureOkAuthed(res)
         return res.body<MeResponse>().driver
+    }
+
+    /** DELETE /v1/me — permanently delete the driver account (bearer). Play data-safety (B-069). */
+    suspend fun deleteMe() {
+        ensureOkAuthed(http.delete("$baseUrl/v1/me") { bearer() })
     }
 
     /**
@@ -179,7 +197,7 @@ class ApiClient @Inject constructor(
             contentType(ContentType.Application.Json)
             setBody(body)
         }
-        ensureOk(res)
+        ensureOkAuthed(res)
         return res.body<SubscriptionSyncResponse>().subscription
     }
 
@@ -219,7 +237,7 @@ class ApiClient @Inject constructor(
      * without one yields a 401 [ApiException] the caller treats as a permanent failure.
      */
     suspend fun pushAggregate(body: AggregateUploadBody) {
-        ensureOk(
+        ensureOkAuthed(
             http.post("$baseUrl/v1/aggregates") {
                 bearer()
                 contentType(ContentType.Application.Json)
@@ -268,7 +286,7 @@ class ApiClient @Inject constructor(
             if (dryRun) parameter("dry_run", "true")
             setBody(MultiPartFormDataContent(parts))
         }
-        ensureOk(res)
+        ensureOkAuthed(res)
         return res.body()
     }
 
@@ -326,6 +344,20 @@ class ApiClient @Inject constructor(
         val message = runCatching { res.body<OkResponse>().error }.getOrNull()
             ?: res.status.description
         throw ApiException(res.status.value, message)
+    }
+
+    /**
+     * Like [ensureOk], but a 401 on a strictly bearer-required call means the session expired or was
+     * revoked (B-069): clear the local auth via [sessionInvalidator] before raising, so the root gate
+     * re-auths instead of every authed call silently failing. Used only by endpoints that REQUIRE a
+     * session — never by anonymous-allowed ones (benchmarks, configs…) where a signed-out 401 is
+     * expected and must not wipe a still-valid session.
+     */
+    private suspend fun ensureOkAuthed(res: HttpResponse) {
+        if (res.status.value == HttpStatusCode.Unauthorized.value) {
+            runCatching { sessionInvalidator.onSessionExpired() }
+        }
+        ensureOk(res)
     }
 
     private fun HttpStatusCode.isSuccess(): Boolean = value in 200..299

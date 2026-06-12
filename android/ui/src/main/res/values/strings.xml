@@ -173,6 +173,23 @@
     <string name="auth_profile_saltar">Completar después</string>
     <string name="auth_profile_error">No pudimos guardar tu perfil. Revisa tu conexión e inténtalo de nuevo.</string>
 
+    <!-- ===== Tu cuenta (Account management, B-069) ===== -->
+    <string name="account_entry_title">Tu cuenta</string>
+    <string name="account_title">Tu cuenta</string>
+    <string name="account_phone_label">WhatsApp</string>
+    <string name="account_name_label">Tu nombre</string>
+    <string name="account_city_label">Tu ciudad</string>
+    <string name="account_save_cta">Guardar cambios</string>
+    <string name="account_saved">Cambios guardados.</string>
+    <string name="account_logout_cta">Cerrar sesión</string>
+    <string name="account_delete_cta">Eliminar mi cuenta</string>
+    <string name="account_delete_dialog_title">¿Eliminar tu cuenta?</string>
+    <string name="account_delete_dialog_body">Se borrarán de forma permanente tu cuenta y los datos que guardaste en la nube. Esta acción no se puede deshacer.</string>
+    <string name="account_delete_dialog_confirm">Eliminar</string>
+    <string name="account_delete_dialog_cancel">Cancelar</string>
+    <string name="account_error_save">No pudimos guardar tus cambios. Revisa tu conexión e inténtalo de nuevo.</string>
+    <string name="account_error_delete">No pudimos eliminar tu cuenta. Revisa tu conexión e inténtalo de nuevo.</string>
+
     <!-- ===== Divulgación destacada (Prominent disclosure) =====       -->
     <!-- TODO(legal-B038): COPIA PROVISIONAL. Debe ser revisada y         -->
     <!-- aprobada por asesoría legal (tarea B-038) ANTES del lanzamiento. -->

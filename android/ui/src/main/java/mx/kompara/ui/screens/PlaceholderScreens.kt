@@ -39,6 +39,7 @@ fun AjustesScreen(
     onOpenReferral: () -> Unit = {},
     onOpenThresholds: () -> Unit = {},
     onOpenHelp: () -> Unit = {},
+    onOpenAccount: () -> Unit = {},
     viewModel: AjustesViewModel = hiltViewModel(),
 ) {
     val fiscalSummaryEnabled by viewModel.fiscalMonthlySummaryEnabled.collectAsStateWithLifecycle()
@@ -51,6 +52,7 @@ fun AjustesScreen(
         onOpenReferral = onOpenReferral,
         onOpenThresholds = onOpenThresholds,
         onOpenHelp = onOpenHelp,
+        onOpenAccount = onOpenAccount,
         fiscalSummaryEnabled = fiscalSummaryEnabled,
         onFiscalSummaryToggled = viewModel::setFiscalMonthlySummaryEnabled,
         shareReminderEnabled = shareReminderEnabled,
@@ -67,6 +69,7 @@ private fun AjustesContent(
     onOpenReferral: () -> Unit = {},
     onOpenThresholds: () -> Unit = {},
     onOpenHelp: () -> Unit = {},
+    onOpenAccount: () -> Unit = {},
     fiscalSummaryEnabled: Boolean = true,
     onFiscalSummaryToggled: (Boolean) -> Unit = {},
     shareReminderEnabled: Boolean = true,
@@ -78,6 +81,10 @@ private fun AjustesContent(
             .padding(horizontal = 24.dp, vertical = 24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
     ) {
+        PrimaryButton(
+            text = stringResource(R.string.account_entry_title),
+            onClick = onOpenAccount,
+        )
         PrimaryButton(
             text = stringResource(R.string.cost_editor_title),
             onClick = onOpenCostProfile,

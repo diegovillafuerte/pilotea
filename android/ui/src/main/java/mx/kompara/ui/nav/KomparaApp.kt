@@ -21,6 +21,7 @@ import mx.kompara.ui.imports.importDestination
 import mx.kompara.ui.paywall.GateSurface
 import mx.kompara.ui.paywall.PaywallScreen
 import mx.kompara.ui.referral.referralDestination
+import mx.kompara.ui.screens.AccountScreen
 import mx.kompara.ui.screens.AjustesScreen
 import mx.kompara.ui.screens.CompararScreen
 import mx.kompara.ui.screens.CostProfileScreen
@@ -179,6 +180,7 @@ private fun NavGraphBuilder.tabScreens(navController: NavController) {
             onOpenReferral = { navController.navigate(KomparaDestination.REFERRAL_ROUTE) },
             onOpenThresholds = { navController.navigate(KomparaDestination.THRESHOLDS_ROUTE) },
             onOpenHelp = { navController.navigate(KomparaDestination.HELP_ROUTE) },
+            onOpenAccount = { navController.navigate(KomparaDestination.ACCOUNT_ROUTE) },
         )
     }
 }
@@ -194,6 +196,8 @@ private fun NavGraphBuilder.statsScreens(navController: NavController) {
     // B-070 threshold editor and B-071 help center, both reached from Ajustes.
     composable(KomparaDestination.THRESHOLDS_ROUTE) { ThresholdsScreen() }
     composable(KomparaDestination.HELP_ROUTE) { HelpScreen() }
+    // B-069 account management ("Tu cuenta"), reached from Ajustes.
+    composable(KomparaDestination.ACCOUNT_ROUTE) { AccountScreen() }
     composable(KomparaDestination.HISTORY_ROUTE) {
         HistoryScreen(
             onOpenWeek = { weekStart ->

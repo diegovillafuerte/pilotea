@@ -253,6 +253,60 @@ describe("POST /v1/auth/logout", () => {
   });
 });
 
+describe("DELETE /v1/me (account deletion)", () => {
+  async function login(phone = PHONE): Promise<string> {
+    await post("/v1/auth/otp/request", { phone });
+    const res = await post("/v1/auth/otp/verify", { phone, code: sender.lastCodeFor(phone)! });
+    return (await json(res)).token as string;
+  }
+
+  it("deletes the driver row and revokes the session", async () => {
+    const token = await login();
+    expect(await db.select().from(drivers)).toHaveLength(1);
+
+    const del = await app.request("/v1/me", {
+      method: "DELETE",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(del.status).toBe(200);
+    expect(await json(del)).toEqual({ ok: true });
+
+    // Driver gone, and the session cascade-deleted with it.
+    expect(await db.select().from(drivers)).toHaveLength(0);
+    const after = await app.request("/v1/me", {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(after.status).toBe(401);
+  });
+
+  it("keeps the anonymous device (set-null) so the reader survives deletion", async () => {
+    const deviceId = "33333333-4444-4555-8666-777777777777"; // valid UUID v4
+    await post("/v1/devices/register", { deviceId });
+    await post("/v1/auth/otp/request", { phone: PHONE });
+    const verify = await post("/v1/auth/otp/verify", {
+      phone: PHONE,
+      code: sender.lastCodeFor(PHONE)!,
+      deviceId,
+    });
+    const token = (await json(verify)).token as string;
+
+    const del = await app.request("/v1/me", {
+      method: "DELETE",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(del.status).toBe(200);
+
+    const [device] = await db.select().from(devices).where(sql`device_id = ${deviceId}`);
+    expect(device).toBeTruthy(); // device row survives
+    expect(device!.driverId).toBeNull(); // unlinked from the deleted driver
+  });
+
+  it("401s without a bearer token", async () => {
+    const res = await app.request("/v1/me", { method: "DELETE" });
+    expect(res.status).toBe(401);
+  });
+});
+
 describe("POST /v1/devices/register (anonymous-first)", () => {
   it("registers a device with no account and is idempotent", async () => {
     const deviceId = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"; // valid UUID v4

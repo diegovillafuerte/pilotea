@@ -119,6 +119,21 @@ class AuthRepository @Inject constructor(
      */
     suspend fun logout() {
         runCatching { api.logout() }
+        clearLocalAuth()
+    }
+
+    /**
+     * Permanently delete the driver account server-side (DELETE /v1/me; Play data-safety, B-069), then
+     * clear local auth so the root gate returns to signup. The delete cascades the session + all
+     * consented data server-side; the device id is retained so the (now-anonymous) reader keeps working.
+     * Rethrows on failure so the UI can surface an error instead of pretending the account is gone.
+     */
+    suspend fun deleteAccount() {
+        api.deleteMe()
+        clearLocalAuth()
+    }
+
+    private suspend fun clearLocalAuth() {
         dataStore.edit { prefs ->
             prefs.remove(tokenKey)
             prefs.remove(driverKey)

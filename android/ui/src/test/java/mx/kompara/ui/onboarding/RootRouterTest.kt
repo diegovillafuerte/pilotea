@@ -33,4 +33,24 @@ class RootRouterTest {
     fun `completed onboarding with a session routes to MAIN`() {
         assertEquals(RootRoute.MAIN, RootRouter.route(true, authenticated = true))
     }
+
+    @Test
+    fun `effectiveRoute holds AUTH while the signup flow is active even though the session flipped to MAIN`() {
+        // B-069 item 4: OTP verified mid-flow → route is MAIN, but the profile step hasn't shown.
+        assertEquals(RootRoute.AUTH, RootRouter.effectiveRoute(RootRoute.MAIN, authFlowActive = true))
+    }
+
+    @Test
+    fun `effectiveRoute releases to MAIN once the flow finishes`() {
+        assertEquals(RootRoute.MAIN, RootRouter.effectiveRoute(RootRoute.MAIN, authFlowActive = false))
+    }
+
+    @Test
+    fun `effectiveRoute never overrides a non-MAIN route`() {
+        // A returning, already-authenticated user (latch off) and the genuine AUTH/ONBOARDING/LOADING
+        // states all pass through untouched.
+        assertEquals(RootRoute.AUTH, RootRouter.effectiveRoute(RootRoute.AUTH, authFlowActive = true))
+        assertEquals(RootRoute.ONBOARDING, RootRouter.effectiveRoute(RootRoute.ONBOARDING, authFlowActive = true))
+        assertEquals(RootRoute.LOADING, RootRouter.effectiveRoute(RootRoute.LOADING, authFlowActive = true))
+    }
 }
