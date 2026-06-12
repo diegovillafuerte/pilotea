@@ -13,7 +13,6 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.lifecycle.setViewTreeViewModelStoreOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -58,13 +57,22 @@ import javax.inject.Singleton
  */
 @Singleton
 class OverlayController @Inject constructor(
-    @ApplicationContext private val context: Context,
-    private val windowManager: WindowManager,
     private val engine: NetProfitEngine,
     private val costProfiles: CostProfileRepository,
     private val settings: SettingsRepository,
     private val prefs: OverlayPrefs,
 ) : OverlayPresenter {
+    /**
+     * The accessibility service, set in [start]. A `TYPE_ACCESSIBILITY_OVERLAY` window can only be
+     * added through the service's own WindowManager (it carries the accessibility window token), so
+     * everything window-related resolves from here — never the application context.
+     */
+    private var overlayContext: Context? = null
+
+    private val windowManager: WindowManager
+        get() = requireNotNull(overlayContext) { "OverlayController.start() not called yet" }
+            .getSystemService(WindowManager::class.java)
+
     private var composeView: ComposeView? = null
     private var lifecycleOwner: OverlayLifecycleOwner? = null
     private var layoutParams: WindowManager.LayoutParams? = null
@@ -82,7 +90,8 @@ class OverlayController @Inject constructor(
      * Begin driving the overlay from [events]. Collected on [scope] (the service's scope). Each
      * `Parsed` evaluates the offer and shows the chip; `NoCard` hides it after a short grace.
      */
-    override fun start(scope: CoroutineScope, events: Flow<OfferEvent>) {
+    override fun start(scope: CoroutineScope, events: Flow<OfferEvent>, overlayContext: Context) {
+        this.overlayContext = overlayContext
         val machine = OverlayStateMachine(evaluate = ::evaluate)
         machine.visibility(events)
             .onEach { visibility -> render(scope, visibility) }
@@ -131,7 +140,7 @@ class OverlayController @Inject constructor(
         val owner = OverlayLifecycleOwner().apply { onCreate() }
         lifecycleOwner = owner
 
-        val view = ComposeView(context).apply {
+        val view = ComposeView(requireNotNull(overlayContext)).apply {
             setViewTreeLifecycleOwner(owner)
             setViewTreeSavedStateRegistryOwner(owner)
             setViewTreeViewModelStoreOwner(owner)
@@ -155,7 +164,16 @@ class OverlayController @Inject constructor(
         layoutParams = params
         composeView = view
         owner.onResume()
-        windowManager.addView(view, params)
+        // Never let an overlay attach failure crash the accessibility service process — that would
+        // take the reader and fixture recording down with it. Log, reset, and let the next offer
+        // retry. (The TYPE_ACCESSIBILITY_OVERLAY token comes from the service context set in start.)
+        runCatching { windowManager.addView(view, params) }.onFailure { error ->
+            android.util.Log.e("OverlayController", "overlay attach failed", error)
+            owner.onDestroy()
+            composeView = null
+            lifecycleOwner = null
+            layoutParams = null
+        }
     }
 
     /** Remove the overlay window if attached. Main-thread only. Idempotent. */
@@ -176,6 +194,7 @@ class OverlayController @Inject constructor(
         lifecycleOwner = null
         layoutParams = null
         chipState = null
+        overlayContext = null
     }
 
     private fun onDrag(dxPx: Float, dyPx: Float) {

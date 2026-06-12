@@ -48,7 +48,7 @@ class KomparaAccessibilityService : AccessibilityService() {
         // allowed to attach the TYPE_ACCESSIBILITY_OVERLAY window; the presenter (an :overlay
         // OverlayController, injected as an interface to avoid a :capture -> :overlay cycle) does
         // the window plumbing. A sibling telemetry collector sits on offers independently.
-        overlayPresenter.start(scope, offerPipeline.offers)
+        overlayPresenter.start(scope, offerPipeline.offers, this)
         serviceState.setConnected(true)
     }
 
