@@ -4,14 +4,18 @@ import mx.kompara.data.model.City
 import mx.kompara.data.model.Platform
 
 /**
- * User-tunable settings backing the reader: which platforms are active and the per-platform
- * acceptance thresholds.
+ * User-tunable settings backing the reader: which platforms are active and the shared acceptance
+ * threshold.
  */
 data class Settings(
     /** Platforms the driver has enabled for capture/verdicts. */
     val enabledPlatforms: Set<Platform>,
-    /** Per-platform acceptance floors; missing entries fall back to [PlatformThreshold.DEFAULT]. */
-    val thresholds: Map<Platform, PlatformThreshold>,
+    /**
+     * The driver's acceptance floors, shared by EVERY platform (B-076: drivers think in one floor
+     * for their shift, not one per app). Null until first tuned — read through
+     * [effectiveThreshold].
+     */
+    val threshold: PlatformThreshold? = null,
     /**
      * Whether anonymous parse-health telemetry (B-034) may be uploaded. Default
      * ON: the counters carry NO personal data — only host package/version, spec
@@ -132,9 +136,9 @@ data class Settings(
      */
     val fiscalExportCount: Int = 0,
 ) {
-    /** Threshold for [platform], or the default when none has been set. */
-    fun thresholdFor(platform: Platform): PlatformThreshold =
-        thresholds[platform] ?: PlatformThreshold.DEFAULT
+    /** The shared acceptance floors, or the conservative default when never tuned (B-076). */
+    val effectiveThreshold: PlatformThreshold
+        get() = threshold ?: PlatformThreshold.DEFAULT
 
     /** Whether capture/verdicts are active for [platform]. */
     fun isEnabled(platform: Platform): Boolean = platform in enabledPlatforms
@@ -167,7 +171,7 @@ data class Settings(
         /** Launch defaults: Uber + DiDi enabled, default thresholds, telemetry on, onboarding pending. */
         val DEFAULT = Settings(
             enabledPlatforms = setOf(Platform.UBER, Platform.DIDI),
-            thresholds = emptyMap(),
+            threshold = null,
             telemetryEnabled = DEFAULT_TELEMETRY_ENABLED,
             onboardingCompleted = DEFAULT_ONBOARDING_COMPLETED,
             shareAggregates = DEFAULT_SHARE_AGGREGATES,

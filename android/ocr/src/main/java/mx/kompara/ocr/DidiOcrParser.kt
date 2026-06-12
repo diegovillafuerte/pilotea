@@ -57,6 +57,18 @@ class DidiOcrParser {
         )
     }
 
+    /**
+     * Whether the frame still carries the offer-card *signature* — a currency amount plus at least
+     * one "Nmin (X km)" leg — even though full parsing failed (B-077). The map animating under the
+     * card garbles single frames often ("1nmin", "Zmin"), so a failed parse with the signature
+     * present means "card still up, frame garbled", not "card gone". The idle map screen fails
+     * this: its "$0.00" wallet pill has no leg line.
+     */
+    fun hasCardSignature(blocks: List<OcrBlock>): Boolean {
+        val text = blocks.joinToString(" ") { it.text }
+        return fareRegex.containsMatchIn(text) && legRegex.containsMatchIn(text)
+    }
+
     private fun extractFare(blocks: List<OcrBlock>): Double? {
         // Most reliable: the amount on the "Aceptar $X" button echoes the current price — and on the
         // "Pon Tu Precio" bid card it disambiguates the real fare from the higher bid options.

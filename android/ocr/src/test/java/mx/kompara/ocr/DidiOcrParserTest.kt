@@ -92,6 +92,31 @@ class DidiOcrParserTest {
         assertNull(parser.parse(partial))
     }
 
+    @Test
+    fun `garbled card frame keeps the signature (B-077)`() {
+        // One leg garbled by the animating map ("1nmin"), the other intact: unparseable, but the
+        // signature says the card is still on screen.
+        val garbled = listOf(
+            block("\$132.59", 83, 973, 543, 1085),
+            block("1nmin (1.2km)", 139, 1692, 441, 1745),
+            block("39min (17.3km)", 156, 1902, 514, 1960),
+        )
+        assertNull(parser.parse(listOf(garbled[0], garbled[1]))) // fare + 1 leg → no parse
+        assertTrue(parser.hasCardSignature(garbled))
+    }
+
+    @Test
+    fun `idle map screen has no card signature (B-077)`() {
+        // The wallet pill matches the fare regex but there is no leg line — must NOT read as a card.
+        val idle = listOf(
+            block("\$0.00", 400, 80, 520, 130),
+            block("Buscando", 134, 866, 393, 903),
+            block("MEX-95", 1038, 2, 1066, 124),
+        )
+        assertNull(parser.parse(idle))
+        assertEquals(false, parser.hasCardSignature(idle))
+    }
+
     private fun block(text: String, l: Int, t: Int, r: Int, b: Int) =
         OcrBlock(text, OcrBounds(l, t, r, b))
 }

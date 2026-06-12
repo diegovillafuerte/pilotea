@@ -41,6 +41,19 @@
     <string name="lector_on_cta">Probar en el simulador</string>
     <string name="lector_settings_cta">Configuración de accesibilidad</string>
 
+    <!-- B-075: screen-capture (OCR) reader controls — DiDi has no accessibility text. -->
+    <string name="lector_ocr_title">Lector de pantalla para DiDi</string>
+    <string name="lector_ocr_running">Activo: verás el semáforo sobre cada oferta de DiDi.</string>
+    <string name="lector_ocr_stopped">Detenido: inícialo para ver el semáforo en DiDi. Se detiene al bloquear el teléfono.</string>
+    <string name="lector_ocr_start_cta">Iniciar lector de pantalla</string>
+    <string name="lector_ocr_restart_cta">Reiniciar lector de pantalla</string>
+    <!-- Prominent disclosure (Play policy) shown BEFORE the system capture consent.
+         TODO(legal-B038): counsel review of this copy before Play submission. -->
+    <string name="lector_ocr_disclosure_title">Kompara leerá tu pantalla</string>
+    <string name="lector_ocr_disclosure_body">Para mostrarte el semáforo sobre las ofertas de DiDi, Kompara captura tu pantalla y la analiza únicamente en tu teléfono. Nada de lo que aparece en tu pantalla se guarda en servidores ni sale de tu dispositivo. Puedes detener la captura cuando quieras desde la notificación o el ícono de transmisión del sistema.</string>
+    <string name="lector_ocr_disclosure_accept">Continuar</string>
+    <string name="lector_ocr_disclosure_cancel">Ahora no</string>
+
     <!-- ============================================================= -->
     <!-- Pantalla: Fiscal                                             -->
     <!-- ============================================================= -->
@@ -60,7 +73,7 @@
     <!-- Umbrales del semáforo (B-070): editor completo en Ajustes     -->
     <!-- ============================================================= -->
     <string name="thresholds_title">Tu semáforo</string>
-    <string name="thresholds_intro">Define cuándo un viaje se marca en verde, amarillo o rojo: verde si gana al menos el piso verde, rojo si gana menos que el piso rojo, y amarillo entre los dos. Los pisos son netos — después de gasolina y desgaste.</string>
+    <string name="thresholds_intro">Define cuándo un viaje se marca en verde, amarillo o rojo: verde si gana al menos el piso verde, rojo si gana menos que el piso rojo, y amarillo entre los dos. Los pisos son netos — después de gasolina y desgaste — y el mismo semáforo aplica a todas tus apps.</string>
     <string name="thresholds_section_km">Por kilómetro (neto)</string>
     <string name="thresholds_section_hour">Por hora (neto)</string>
     <string name="thresholds_green_label">Verde desde</string>

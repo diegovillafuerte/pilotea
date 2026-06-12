@@ -18,6 +18,7 @@ android {
 
 dependencies {
     implementation(project(":capture"))
+    implementation(project(":data"))
     implementation(project(":parsers"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.kotlinx.coroutines.android)

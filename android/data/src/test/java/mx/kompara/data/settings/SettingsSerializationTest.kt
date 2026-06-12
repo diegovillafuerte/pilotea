@@ -18,11 +18,11 @@ class SettingsSerializationTest {
     fun `decode with no stored values yields defaults`() {
         val settings = SettingsSerialization.decode(enabledNames = null, lookupDouble = { null })
         assertEquals(Settings.DEFAULT.enabledPlatforms, settings.enabledPlatforms)
-        assertTrue(settings.thresholds.isEmpty())
-        // Missing thresholds fall back to the default floor.
+        assertNull(settings.threshold)
+        // A never-tuned threshold falls back to the default floor.
         assertEquals(
             PlatformThreshold.DEFAULT.minPerKmMxn,
-            settings.thresholdFor(Platform.UBER).minPerKmMxn,
+            settings.effectiveThreshold.minPerKmMxn,
             0.0001,
         )
     }
@@ -37,84 +37,128 @@ class SettingsSerializationTest {
     }
 
     @Test
-    fun `decode reconstructs per-platform thresholds`() {
+    fun `decode reconstructs the shared threshold from the global keys`() {
         val stored = mapOf(
-            SettingsSerialization.perKmKey(Platform.UBER) to 10.5,
-            SettingsSerialization.perHourKey(Platform.UBER) to 120.0,
+            SettingsSerialization.KEY_THRESHOLD_PER_KM to 10.5,
+            SettingsSerialization.KEY_THRESHOLD_PER_HOUR to 120.0,
         )
         val settings = SettingsSerialization.decode(
             enabledNames = setOf("UBER"),
             lookupDouble = { key -> stored[key] },
         )
-        val uber = settings.thresholdFor(Platform.UBER)
-        assertEquals(10.5, uber.minPerKmMxn, 0.0001)
-        assertEquals(120.0, uber.minPerHourMxn, 0.0001)
+        val threshold = settings.effectiveThreshold
+        assertEquals(10.5, threshold.minPerKmMxn, 0.0001)
+        assertEquals(120.0, threshold.minPerHourMxn, 0.0001)
     }
 
     @Test
     fun `decode reads stored red floors`() {
         val stored = mapOf(
-            SettingsSerialization.perKmKey(Platform.UBER) to 10.0,
-            SettingsSerialization.perHourKey(Platform.UBER) to 120.0,
-            SettingsSerialization.perKmRedKey(Platform.UBER) to 7.0,
-            SettingsSerialization.perHourRedKey(Platform.UBER) to 80.0,
+            SettingsSerialization.KEY_THRESHOLD_PER_KM to 10.0,
+            SettingsSerialization.KEY_THRESHOLD_PER_HOUR to 120.0,
+            SettingsSerialization.KEY_THRESHOLD_PER_KM_RED to 7.0,
+            SettingsSerialization.KEY_THRESHOLD_PER_HOUR_RED to 80.0,
         )
         val settings = SettingsSerialization.decode(
             enabledNames = setOf("UBER"),
             lookupDouble = { key -> stored[key] },
         )
-        val uber = settings.thresholdFor(Platform.UBER)
-        assertEquals(7.0, uber.redPerKmMxn, 0.0001)
-        assertEquals(80.0, uber.redPerHourMxn, 0.0001)
+        val threshold = settings.effectiveThreshold
+        assertEquals(7.0, threshold.redPerKmMxn, 0.0001)
+        assertEquals(80.0, threshold.redPerHourMxn, 0.0001)
     }
 
     @Test
     fun `missing red floors derive from the stored green floors`() {
         // An install that tuned its green floors before red floors existed.
         val stored = mapOf(
-            SettingsSerialization.perKmKey(Platform.UBER) to 10.0,
-            SettingsSerialization.perHourKey(Platform.UBER) to 120.0,
+            SettingsSerialization.KEY_THRESHOLD_PER_KM to 10.0,
+            SettingsSerialization.KEY_THRESHOLD_PER_HOUR to 120.0,
         )
         val settings = SettingsSerialization.decode(
             enabledNames = setOf("UBER"),
             lookupDouble = { key -> stored[key] },
         )
-        val uber = settings.thresholdFor(Platform.UBER)
-        assertEquals(10.0 * PlatformThreshold.DEFAULT_RED_FRACTION, uber.redPerKmMxn, 0.0001)
-        assertEquals(120.0 * PlatformThreshold.DEFAULT_RED_FRACTION, uber.redPerHourMxn, 0.0001)
+        val threshold = settings.effectiveThreshold
+        assertEquals(10.0 * PlatformThreshold.DEFAULT_RED_FRACTION, threshold.redPerKmMxn, 0.0001)
+        assertEquals(120.0 * PlatformThreshold.DEFAULT_RED_FRACTION, threshold.redPerHourMxn, 0.0001)
     }
 
     @Test
     fun `stored red floor above the green floor is clamped down to it`() {
         val stored = mapOf(
-            SettingsSerialization.perKmKey(Platform.UBER) to 8.0,
-            SettingsSerialization.perKmRedKey(Platform.UBER) to 11.0,
+            SettingsSerialization.KEY_THRESHOLD_PER_KM to 8.0,
+            SettingsSerialization.KEY_THRESHOLD_PER_KM_RED to 11.0,
         )
         val settings = SettingsSerialization.decode(
             enabledNames = setOf("UBER"),
             lookupDouble = { key -> stored[key] },
         )
-        assertEquals(8.0, settings.thresholdFor(Platform.UBER).redPerKmMxn, 0.0001)
+        assertEquals(8.0, settings.effectiveThreshold.redPerKmMxn, 0.0001)
     }
 
     @Test
     fun `partial threshold falls back to default for the missing field`() {
-        val stored = mapOf(SettingsSerialization.perKmKey(Platform.DIDI) to 9.0)
+        val stored = mapOf(SettingsSerialization.KEY_THRESHOLD_PER_KM to 9.0)
         val settings = SettingsSerialization.decode(
             enabledNames = null,
             lookupDouble = { key -> stored[key] },
         )
-        val didi = settings.thresholdFor(Platform.DIDI)
-        assertEquals(9.0, didi.minPerKmMxn, 0.0001)
-        assertEquals(PlatformThreshold.DEFAULT.minPerHourMxn, didi.minPerHourMxn, 0.0001)
+        val threshold = settings.effectiveThreshold
+        assertEquals(9.0, threshold.minPerKmMxn, 0.0001)
+        assertEquals(PlatformThreshold.DEFAULT.minPerHourMxn, threshold.minPerHourMxn, 0.0001)
+    }
+
+    @Test
+    fun `legacy per-platform floors migrate, preferring DiDi (B-076)`() {
+        // A pre-B-076 install that tuned DiDi and Uber separately: the DiDi floors win.
+        val stored = mapOf(
+            SettingsSerialization.perKmKey(Platform.UBER) to 12.0,
+            SettingsSerialization.perHourKey(Platform.UBER) to 150.0,
+            SettingsSerialization.perKmKey(Platform.DIDI) to 9.5,
+            SettingsSerialization.perHourKey(Platform.DIDI) to 110.0,
+            SettingsSerialization.perKmRedKey(Platform.DIDI) to 7.0,
+        )
+        val settings = SettingsSerialization.decode(
+            enabledNames = null,
+            lookupDouble = { key -> stored[key] },
+        )
+        val threshold = settings.threshold!!
+        assertEquals(9.5, threshold.minPerKmMxn, 0.0001)
+        assertEquals(110.0, threshold.minPerHourMxn, 0.0001)
+        assertEquals(7.0, threshold.redPerKmMxn, 0.0001)
+    }
+
+    @Test
+    fun `legacy migration falls back to Uber when DiDi was never tuned (B-076)`() {
+        val stored = mapOf(
+            SettingsSerialization.perKmKey(Platform.UBER) to 12.0,
+            SettingsSerialization.perHourKey(Platform.UBER) to 150.0,
+        )
+        val settings = SettingsSerialization.decode(
+            enabledNames = null,
+            lookupDouble = { key -> stored[key] },
+        )
+        assertEquals(12.0, settings.threshold!!.minPerKmMxn, 0.0001)
+    }
+
+    @Test
+    fun `global keys win over legacy per-platform keys (B-076)`() {
+        // Once the shared semáforo has been written, stale legacy keys must be ignored.
+        val stored = mapOf(
+            SettingsSerialization.KEY_THRESHOLD_PER_KM to 8.5,
+            SettingsSerialization.perKmKey(Platform.DIDI) to 9.5,
+        )
+        val settings = SettingsSerialization.decode(
+            enabledNames = null,
+            lookupDouble = { key -> stored[key] },
+        )
+        assertEquals(8.5, settings.threshold!!.minPerKmMxn, 0.0001)
     }
 
     @Test
     fun `encode round-trips enabled platform names`() {
-        val settings = Settings(
-            enabledPlatforms = setOf(Platform.UBER, Platform.INDRIVE),
-            thresholds = emptyMap(),
-        )
+        val settings = Settings(enabledPlatforms = setOf(Platform.UBER, Platform.INDRIVE))
         val names = SettingsSerialization.encodeEnabledPlatforms(settings)
         assertEquals(setOf("UBER", "INDRIVE"), names)
         assertEquals(settings.enabledPlatforms, SettingsSerialization.decodeEnabledPlatforms(names))
@@ -122,7 +166,7 @@ class SettingsSerializationTest {
 
     @Test
     fun `isEnabled reflects the enabled set`() {
-        val settings = Settings(enabledPlatforms = setOf(Platform.UBER), thresholds = emptyMap())
+        val settings = Settings(enabledPlatforms = setOf(Platform.UBER))
         assertTrue(settings.isEnabled(Platform.UBER))
         assertFalse(settings.isEnabled(Platform.DIDI))
     }

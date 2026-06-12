@@ -3,6 +3,7 @@ package mx.kompara.ocr
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
@@ -25,6 +26,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import mx.kompara.capture.OfferEvent
 import mx.kompara.capture.OfferEventBus
+import mx.kompara.data.service.ScreenReaderState
 import java.io.File
 
 /**
@@ -33,16 +35,19 @@ import java.io.File
  * few per second, runs [OcrEngine], and logs/records the recognized offer text so we can validate
  * that ML Kit reads real DiDi/inDrive cards before building the full OCR pipeline (S-023).
  *
- * This is the B-059/B-060 vertical slice: minimal, debug-oriented. Production hardening (foreground
- * gating, consent UX, lifecycle) lands in the full tasks.
+ * Lifecycle (B-075): Android revokes the projection on every screen lock / consent withdrawal, and
+ * the grant is one-shot — the service cannot restart itself. So an unexpected stop posts a
+ * tap-to-restart notification (relaunching the consent flow via [ScreenReaderState.ACTION_START]),
+ * fully stops the foreground service (no stale "leyendo la pantalla" notification), and mirrors the
+ * live state into [ScreenReaderState] for the Lector tab.
  */
 class OcrCaptureService : Service() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val engine = OcrEngine()
     private val didiParser = DidiOcrParser()
+    private val presence = CardPresenceTracker()
     private var lastOfferKey: String? = null
-    private var missStreak = 0
     private var projection: MediaProjection? = null
     private var virtualDisplay: VirtualDisplay? = null
     private var imageReader: ImageReader? = null
@@ -63,6 +68,9 @@ class OcrCaptureService : Service() {
 
         startAsForeground()
 
+        // Re-consent while already capturing (Lector "reiniciar"): drop the old projection first.
+        if (projection != null) teardown()
+
         val mpm = getSystemService(MediaProjectionManager::class.java)
         val mp = mpm.getMediaProjection(resultCode, data)
         if (mp == null) {
@@ -70,12 +78,19 @@ class OcrCaptureService : Service() {
             return START_NOT_STICKY
         }
         projection = mp
-        // Android 14+ requires a registered callback.
+        // Android 14+ requires a registered callback. It fires for OUR teardown() too (restart,
+        // onDestroy) — by then `projection` no longer points at mp, so only an external revocation
+        // (keyguard, the system screen-cast chip) takes the recovery path.
         mp.registerCallback(object : MediaProjection.Callback() {
-            override fun onStop() { teardown() }
+            override fun onStop() {
+                if (projection !== mp) return
+                teardown()
+                onProjectionLost()
+            }
         }, null)
 
         startCapture(mp)
+        ScreenReaderState.setRunning(true)
         return START_NOT_STICKY
     }
 
@@ -118,11 +133,13 @@ class OcrCaptureService : Service() {
         Log.d(TAG, "OCR(${blocks.size}): $joined")
 
         // Parse → publish to the shared bus so the accessibility-service-hosted overlay shows the
-        // verdict. Dedup identical offers; emit NoCard once the offer leaves the screen so it hides.
+        // verdict. Dedup identical offers; emit NoCard once the card actually leaves the screen —
+        // [CardPresenceTracker] holds the verdict through OCR-garbled frames (B-077).
         val card = didiParser.parse(blocks)
+        val now = System.currentTimeMillis()
         if (card != null) {
+            presence.onParsed(now)
             val key = "${card.fare}_${card.pickupDistanceKm}_${card.tripDistanceKm}"
-            missStreak = 0
             if (key != lastOfferKey) {
                 lastOfferKey = key
                 OfferEventBus.tryEmit(
@@ -131,10 +148,8 @@ class OcrCaptureService : Service() {
                 Log.d(TAG, "emitted DiDi offer: fare=${card.fare} pickup=${card.pickupDistanceKm}km trip=${card.tripDistanceKm}km")
             }
         } else if (lastOfferKey != null) {
-            missStreak++
-            if (missStreak >= OFFER_GONE_FRAMES) {
+            if (presence.onMiss(didiParser.hasCardSignature(blocks), now)) {
                 lastOfferKey = null
-                missStreak = 0
                 OfferEventBus.tryEmit(
                     OfferEvent.NoCard(
                         DidiOcrParser.DIDI_PACKAGE,
@@ -181,10 +196,45 @@ class OcrCaptureService : Service() {
         }
     }
 
+    /**
+     * Android revoked the projection (screen lock is the everyday case — STOP_REASON_KEYGUARD).
+     * The grant is one-shot, so recovery needs the driver: post a tap-to-restart notification, then
+     * stop the service entirely so the foreground "leyendo la pantalla" notification can't linger
+     * stale (B-075).
+     */
+    private fun onProjectionLost() {
+        val nm = getSystemService(NotificationManager::class.java)
+        nm.createNotificationChannel(
+            NotificationChannel(
+                STOPPED_CHANNEL_ID,
+                "Estado del lector",
+                NotificationManager.IMPORTANCE_HIGH,
+            ),
+        )
+        val restart = PendingIntent.getActivity(
+            this,
+            0,
+            Intent(ScreenReaderState.ACTION_START).setPackage(packageName)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        val notification = Notification.Builder(this, STOPPED_CHANNEL_ID)
+            .setContentTitle("Se detuvo el lector de pantalla")
+            .setContentText("Tócame para reiniciarlo y volver a ver el semáforo en DiDi.")
+            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setContentIntent(restart)
+            .setAutoCancel(true)
+            .build()
+        nm.notify(STOPPED_NOTIF_ID, notification)
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelf()
+    }
+
     private fun teardown() {
         virtualDisplay?.release(); virtualDisplay = null
         imageReader?.close(); imageReader = null
         projection?.stop(); projection = null
+        ScreenReaderState.setRunning(false)
     }
 
     override fun onDestroy() {
@@ -196,12 +246,11 @@ class OcrCaptureService : Service() {
     companion object {
         private const val TAG = "KomparaOCR"
         private const val NOTIF_ID = 42
-        private const val THROTTLE_MS = 500L
-        // Hide only after this many CONSECUTIVE unparseable frames (~3s at THROTTLE_MS). The map
-        // animates under the card, so single frames garble often ("1nmin", "Zmin"); a real
-        // dismissal changes the whole screen and racks up misses fast. High enough to kill flicker,
-        // low enough to hide promptly once the offer is actually gone.
-        private const val OFFER_GONE_FRAMES = 6
+        private const val STOPPED_CHANNEL_ID = "ocr_reader_state"
+        private const val STOPPED_NOTIF_ID = 43
+        // 300 ms bounds the offer→verdict latency (plus ML Kit time); ~3 fps full-screen OCR is
+        // fine on the target devices and only runs while the driver has the reader on.
+        private const val THROTTLE_MS = 300L
         const val EXTRA_RESULT_CODE = "result_code"
         const val EXTRA_DATA = "data"
 

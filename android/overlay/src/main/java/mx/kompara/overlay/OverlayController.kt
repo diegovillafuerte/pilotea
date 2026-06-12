@@ -22,7 +22,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import mx.kompara.capture.OfferEvent
 import mx.kompara.capture.OverlayPresenter
-import mx.kompara.data.model.Platform
 import mx.kompara.data.settings.PlatformThreshold
 import mx.kompara.data.settings.SettingsRepository
 import mx.kompara.metrics.CostProfile
@@ -80,7 +79,6 @@ class OverlayController @Inject constructor(
     /** Live state the composition observes; updated as offers arrive. */
     private var chipState by mutableStateOf<VerdictChipState?>(null)
     private var currentThreshold by mutableStateOf(PlatformThreshold.DEFAULT)
-    private var currentPlatform: Platform = Platform.UNKNOWN
 
     /** Measured once per attach so the pure positioning math has concrete pixel bounds. */
     private var chipWidthPx: Int = DEFAULT_CHIP_WIDTH_PX
@@ -101,9 +99,8 @@ class OverlayController @Inject constructor(
     /** Evaluate a parsed offer into full metrics, applying the driver's cost profile + threshold. */
     private fun evaluate(event: OfferEvent.Parsed): OfferMetrics {
         val tripOffer = OfferMapping.toTripOffer(event.card)
-        currentPlatform = OfferMapping.platformOf(event.card.platform)
         val costProfile: CostProfile = CostProfileMapper.toCostProfileOrZero(costProfileSnapshot)
-        currentThreshold = thresholdSnapshot(currentPlatform)
+        currentThreshold = thresholdSnapshot()
         return engine.evaluate(tripOffer, costProfile, currentThreshold)
     }
 
@@ -112,8 +109,8 @@ class OverlayController @Inject constructor(
     @Volatile private var costProfileSnapshot: mx.kompara.data.db.entity.CostProfileEntity? = null
     @Volatile private var settingsSnapshot: mx.kompara.data.settings.Settings? = null
 
-    private fun thresholdSnapshot(platform: Platform): PlatformThreshold =
-        settingsSnapshot?.thresholdFor(platform) ?: PlatformThreshold.DEFAULT
+    private fun thresholdSnapshot(): PlatformThreshold =
+        settingsSnapshot?.effectiveThreshold ?: PlatformThreshold.DEFAULT
 
     private suspend fun render(scope: CoroutineScope, visibility: OverlayVisibility) {
         // Refresh persisted snapshots so the next evaluate() and the threshold sheet are current,
@@ -125,7 +122,7 @@ class OverlayController @Inject constructor(
             when (visibility) {
                 is OverlayVisibility.Showing -> {
                     chipState = VerdictChipState.from(visibility.metrics)
-                    currentThreshold = thresholdSnapshot(currentPlatform)
+                    currentThreshold = thresholdSnapshot()
                     attach(scope)
                 }
                 OverlayVisibility.Hidden -> detach()
@@ -233,9 +230,9 @@ class OverlayController @Inject constructor(
 
     private suspend fun onThresholdChange(updated: PlatformThreshold) {
         currentThreshold = updated
-        // Persist via the shared SettingsRepository so the engine + Ajustes share one floor.
-        val platform = if (currentPlatform == Platform.UNKNOWN) Platform.UBER else currentPlatform
-        settings.setThreshold(platform, updated)
+        // Persist via the shared SettingsRepository so the engine + Ajustes share one floor (B-076:
+        // a single semáforo for every platform).
+        settings.setThreshold(updated)
     }
 
     private fun newLayoutParams(): WindowManager.LayoutParams {

@@ -54,18 +54,26 @@
             </intent-filter>
         </activity>
 
-        <!-- OCR capture consent entry (S-023 proof). Exported so it can be launched for testing;
-             the production trigger is an in-app button (B-059/B-062). Isolated in its own task and
-             non-persistent so the launcher icon can never resume it instead of MainActivity (it
-             would otherwise re-prompt for screen sharing and trap the user). -->
+        <!-- OCR capture consent entry. Launched by the Lector tab button and the reader-stopped
+             notification via the package-internal action below (B-075; the literal must match
+             ScreenReaderState.ACTION_START), and directly for testing. Isolated in its own task
+             (taskAffinity="" + excludeFromRecents + finishOnTaskLaunch) so the launcher icon can
+             never resume it instead of MainActivity (it would otherwise re-prompt for screen
+             sharing and trap the user). Deliberately NOT noHistory: a no-history activity is
+             finished if the system consent UI ever fully covers it, dropping the activity result —
+             it finishes itself after the result instead. -->
         <activity
             android:name=".OcrConsentActivity"
             android:exported="true"
             android:taskAffinity=""
             android:excludeFromRecents="true"
-            android:noHistory="true"
             android:finishOnTaskLaunch="true"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="mx.kompara.action.START_SCREEN_READER" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
 
         <!--
           On-demand WorkManager initialization (B-033): the app supplies its own Configuration via

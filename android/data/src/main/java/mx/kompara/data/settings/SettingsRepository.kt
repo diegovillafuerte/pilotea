@@ -226,16 +226,16 @@ class SettingsRepository @Inject constructor(
         }
     }
 
-    /** Set the acceptance thresholds for a single platform. */
-    suspend fun setThreshold(platform: Platform, threshold: PlatformThreshold) {
+    /** Set the shared acceptance thresholds (B-076: one semáforo for every platform). */
+    suspend fun setThreshold(threshold: PlatformThreshold) {
         dataStore.edit { prefs ->
-            prefs[doublePreferencesKey(SettingsSerialization.perKmKey(platform))] =
+            prefs[doublePreferencesKey(SettingsSerialization.KEY_THRESHOLD_PER_KM)] =
                 threshold.minPerKmMxn
-            prefs[doublePreferencesKey(SettingsSerialization.perHourKey(platform))] =
+            prefs[doublePreferencesKey(SettingsSerialization.KEY_THRESHOLD_PER_HOUR)] =
                 threshold.minPerHourMxn
-            prefs[doublePreferencesKey(SettingsSerialization.perKmRedKey(platform))] =
+            prefs[doublePreferencesKey(SettingsSerialization.KEY_THRESHOLD_PER_KM_RED)] =
                 threshold.redPerKmMxn
-            prefs[doublePreferencesKey(SettingsSerialization.perHourRedKey(platform))] =
+            prefs[doublePreferencesKey(SettingsSerialization.KEY_THRESHOLD_PER_HOUR_RED)] =
                 threshold.redPerHourMxn
         }
     }

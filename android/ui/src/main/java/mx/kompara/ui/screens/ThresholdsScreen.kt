@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
@@ -27,7 +26,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import mx.kompara.data.model.Platform
 import mx.kompara.ui.R
 import mx.kompara.ui.stats.ThresholdEditor
 import mx.kompara.ui.stats.ThresholdsViewModel
@@ -35,8 +33,9 @@ import java.util.Locale
 
 /**
  * Ajustes → "Tu semáforo" (B-070): the full threshold editor — green + red floors for both net
- * $/km and net $/hr, per platform, with a reset to the city-seeded median. Changes persist
- * immediately (same store the overlay quick sheet and the engine read), so there is no save button.
+ * $/km and net $/hr, with a reset to the city-seeded median. One semáforo shared by every platform
+ * (B-076). Changes persist immediately (same store the overlay quick sheet and the engine read),
+ * so there is no save button.
  */
 @Composable
 fun ThresholdsScreen(
@@ -62,17 +61,6 @@ fun ThresholdsScreen(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Spacer(Modifier.height(16.dp))
-
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            viewModel.platforms.forEach { platform ->
-                FilterChip(
-                    selected = state.platform == platform,
-                    onClick = { viewModel.selectPlatform(platform) },
-                    label = { Text(platformLabel(platform)) },
-                )
-            }
-        }
         Spacer(Modifier.height(16.dp))
 
         SectionTitle(stringResource(R.string.thresholds_section_km))
@@ -159,14 +147,6 @@ private fun FloorSliderRow(
         valueRange = range.start.toFloat()..range.endInclusive.toFloat(),
         steps = steps,
     )
-}
-
-@Composable
-private fun platformLabel(platform: Platform): String = when (platform) {
-    Platform.UBER -> stringResource(R.string.platform_chip_uber)
-    Platform.DIDI -> stringResource(R.string.platform_chip_didi)
-    Platform.INDRIVE -> stringResource(R.string.platform_chip_indrive)
-    else -> stringResource(R.string.platform_chip_desconocida)
 }
 
 private fun money2(value: Double): String =

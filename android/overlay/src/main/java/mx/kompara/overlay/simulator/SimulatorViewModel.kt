@@ -90,21 +90,20 @@ class SimulatorViewModel @Inject constructor(
     }
 
     /**
-     * The threshold-playground slider moved. Persist the new green $/km floor for the current
-     * platform via the shared [SettingsRepository] (the combine above then re-grades all three
-     * offers live). The red floor follows the green one down if they would cross.
+     * The threshold-playground slider moved. Persist the new green $/km floor via the shared
+     * [SettingsRepository] (the combine above then re-grades all three offers live) — one semáforo
+     * for every platform (B-076). The red floor follows the green one down if they would cross.
      */
     fun setPerKmFloor(perKm: Double) {
-        val plat = platform.value
-        val current = latestSettings.thresholdFor(plat)
+        val current = latestSettings.effectiveThreshold
         val updated = ThresholdSheet.withGreenPerKm(current, perKm)
-        viewModelScope.launch { settingsRepository.setThreshold(plat, updated) }
+        viewModelScope.launch { settingsRepository.setThreshold(updated) }
     }
 
     private fun recompute(plat: Platform, step: Int): SimulatorUiState {
         val offers = demoOffersFor(plat)
         val costProfile: CostProfile = CostProfileMapper.toCostProfileOrZero(latestCostEntity)
-        val threshold: PlatformThreshold = latestSettings.thresholdFor(plat)
+        val threshold: PlatformThreshold = latestSettings.effectiveThreshold
 
         val steps = offers.map { offer ->
             val result = engine.evaluate(offer, costProfile, threshold)

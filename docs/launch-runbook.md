@@ -74,7 +74,33 @@ Deliverables: (a) sign-off/edits on every `TODO(legal-B038)` string (disclosure,
 3. Create app + Spanish listing + screenshots.
 4. **AccessibilityService declaration form** — frame as driver decision-support; attach **demo video** (screen-record the Simulator).
 5. **Data-safety form** — on-device processing, never sold/shared.
-6. Upload signed release AAB → **internal testing** track.
+6. **FGS `mediaProjection` declaration + screen-capture data-safety (B-065)** — drafts below, paste into Play Console.
+7. Upload signed release AAB → **internal testing** track.
+
+### B-065 drafts: screen-capture (MediaProjection) declarations
+
+**FGS `mediaProjection` justification (declaration form):**
+> Kompara is a decision-support tool for ride-hailing drivers. Some driver apps (DiDi Conductor,
+> inDrive) render trip offers on a SurfaceView that exposes no accessibility text, so the app uses
+> MediaProjection — started only after the user taps "Iniciar lector de pantalla", sees a prominent
+> disclosure, and accepts the system screen-capture consent — to read the trip-offer card on screen
+> and overlay a real-time profitability verdict while the driver works. Capture runs as a
+> mediaProjection foreground service with a persistent notification; the user can stop it at any
+> time from the notification or the system cast icon. All frames are processed on-device with ML
+> Kit; no screen content is stored or transmitted.
+
+**Data-safety form (screen capture rows):**
+- Screen content: processed **on-device only**, ephemeral (frames OCR'd and discarded); **not
+  collected, not shared, not sold**; no frame ever leaves the device.
+- The derived trip-offer numbers (fare, distance, duration) are stored locally; weekly aggregates
+  upload **only** with explicit opt-in consent (existing B-043 row).
+
+**Prominent disclosure (in-app, shown before the system consent — shipped in B-075,
+`lector_ocr_disclosure_body`; TODO(legal-B038) counsel review):**
+> "Para mostrarte el semáforo sobre las ofertas de DiDi, Kompara captura tu pantalla y la analiza
+> únicamente en tu teléfono. Nada de lo que aparece en tu pantalla se guarda en servidores ni sale
+> de tu dispositivo. Puedes detener la captura cuando quieras desde la notificación o el ícono de
+> transmisión del sistema."
 
 ## 6. Driver beta — B-054 (after internal track live)
 

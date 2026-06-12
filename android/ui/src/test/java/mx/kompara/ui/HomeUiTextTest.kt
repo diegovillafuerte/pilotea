@@ -9,16 +9,13 @@ class HomeUiTextTest {
 
     @Test
     fun `lists active platforms sorted`() {
-        val settings = Settings(
-            enabledPlatforms = setOf(Platform.DIDI, Platform.UBER),
-            thresholds = emptyMap(),
-        )
+        val settings = Settings(enabledPlatforms = setOf(Platform.DIDI, Platform.UBER))
         assertEquals("Plataformas activas: DIDI, UBER", HomeUiText.activePlatformsLabel(settings))
     }
 
     @Test
     fun `falls back when no platforms are active`() {
-        val settings = Settings(enabledPlatforms = emptySet(), thresholds = emptyMap())
+        val settings = Settings(enabledPlatforms = emptySet())
         assertEquals("Sin plataformas activas", HomeUiText.activePlatformsLabel(settings))
     }
 }

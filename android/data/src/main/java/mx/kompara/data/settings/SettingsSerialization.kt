@@ -58,6 +58,13 @@ object SettingsSerialization {
     /** Int key for the anonymous local fiscal-PDF-export funnel counter (B-052). */
     const val KEY_FISCAL_EXPORT_COUNT = "fiscal_export_count"
 
+    /** The single shared semáforo (B-076): green + red floors for $/km and $/hr, platform-less. */
+    const val KEY_THRESHOLD_PER_KM = "threshold_per_km"
+    const val KEY_THRESHOLD_PER_HOUR = "threshold_per_hour"
+    const val KEY_THRESHOLD_PER_KM_RED = "threshold_per_km_red"
+    const val KEY_THRESHOLD_PER_HOUR_RED = "threshold_per_hour_red"
+
+    /** Legacy per-platform keys (pre-B-076). Read-only: decode migrates them, nothing writes them. */
     fun perKmKey(platform: Platform): String = "threshold_${platform.name}_per_km"
     fun perHourKey(platform: Platform): String = "threshold_${platform.name}_per_hour"
 
@@ -94,28 +101,9 @@ object SettingsSerialization {
         lookupString: (String) -> String? = { null },
         lookupInt: (String) -> Int? = { null },
     ): Settings {
-        val thresholds = mutableMapOf<Platform, PlatformThreshold>()
-        for (platform in Platform.entries) {
-            val perKm = lookupDouble(perKmKey(platform))
-            val perHour = lookupDouble(perHourKey(platform))
-            if (perKm != null || perHour != null) {
-                val greenPerKm = perKm ?: PlatformThreshold.DEFAULT.minPerKmMxn
-                val greenPerHour = perHour ?: PlatformThreshold.DEFAULT.minPerHourMxn
-                // Red floors landed after green floors shipped: absent keys derive from the green
-                // floor (and a stored red is clamped to it) so pre-existing installs migrate free.
-                thresholds[platform] = PlatformThreshold(
-                    minPerKmMxn = greenPerKm,
-                    minPerHourMxn = greenPerHour,
-                    redPerKmMxn = lookupDouble(perKmRedKey(platform))?.coerceAtMost(greenPerKm)
-                        ?: (greenPerKm * PlatformThreshold.DEFAULT_RED_FRACTION),
-                    redPerHourMxn = lookupDouble(perHourRedKey(platform))?.coerceAtMost(greenPerHour)
-                        ?: (greenPerHour * PlatformThreshold.DEFAULT_RED_FRACTION),
-                )
-            }
-        }
         return Settings(
             enabledPlatforms = decodeEnabledPlatforms(enabledNames),
-            thresholds = thresholds,
+            threshold = decodeThreshold(lookupDouble),
             telemetryEnabled = lookupBoolean(KEY_TELEMETRY_ENABLED)
                 ?: Settings.DEFAULT_TELEMETRY_ENABLED,
             onboardingCompleted = lookupBoolean(KEY_ONBOARDING_COMPLETED)
@@ -138,6 +126,57 @@ object SettingsSerialization {
             shareLastReminderWeek = lookupString(KEY_SHARE_LAST_REMINDER_WEEK),
             shareCount = lookupInt(KEY_SHARE_COUNT) ?: 0,
             fiscalExportCount = lookupInt(KEY_FISCAL_EXPORT_COUNT) ?: 0,
+        )
+    }
+
+    /**
+     * The shared semáforo (B-076), or null when never tuned. Prefers the platform-less keys; an
+     * install upgrading from per-platform floors migrates the first match of DiDi → Uber → inDrive
+     * (DiDi is the OCR-live platform the pilot drivers actually tuned). The legacy keys are left in
+     * place — once the global keys are written they win, so the fallback only runs pre-first-write.
+     */
+    private fun decodeThreshold(lookupDouble: (String) -> Double?): PlatformThreshold? {
+        thresholdAt(
+            KEY_THRESHOLD_PER_KM,
+            KEY_THRESHOLD_PER_HOUR,
+            KEY_THRESHOLD_PER_KM_RED,
+            KEY_THRESHOLD_PER_HOUR_RED,
+            lookupDouble,
+        )?.let { return it }
+        for (platform in listOf(Platform.DIDI, Platform.UBER, Platform.INDRIVE)) {
+            thresholdAt(
+                perKmKey(platform),
+                perHourKey(platform),
+                perKmRedKey(platform),
+                perHourRedKey(platform),
+                lookupDouble,
+            )?.let { return it }
+        }
+        return null
+    }
+
+    /** A [PlatformThreshold] from one key quartet, or null when neither green floor was written. */
+    private fun thresholdAt(
+        perKmKey: String,
+        perHourKey: String,
+        perKmRedKey: String,
+        perHourRedKey: String,
+        lookupDouble: (String) -> Double?,
+    ): PlatformThreshold? {
+        val perKm = lookupDouble(perKmKey)
+        val perHour = lookupDouble(perHourKey)
+        if (perKm == null && perHour == null) return null
+        val greenPerKm = perKm ?: PlatformThreshold.DEFAULT.minPerKmMxn
+        val greenPerHour = perHour ?: PlatformThreshold.DEFAULT.minPerHourMxn
+        // Red floors landed after green floors shipped: absent keys derive from the green floor
+        // (and a stored red is clamped to it) so pre-existing installs migrate free.
+        return PlatformThreshold(
+            minPerKmMxn = greenPerKm,
+            minPerHourMxn = greenPerHour,
+            redPerKmMxn = lookupDouble(perKmRedKey)?.coerceAtMost(greenPerKm)
+                ?: (greenPerKm * PlatformThreshold.DEFAULT_RED_FRACTION),
+            redPerHourMxn = lookupDouble(perHourRedKey)?.coerceAtMost(greenPerHour)
+                ?: (greenPerHour * PlatformThreshold.DEFAULT_RED_FRACTION),
         )
     }
 }
