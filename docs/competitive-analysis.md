@@ -1,7 +1,7 @@
 # Competitive Analysis — Realtime Trip-Offer Readers for Ride-Hailing Drivers
 
-> **Date:** 2026-06-10
-> **Scope:** Ruta Rentable (LATAM/MX), StopClub (Brazil), GigU (US) — plus Uber's native response and the Mexican regulatory context.
+> **Date:** 2026-06-10 · **Updated:** 2026-06-12 (added Gridwise, DecideRider; StopClub→GigU rebrand; Ruta Rentable rating reality)
+> **Scope:** Ruta Rentable (LATAM/MX), StopClub/GigU (Brazil/US), Gridwise (US analytics benchmark), DecideRider (Chile, MX-bound) — plus Uber's native response and the Mexican regulatory context.
 > **Purpose:** Ground the Kompara Android rebuild: replicate proven best practices, differentiate where rivals are weak, and de-risk legally.
 
 ---
@@ -41,6 +41,21 @@ All three competitors converge on the same core mechanic: **read the trip-offer 
 - "Cherry Picker" grades every offer in ~1s (per-mile, per-hour, per-minute). Key differentiator vs Uber's own upfront info: **Net Profit Calculator** — driver inputs real costs (fuel, insurance, maintenance, registration) and the overlay shows *actual profit* per trip/mile/hour.
 - Marketing leans on: no platform login → "they can't detect or ban you"; data stays yours; 30-day risk-free trial; $6.90/mo.
 - Explicitly Android-only, citing iOS restrictions; "exploring iOS options" (i.e., none).
+- **2026 update — StopClub and GigU are the same company.** StopClub rebranded to GigU and shipped a rebuilt, lighter app (Aug 2024: 30k downloads in 7 days). June 2025 stats: 250k+ users, ~R$950k/mo revenue at breakeven, 338 Brazilian + 65 US cities, pivoted from partner commissions to direct subscriptions (BR: R$12.90/mo; US: $6.95/mo after a 30-day no-card trial). Signup is **phone → 6-digit WhatsApp code → name/email/platform pick** — the exact flow Kompara's backend already implements.
+
+### Gridwise (the analytics/professionalism benchmark — US, no overlay)
+- Not a verdict tool: a "gig driver business platform." 1M+ workers claimed, 4.9★/28k ratings on iOS — the **quality bar for what "professional" looks like** in this category.
+- Features: cross-platform earnings tracking (links gig accounts, 30+ platforms), automatic GPS mileage log, $/hr · trips/hr · $/trip analytics, **regional earnings benchmarks vs other drivers**, demand forecasts ("when/where to drive"), airport arrivals intelligence, gas-discount card and partner perks, CSV/PDF tax exports.
+- Pricing: free tier (manual sync) + Gridwise Plus $9.99/mo or $107.99/yr, 14-day trial. "Members earn 30% more in their first month."
+- **Business model moat:** the free app funnels anonymized trip/earnings data into Gridwise Analytics, sold to hedge funds, platforms, retailers, AV companies (name-drops Uber, Goldman Sachs, Waymo). The app is the data-collection front end.
+- Signup: account required (email/password or phone) — proof that **mandatory accounts don't hurt adoption when the value exchange is clear**.
+- Professionalism signals worth copying: public help center with real troubleshooting articles; hard numbers in marketing ($11B tracked earnings, 11B miles); tax-season framing ("the subscription is tax-deductible"); an annual industry report that earns press coverage.
+
+### DecideRider (the incoming threat — Chile today, "México próximamente")
+- Closest UX analog to Kompara's chip: floating card over Uber showing **net real earnings** with CLP/h + CLP/km, total distance, **pickup distance**, duration, and **platform commission already deducted**, plus a green ACEPTAR / red RECHAZAR badge and a progress bar against the driver's threshold.
+- Thresholds: driver sets a minimum per km or per hour. Uber-only for now.
+- Pricing: 14-day PRO trial without card; $3,490 CLP/mo (~US$3.70) — the lowest price point in the category.
+- Their site lists **Mexico as "próximamente"** — Kompara's window in MX is real but closing.
 
 ## 3. Uber's native counter-move (the strategic threat)
 

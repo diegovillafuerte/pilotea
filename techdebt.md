@@ -319,3 +319,17 @@ Conscious deferrals. Each entry: date, severity, context, why deferred, when to 
 - **Context:** The Comparar tab's pure engine (`android/metrics/.../compare/CompareCalculator.kt` + `CompareMetric.COMMISSION_PCT`) implements the inverted "lower cut wins" rule and it is unit-tested, but `CompareState.metricsFor` (`android/ui/.../stats/CompareState.kt`) always passes `commissionPct = null`. The captured weekly rollup (`WeeklyAggregateEntity`, B-039) intentionally omits commission — the capture path can't observe a platform's take rate — so every commission row renders "No comparable" in practice today. The metric, its inversion, and the verde-winner logic are wired and ready; only the data source is missing.
 - **Why deferred:** Commission is an *imported*-week field (B-045 carries the realized statement values the upload flow sees). Wiring it requires (a) adding a commission column to the imported `WeeklyAggregateEntity` write path and (b) deciding the canonical fraction (per-trip vs weekly blended). That's B-045-adjacent work, out of scope for the compare *surface*. Modeling it now (rather than hardcoding "higher wins") means the inversion is correct and tested the day imports supply the number — no calculator change needed.
 - **When to fix:** When the import path (B-045) persists commission. Then set `commissionPct` in `CompareState.metricsFor` from the imported row and the existing inverted-winner row lights up automatically.
+
+## TD-022: Required signup makes backend reachability + Twilio WhatsApp launch-critical (B-067)
+- **Date:** 2026-06-12
+- **Severity:** high
+- **Context:** B-067 gates the app behind WhatsApp-OTP signup (StopClub/GigU model). The reader no longer works for a driver who can't complete OTP. Debug builds point `API_BASE_URL` at `http://10.0.2.2:8080` (emulator loopback) — on a physical test device signup fails unless the backend runs locally with `adb reverse tcp:8080 tcp:8080`, or the device uses a release-config build against `https://api.kompara.mx`. The production backend is not deployed yet and the Twilio WhatsApp sender is not production-approved.
+- **Why deferred:** The signup UI/flow was the deliverable; infra (backend deploy, Twilio sender approval, possibly a debug "dev OTP" escape hatch) is ops work tracked toward launch (E-009).
+- **When to fix:** Before any beta distribution (B-054). Either deploy the backend + approve the Twilio sender, or add a debug-only bypass (e.g. fixed dev code via the backend's dev logger MessageSender) so on-device testing doesn't require local infra.
+
+## TD-023: Standalone signup gate skips the profile step; no logout/account UI (B-067)
+- **Date:** 2026-06-12
+- **Severity:** medium
+- **Context:** `RootRoute.AUTH` (completed-onboarding installs without a session) flips to MAIN the moment the OTP verifies, because the root observes `sessionState` — the profile (name/ciudad) step never shows on that path. Inside onboarding the full phone→code→profile flow runs as designed. There is also no way to log out, edit the profile, or delete the account from Ajustes, and no 401-driven re-auth when the 30-day session expires.
+- **Why deferred:** Acceptable for the main (new-install) funnel; the standalone gate mostly serves pre-account installs (the dev device today). Account management is a coherent follow-up.
+- **When to fix:** B-069 (account management in Ajustes + session-expiry re-auth) — required before Play submission (data-deletion policy).
