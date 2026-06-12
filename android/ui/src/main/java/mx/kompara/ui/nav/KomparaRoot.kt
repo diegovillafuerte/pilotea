@@ -2,6 +2,7 @@ package mx.kompara.ui.nav
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -43,13 +44,21 @@ fun KomparaRoot(
     Surface(modifier = modifier.fillMaxSize()) {
         when (route) {
             RootRoute.LOADING -> Box(Modifier.fillMaxSize())
+            // B-073: the funnel branches draw edge-to-edge with no system-bar handling of their own
+            // (unlike the MAIN shell's Scaffold), so their bottom CTAs landed under the gesture-nav
+            // inset. Inset them at the root with safeDrawingPadding() — one shared fix covering every
+            // onboarding/signup screen. MAIN is excluded: KomparaApp's Scaffold already insets.
             RootRoute.ONBOARDING -> OnboardingNavGraph(
                 onComplete = { justCompletedOnboarding = true },
+                modifier = Modifier.safeDrawingPadding(),
             )
             // Standalone signup for installs that completed onboarding before accounts became
             // required (or after logout). The route flips to MAIN by itself once the session
             // persists — no callback wiring needed.
-            RootRoute.AUTH -> SignupFlowScreen(onComplete = {})
+            RootRoute.AUTH -> SignupFlowScreen(
+                onComplete = {},
+                modifier = Modifier.safeDrawingPadding(),
+            )
             RootRoute.MAIN -> KomparaApp(
                 navigateToReaderTrial = justCompletedOnboarding,
                 // Week-close notification deep link (B-055): only honoured once onboarding is done.
