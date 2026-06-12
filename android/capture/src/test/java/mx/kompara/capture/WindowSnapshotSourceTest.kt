@@ -16,10 +16,10 @@ class WindowSnapshotSourceTest {
     }
 
     @Test
-    fun `read returns null after detach`() {
+    fun `read returns null when no windows and after detach`() {
         val source = WindowSnapshotSource(NodeFlattener())
-        // Provider that yields null root (e.g. service lost its active window).
-        source.attach(WindowSnapshotSource.RootProvider { null })
+        // Provider that yields no window roots (e.g. service lost its windows).
+        source.attach(WindowSnapshotSource.RootProvider { emptyList() })
         assertNull(source.read("com.ubercab.driver", 0L))
 
         source.detach()

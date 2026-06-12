@@ -34,8 +34,16 @@ class KomparaAccessibilityService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-        // Feed the pipeline from the live active window. Read-only: rootInActiveWindow only reads.
-        snapshotSource.attach(WindowSnapshotSource.RootProvider { rootInActiveWindow })
+        // Feed the pipeline from ALL current windows (read-only). Offer cards often live in a
+        // non-focused window, so we cannot rely on rootInActiveWindow alone; getWindows() (enabled
+        // by flagRetrieveInteractiveWindows) exposes the offer popup too. Fall back to the active
+        // window if the window list is momentarily empty.
+        snapshotSource.attach(
+            WindowSnapshotSource.RootProvider {
+                val roots = windows.orEmpty().mapNotNull { it.root }
+                roots.ifEmpty { listOfNotNull(rootInActiveWindow) }
+            },
+        )
         pipeline.start(scope)
         // Keep the active spec set current as the OTA layer applies new bundles / kill switches
         // (B-033). The pipeline starts on the bundled baseline; this upgrades it as the

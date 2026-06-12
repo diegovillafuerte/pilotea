@@ -73,5 +73,19 @@
 
 - Confirm current Android 16 behavior changes affecting accessibility/overlays before B-027 lands.
 - APK teardown of Ruta Rentable + StopClub (manifest accessibility config, overlay types) as parser-framework input.
-- On-device check: FLAG_SECURE / node exposure in current Uber MX + DiDi MX driver builds.
+- ~~On-device check: node exposure in current Uber MX + DiDi MX driver builds.~~ **RESOLVED 2026-06-11 (Samsung S25, real apps):** see §7.
 - Re-check Uber v StopClub merits ruling + CADE case status quarterly (lead indicator for platform countermeasures).
+
+## 7. On-device node-exposure finding (2026-06-11) — CRITICAL
+
+Verified against the live MX driver apps on a Samsung S25 (uiautomator + our own reader):
+
+| App | Rendering | Accessibility text exposed? | Node-tree reader |
+|---|---|---|---|
+| **Uber Driver** (`com.ubercab.driver`) | Native views (TextView/Button/WebView) | **Yes** — real text strings present | **Works** ✅ |
+| **DiDi Conductor** (`com.didiglobal.driver`) | `SurfaceView` (full-surface render) | **No** — 53 nodes, zero text/content-desc | **Cannot read** ❌ |
+| **inDrive** (`sinet.startup.inDriver`) | `SurfaceView` | **No** — zero text | **Cannot read** ❌ |
+
+**Implication:** the accessibility node-tree approach (B-027/B-028) reads **Uber only**. DiDi and inDrive render everything on a SurfaceView and expose nothing to accessibility, so the reader receives no text for them — confirmed by their home/login screens (the offer card is on the same surface). This is the contingency anticipated in §1 ("OCR hedge if a platform strips accessibility nodes"). It also explains how Ruta Rentable supports DiDi in MX: it must use **MediaProjection + OCR**, not accessibility nodes.
+
+**Decision pending (Juan):** build the MediaProjection + on-device OCR capture path (ML Kit) for DiDi/inDrive — the hedge becomes required, not optional — vs. launch Uber-first on the working node-tree path and add OCR after. Tradeoffs: MediaProjection needs per-session consent + a persistent capture indicator on Android 14+, changes the Play data-safety/declaration story, and is heavier on battery. The node-tree path for Uber has none of that.
