@@ -47,6 +47,7 @@ dependencies {
     implementation(project(":sync"))
     implementation(project(":ui"))
     implementation(project(":billing"))
+    implementation(project(":ocr"))
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)

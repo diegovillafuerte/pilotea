@@ -54,6 +54,13 @@
             </intent-filter>
         </activity>
 
+        <!-- OCR capture consent entry (S-023 proof). Exported so it can be launched for testing;
+             the production trigger is an in-app button (B-059/B-062). -->
+        <activity
+            android:name=".OcrConsentActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
         <!--
           On-demand WorkManager initialization (B-033): the app supplies its own Configuration via
           KomparaApplication (Configuration.Provider) so periodic work runs through the
