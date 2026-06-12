@@ -134,8 +134,11 @@ class OcrCaptureService : Service() {
 
         // Parse → publish to the shared bus so the accessibility-service-hosted overlay shows the
         // verdict. Dedup identical offers; emit NoCard once the card actually leaves the screen —
-        // [CardPresenceTracker] holds the verdict through OCR-garbled frames (B-077).
-        val card = didiParser.parse(blocks)
+        // [CardPresenceTracker] holds the verdict through OCR-garbled frames (B-077). Frames of
+        // Kompara's own UI are never parsed (the simulator's mock cards and our own stats would
+        // feed back into the pipeline).
+        val ownUi = KomparaUiGuard.isOwnUi(joined)
+        val card = if (ownUi) null else didiParser.parse(blocks)
         val now = System.currentTimeMillis()
         if (card != null) {
             presence.onParsed(now)
@@ -148,7 +151,7 @@ class OcrCaptureService : Service() {
                 Log.d(TAG, "emitted DiDi offer: fare=${card.fare} pickup=${card.pickupDistanceKm}km trip=${card.tripDistanceKm}km")
             }
         } else if (lastOfferKey != null) {
-            if (presence.onMiss(didiParser.hasCardSignature(blocks), now)) {
+            if (presence.onMiss(!ownUi && didiParser.hasCardSignature(blocks), now)) {
                 lastOfferKey = null
                 OfferEventBus.tryEmit(
                     OfferEvent.NoCard(
@@ -160,8 +163,8 @@ class OcrCaptureService : Service() {
             }
         }
 
-        // Record offer frames for fixture building / spec hardening.
-        if (looksLikeOffer(joined)) {
+        // Record offer frames for fixture building / spec hardening (never our own UI).
+        if (!ownUi && looksLikeOffer(joined)) {
             runCatching {
                 val dir = File(getExternalFilesDir(null), "ocr-fixtures").apply { mkdirs() }
                 File(dir, "ocr_${System.currentTimeMillis()}.json").writeText(blocksToJson(blocks))
