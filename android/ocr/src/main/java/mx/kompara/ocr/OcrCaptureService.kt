@@ -197,7 +197,11 @@ class OcrCaptureService : Service() {
         private const val TAG = "KomparaOCR"
         private const val NOTIF_ID = 42
         private const val THROTTLE_MS = 500L
-        private const val OFFER_GONE_FRAMES = 3
+        // Hide only after this many CONSECUTIVE unparseable frames (~3s at THROTTLE_MS). The map
+        // animates under the card, so single frames garble often ("1nmin", "Zmin"); a real
+        // dismissal changes the whole screen and racks up misses fast. High enough to kill flicker,
+        // low enough to hide promptly once the offer is actually gone.
+        private const val OFFER_GONE_FRAMES = 6
         const val EXTRA_RESULT_CODE = "result_code"
         const val EXTRA_DATA = "data"
 
