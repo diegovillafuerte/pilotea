@@ -40,7 +40,17 @@ class WindowSnapshotSource @Inject constructor(
     override fun read(packageName: String, timestampMs: Long): ScreenSnapshot? {
         val root = provider.get()?.activeWindowRoot() ?: return null
         return try {
-            flattener.flattenInfo(packageName, timestampMs, root)
+            // The event's package and the active window can diverge: a target app firing a
+            // background event while a DIFFERENT window — including Kompara's own UI — is active.
+            // Trust the window's real package, and only snapshot when it's actually a target app.
+            // Without this we'd read and mislabel our own simulator (which renders a mock offer
+            // card) as a real DiDi/Uber offer. See the on-device fixture capture, 2026-06-10.
+            val windowPackage = root.packageName?.toString()
+            if (windowPackage == null || windowPackage !in KomparaAccessibilityService.TARGET_PACKAGES) {
+                null
+            } else {
+                flattener.flattenInfo(windowPackage, timestampMs, root)
+            }
         } finally {
             @Suppress("DEPRECATION")
             root.recycle()
