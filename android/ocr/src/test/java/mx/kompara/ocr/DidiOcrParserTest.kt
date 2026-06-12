@@ -48,6 +48,31 @@ class DidiOcrParserTest {
         assertEquals(7.17, card.fare!! / totalKm, 0.01) // 132.59 / 18.5
     }
 
+    // Real "Pon Tu Precio" bid card (ocr_..21556): $89.12, pickup 5min (862m), trip 21min (10.2km),
+    // multiple bid options ($96.12/$100.12/$103.12), 1.3x surge. Pickup is in METERS.
+    private val realBidCard = listOf(
+        block("Pon Tu Precio", 100, 700, 400, 760),
+        block("\$89.12 1.3x", 80, 900, 600, 1020),
+        block("4.92 639 viajes", 168, 1446, 527, 1499),
+        block("Tarjeta bancaria verificada", 138, 1534, 756, 1580),
+        block("5min (862m)", 139, 1692, 441, 1745),
+        block("21min (10.2km)", 156, 1902, 514, 1960),
+        block("Aceptar \$89.12", 200, 2150, 880, 2240),
+        block("\$96.12 \$100.12 \$103.12", 200, 2280, 880, 2330),
+    )
+
+    @Test
+    fun `parses Pon Tu Precio bid card with meters pickup`() {
+        val card = parser.parse(realBidCard)!!
+        assertEquals(89.12, card.fare!!, 0.001) // from "Aceptar $89.12", not the bid options
+        assertEquals(0.862, card.pickupDistanceKm!!, 0.001) // 862m → km
+        assertEquals(5.0, card.pickupEtaMin!!, 0.001)
+        assertEquals(10.2, card.tripDistanceKm!!, 0.001)
+        assertEquals(21.0, card.tripDurationMin!!, 0.001)
+        assertEquals("bid", card.variant)
+        assertTrue(card.surge) // 1.3x
+    }
+
     @Test
     fun `non-offer screen yields null`() {
         val home = listOf(

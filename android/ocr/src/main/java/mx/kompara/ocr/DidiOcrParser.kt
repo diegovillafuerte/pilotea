@@ -20,8 +20,11 @@ import mx.kompara.parsers.model.OfferCard
 class DidiOcrParser {
 
     private val fareRegex = Regex("""\$\s*([0-9][0-9,]*\.[0-9]{2})""")
+    private val acceptRegex = Regex("""Aceptar\s*\$\s*([0-9][0-9,]*\.[0-9]{2})""", RegexOption.IGNORE_CASE)
+    // Distance leg: "6min (1.2km)" OR short pickups in meters "5min (862m)".
     private val legRegex =
-        Regex("""([0-9]+)\s*min\s*\(\s*([0-9]+(?:\.[0-9]+)?)\s*km\s*\)""", RegexOption.IGNORE_CASE)
+        Regex("""([0-9]+)\s*min\s*\(\s*([0-9]+(?:[.,][0-9]+)?)\s*(km|m)\b""", RegexOption.IGNORE_CASE)
+    private val surgeRegex = Regex("""[0-9]+(?:\.[0-9]+)?\s*x\b""", RegexOption.IGNORE_CASE)
 
     fun parse(blocks: List<OcrBlock>): OfferCard? {
         val fare = extractFare(blocks) ?: return null
@@ -35,12 +38,14 @@ class DidiOcrParser {
             text.contains("Efectivo", ignoreCase = true) -> "efectivo"
             else -> null
         }
+        val bid = text.contains("Pon Tu Precio", ignoreCase = true)
         val surge = text.contains("dinámica", ignoreCase = true) ||
-            text.contains("dinamica", ignoreCase = true)
+            text.contains("dinamica", ignoreCase = true) ||
+            surgeRegex.containsMatchIn(text)
 
         return OfferCard(
             platform = DIDI_PACKAGE,
-            variant = if (surge) "surge" else null,
+            variant = if (bid) "bid" else if (surge) "surge" else null,
             fare = fare,
             pickupDistanceKm = pickup.km,
             pickupEtaMin = pickup.min,
@@ -52,17 +57,25 @@ class DidiOcrParser {
         )
     }
 
-    private fun extractFare(blocks: List<OcrBlock>): Double? =
-        blocks
+    private fun extractFare(blocks: List<OcrBlock>): Double? {
+        // Most reliable: the amount on the "Aceptar $X" button echoes the current price — and on the
+        // "Pon Tu Precio" bid card it disambiguates the real fare from the higher bid options.
+        for (b in blocks) {
+            acceptRegex.find(b.text)?.let { m ->
+                m.groupValues[1].replace(",", "").toDoubleOrNull()?.let { return it }
+            }
+        }
+        // Fallback: the fare is rendered far taller than any other currency text; tallest wins.
+        return blocks
             .mapNotNull { b ->
                 fareRegex.find(b.text)?.let { m ->
-                    val value = m.groupValues[1].replace(",", "").toDoubleOrNull()
-                    if (value == null) null else value to (b.bounds.bottom - b.bounds.top)
+                    m.groupValues[1].replace(",", "").toDoubleOrNull()
+                        ?.let { it to (b.bounds.bottom - b.bounds.top) }
                 }
             }
-            // The real fare is rendered far taller than the dynamic-fare line; tallest wins.
             .maxByOrNull { it.second }
             ?.first
+    }
 
     private data class Leg(val min: Double, val km: Double, val top: Int)
 
@@ -71,7 +84,12 @@ class DidiOcrParser {
             .mapNotNull { b ->
                 legRegex.find(b.text)?.let { m ->
                     val min = m.groupValues[1].toDoubleOrNull()
-                    val km = m.groupValues[2].toDoubleOrNull()
+                    val value = m.groupValues[2].replace(",", ".").toDoubleOrNull()
+                    val km = when {
+                        value == null -> null
+                        m.groupValues[3].equals("m", ignoreCase = true) -> value / 1000.0
+                        else -> value
+                    }
                     if (min == null || km == null) null else Leg(min, km, b.bounds.top)
                 }
             }
