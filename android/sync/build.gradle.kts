@@ -13,10 +13,12 @@ android {
         minSdk = 26
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // Backend base URL — overridable per build type. The debug default points
-        // at the loopback alias the Android emulator uses to reach the host
-        // machine (10.0.2.2). Release ships the real API host.
-        buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:8080\"")
+        // Backend base URL — overridable per build type. The debug default is the
+        // device's own loopback, reached from a host-side backend via
+        // `adb reverse tcp:8080 tcp:8080` — works on physical devices AND
+        // emulators (the old 10.0.2.2 alias was emulator-only). Release ships
+        // the real API host.
+        buildConfigField("String", "API_BASE_URL", "\"http://127.0.0.1:8080\"")
     }
 
     buildTypes {
