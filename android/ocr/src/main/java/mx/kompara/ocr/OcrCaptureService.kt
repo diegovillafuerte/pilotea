@@ -23,6 +23,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import mx.kompara.capture.OfferEvent
+import mx.kompara.capture.OfferEventBus
 import java.io.File
 
 /**
@@ -38,6 +40,9 @@ class OcrCaptureService : Service() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val engine = OcrEngine()
+    private val didiParser = DidiOcrParser()
+    private var lastOfferKey: String? = null
+    private var missStreak = 0
     private var projection: MediaProjection? = null
     private var virtualDisplay: VirtualDisplay? = null
     private var imageReader: ImageReader? = null
@@ -111,7 +116,36 @@ class OcrCaptureService : Service() {
         }
         val joined = blocks.joinToString(" | ") { it.text }
         Log.d(TAG, "OCR(${blocks.size}): $joined")
-        // Record any frame that looks like an offer card for fixture building.
+
+        // Parse → publish to the shared bus so the accessibility-service-hosted overlay shows the
+        // verdict. Dedup identical offers; emit NoCard once the offer leaves the screen so it hides.
+        val card = didiParser.parse(blocks)
+        if (card != null) {
+            val key = "${card.fare}_${card.pickupDistanceKm}_${card.tripDistanceKm}"
+            missStreak = 0
+            if (key != lastOfferKey) {
+                lastOfferKey = key
+                OfferEventBus.tryEmit(
+                    OfferEvent.Parsed(card.platform, System.currentTimeMillis(), card),
+                )
+                Log.d(TAG, "emitted DiDi offer: fare=${card.fare} pickup=${card.pickupDistanceKm}km trip=${card.tripDistanceKm}km")
+            }
+        } else if (lastOfferKey != null) {
+            missStreak++
+            if (missStreak >= OFFER_GONE_FRAMES) {
+                lastOfferKey = null
+                missStreak = 0
+                OfferEventBus.tryEmit(
+                    OfferEvent.NoCard(
+                        DidiOcrParser.DIDI_PACKAGE,
+                        System.currentTimeMillis(),
+                        OfferEvent.Reason.NOT_AN_OFFER,
+                    ),
+                )
+            }
+        }
+
+        // Record offer frames for fixture building / spec hardening.
         if (looksLikeOffer(joined)) {
             runCatching {
                 val dir = File(getExternalFilesDir(null), "ocr-fixtures").apply { mkdirs() }
@@ -163,6 +197,7 @@ class OcrCaptureService : Service() {
         private const val TAG = "KomparaOCR"
         private const val NOTIF_ID = 42
         private const val THROTTLE_MS = 500L
+        private const val OFFER_GONE_FRAMES = 3
         const val EXTRA_RESULT_CODE = "result_code"
         const val EXTRA_DATA = "data"
 

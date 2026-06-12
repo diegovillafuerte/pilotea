@@ -17,7 +17,10 @@ android {
 }
 
 dependencies {
+    implementation(project(":capture"))
+    implementation(project(":parsers"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.mlkit.text.recognition)
+    testImplementation(libs.junit)
 }

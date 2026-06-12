@@ -1,7 +1,6 @@
 package mx.kompara.ocr
 
 import android.graphics.Bitmap
-import android.graphics.Rect
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
@@ -9,8 +8,12 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.suspendCancellableCoroutine
 
+/** Where a recognized line sits on screen. Plain ints (not android.graphics.Rect) so the OCR
+ *  parser and its tests stay pure-JVM. */
+data class OcrBounds(val left: Int, val top: Int, val right: Int, val bottom: Int)
+
 /** One recognized line of text and where it sits on screen. */
-data class OcrBlock(val text: String, val bounds: Rect)
+data class OcrBlock(val text: String, val bounds: OcrBounds)
 
 /**
  * On-device OCR via ML Kit (Latin script, bundled — no network). Turns a screen bitmap into
@@ -26,7 +29,7 @@ class OcrEngine {
                     val blocks = result.textBlocks.flatMap { block ->
                         block.lines.mapNotNull { line ->
                             val box = line.boundingBox ?: return@mapNotNull null
-                            OcrBlock(line.text, box)
+                            OcrBlock(line.text, OcrBounds(box.left, box.top, box.right, box.bottom))
                         }
                     }
                     cont.resume(blocks)

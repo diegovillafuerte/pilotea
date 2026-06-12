@@ -4,6 +4,7 @@ import android.accessibilityservice.AccessibilityService
 import android.view.accessibility.AccessibilityEvent
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import javax.inject.Inject
 
 /**
@@ -49,14 +50,14 @@ class KomparaAccessibilityService : AccessibilityService() {
         // (B-033). The pipeline starts on the bundled baseline; this upgrades it as the
         // SpecConfigRepository emits remote-cached/verified specs.
         offerPipeline.trackActiveSpecs(scope)
-        // Run each coalesced snapshot through the spec engine and publish OfferEvents downstream
-        // (the overlay in B-031 and the trip log in B-039 collect offerPipeline.offers).
-        offerPipeline.offers.launchIn(scope)
-        // Drive the verdict overlay from the same offer stream. The service is the only place
-        // allowed to attach the TYPE_ACCESSIBILITY_OVERLAY window; the presenter (an :overlay
-        // OverlayController, injected as an interface to avoid a :capture -> :overlay cycle) does
-        // the window plumbing. A sibling telemetry collector sits on offers independently.
-        overlayPresenter.start(scope, offerPipeline.offers, this)
+        // Run each coalesced snapshot through the spec engine and publish OfferEvents. The node-tree
+        // path (Uber) feeds the shared OfferEventBus, which the OCR path (DiDi/inDrive, design §7)
+        // also publishes to. (The trip log + telemetry still collect offerPipeline.offers directly.)
+        offerPipeline.offers.onEach { OfferEventBus.tryEmit(it) }.launchIn(scope)
+        // Drive the verdict overlay from the unified bus. The service is the only place allowed to
+        // attach the TYPE_ACCESSIBILITY_OVERLAY window; the presenter (an :overlay OverlayController,
+        // injected as an interface to avoid a :capture -> :overlay cycle) does the window plumbing.
+        overlayPresenter.start(scope, OfferEventBus.events, this)
         serviceState.setConnected(true)
     }
 
