@@ -2,4 +2,3 @@
 {"id":"ccb36594","hostname":"Diegos-MacBook-Air.local","pid":44804,"uuid":"ccb36594-e476-491f-9545-6b04e828c1d0","task":"B-006","mode":"task","target":"B-006","branch":"work/B-006","status":"active","started_at":"2026-04-02T23:24:55Z"}
 {"id":"3b5d7317","hostname":"Juans-MacBook-Air.local","pid":20400,"uuid":"3b5d7317-74bf-47f6-832e-86e91da3bee5","task":"B-052","mode":"task","target":"B-052","branch":"work/B-052","status":"active","started_at":"2026-06-10T18:11:54Z"}
 {"id":"c9e3322c","hostname":"Juans-MacBook-Air.local","pid":20400,"uuid":"c9e3322c-c8f1-4d37-9909-d4e71b76f806","task":"B-047","mode":"task","target":"B-047","branch":"work/B-047","status":"active","started_at":"2026-06-10T18:20:39Z"}
-{"id":"aee1bfa9","hostname":"Mac","pid":28473,"uuid":"aee1bfa9-9c30-4a1b-a562-280df0e27ff9","task":"B-073","mode":"task","target":"B-073","branch":"work/B-073","status":"active","started_at":"2026-06-12T21:29:36Z"}

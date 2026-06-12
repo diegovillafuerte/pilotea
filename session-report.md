@@ -1,39 +1,52 @@
-# Session Report — 2026-06-10 · "Build the full app"
+# Session Report — 2026-06-12 · "Complete all remaining tasks"
 
 ## Summary
+Completed 3 tasks (B-073, B-074, B-069). Skipped 0. All specified tasks processed.
+The 7 remaining pending tasks are all human-gated or launch-gated (see "Next priorities").
 
-**The Kompara Android app is code-complete.** All 25 buildable tasks of the Android-rebuild roadmap (E-005–E-009) were implemented, tested, and merged to main in one autonomous session: B-024 through B-052 plus B-055/B-056. Final verification on main: Android `assembleDebug` + all module unit tests **BUILD SUCCESSFUL**; backend **139/139 tests + typecheck clean**.
+## Pre-flight repairs (before the loop)
+- **main was 20 commits stale**: all recent shipped work (B-059..B-068, B-070/B-071/B-072 and the
+  B-069/073/074 task files) sat on `fix/bottom-nav-lector-label-clipping`, never merged. Fast-forwarded
+  main to `f8328c2` and pushed (range touches only `android/`, `backend/`, `docs/`, `pming/` — no web code,
+  no deploy risk).
+- **Root `pnpm test`/`pnpm lint` were unusable**: vitest/eslint collected files from stale agent worktrees
+  under `.claude/worktrees/`, producing ~340 phantom failures. Added excludes to `vitest.config.ts` and
+  `eslint.config.mjs`, and fixed 4 pre-existing `no-explicit-any` lint errors in backend tests (`d650d02`).
 
-## What got built
+## Completed
+| Task | Title | Commits | Notes |
+|---|---|---|---|
+| B-073 | Onboarding CTAs render under the gesture-nav inset | `c98bafa`, `dc0c227` | One shared `Modifier.safeDrawingPadding()` fix at the funnel root (`KomparaRoot.kt`, ONBOARDING + AUTH branches) covering all onboarding screens and the signup StepScaffold. Other full-screen surfaces audited — already inset via the main Scaffold. |
+| B-074 | UX polish: live simulator headline + tab re-tap pops to root | `7af27b9`, `81f8b9f` | Headline now keyed on live `chipState.level` so text and chip color always agree; bottom-nav highlight resolved from the whole back stack and re-tapping the active tab pops to that tab's root. 8 new unit tests. |
+| B-069 | Account management in Ajustes + session-expiry re-auth | `00f5222`, `951a9cf` | "Tu cuenta" screen (read-only phone, name/city PATCH /v1/me, cerrar sesión, delete account), new `DELETE /v1/me` backend endpoint with tests, 401 → clear local auth → root gate flips to signup, and the standalone AUTH gate now holds until the profile step completes. Resolves techdebt TD-023. Unblocks the Play data-safety delete-account requirement for B-053. |
 
-**The hook (E-005):** Kotlin/Compose app (8 Hilt modules) with a read-only AccessibilityService capture pipeline (debounced node snapshots), a declarative parser engine (specs as signed OTA JSON — Uber MX, DiDi MX, inDrive MX with list-mode bids; 47+ synthetic fixtures at 100% parse), a TYPE_ACCESSIBILITY_OVERLAY verdict chip (net $/km, traffic light, drag/safe-zones, quick thresholds), a net-profit engine with city-seeded thresholds, privacy-safe telemetry with breakage alerting, Play-compliant onboarding (prominent disclosure, OEM survival kit, watchdog), and an offer simulator that runs the real pipeline.
+All three tasks note in their `## Result` sections that **on-device re-verification is pending** for the
+next device session (Suite A of `docs/didi-test-plan.md` for B-073; F4/F5 behaviors for B-074; the three
+account flows for B-069).
 
-**The data platform (E-006):** auto trip ledger (offer→accept→trip inference, shifts, Monday-week rollups, goals/streaks), Inicio dashboards + day detail + history, cost-profile editor, greenfield backend (Hono + Drizzle + pglite tests) with WhatsApp OTP auth, anonymous-first accounts, consented aggregate sync, real-data benchmark fold-in, and the ported Claude Vision import pipeline with dry-run review UI.
+## Skipped
+None.
 
-**The paid layer (E-007):** on-device percentile engine (byte-parity with the ported `get_percentile` SQL), percentile bars/badges, cross-platform compare with winner logic, an 8-rule recommendations engine, Play Billing 9 subscriptions with trial, and tease-then-gate paywall (reader provably ungateable) with a remote kill switch.
-
-**Mexican differentiation (E-008):** IMSS threshold tracker (2025 reform: $8,364/mo per platform) with pacing/projections + month-end notifications, and fiscal summaries (LISR platform-regime withholding estimates) with PDF export.
-
-**Growth (E-009, code half):** Tu Semana share card (Canvas-rendered, WhatsApp-first, week-close notification) and the referral program (14/14 premium-day grants, abuse guards, partner attribution).
-
-## Remaining — needs Juan (not buildable by agents)
-
-| Item | Why human |
-|---|---|
-| **B-038** Legal review | MX counsel: driver-agreement clauses, disclosure copy sign-off (all `TODO(legal-B038)` markers) |
-| **B-053** Play submission | Play Console account, accessibility declaration form, demo video, data-safety form |
-| **B-054** Beta program | Recruit 20–30 CDMX drivers, WhatsApp group |
-| **On-device validation** | Real device + real Uber/DiDi accounts: package IDs, real fixtures, latency, OEM survival (TD entries) |
-| **Deploy** | Backend to Render + Postgres, run migrations/seeds, set env secrets (Twilio, Anthropic, R2, ADMIN_TOKEN, signing keys) |
-| **B-057/B-058** Web sunset | Post-launch |
-
-## Key launch blockers in techdebt.md
-
-Real Play purchase verification + RTDN signature; production spec-signing key management (KMS); counsel sign-off on disclosure/fiscal copy; real-device fixture corpus; production fiscal-config seed.
+## Caveats
+- The `/ship` adversarial Codex review could not run for any task — the `codex` CLI is not installed on
+  this machine. All three agents proceeded via ship's documented review-unavailable path with manual
+  self-review + full Gradle/lint/test gates. Consider installing Codex CLI to restore the adversarial gate.
+- The legacy web test suite has 24 failures in 5 files that **predate this session by months**
+  (e.g. `tests/unit/percentiles/engine.test.ts` imports `computePercentile`, deleted in `06c1606`).
+  These were treated as the documented baseline; no new failures were introduced. Tracked as techdebt TD-024.
 
 ## State of main
+- Tests: 289 passed / 24 failed (the pre-existing legacy-web baseline; +3 new backend tests passing)
+- Lint: clean (0 errors, 9 pre-existing warnings)
+- Android: `:ui`, `:sync`, `:overlay` unit tests pass; `:app:assembleDebug` compiles
+- Last task commit: `951a9cf` "PM: mark B-069 done (account management + session re-auth)"
 
-- Android: BUILD SUCCESSFUL (app + 8 modules, all unit tests; ~600+ tests across modules)
-- Backend: 139/139 tests, typecheck clean, migrations 0000–0008
-- CI: Android + backend workflows path-filtered on GitHub Actions
-- PM: 43 tasks done; E-006/E-007/E-008 done; E-005/E-009 active (human tasks only); E-010 backlog
+## Next priorities (all human-gated or blocked)
+1. **B-038 (urgent, business)** — legal review & in-app risk disclosure: needs counsel.
+2. **B-065 (medium, ops)** — Play declaration & data-safety for MediaProjection: Play Console work.
+3. **B-053 → B-054 (medium, ops)** — Play submission package, then driver beta. B-069's delete-account
+   requirement is now satisfied; remaining launch-critical infra per TD-022: backend deploy + Twilio
+   sender approval.
+4. **B-064 (medium, code)** — inDrive OCR spec: blocked on capturing real bid cards on a device.
+5. **B-057 → B-058 (low, code)** — web sunset & repo restructure: explicitly gated on the public
+   Android launch (B-057 sends a one-time WhatsApp announcement to registered drivers — must not run early).

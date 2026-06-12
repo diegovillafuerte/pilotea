@@ -339,3 +339,10 @@ Conscious deferrals. Each entry: date, severity, context, why deferred, when to 
 - **Context:** `RootRoute.AUTH` (completed-onboarding installs without a session) flipped to MAIN the moment the OTP verified, because the root observes `sessionState` — the profile (name/ciudad) step never showed on that path. Inside onboarding the full phone→code→profile flow runs as designed. There was also no way to log out, edit the profile, or delete the account from Ajustes, and no 401-driven re-auth when the 30-day session expired.
 - **Why deferred:** Acceptable for the main (new-install) funnel; the standalone gate mostly serves pre-account installs (the dev device today). Account management is a coherent follow-up.
 - **When to fix:** B-069 (account management in Ajustes + session-expiry re-auth) — required before Play submission (data-deletion policy). DONE.
+
+## TD-024: Legacy web test suite has 24 long-broken tests (pre-pivot)
+- **Date:** 2026-06-12
+- **Severity:** low
+- **Context:** 5 legacy web test files fail on main and have for months: `tests/unit/percentiles/engine.test.ts` (21 tests import `computePercentile`, which the B-009 rewrite `06c1606` removed from `src/lib/percentiles/engine.ts` without updating the test), `tests/app/api/cron/update-stats.test.ts`, `tests/unit/cron/update-stats.test.ts`, `tests/unit/auth/magic-link.test.ts`, and `tests/unit/seed/population-stats.test.ts` (collection error). Some R2 storage tests also attempt real network calls and fail offline. This makes "all tests must pass" unenforceable at the root; autonomous sessions now gate on "no NEW failures vs this baseline" instead.
+- **Why deferred:** The web app is superseded (E-010 sunsets it); these tests cover code slated for archive, and the Android pivot work doesn't touch them. Fixing or deleting them is pure legacy maintenance.
+- **When to fix:** At B-058 (repo restructure/archive) — either delete the obsolete tests with the legacy move, or fix them if the web reference implementation is kept runnable. If a green root test run is wanted sooner, delete `tests/unit/percentiles/engine.test.ts` (tests a deleted API) and quarantine the rest.
