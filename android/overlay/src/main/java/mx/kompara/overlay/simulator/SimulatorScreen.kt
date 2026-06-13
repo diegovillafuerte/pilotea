@@ -234,9 +234,15 @@ private fun VerdictHeadline(step: SimulatorStep) {
             fontSize = 18.sp,
         )
         Text(text = stringResource(whyRes), style = MaterialTheme.typography.bodyMedium)
+        // The net row leads with the metric the driver chose to drive by (B-079); the gross $/km
+        // row stays as the "Uber te muestra el bruto, esto es lo neto" contrast.
+        val netLabel = when (step.chipState.preferred) {
+            PreferredMetric.IPK -> R.string.sim_net_per_km_label
+            PreferredMetric.IPH -> R.string.sim_net_per_hour_label
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             Text(
-                text = stringResource(R.string.sim_net_per_km_label) + ": " + step.chipState.netPerKm,
+                text = stringResource(netLabel) + ": " + step.chipState.heroRate,
                 style = MaterialTheme.typography.labelLarge,
             )
             Text(

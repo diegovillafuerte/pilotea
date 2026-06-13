@@ -216,7 +216,7 @@ class RecommendationEngine {
             return Recommendation(
                 id = "acceptance_raise_floor",
                 type = RecommendationType.WARNING,
-                title = "Estás tomando viajes que no convienen",
+                title = "Estás tomando viajes en rojo",
                 body = "Aceptaste $acceptedReds viajes que Kompara marcó en rojo. Sube tu mínimo en Ajustes" +
                     " para que la app filtre los que no valen la pena.",
                 premium = false,
