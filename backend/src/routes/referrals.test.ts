@@ -292,7 +292,7 @@ describe("partner codes", () => {
     const res = await adminReq("GET", "/v1/admin/partners");
     expect(res.status).toBe(200);
     const body = await json(res);
-    const partner = body.partners.find((p) => p.code === code);
+    const partner = body.partners.find((p: { code: string }) => p.code === code);
     expect(partner.name).toBe("Influencer A");
     expect(partner.redemptionsAllTime).toBe(2);
     expect(partner.redemptionsLast30d).toBe(1);
