@@ -111,6 +111,14 @@ private fun CodeStep(state: SignupUiState, viewModel: SignupViewModel, modifier:
             modifier = Modifier.fillMaxWidth(),
         )
         ErrorText(state.error)
+        state.devCodeHint?.let { devCode ->
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.auth_code_dev_hint, devCode),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,

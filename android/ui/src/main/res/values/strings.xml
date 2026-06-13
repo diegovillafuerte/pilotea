@@ -186,6 +186,8 @@
     <string name="auth_code_cambiar">Cambiar número</string>
     <string name="auth_code_error_invalido">El código no es válido o ya venció. Revísalo o pide uno nuevo.</string>
     <string name="auth_code_error_red">No pudimos verificar el código. Revisa tu conexión e inténtalo de nuevo.</string>
+    <!-- Debug builds only: shown when the offline-login bypass is active (TD-022). %1$s is the dev code. -->
+    <string name="auth_code_dev_hint">Modo dev: ingresa %1$s para entrar sin backend.</string>
 
     <string name="auth_profile_titulo">Cuéntanos de ti</string>
     <string name="auth_profile_cuerpo">Con tu ciudad comparamos tus ganancias con las de otros choferes cerca de ti. Puedes cambiarla cuando quieras.</string>

@@ -37,6 +37,11 @@ data class SignupUiState(
     val error: SignupError? = null,
     /** Seconds until "Reenviar código" re-enables; 0 = available. */
     val resendSecondsLeft: Int = 0,
+    /**
+     * In debug builds, the fixed code that logs in offline (e.g. "000000"); null in release. The
+     * code screen surfaces it as a hint so on-device testing needs no backend (TD-022).
+     */
+    val devCodeHint: String? = null,
 ) {
     /** The normalized E.164 phone, or null while the input isn't a valid MX number. */
     val phoneE164: String? get() = MxPhone.normalizeOrNull(phoneInput)

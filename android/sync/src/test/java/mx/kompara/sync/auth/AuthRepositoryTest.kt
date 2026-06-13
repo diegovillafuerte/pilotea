@@ -190,7 +190,8 @@ class AuthRepositoryTest {
                 else -> jsonResponse("""{"ok":true}""")
             }
         }
-        val repo = AuthRepository(dataStore, api, json)
+        // Bypass disabled (the release path): the code goes to the backend, which rejects it.
+        val repo = AuthRepository(dataStore, api, json, devBypassEnabled = false)
 
         try {
             repo.verifyOtp("+521", "000000")
@@ -200,6 +201,49 @@ class AuthRepositoryTest {
         }
         assertEquals(SessionState.Anonymous, repo.sessionState.first())
         assertNull(repo.currentToken())
+    }
+
+    @Test
+    fun `dev bypass code mints a local session without calling the backend`() = runTest {
+        dataStore = newDataStore()
+        // Any auth call to the backend would 500 — proving the bypass never touches the network.
+        val api = buildApi({ null }) { jsonResponse("""{"error":"down"}""", HttpStatusCode.InternalServerError) }
+        val repo = AuthRepository(dataStore, api, json, devBypassEnabled = true)
+
+        repo.requestOtp("+5215512345678")
+        val driver = repo.verifyOtp("+5215512345678", "000000")
+
+        assertEquals("+5215512345678", driver.phone)
+        val state = repo.sessionState.first()
+        assertTrue(state is SessionState.Authenticated)
+        assertEquals(driver.id, (state as SessionState.Authenticated).driver.id)
+        assertNotNull(repo.currentToken())
+        // The bypass short-circuits before any /v1/auth/otp/verify request is made.
+        assertTrue(
+            "verify must not hit the backend on the dev-code bypass",
+            recorded.none { it.url.encodedPath.endsWith("/v1/auth/otp/verify") },
+        )
+    }
+
+    @Test
+    fun `requestOtp does not throw in debug when the backend is unreachable`() = runTest {
+        dataStore = newDataStore()
+        val api = buildApi({ null }) { jsonResponse("""{"error":"down"}""", HttpStatusCode.InternalServerError) }
+        val repo = AuthRepository(dataStore, api, json, devBypassEnabled = true)
+
+        // Must not throw — otherwise the dev can't reach the code screen to use the bypass.
+        repo.requestOtp("+5215512345678")
+
+        assertEquals(SessionState.Anonymous, repo.sessionState.first())
+    }
+
+    @Test
+    fun `dev bypass exposes the code as a hint, disabled build does not`() = runTest {
+        dataStore = newDataStore()
+        val api = buildApi({ null }) { jsonResponse("""{"ok":true}""") }
+
+        assertEquals("000000", AuthRepository(dataStore, api, json, devBypassEnabled = true).devBypassCode)
+        assertNull(AuthRepository(dataStore, api, json, devBypassEnabled = false).devBypassCode)
     }
 
     @Test
