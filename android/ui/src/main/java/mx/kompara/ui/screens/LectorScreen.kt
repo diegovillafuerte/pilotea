@@ -47,8 +47,9 @@ import javax.inject.Inject
 
 /**
  * The Lector tab: live state of the accessibility reader. ON → drive-ready guidance + simulator
- * shortcut; OFF → one tap to the system Accessibility settings (we never toggle it ourselves —
- * read-only legal/Play posture, the driver flips the switch).
+ * shortcut + a quick path into "Tu semáforo" (B-079); OFF → one tap to the system Accessibility
+ * settings (we never toggle it ourselves — read-only legal/Play posture, the driver flips the
+ * switch).
  *
  * Once the accessibility reader is on, the tab also controls the screen-capture (OCR) reader that
  * DiDi needs (B-075): live activo/detenido state plus an iniciar/reiniciar button, behind a
@@ -68,6 +69,7 @@ class LectorViewModel @Inject constructor(
 fun LectorScreen(
     modifier: Modifier = Modifier,
     onOpenSimulator: () -> Unit = {},
+    onOpenThresholds: () -> Unit = {},
     viewModel: LectorViewModel = hiltViewModel(),
 ) {
     val connected by viewModel.connected.collectAsStateWithLifecycle()
@@ -78,6 +80,7 @@ fun LectorScreen(
         ocrRunning = ocrRunning,
         onOpenAccessibilitySettings = { AccessibilitySettings.open(context) },
         onOpenSimulator = onOpenSimulator,
+        onOpenThresholds = onOpenThresholds,
         onStartScreenReader = { startScreenReader(context) },
         modifier = modifier,
     )
@@ -99,6 +102,7 @@ internal fun LectorContent(
     ocrRunning: Boolean,
     onOpenAccessibilitySettings: () -> Unit,
     onOpenSimulator: () -> Unit,
+    onOpenThresholds: () -> Unit,
     onStartScreenReader: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -169,6 +173,9 @@ internal fun LectorContent(
                 text = stringResource(R.string.lector_on_cta),
                 onClick = onOpenSimulator,
             )
+            TextButton(onClick = onOpenThresholds) {
+                Text(text = stringResource(R.string.lector_semaforo_cta))
+            }
             TextButton(onClick = onOpenAccessibilitySettings) {
                 Text(text = stringResource(R.string.lector_settings_cta))
             }
@@ -237,6 +244,7 @@ private fun LectorContentOnPreview() {
             ocrRunning = false,
             onOpenAccessibilitySettings = {},
             onOpenSimulator = {},
+            onOpenThresholds = {},
             onStartScreenReader = {},
         )
     }
@@ -251,6 +259,7 @@ private fun LectorContentOffPreview() {
             ocrRunning = false,
             onOpenAccessibilitySettings = {},
             onOpenSimulator = {},
+            onOpenThresholds = {},
             onStartScreenReader = {},
         )
     }

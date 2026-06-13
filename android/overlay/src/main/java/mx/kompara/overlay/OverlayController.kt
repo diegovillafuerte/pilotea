@@ -27,6 +27,7 @@ import mx.kompara.capture.OfferEvent
 import mx.kompara.capture.OverlayPresenter
 import mx.kompara.data.service.ScreenReaderState
 import mx.kompara.data.settings.PlatformThreshold
+import mx.kompara.data.settings.PreferredMetric
 import mx.kompara.data.settings.SettingsRepository
 import mx.kompara.metrics.CostProfile
 import mx.kompara.metrics.CostProfileMapper
@@ -99,15 +100,28 @@ class OverlayController @Inject constructor(
         foregroundOcrOwnedApp: Flow<Boolean>,
     ) {
         this.overlayContext = overlayContext
-        val machine = OverlayStateMachine(evaluate = ::evaluate)
-        machine.visibility(events)
-            .onEach { visibility -> render(scope, visibility) }
-            .launchIn(scope)
+        scope.launch {
+            // Prime the snapshots BEFORE arming the offer pipeline, then keep them warm for the
+            // service's lifetime. evaluate() is synchronous and runs before render()'s refresh,
+            // so arming the pipeline first could grade the very first offer with default floors,
+            // default metric (B-079), or zero costs (B-032 "changes reflect instantly"). The
+            // offer sources re-emit continuously (a11y ticks / OCR frames), so the one-read
+            // delay cannot cost more than a beat — unlike a wrong verdict, which costs trust.
+            settingsSnapshot = settings.settings.first()
+            costProfileSnapshot = costProfiles.get()
+            settings.settings.onEach { settingsSnapshot = it }.launchIn(scope)
+            costProfiles.profile.onEach { costProfileSnapshot = it }.launchIn(scope)
+            val machine = OverlayStateMachine(evaluate = ::evaluate)
+            machine.visibility(events)
+                .onEach { visibility -> render(scope, visibility) }
+                .launchIn(scope)
+        }
         // Reader-down banner (B-078): visible exactly while the driver sits in an OCR-owned app
         // with the screen reader dead — the silent-miss state the stopped notification can't cover
         // (it fires at lock time, when nobody is looking). Gated on hasRunThisSession: the banner
         // is a recovery affordance, never an onboarding nag for drivers who haven't enabled the
-        // reader. Tap relaunches the consent flow.
+        // reader. Tap relaunches the consent flow. Independent of the chip pipeline above, so it
+        // needs none of the snapshot priming.
         combine(
             ScreenReaderState.running,
             ScreenReaderState.hasRunThisSession,
@@ -127,16 +141,19 @@ class OverlayController @Inject constructor(
         val tripOffer = OfferMapping.toTripOffer(event.card)
         val costProfile: CostProfile = CostProfileMapper.toCostProfileOrZero(costProfileSnapshot)
         currentThreshold = thresholdSnapshot()
-        return engine.evaluate(tripOffer, costProfile, currentThreshold)
+        return engine.evaluate(tripOffer, costProfile, currentThreshold, preferredMetricSnapshot())
     }
 
-    // Snapshots refreshed by [start]'s collectors would be ideal; for the per-offer path we read the
-    // latest persisted values lazily and cache them so evaluate() stays synchronous.
+    // Kept current by [start]'s collectors (and refreshed again in [render] as a belt-and-braces
+    // re-read), so the synchronous evaluate() path always sees the latest persisted values.
     @Volatile private var costProfileSnapshot: mx.kompara.data.db.entity.CostProfileEntity? = null
     @Volatile private var settingsSnapshot: mx.kompara.data.settings.Settings? = null
 
     private fun thresholdSnapshot(): PlatformThreshold =
         settingsSnapshot?.effectiveThreshold ?: PlatformThreshold.DEFAULT
+
+    private fun preferredMetricSnapshot(): PreferredMetric =
+        settingsSnapshot?.preferredMetric ?: PreferredMetric.DEFAULT
 
     private suspend fun render(scope: CoroutineScope, visibility: OverlayVisibility) {
         // Refresh persisted snapshots so the next evaluate() and the threshold sheet are current,

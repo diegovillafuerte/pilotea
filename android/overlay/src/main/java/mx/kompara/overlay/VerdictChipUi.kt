@@ -32,6 +32,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import mx.kompara.data.settings.PlatformThreshold
+import mx.kompara.data.settings.PreferredMetric
 import mx.kompara.ui.components.brandColor
 import mx.kompara.ui.components.labelRes
 import mx.kompara.ui.components.onBrandColor
@@ -46,19 +47,20 @@ data class VerdictChipCallbacks(
     val onDrag: (dxPx: Float, dyPx: Float) -> Unit = { _, _ -> },
     /** Drag finished → snap to the nearer edge and persist. */
     val onDragEnd: () -> Unit = {},
-    /** The driver edited a $/km floor in the quick sheet; the full updated threshold persists. */
+    /** The driver edited a floor in the quick sheet; the full updated threshold persists. */
     val onThresholdChange: (threshold: PlatformThreshold) -> Unit = {},
 )
 
 /**
  * The floating verdict chip the driver sees over Uber/DiDi.
  *
- * Collapsed: a traffic-light pill with the net $/km big (the one-second read) and the net $/hr
- * right under it — the two rates the verdict is judged on. The net total ("ganancia neta") lives in
- * the expanded detail: the host app already shows the fare, so repeating a peso total up front
- * spends glance budget without adding signal. Tap toggles the expanded detail rows (net profit,
- * $/min, gross $/km, and a missing-data hint). Long-press opens the inline quick-threshold sheet
- * (green + red $/km floor sliders that persist through [VerdictChipCallbacks.onThresholdChange]).
+ * Collapsed: a traffic-light pill with the driver's preferred rate big (the one-second read —
+ * net $/km or net $/hr per [VerdictChipState.preferred], B-079) and the other rate right under it
+ * as context. The net total ("ganancia neta") lives in the expanded detail: the host app already
+ * shows the fare, so repeating a peso total up front spends glance budget without adding signal.
+ * Tap toggles the expanded detail rows (net profit, $/min, gross $/km, and a missing-data hint).
+ * Long-press opens the inline quick-threshold sheet (green + red floor sliders for the preferred
+ * metric, persisting through [VerdictChipCallbacks.onThresholdChange]).
  *
  * Glanceability (1-second cognition target): the hero figure is heavy and oversized; colour does
  * most of the talking so the meaning lands peripherally.
@@ -114,6 +116,7 @@ fun VerdictChipUi(
     if (sheetOpen) {
         QuickThresholdSheet(
             threshold = threshold,
+            preferred = state.preferred,
             onThresholdChange = callbacks.onThresholdChange,
             onClose = { sheetOpen = false },
         )
@@ -130,13 +133,13 @@ private fun CollapsedContent(state: VerdictChipState) {
         fontSize = 13.sp,
     )
     Text(
-        text = state.netPerKm,
+        text = state.heroRate,
         color = onColor,
         fontWeight = FontWeight.Black,
         fontSize = 30.sp,
     )
     Text(
-        text = state.netPerHour,
+        text = state.secondaryRate,
         color = onColor,
         fontWeight = FontWeight.SemiBold,
         fontSize = 18.sp,
@@ -200,17 +203,24 @@ private fun MissingHint(kind: VerdictChipState.MissingHintKind) {
 }
 
 /**
- * The long-press quick-settings card: green + red $/km floor sliders. Lives inline in the overlay
- * window (no separate Activity) so the driver never leaves the host app. Persists immediately via
- * [onThresholdChange]; [ThresholdSheet] keeps the red floor at or below the green one.
+ * The long-press quick-settings card: green + red floor sliders for the metric that decides the
+ * semáforo (B-079) — $/km when the driver prefers IPK, $/hr for IPH; the other metric's floors are
+ * never touched from here. Lives inline in the overlay window (no separate Activity) so the driver
+ * never leaves the host app. Persists immediately via [onThresholdChange]; [ThresholdSheet] keeps
+ * the red floor at or below the green one.
  */
 @Composable
 private fun QuickThresholdSheet(
     threshold: PlatformThreshold,
+    preferred: PreferredMetric,
     onThresholdChange: (PlatformThreshold) -> Unit,
     onClose: () -> Unit,
 ) {
-    var current by remember { mutableStateOf(ThresholdSheet.snapped(threshold)) }
+    var current by remember { mutableStateOf(ThresholdSheet.snapped(threshold, preferred)) }
+    val titleRes = when (preferred) {
+        PreferredMetric.IPK -> R.string.overlay_threshold_title
+        PreferredMetric.IPH -> R.string.overlay_threshold_title_hour
+    }
     Surface(
         shape = RoundedCornerShape(16.dp),
         tonalElevation = 4.dp,
@@ -218,21 +228,51 @@ private fun QuickThresholdSheet(
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = androidx.compose.ui.res.stringResource(R.string.overlay_threshold_title),
+                text = androidx.compose.ui.res.stringResource(titleRes),
                 fontWeight = FontWeight.Bold,
             )
-            FloorSlider(
-                label = androidx.compose.ui.res.stringResource(R.string.overlay_threshold_green_label),
-                value = current.minPerKmMxn,
-                onValueChange = { current = ThresholdSheet.withGreenPerKm(current, it) },
-                onValueChangeFinished = { onThresholdChange(current) },
-            )
-            FloorSlider(
-                label = androidx.compose.ui.res.stringResource(R.string.overlay_threshold_red_label),
-                value = current.redPerKmMxn,
-                onValueChange = { current = ThresholdSheet.withRedPerKm(current, it) },
-                onValueChangeFinished = { onThresholdChange(current) },
-            )
+            when (preferred) {
+                PreferredMetric.IPK -> {
+                    FloorSlider(
+                        label = androidx.compose.ui.res.stringResource(R.string.overlay_threshold_green_label),
+                        valueText = perKmValueText(current.minPerKmMxn),
+                        value = current.minPerKmMxn,
+                        range = ThresholdSheet.MIN_PER_KM..ThresholdSheet.MAX_PER_KM,
+                        steps = ThresholdSheet.stepCount,
+                        onValueChange = { current = ThresholdSheet.withGreenPerKm(current, it) },
+                        onValueChangeFinished = { onThresholdChange(current) },
+                    )
+                    FloorSlider(
+                        label = androidx.compose.ui.res.stringResource(R.string.overlay_threshold_red_label),
+                        valueText = perKmValueText(current.redPerKmMxn),
+                        value = current.redPerKmMxn,
+                        range = ThresholdSheet.MIN_PER_KM..ThresholdSheet.MAX_PER_KM,
+                        steps = ThresholdSheet.stepCount,
+                        onValueChange = { current = ThresholdSheet.withRedPerKm(current, it) },
+                        onValueChangeFinished = { onThresholdChange(current) },
+                    )
+                }
+                PreferredMetric.IPH -> {
+                    FloorSlider(
+                        label = androidx.compose.ui.res.stringResource(R.string.overlay_threshold_green_label),
+                        valueText = perHourValueText(current.minPerHourMxn),
+                        value = current.minPerHourMxn,
+                        range = ThresholdSheet.MIN_PER_HOUR..ThresholdSheet.MAX_PER_HOUR,
+                        steps = ThresholdSheet.hourStepCount,
+                        onValueChange = { current = ThresholdSheet.withGreenPerHour(current, it) },
+                        onValueChangeFinished = { onThresholdChange(current) },
+                    )
+                    FloorSlider(
+                        label = androidx.compose.ui.res.stringResource(R.string.overlay_threshold_red_label),
+                        valueText = perHourValueText(current.redPerHourMxn),
+                        value = current.redPerHourMxn,
+                        range = ThresholdSheet.MIN_PER_HOUR..ThresholdSheet.MAX_PER_HOUR,
+                        steps = ThresholdSheet.hourStepCount,
+                        onValueChange = { current = ThresholdSheet.withRedPerHour(current, it) },
+                        onValueChangeFinished = { onThresholdChange(current) },
+                    )
+                }
+            }
             Text(
                 text = androidx.compose.ui.res.stringResource(R.string.overlay_threshold_hint),
                 fontSize = 11.sp,
@@ -245,9 +285,26 @@ private fun QuickThresholdSheet(
 }
 
 @Composable
+private fun perKmValueText(value: Double): String =
+    androidx.compose.ui.res.stringResource(
+        R.string.overlay_threshold_value,
+        String.format(java.util.Locale.forLanguageTag("es-MX"), "%.1f", value),
+    )
+
+@Composable
+private fun perHourValueText(value: Double): String =
+    androidx.compose.ui.res.stringResource(
+        R.string.overlay_threshold_value_hour,
+        String.format(java.util.Locale.forLanguageTag("es-MX"), "%.0f", value),
+    )
+
+@Composable
 private fun FloorSlider(
     label: String,
+    valueText: String,
     value: Double,
+    range: ClosedFloatingPointRange<Double>,
+    steps: Int,
     onValueChange: (Double) -> Unit,
     onValueChangeFinished: () -> Unit,
 ) {
@@ -258,10 +315,7 @@ private fun FloorSlider(
     ) {
         Text(text = label, fontSize = 12.sp)
         Text(
-            text = androidx.compose.ui.res.stringResource(
-                R.string.overlay_threshold_value,
-                String.format(java.util.Locale.forLanguageTag("es-MX"), "%.1f", value),
-            ),
+            text = valueText,
             fontWeight = FontWeight.Black,
             fontSize = 18.sp,
         )
@@ -270,7 +324,7 @@ private fun FloorSlider(
         value = value.toFloat(),
         onValueChange = { onValueChange(it.toDouble()) },
         onValueChangeFinished = onValueChangeFinished,
-        valueRange = ThresholdSheet.MIN_PER_KM.toFloat()..ThresholdSheet.MAX_PER_KM.toFloat(),
-        steps = ThresholdSheet.stepCount,
+        valueRange = range.start.toFloat()..range.endInclusive.toFloat(),
+        steps = steps,
     )
 }

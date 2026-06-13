@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import mx.kompara.data.settings.DefaultThresholds
 import mx.kompara.data.settings.PlatformThreshold
+import mx.kompara.data.settings.PreferredMetric
 import mx.kompara.data.settings.SettingsRepository
 import javax.inject.Inject
 
@@ -21,6 +22,7 @@ data class ThresholdsUiState(
     val threshold: PlatformThreshold = PlatformThreshold.DEFAULT,
     val cityDefault: PlatformThreshold = PlatformThreshold.DEFAULT,
     val cityDisplayName: String = "",
+    val preferredMetric: PreferredMetric = PreferredMetric.DEFAULT,
 )
 
 /**
@@ -39,12 +41,18 @@ class ThresholdsViewModel @Inject constructor(
                 threshold = settings.effectiveThreshold,
                 cityDefault = DefaultThresholds.forCity(settings.city.key),
                 cityDisplayName = settings.city.displayName,
+                preferredMetric = settings.preferredMetric,
             )
         }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = ThresholdsUiState(),
         )
+
+    /** Pick which metric decides the semáforo (B-079): IPK (net $/km) or IPH (net $/hr). */
+    fun setPreferredMetric(metric: PreferredMetric) {
+        viewModelScope.launch { settingsRepository.setPreferredMetric(metric) }
+    }
 
     fun setGreenPerKm(value: Double) = persist { ThresholdEditor.withGreenPerKm(it, value) }
 

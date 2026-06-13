@@ -2,6 +2,7 @@ package mx.kompara.overlay.simulator
 
 import mx.kompara.data.model.Platform
 import mx.kompara.data.settings.PlatformThreshold
+import mx.kompara.data.settings.PreferredMetric
 import mx.kompara.overlay.VerdictChipState
 import mx.kompara.parsers.snapshot.DemoSnapshots
 
@@ -13,12 +14,15 @@ import mx.kompara.parsers.snapshot.DemoSnapshots
  * @property stepIndex 0-based index into [offers] (the 3-step good → marginal → bad script)
  * @property offers the three demo offers for the current platform, already replayed to verdicts
  * @property threshold the driver's current $/km (+ $/h) floor for [platform]; the slider edits it
+ * @property preferredMetric which metric decides the semáforo (B-079); the playground slider edits
+ *   that metric's green floor
  */
 data class SimulatorUiState(
     val platform: Platform,
     val stepIndex: Int,
     val offers: List<SimulatorStep>,
     val threshold: PlatformThreshold,
+    val preferredMetric: PreferredMetric = PreferredMetric.DEFAULT,
 ) {
     /** The offer currently on screen, or null before the first evaluation lands. */
     val current: SimulatorStep? get() = offers.getOrNull(stepIndex)

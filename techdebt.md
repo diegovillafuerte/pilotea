@@ -347,7 +347,14 @@ Conscious deferrals. Each entry: date, severity, context, why deferred, when to 
 - **Why deferred:** The web app is superseded (E-010 sunsets it); these tests cover code slated for archive, and the Android pivot work doesn't touch them. Fixing or deleting them is pure legacy maintenance.
 - **When to fix:** At B-058 (repo restructure/archive) — either delete the obsolete tests with the legacy move, or fix them if the web reference implementation is kept runnable. If a green root test run is wanted sooner, delete `tests/unit/percentiles/engine.test.ts` (tests a deleted API) and quarantine the rest.
 
-## TD-025: Reader-down banner has no dismiss gesture
+## TD-025: Offer history verdicts are graded against default floors and default metric (B-079)
+- **Date:** 2026-06-12
+- **Severity:** low
+- **Context:** `TripLifecycleTracker.evaluateVerdict` (`android/capture/.../lifecycle/TripLifecycleTracker.kt`) re-evaluates accepted offers with `PlatformThreshold.DEFAULT` — not the driver's tuned floors — and, since B-079, also with the default preferred metric (IPK) rather than the driver's chosen one. Persisted offer/trip verdict levels can therefore disagree with what the overlay showed at accept time. Pre-existing for thresholds (predates B-076's single semáforo); B-079 widens the gap to the metric choice. Surfaced by the B-079 Codex plan review.
+- **Why deferred:** Out of scope for B-079 (overlay/settings surface). Fixing it properly means snapshotting the floors + metric the chip actually used at offer time (or reading Settings in the tracker), and deciding whether history should re-grade when floors change — a product question, not a one-liner.
+- **When to fix:** When offer history / recommendations consume `verdictLevel` for anything driver-facing. Pass the live `Settings` (floors + preferredMetric) into `evaluateVerdict`, or persist the verdict the overlay actually rendered.
+
+## TD-026: Reader-down banner has no dismiss gesture
 - **Date:** 2026-06-12
 - **Severity:** low
 - **Context:** The B-078 reader-down banner (overlay pill on DiDi/inDrive while the screen reader is dead) can only be cleared by tapping it (restart consent), restarting the reader elsewhere, or leaving the host app. A driver who deliberately wants the reader off for the rest of a shift has no swipe-to-dismiss; the banner re-appears each time they re-enter DiDi. Mitigated by the hasRunThisSession gate (never shows for drivers who didn't enable the reader this session).

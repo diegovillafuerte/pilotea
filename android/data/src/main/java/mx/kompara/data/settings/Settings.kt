@@ -135,6 +135,13 @@ data class Settings(
      * data; never uploaded by itself. Default 0.
      */
     val fiscalExportCount: Int = 0,
+
+    /**
+     * Which net rate decides the semáforo colour (B-079): IPK (net $/km) or IPH (net $/hr).
+     * Drivers think in one metric per shift, so the verdict tests ONLY this metric's floors; the
+     * other rate renders as secondary context on the chip. Default [PreferredMetric.IPK].
+     */
+    val preferredMetric: PreferredMetric = PreferredMetric.DEFAULT,
 ) {
     /** The shared acceptance floors, or the conservative default when never tuned (B-076). */
     val effectiveThreshold: PlatformThreshold

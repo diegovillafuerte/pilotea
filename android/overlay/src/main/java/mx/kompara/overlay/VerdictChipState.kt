@@ -1,5 +1,6 @@
 package mx.kompara.overlay
 
+import mx.kompara.data.settings.PreferredMetric
 import mx.kompara.metrics.OfferMetrics
 import mx.kompara.metrics.VerdictLevel
 import mx.kompara.ui.format.Formatters
@@ -11,8 +12,9 @@ import mx.kompara.ui.format.Formatters
  * without touching Compose.
  *
  * @property level traffic-light level (drives the colour)
- * @property netPerKm collapsed hero figure, e.g. "$7.20/km" or [MISSING] when distance was unknown
- * @property netPerHour collapsed second figure, e.g. "$186/h" or [MISSING] when time was unknown
+ * @property netPerKm formatted net rate, e.g. "$7.20/km" or [MISSING] when distance was unknown;
+ *           rendered as hero or secondary depending on [preferred] (see [heroRate])
+ * @property netPerHour formatted net rate, e.g. "$186/h" or [MISSING] when time was unknown
  * @property netProfit expanded detail, e.g. "$87.50" or [MISSING] (the host app already shows the
  *           gross fare, so the net total is context, not the headline)
  * @property netPerMin expanded detail, e.g. "$3.40/min" or [MISSING]
@@ -22,6 +24,8 @@ import mx.kompara.ui.format.Formatters
  * @property explainKind the one-line "¿por qué?" shown in the expanded detail, derived from the
  *   per-metric levels (which floor passed/failed); [ExplainKind.NONE] when a metric was untestable
  *   (the missing-data hint already covers that case)
+ * @property preferred which metric decided [level] (B-079) — orders the collapsed figures so the
+ *   big number is always the one the light was judged on
  */
 data class VerdictChipState(
     val level: VerdictLevel,
@@ -33,7 +37,22 @@ data class VerdictChipState(
     val hasMissingData: Boolean,
     val missingHintKind: MissingHintKind,
     val explainKind: ExplainKind,
+    val preferred: PreferredMetric = PreferredMetric.DEFAULT,
 ) {
+    /** The collapsed hero figure: the rate the driver chose to drive by (B-079). */
+    val heroRate: String
+        get() = when (preferred) {
+            PreferredMetric.IPK -> netPerKm
+            PreferredMetric.IPH -> netPerHour
+        }
+
+    /** The collapsed second figure: the other rate, kept visible as context (B-079). */
+    val secondaryRate: String
+        get() = when (preferred) {
+            PreferredMetric.IPK -> netPerHour
+            PreferredMetric.IPH -> netPerKm
+        }
+
     /** Which one-line verdict explanation to show in the expanded detail. */
     enum class ExplainKind {
         /** A metric was untestable (missing data) — no explanation, the hint covers it. */
@@ -92,6 +111,7 @@ data class VerdictChipState(
                 hasMissingData = missing.isNotEmpty(),
                 missingHintKind = hint,
                 explainKind = explain(metrics.verdict.netPerKmLevel, metrics.verdict.netPerHourLevel),
+                preferred = metrics.verdict.preferredMetric,
             )
         }
 
