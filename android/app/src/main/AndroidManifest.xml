@@ -10,6 +10,10 @@
          Requested contextually on the onboarding done screen on Android 13+. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- The reader-stopped channel vibrates (B-078) — the reader dies at screen lock, phone in
+         pocket, so the alert must be felt. Normal permission, granted at install. -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+
     <!--
       Package visibility (Android 11+) for the shareable earnings card (B-055): so we can detect
       WhatsApp (preferred share target) and resolve ACTION_SEND image targets for the chooser fallback.

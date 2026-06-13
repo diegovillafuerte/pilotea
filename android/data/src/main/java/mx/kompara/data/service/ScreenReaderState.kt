@@ -24,7 +24,18 @@ object ScreenReaderState {
     /** True while the OCR capture service holds a live MediaProjection. */
     val running: StateFlow<Boolean> = _running.asStateFlow()
 
+    private val _hasRunThisSession = MutableStateFlow(false)
+
+    /**
+     * True once the reader has run at least once this process lifetime (B-078). The reader-down
+     * banner gates on this: it is a RECOVERY affordance for a reader that died mid-shift. A driver
+     * who never started the reader is onboarded through the Lector tab, never nagged by an overlay
+     * (and after process death the persistent stopped-notification is the recovery path instead).
+     */
+    val hasRunThisSession: StateFlow<Boolean> = _hasRunThisSession.asStateFlow()
+
     fun setRunning(running: Boolean) {
         _running.value = running
+        if (running) _hasRunThisSession.value = true
     }
 }

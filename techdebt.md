@@ -374,3 +374,10 @@ Conscious deferrals. Each entry: date, severity, context, why deferred, when to 
   hex / no raw fontSize / spacing scale". Consider a Detekt or Android-lint rule set that errors with
   a message pointing at `docs/design-principles.md`, so the doc doesn't silently drift. Lower priority
   than the two reconciliations above.
+
+## TD-027: Reader-down banner has no dismiss gesture
+- **Date:** 2026-06-12
+- **Severity:** low
+- **Context:** The B-078 reader-down banner (overlay pill on DiDi/inDrive while the screen reader is dead) can only be cleared by tapping it (restart consent), restarting the reader elsewhere, or leaving the host app. A driver who deliberately wants the reader off for the rest of a shift has no swipe-to-dismiss; the banner re-appears each time they re-enter DiDi. Mitigated by the hasRunThisSession gate (never shows for drivers who didn't enable the reader this session).
+- **Why deferred:** Dismissal-with-suppression-windows adds state (until next death? next shift?) that's better designed against real driver feedback; the adversarial review flagged it as part of a larger finding whose core (the never-enabled nag) is fixed.
+- **When to fix:** During the B-054 driver beta, if feedback shows drivers turning the reader off intentionally mid-shift.
