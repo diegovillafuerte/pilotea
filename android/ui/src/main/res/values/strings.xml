@@ -42,7 +42,7 @@
     <string name="lector_uber_title">Ofertas de Uber</string>
     <string name="lector_uber_body">Siempre activo una vez que enciendes el servicio de accesibilidad.</string>
     <string name="lector_didi_title">Ofertas de DiDi</string>
-    <string name="lector_didi_body">DiDi no deja leerlas directamente, así que Kompara lee tu pantalla — solo en tu teléfono. Se apaga al bloquear el equipo.</string>
+    <string name="lector_didi_body">Para leer las ofertas de DiDi, Kompara captura tu pantalla y la analiza solo en tu teléfono. Se apaga al bloquear el equipo.</string>
     <string name="lector_status_on">Activo</string>
     <string name="lector_ocr_status_off">Detenido</string>
     <string name="lector_on_cta">Probar en el simulador</string>
@@ -225,7 +225,7 @@
     <string name="onb_disc_que_cuerpo">Kompara lee el contenido de pantalla de las apps de Uber y DiDi mientras manejas — los textos de la oferta del viaje (tarifa, distancia, tiempo y destino).</string>
     <string name="onb_disc_porque_titulo">Para qué</string>
     <!-- TODO(legal-B038) -->
-    <string name="onb_disc_porque_cuerpo">Únicamente para calcular las métricas del viaje (ganancia por km y ganancia por hora) y mostrarte el semáforo de si conviene o no.</string>
+    <string name="onb_disc_porque_cuerpo">Únicamente para calcular las métricas del viaje (ganancia por km y ganancia por hora) y mostrarte el semáforo del viaje.</string>
     <string name="onb_disc_donde_titulo">Dónde se procesa</string>
     <!-- TODO(legal-B038) -->
     <string name="onb_disc_donde_cuerpo">El procesamiento ocurre solo en tu teléfono. Kompara no vende, no comparte ni sube a internet el contenido de tu pantalla. Tu cuenta solo guarda tu número de WhatsApp, tu configuración y tus totales.</string>
