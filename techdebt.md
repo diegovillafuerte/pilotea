@@ -370,3 +370,7 @@ Conscious deferrals. Each entry: date, severity, context, why deferred, when to 
 - **When to fix:** Move each screen's edge padding to 16dp when you next touch that screen. Consolidate
   the overlay onto the `:ui` theme verdict colours during the next overlay change, verifying the chip
   colours on a real device.
+- **Also (Codex B-080 review):** the design rules are documentation-only — nothing enforces "no raw
+  hex / no raw fontSize / spacing scale". Consider a Detekt or Android-lint rule set that errors with
+  a message pointing at `docs/design-principles.md`, so the doc doesn't silently drift. Lower priority
+  than the two reconciliations above.
