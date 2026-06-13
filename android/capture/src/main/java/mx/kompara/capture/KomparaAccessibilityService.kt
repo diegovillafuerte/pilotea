@@ -145,14 +145,17 @@ class KomparaAccessibilityService : AccessibilityService() {
         // misconfiguration can never leak non-target events into the pipeline.
         if (pkg !in TARGET_PACKAGES) return
 
-        // Instant arm for the reader-down banner — only when the banner could actually show: the
-        // reader ran this session (it's a recovery affordance, not an onboarding nag) and is down
-        // now (B-078). Two flag reads; nothing measurable on the event hot path.
-        if (pkg in OCR_OWNED_PACKAGES &&
-            ScreenReaderState.hasRunThisSession.value &&
-            !ScreenReaderState.running.value
-        ) {
-            foregroundOcrOwnedApp.value = true
+        // Reader-down banner edges (B-078) — flag reads only; nothing measurable on the hot path.
+        // RISE: an OCR-owned event arms the signal, but only when the banner could actually show
+        // (reader ran this session — recovery affordance, not an onboarding nag — and is down now).
+        // Instant FALL: an event from a non-OCR target app (Uber) means the driver switched away;
+        // don't keep the banner over the wrong app waiting out the poll's two-miss grace.
+        if (pkg in OCR_OWNED_PACKAGES) {
+            if (ScreenReaderState.hasRunThisSession.value && !ScreenReaderState.running.value) {
+                foregroundOcrOwnedApp.value = true
+            }
+        } else {
+            foregroundOcrOwnedApp.value = false
         }
 
         pipeline.submit(CaptureEvent(packageName = pkg, timestampMs = event.eventTime))
