@@ -42,7 +42,7 @@
 | ID | Steps | Expected | ✓/✗ |
 |---|---|---|---|
 | B1 | Lector tab → Encender lector → enable Kompara in accessibility settings | Lector shows "El lector está encendido" | |
-| B2 | Start screen capture: `adb shell am start -n mx.kompara.app/mx.kompara.app.OcrConsentActivity` (no in-app button yet — B-065 scope) | System screen-share dialog → accept → OCR service starts; no crash; launcher icon still opens MainActivity normally | |
+| B2 | Start screen capture: Lector tab → "Iniciar lector de pantalla" → disclosure dialog → Continuar (B-075; activity no longer adb-launchable — not exported) | Disclosure shows on-device-only copy → system screen-share dialog → accept → OCR service starts; Lector shows "Activo"; no crash; launcher icon still opens MainActivity normally | |
 | B3 | Battery: Ajustes → Batería → Kompara "Sin restricciones"; pin the app card in Recents | Settings stick after reboot | |
 | B4 | Ayuda check: Ajustes → Ayuda → "¿Cómo activo el lector?" | Steps match what you just did (incl. the DiDi screen-capture mention) | |
 

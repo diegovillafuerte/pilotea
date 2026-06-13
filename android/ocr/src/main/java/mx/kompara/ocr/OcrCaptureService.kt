@@ -17,6 +17,7 @@ import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.IBinder
+import android.os.SystemClock
 import android.util.Log
 import android.view.WindowManager
 import kotlinx.coroutines.CoroutineScope
@@ -90,6 +91,9 @@ class OcrCaptureService : Service() {
         }, null)
 
         startCapture(mp)
+        // The reader may have been restarted from the Lector tab rather than the stopped
+        // notification — clear it so it can't claim "detenido" while capture runs.
+        getSystemService(NotificationManager::class.java).cancel(STOPPED_NOTIF_ID)
         ScreenReaderState.setRunning(true)
         return START_NOT_STICKY
     }
@@ -114,7 +118,7 @@ class OcrCaptureService : Service() {
         reader.setOnImageAvailableListener({ r ->
             val image = r.acquireLatestImage() ?: return@setOnImageAvailableListener
             try {
-                val now = System.currentTimeMillis()
+                val now = SystemClock.elapsedRealtime()
                 if (now - lastOcrAt < THROTTLE_MS) return@setOnImageAvailableListener
                 lastOcrAt = now
                 val bitmap = image.toBitmap(width, height)
@@ -139,7 +143,9 @@ class OcrCaptureService : Service() {
         // feed back into the pipeline).
         val ownUi = KomparaUiGuard.isOwnUi(joined)
         val card = if (ownUi) null else didiParser.parse(blocks)
-        val now = System.currentTimeMillis()
+        // Monotonic clock for presence math (a wall-clock jump must not hide a live card or pin a
+        // stale one); wall clock only for event timestamps and fixture filenames.
+        val now = SystemClock.elapsedRealtime()
         if (card != null) {
             presence.onParsed(now)
             val key = "${card.fare}_${card.pickupDistanceKm}_${card.tripDistanceKm}"
@@ -163,8 +169,9 @@ class OcrCaptureService : Service() {
             }
         }
 
-        // Record offer frames for fixture building / spec hardening (never our own UI).
-        if (!ownUi && looksLikeOffer(joined)) {
+        // Record offer frames for fixture building / spec hardening — debug builds only (never our
+        // own UI). Release builds must store NO screen content, per the Play data-safety posture.
+        if (BuildConfig.DEBUG && !ownUi && looksLikeOffer(joined)) {
             runCatching {
                 val dir = File(getExternalFilesDir(null), "ocr-fixtures").apply { mkdirs() }
                 File(dir, "ocr_${System.currentTimeMillis()}.json").writeText(blocksToJson(blocks))
@@ -238,6 +245,18 @@ class OcrCaptureService : Service() {
         imageReader?.close(); imageReader = null
         projection?.stop(); projection = null
         ScreenReaderState.setRunning(false)
+        // Never strand a verdict: the overlay (hosted by the accessibility service) only hides on
+        // bus events, so if capture dies mid-offer we must emit the NoCard ourselves.
+        if (lastOfferKey != null) {
+            lastOfferKey = null
+            OfferEventBus.tryEmit(
+                OfferEvent.NoCard(
+                    DidiOcrParser.DIDI_PACKAGE,
+                    System.currentTimeMillis(),
+                    OfferEvent.Reason.NOT_AN_OFFER,
+                ),
+            )
+        }
     }
 
     override fun onDestroy() {

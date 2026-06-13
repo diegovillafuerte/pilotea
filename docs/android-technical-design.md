@@ -21,8 +21,16 @@
 
 **Overlay: `TYPE_ACCESSIBILITY_OVERLAY`** drawn from the service itself — requires no `SYSTEM_ALERT_WINDOW` permission and is not suppressed by a host app calling `setHideOverlayWindows(true)`. Also unaffected by `FLAG_SECURE`.
 
+**Secondary (ACTIVE since S-023, 2026-06-11): MediaProjection + on-device OCR** for the
+SurfaceView platforms (DiDi/inDrive), which expose no accessibility text (§7). Originally the
+"designed-but-dormant hedge"; on-device validation proved DiDi requires it, so v1 ships a dual
+capture path: node tree for Uber, screen-capture OCR (`:ocr`, ML Kit, mediaProjection FGS) for
+DiDi/inDrive. Costs accepted: per-session consent (driver-initiated from the Lector tab behind a
+prominent disclosure, with a tap-to-restart notification when Android revokes the projection —
+B-075), persistent capture chip on 15+, heavier battery. Both paths publish to the shared
+OfferEventBus; the accessibility service hosts the one overlay.
+
 **Explicitly rejected for v1:**
-- *MediaProjection + OCR*: per-session consent on Android 14+, persistent privacy chip on 15+, mandatory FGS, heavy battery. Keep an OCR module designed-but-dormant as the hedge if a platform ever strips accessibility nodes.
 - *NotificationListener*: offer cards are in-app surfaces, not notifications; notification payloads can be withdrawn server-side (Para/Lyft precedent). Auxiliary signal only.
 
 **Hot-path budget:** event → parsed offer → overlay verdict in **<150 ms**, all on-device. Offer cards live ~8–20 s.
@@ -48,7 +56,7 @@
 
 - **Modules**: `:capture` (service, event pipeline), `:parsers` (spec engine + per-app specs), `:overlay` (Compose-in-window verdict UI), `:metrics` (net-profit engine, thresholds, verdicts), `:data` (Room: trips, offers, shifts, costs profile; DataStore: settings), `:sync`, `:ui` (app screens), `:billing`.
 - **DI**: Hilt. **DB**: Room. **Background**: WorkManager for rollups/sync only (no FGS needed for capture).
-- **Metrics engine** (ported concepts from web): gross → net via driver cost profile (fuel $/km, maintenance, insurance, rent/financing per day); $/km (incl. pickup leg), $/min, $/trip, $/hr; configurable per-platform thresholds; traffic-light verdict.
+- **Metrics engine** (ported concepts from web): gross → net via driver cost profile (fuel $/km, maintenance, insurance, rent/financing per day); $/km (incl. pickup leg), $/min, $/trip, $/hr; one configurable threshold shared by every platform (B-076; legacy per-platform keys migrate on read); traffic-light verdict.
 - Trip lifecycle inference: offer seen → accepted (card dismissed + state transition) → trip events → auto shift/day/week rollups. This **replaces uploads as the primary data source**; uploads become import/backfill.
 
 ## 4. Greenfield backend (thin)

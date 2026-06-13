@@ -14,6 +14,11 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+
+    // BuildConfig.DEBUG gates the fixture recorder (screen text must never persist in release).
+    buildFeatures {
+        buildConfig = true
+    }
 }
 
 dependencies {

@@ -54,9 +54,11 @@
             </intent-filter>
         </activity>
 
-        <!-- OCR capture consent entry. Launched by the Lector tab button and the reader-stopped
-             notification via the package-internal action below (B-075; the literal must match
-             ScreenReaderState.ACTION_START), and directly for testing. Isolated in its own task
+        <!-- OCR capture consent entry. Launched ONLY from inside the app — the Lector tab button
+             and the reader-stopped notification, both via the package-scoped action below (B-075;
+             the literal must match ScreenReaderState.ACTION_START). NOT exported: this is a
+             sensitive MediaProjection entry point, and other apps must never be able to trigger
+             the consent flow past our prominent disclosure. Isolated in its own task
              (taskAffinity="" + excludeFromRecents + finishOnTaskLaunch) so the launcher icon can
              never resume it instead of MainActivity (it would otherwise re-prompt for screen
              sharing and trap the user). Deliberately NOT noHistory: a no-history activity is
@@ -64,7 +66,7 @@
              it finishes itself after the result instead. -->
         <activity
             android:name=".OcrConsentActivity"
-            android:exported="true"
+            android:exported="false"
             android:taskAffinity=""
             android:excludeFromRecents="true"
             android:finishOnTaskLaunch="true"
