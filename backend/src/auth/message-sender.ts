@@ -5,7 +5,11 @@
  * - {@link TwilioWhatsAppSender} — production transport, configured from env.
  *   Ported from the legacy web client (src/lib/whatsapp/client.ts): same Twilio
  *   REST shape, but sends a 6-digit OTP instead of a magic link (OTP fits a
- *   native Android flow better than a tappable link).
+ *   native Android flow better than a tappable link). Production OTPs are
+ *   business-initiated messages to a recipient outside the 24h session window,
+ *   so they MUST use an approved WhatsApp template (TWILIO_TEMPLATE_SID); a
+ *   freeform body fails with Twilio error 63016. The freeform body is kept only
+ *   as a sandbox / opted-in-tester fallback (when no template is configured).
  * - {@link DevLogSender} — logs the OTP to the console. The default when no
  *   TWILIO_* env is present, so local dev and CI never need real credentials.
  *
@@ -43,15 +47,32 @@ export class TwilioWhatsAppSender implements MessageSender {
     private readonly accountSid: string,
     private readonly authToken: string,
     private readonly fromNumber: string,
+    /**
+     * Approved WhatsApp template (Authentication category) Content SID. When set, the OTP is sent
+     * as a template (ContentSid + ContentVariables, no Body) — required for production business-
+     * initiated delivery. When unset, falls back to a freeform Body that only delivers in the
+     * Twilio sandbox / to opted-in testers (otherwise Twilio returns error 63016).
+     */
+    private readonly templateSid?: string,
   ) {}
 
   async sendOtp(phone: string, code: string): Promise<void> {
     const url = `https://api.twilio.com/2010-04-01/Accounts/${this.accountSid}/Messages.json`;
-    const params = new URLSearchParams({
-      From: this.fromNumber,
-      To: phone.startsWith("whatsapp:") ? phone : `whatsapp:${phone}`,
-      Body: otpBody(code),
-    });
+    const to = phone.startsWith("whatsapp:") ? phone : `whatsapp:${phone}`;
+    // Template send (production) carries the code as variable {{1}} and omits Body; freeform send
+    // (sandbox fallback) carries the human-readable Body. See error 63016 in the class doc.
+    const params = this.templateSid
+      ? new URLSearchParams({
+          From: this.fromNumber,
+          To: to,
+          ContentSid: this.templateSid,
+          ContentVariables: JSON.stringify({ "1": code }),
+        })
+      : new URLSearchParams({
+          From: this.fromNumber,
+          To: to,
+          Body: otpBody(code),
+        });
     const auth = Buffer.from(`${this.accountSid}:${this.authToken}`).toString("base64");
 
     const res = await fetch(url, {
@@ -73,14 +94,17 @@ export class TwilioWhatsAppSender implements MessageSender {
 /**
  * Pick the message sender from the environment: Twilio when fully configured,
  * otherwise the dev logger. The WhatsApp "from" number defaults to Twilio's
- * shared sandbox sender, the same default the web client used.
+ * shared sandbox sender, the same default the web client used. TWILIO_TEMPLATE_SID
+ * (an approved Authentication template) is required for production delivery; when
+ * unset the sender only works for the sandbox / opted-in testers (see error 63016).
  */
 export function senderFromEnv(env: NodeJS.ProcessEnv = process.env): MessageSender {
   const sid = env.TWILIO_ACCOUNT_SID;
   const token = env.TWILIO_AUTH_TOKEN;
   if (sid && token) {
     const from = env.TWILIO_WHATSAPP_FROM ?? "whatsapp:+14155238886";
-    return new TwilioWhatsAppSender(sid, token, from);
+    const templateSid = env.TWILIO_TEMPLATE_SID;
+    return new TwilioWhatsAppSender(sid, token, from, templateSid);
   }
   return new DevLogSender();
 }
