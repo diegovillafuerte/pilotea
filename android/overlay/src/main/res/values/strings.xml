@@ -33,7 +33,7 @@
     <string name="overlay_threshold_close">Listo</string>
 
     <!-- Content descriptions (accessibility / TalkBack) -->
-    <string name="overlay_chip_content_description">Veredicto del viaje. Toca para ver el detalle, mantén presionado para ajustar el piso.</string>
+    <string name="overlay_chip_content_description">Veredicto del viaje: %1$s. Toca para ver el detalle, mantén presionado para ajustar el piso.</string>
 
     <!-- ============================================================= -->
     <!-- Simulador de viajes (B-037)                                   -->
@@ -53,9 +53,9 @@
     <string name="sim_mock_card_desc">Ejemplo de tarjeta de viaje con el veredicto de Kompara encima</string>
 
     <!-- Guided script: per-shape headline. %1$s = net $/km, e.g. "$15.00/km". -->
-    <string name="sim_verdict_good">Verde: ganas %1$s neto — conviene</string>
+    <string name="sim_verdict_good">Verde: ganas %1$s neto</string>
     <string name="sim_verdict_marginal">Amarillo: %1$s neto — está en el límite</string>
-    <string name="sim_verdict_bad">Rojo: solo %1$s neto — no conviene</string>
+    <string name="sim_verdict_bad">Rojo: solo %1$s neto</string>
 
     <!-- Guided script: why. Spanish explanations referencing cost profile + pickup leg. -->
     <string name="sim_why_good">La tarifa es buena para la distancia y el punto de recogida está cerca, así que casi todo lo que ves se queda en tu bolsillo después de gasolina y desgaste.</string>
@@ -77,6 +77,7 @@
 
     <!-- Net detail line under the chip -->
     <string name="sim_net_per_km_label">neto por km</string>
+    <string name="sim_net_per_hour_label">neto por hora</string>
     <string name="sim_gross_per_km_label">bruto por km</string>
     <string name="sim_pickup_label">Recoger</string>
     <string name="sim_trip_label">Viaje</string>
