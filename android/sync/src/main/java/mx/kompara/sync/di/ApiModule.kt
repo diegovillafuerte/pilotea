@@ -36,6 +36,11 @@ annotation class AuthDataStore
 @Retention(AnnotationRetention.BINARY)
 annotation class ApiBaseUrl
 
+/** Qualifier for the debug-only offline login bypass flag (BuildConfig.DEBUG). */
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class DevAuthBypass
+
 /**
  * DI wiring for the `:sync` HTTP + auth layer.
  *
@@ -81,6 +86,15 @@ object ApiModule {
     @Singleton
     @ApiBaseUrl
     fun provideBaseUrl(): String = BuildConfig.API_BASE_URL
+
+    /**
+     * Enables the offline login bypass in [mx.kompara.sync.auth.AuthRepository] for debug builds
+     * only (TD-022). Release builds get `false`, so the fixed dev code has no effect in production.
+     */
+    @Provides
+    @Singleton
+    @DevAuthBypass
+    fun provideDevAuthBypass(): Boolean = BuildConfig.DEBUG
 
     @Provides
     @Singleton

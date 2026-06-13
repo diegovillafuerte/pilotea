@@ -62,6 +62,8 @@ adb shell uiautomator dump /sdcard/dump.xml && adb pull /sdcard/dump.xml ~/kompa
 
 External accounts to set up (start Twilio early — WhatsApp sender approval has lead time): Twilio WhatsApp, Cloudflare R2, Anthropic API.
 
+**WhatsApp OTP delivery has its own step-by-step runbook:** [docs/whatsapp-otp-setup.md](whatsapp-otp-setup.md) — Twilio sender approval, the required Authentication template (`TWILIO_TEMPLATE_SID`), and a sandbox path to receive a real code on your own phone today. The `kompara-backend` service is now in [render.yaml](../render.yaml).
+
 ## 4. Legal review — B-038 (start today, parallel, external)
 
 Engage MX data-privacy/tech counsel. Brief: `docs/competitive-analysis.md` §4 + two open questions (on-device offer **retention limit**, **fixture-report minimization**).

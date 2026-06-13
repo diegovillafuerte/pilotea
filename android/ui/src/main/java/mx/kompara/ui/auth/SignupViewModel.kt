@@ -41,6 +41,8 @@ class SignupViewModel @Inject constructor(
     private var resendJob: Job? = null
 
     init {
+        // Debug builds expose the offline-login code as a hint on the code screen (null in release).
+        _state.update { it.copy(devCodeHint = auth.devBypassCode) }
         viewModelScope.launch {
             val session = auth.sessionState.first()
             if (session is SessionState.Authenticated) {
