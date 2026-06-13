@@ -33,6 +33,10 @@
     <!-- Content descriptions (accessibility / TalkBack) -->
     <string name="overlay_chip_content_description">Veredicto del viaje. Toca para ver el detalle, mantén presionado para ajustar el piso.</string>
 
+    <!-- Reader-down banner (B-078): shown over DiDi/inDrive while the screen reader is off.
+         "toca y confirma" — the tap leads to the system capture dialog, not an instant restart. -->
+    <string name="overlay_reader_down">Lector apagado — toca y confirma para reactivar</string>
+
     <!-- ============================================================= -->
     <!-- Simulador de viajes (B-037)                                   -->
     <!-- Demo en la app: reproduce viajes reales por el motor real.    -->

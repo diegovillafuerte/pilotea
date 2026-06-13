@@ -1,6 +1,7 @@
 package mx.kompara.overlay
 
 import android.content.Context
+import android.content.Intent
 import android.graphics.PixelFormat
 import android.os.Build
 import android.view.Gravity
@@ -16,12 +17,15 @@ import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import mx.kompara.capture.OfferEvent
 import mx.kompara.capture.OverlayPresenter
+import mx.kompara.data.service.ScreenReaderState
 import mx.kompara.data.settings.PlatformThreshold
 import mx.kompara.data.settings.SettingsRepository
 import mx.kompara.metrics.CostProfile
@@ -88,11 +92,33 @@ class OverlayController @Inject constructor(
      * Begin driving the overlay from [events]. Collected on [scope] (the service's scope). Each
      * `Parsed` evaluates the offer and shows the chip; `NoCard` hides it after a short grace.
      */
-    override fun start(scope: CoroutineScope, events: Flow<OfferEvent>, overlayContext: Context) {
+    override fun start(
+        scope: CoroutineScope,
+        events: Flow<OfferEvent>,
+        overlayContext: Context,
+        foregroundOcrOwnedApp: Flow<Boolean>,
+    ) {
         this.overlayContext = overlayContext
         val machine = OverlayStateMachine(evaluate = ::evaluate)
         machine.visibility(events)
             .onEach { visibility -> render(scope, visibility) }
+            .launchIn(scope)
+        // Reader-down banner (B-078): visible exactly while the driver sits in an OCR-owned app
+        // with the screen reader dead — the silent-miss state the stopped notification can't cover
+        // (it fires at lock time, when nobody is looking). Gated on hasRunThisSession: the banner
+        // is a recovery affordance, never an onboarding nag for drivers who haven't enabled the
+        // reader. Tap relaunches the consent flow.
+        combine(
+            ScreenReaderState.running,
+            ScreenReaderState.hasRunThisSession,
+            foregroundOcrOwnedApp,
+        ) { running, hasRun, inApp ->
+            hasRun && !running && inApp
+        }
+            .distinctUntilChanged()
+            .onEach { show ->
+                withContext(Dispatchers.Main) { if (show) attachBanner() else detachBanner() }
+            }
             .launchIn(scope)
     }
 
@@ -183,6 +209,78 @@ class OverlayController @Inject constructor(
         layoutParams = null
     }
 
+    // ─── Reader-down banner (B-078) ──────────────────────────────────────────────────────────────
+
+    private var bannerView: ComposeView? = null
+    private var bannerOwner: OverlayLifecycleOwner? = null
+
+    /** Add the reader-down banner window if not already attached. Main-thread only. Idempotent. */
+    private fun attachBanner() {
+        if (bannerView != null) return
+        val context = overlayContext ?: return
+
+        val owner = OverlayLifecycleOwner().apply { onCreate() }
+        bannerOwner = owner
+        val view = ComposeView(context).apply {
+            setViewTreeLifecycleOwner(owner)
+            setViewTreeSavedStateRegistryOwner(owner)
+            setViewTreeViewModelStoreOwner(owner)
+            setContent {
+                KomparaTheme {
+                    ReaderDownBannerUi(onTap = ::relaunchConsent)
+                }
+            }
+        }
+
+        // Top-center, clear of both the chip's top-right slot and the host's bottom Aceptar zone.
+        val params = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            PixelFormat.TRANSLUCENT,
+        ).apply {
+            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+            y = (BANNER_TOP_OFFSET_DP * context.resources.displayMetrics.density).toInt()
+        }
+
+        bannerView = view
+        owner.onResume()
+        // Same crash posture as the chip: an attach failure must never take the service down.
+        runCatching { windowManager.addView(view, params) }.onFailure { error ->
+            android.util.Log.e("OverlayController", "banner attach failed", error)
+            owner.onDestroy()
+            bannerView = null
+            bannerOwner = null
+        }
+    }
+
+    /** Remove the banner window if attached. Main-thread only. Idempotent. */
+    private fun detachBanner() {
+        val view = bannerView ?: return
+        runCatching { windowManager.removeView(view) }
+        bannerOwner?.onDestroy()
+        bannerView = null
+        bannerOwner = null
+    }
+
+    /**
+     * Relaunch the screen-capture consent flow from the banner tap. Allowed from the background:
+     * the host process runs a system-bound accessibility service, which exempts it from
+     * background-activity-launch restrictions.
+     */
+    private fun relaunchConsent() {
+        val context = overlayContext ?: return
+        // Same crash posture as the window ops: a launch failure must never take the service down.
+        runCatching {
+            context.startActivity(
+                Intent(ScreenReaderState.ACTION_START)
+                    .setPackage(context.packageName)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+        }.onFailure { android.util.Log.e("OverlayController", "consent relaunch failed", it) }
+    }
+
     /** Tear everything down on service destroy. Safe to call when nothing is attached. */
     override fun stop() {
         composeView?.let { runCatching { windowManager.removeView(it) } }
@@ -191,6 +289,10 @@ class OverlayController @Inject constructor(
         lifecycleOwner = null
         layoutParams = null
         chipState = null
+        bannerView?.let { runCatching { windowManager.removeView(it) } }
+        bannerOwner?.onDestroy()
+        bannerView = null
+        bannerOwner = null
         overlayContext = null
     }
 
@@ -285,5 +387,8 @@ class OverlayController @Inject constructor(
         /** Fallback chip footprint (px) used for positioning before the view has measured. */
         const val DEFAULT_CHIP_WIDTH_PX = 360
         const val DEFAULT_CHIP_HEIGHT_PX = 280
+
+        /** Reader-down banner offset below the top edge (dp) — clears the host's status/app bar. */
+        private const val BANNER_TOP_OFFSET_DP = 56
     }
 }

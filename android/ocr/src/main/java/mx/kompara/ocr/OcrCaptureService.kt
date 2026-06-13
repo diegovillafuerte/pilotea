@@ -218,12 +218,20 @@ class OcrCaptureService : Service() {
      */
     private fun onProjectionLost() {
         val nm = getSystemService(NotificationManager::class.java)
+        // Settings on an existing channel are immutable; the v1 id must go or upgraded devices
+        // show a zombie "Estado del lector" entry next to the v2 channel. No-op when never created.
+        nm.deleteNotificationChannel("ocr_reader_state")
         nm.createNotificationChannel(
             NotificationChannel(
                 STOPPED_CHANNEL_ID,
                 "Estado del lector",
                 NotificationManager.IMPORTANCE_HIGH,
-            ),
+            ).apply {
+                // The reader dies at screen lock — phone in pocket — so the alert must be felt,
+                // not just seen (B-078).
+                enableVibration(true)
+                vibrationPattern = longArrayOf(0, 250, 150, 250)
+            },
         )
         val restart = PendingIntent.getActivity(
             this,
@@ -272,7 +280,9 @@ class OcrCaptureService : Service() {
     companion object {
         private const val TAG = "KomparaOCR"
         private const val NOTIF_ID = 42
-        private const val STOPPED_CHANNEL_ID = "ocr_reader_state"
+        // "_v2": channel settings are immutable once created; the vibration pattern (B-078) needs
+        // a fresh id on devices that already created the original channel.
+        private const val STOPPED_CHANNEL_ID = "ocr_reader_state_v2"
         private const val STOPPED_NOTIF_ID = 43
         // 300 ms bounds the offer→verdict latency (plus ML Kit time); ~3 fps full-screen OCR is
         // fine on the target devices and only runs while the driver has the reader on.
