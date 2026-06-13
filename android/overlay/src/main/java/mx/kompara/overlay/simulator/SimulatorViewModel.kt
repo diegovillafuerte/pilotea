@@ -14,6 +14,7 @@ import mx.kompara.data.db.entity.CostProfileEntity
 import mx.kompara.data.model.Platform
 import mx.kompara.data.settings.CostProfileRepository
 import mx.kompara.data.settings.PlatformThreshold
+import mx.kompara.data.settings.PreferredMetric
 import mx.kompara.data.settings.Settings
 import mx.kompara.data.settings.SettingsRepository
 import mx.kompara.metrics.CostProfile
@@ -90,13 +91,17 @@ class SimulatorViewModel @Inject constructor(
     }
 
     /**
-     * The threshold-playground slider moved. Persist the new green $/km floor via the shared
-     * [SettingsRepository] (the combine above then re-grades all three offers live) — one semáforo
-     * for every platform (B-076). The red floor follows the green one down if they would cross.
+     * The threshold-playground slider moved. Persist the new green floor of the driver's preferred
+     * metric (B-079) via the shared [SettingsRepository] (the combine above then re-grades all
+     * three offers live) — one semáforo for every platform (B-076). The red floor follows the
+     * green one down if they would cross.
      */
-    fun setPerKmFloor(perKm: Double) {
+    fun setGreenFloor(value: Double) {
         val current = latestSettings.effectiveThreshold
-        val updated = ThresholdSheet.withGreenPerKm(current, perKm)
+        val updated = when (latestSettings.preferredMetric) {
+            PreferredMetric.IPK -> ThresholdSheet.withGreenPerKm(current, value)
+            PreferredMetric.IPH -> ThresholdSheet.withGreenPerHour(current, value)
+        }
         viewModelScope.launch { settingsRepository.setThreshold(updated) }
     }
 
@@ -105,8 +110,9 @@ class SimulatorViewModel @Inject constructor(
         val costProfile: CostProfile = CostProfileMapper.toCostProfileOrZero(latestCostEntity)
         val threshold: PlatformThreshold = latestSettings.effectiveThreshold
 
+        val preferredMetric = latestSettings.preferredMetric
         val steps = offers.map { offer ->
-            val result = engine.evaluate(offer, costProfile, threshold)
+            val result = engine.evaluate(offer, costProfile, threshold, preferredMetric)
             SimulatorStep(
                 id = offer.id,
                 shape = offer.shape,
@@ -121,6 +127,7 @@ class SimulatorViewModel @Inject constructor(
             stepIndex = clampedStep,
             offers = steps,
             threshold = threshold,
+            preferredMetric = preferredMetric,
         )
     }
 

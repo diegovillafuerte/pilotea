@@ -1,6 +1,7 @@
 package mx.kompara.metrics
 
 import mx.kompara.data.settings.PlatformThreshold
+import mx.kompara.data.settings.PreferredMetric
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -73,19 +74,22 @@ class NetProfitEngineTest {
     }
 
     @Test
-    fun `YELLOW when only per-km floor met`() {
-        // raise the hour floor above 200 so only $/km passes
+    fun `GREEN when the deciding km floor passes even though the hour floor fails`() {
+        // raise the hour floor above 200 so only $/km passes; IPK (the default) alone decides
         val t = PlatformThreshold(minPerKmMxn = 6.0, minPerHourMxn = 250.0)
         val m = engine.evaluate(fullOffer(), profile, t)
-        assertEquals(VerdictLevel.YELLOW, m.verdict.level)
+        assertEquals(VerdictLevel.GREEN, m.verdict.level)
     }
 
     @Test
-    fun `YELLOW when only per-hour floor met`() {
-        // raise the km floor above 10 so only $/hr passes
+    fun `YELLOW when the deciding km metric lands in its yellow band`() {
+        // km 10 sits in [9, 12) -> YELLOW for the deciding metric; the green hour never lifts it
         val t = PlatformThreshold(minPerKmMxn = 12.0, minPerHourMxn = 90.0)
         val m = engine.evaluate(fullOffer(), profile, t)
         assertEquals(VerdictLevel.YELLOW, m.verdict.level)
+        // The same offer judged on IPH passes its hour floor outright.
+        val iph = engine.evaluate(fullOffer(), profile, t, PreferredMetric.IPH)
+        assertEquals(VerdictLevel.GREEN, iph.verdict.level)
     }
 
     @Test
@@ -117,8 +121,8 @@ class NetProfitEngineTest {
     }
 
     @Test
-    fun `RED only when both metrics fall below their red floors`() {
-        // netPerKm 10 < 11; netPerHour 200 < 220 -> both RED -> RED.
+    fun `RED when the deciding metric falls below its red floor`() {
+        // netPerKm 10 < 11 -> the deciding km metric is RED.
         val t = PlatformThreshold(
             minPerKmMxn = 15.0, minPerHourMxn = 300.0,
             redPerKmMxn = 11.0, redPerHourMxn = 220.0,
@@ -128,14 +132,17 @@ class NetProfitEngineTest {
     }
 
     @Test
-    fun `one GREEN metric lifts a below-red metric to overall YELLOW`() {
-        // netPerKm 10 < red 11 -> RED; netPerHour 200 >= 90 -> GREEN; mixed -> YELLOW.
+    fun `a GREEN hour cannot lift a below-red km when IPK decides`() {
+        // netPerKm 10 < red 11 -> RED for the deciding metric; the GREEN hour is context only.
         val t = PlatformThreshold(
             minPerKmMxn = 15.0, minPerHourMxn = 90.0,
             redPerKmMxn = 11.0, redPerHourMxn = 67.5,
         )
         val m = engine.evaluate(fullOffer(), profile, t)
-        assertEquals(VerdictLevel.YELLOW, m.verdict.level)
+        assertEquals(VerdictLevel.RED, m.verdict.level)
+        // Under IPH the same offer is judged on the hour floor alone -> GREEN.
+        val iph = engine.evaluate(fullOffer(), profile, t, PreferredMetric.IPH)
+        assertEquals(VerdictLevel.GREEN, iph.verdict.level)
     }
 
     @Test
@@ -227,7 +234,7 @@ class NetProfitEngineTest {
 
     @Test
     fun `missing all distance makes per-km untestable but per-hour still judged`() {
-        // No km at all; time present. Per-km floor cannot pass, so best case is YELLOW (hour ok).
+        // No km at all -> the deciding IPK is untestable; the hour metric stands in, capped YELLOW.
         val offer = TripOffer(
             platform = "uber",
             fareMxn = 120.0,
@@ -298,6 +305,53 @@ class NetProfitEngineTest {
         assertNull(m.netPerKm)   // denominator 0 -> null, not Infinity
         assertNull(m.netPerHour)
         assertEquals(VerdictLevel.RED, m.verdict.level) // nothing testable but fare known
+    }
+
+    // ── Preferred metric (B-079) ─────────────────────────────────────────────────────────────
+
+    @Test
+    fun `verdict is stamped with the metric that decided it`() {
+        assertEquals(
+            PreferredMetric.IPK,
+            engine.evaluate(fullOffer(), profile, lenient).verdict.preferredMetric,
+        )
+        assertEquals(
+            PreferredMetric.IPH,
+            engine.evaluate(fullOffer(), profile, lenient, PreferredMetric.IPH).verdict.preferredMetric,
+        )
+    }
+
+    @Test
+    fun `same offer flips with the preferred metric when the floors disagree`() {
+        // km 10 >= 6 -> GREEN; hour 200 < red 220 -> RED. IPK says GREEN, IPH says RED.
+        val t = PlatformThreshold(
+            minPerKmMxn = 6.0, minPerHourMxn = 300.0,
+            redPerKmMxn = 4.5, redPerHourMxn = 220.0,
+        )
+        assertEquals(VerdictLevel.GREEN, engine.evaluate(fullOffer(), profile, t).verdict.level)
+        assertEquals(
+            VerdictLevel.RED,
+            engine.evaluate(fullOffer(), profile, t, PreferredMetric.IPH).verdict.level,
+        )
+    }
+
+    @Test
+    fun `untestable preferred metric falls back to the other capped at YELLOW`() {
+        // No time at all -> IPH untestable; km is GREEN but a stand-in read is never GREEN.
+        val offer = fullOffer().copy(pickupMin = null, tripMin = null)
+        val m = engine.evaluate(offer, profile, lenient, PreferredMetric.IPH)
+        assertNull(m.netPerHour)
+        assertEquals(VerdictLevel.GREEN, m.verdict.netPerKmLevel)
+        assertEquals(VerdictLevel.YELLOW, m.verdict.level)
+    }
+
+    @Test
+    fun `untestable preferred metric falling back to a RED metric stays RED`() {
+        // No time -> IPH untestable; km 10 < red 37.5 -> RED. The cap only softens GREEN.
+        val offer = fullOffer().copy(pickupMin = null, tripMin = null)
+        val t = PlatformThreshold(minPerKmMxn = 50.0, minPerHourMxn = 90.0)
+        val m = engine.evaluate(offer, profile, t, PreferredMetric.IPH)
+        assertEquals(VerdictLevel.RED, m.verdict.level)
     }
 
     // ── es-MX realistic numbers ──────────────────────────────────────────────────────────────

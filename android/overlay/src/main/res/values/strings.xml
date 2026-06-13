@@ -22,11 +22,13 @@
     <string name="overlay_explain_hour_weak">Paga bien el km, pero es lento: rinde poco por hora.</string>
     <string name="overlay_explain_both_weak">Por debajo de tus pisos por km y por hora.</string>
 
-    <!-- Quick threshold sheet (long-press) -->
+    <!-- Quick threshold sheet (long-press) — edits the floors of the metric that decides (B-079) -->
     <string name="overlay_threshold_title">Tu semáforo por km</string>
+    <string name="overlay_threshold_title_hour">Tu semáforo por hora</string>
     <string name="overlay_threshold_green_label">Verde desde</string>
     <string name="overlay_threshold_red_label">Rojo por debajo de</string>
     <string name="overlay_threshold_value">$%1$s/km</string>
+    <string name="overlay_threshold_value_hour">$%1$s/h</string>
     <string name="overlay_threshold_hint">Entre los dos pisos, el viaje se marca en amarillo.</string>
     <string name="overlay_threshold_close">Listo</string>
 
@@ -68,7 +70,9 @@
 
     <!-- Threshold playground -->
     <string name="sim_playground_title">Tu piso por km</string>
+    <string name="sim_playground_title_hour">Tu piso por hora</string>
     <string name="sim_playground_value">$%1$s/km</string>
+    <string name="sim_playground_value_hour">$%1$s/h</string>
     <string name="sim_playground_hint">Mueve el piso y mira cómo el semáforo recalifica los tres viajes al instante. Se guarda y es el mismo piso que usa el lector.</string>
 
     <!-- Net detail line under the chip -->

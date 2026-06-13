@@ -280,6 +280,37 @@ class SettingsSerializationTest {
     }
 
     @Test
+    fun `preferred metric defaults to IPK when unset and round-trips a stored value (B-079)`() {
+        // Never written (every existing install) → IPK, floors untouched: silent migration.
+        val unset = SettingsSerialization.decode(
+            enabledNames = null,
+            lookupDouble = { null },
+            lookupString = { null },
+        )
+        assertEquals(PreferredMetric.IPK, unset.preferredMetric)
+
+        // Stored as the enum name → decodes back to the metric.
+        val stored = SettingsSerialization.decode(
+            enabledNames = null,
+            lookupDouble = { null },
+            lookupString = { key ->
+                if (key == SettingsSerialization.KEY_PREFERRED_METRIC) PreferredMetric.IPH.name else null
+            },
+        )
+        assertEquals(PreferredMetric.IPH, stored.preferredMetric)
+
+        // Unknown/garbage stored value → falls back to default (never crashes).
+        val garbage = SettingsSerialization.decode(
+            enabledNames = null,
+            lookupDouble = { null },
+            lookupString = { key ->
+                if (key == SettingsSerialization.KEY_PREFERRED_METRIC) "IPM" else null
+            },
+        )
+        assertEquals(PreferredMetric.IPK, garbage.preferredMetric)
+    }
+
+    @Test
     fun `debug premium defaults OFF when never written and reads a stored value (B-046)`() {
         // Fresh install → real entitlement decides (no debug override).
         val fresh = SettingsSerialization.decode(

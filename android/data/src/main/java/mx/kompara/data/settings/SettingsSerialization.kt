@@ -58,6 +58,9 @@ object SettingsSerialization {
     /** Int key for the anonymous local fiscal-PDF-export funnel counter (B-052). */
     const val KEY_FISCAL_EXPORT_COUNT = "fiscal_export_count"
 
+    /** String key for which metric decides the semáforo (B-079), stored as [PreferredMetric.name]. */
+    const val KEY_PREFERRED_METRIC = "preferred_metric"
+
     /** The single shared semáforo (B-076): green + red floors for $/km and $/hr, platform-less. */
     const val KEY_THRESHOLD_PER_KM = "threshold_per_km"
     const val KEY_THRESHOLD_PER_HOUR = "threshold_per_hour"
@@ -126,6 +129,7 @@ object SettingsSerialization {
             shareLastReminderWeek = lookupString(KEY_SHARE_LAST_REMINDER_WEEK),
             shareCount = lookupInt(KEY_SHARE_COUNT) ?: 0,
             fiscalExportCount = lookupInt(KEY_FISCAL_EXPORT_COUNT) ?: 0,
+            preferredMetric = PreferredMetric.fromName(lookupString(KEY_PREFERRED_METRIC)),
         )
     }
 

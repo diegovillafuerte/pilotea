@@ -7,6 +7,7 @@ import mx.kompara.metrics.TripOffer
 import mx.kompara.metrics.Verdict
 import mx.kompara.metrics.VerdictLevel
 import mx.kompara.data.settings.PlatformThreshold
+import mx.kompara.data.settings.PreferredMetric
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -17,11 +18,15 @@ class VerdictChipStateTest {
 
     private val engine = NetProfitEngine()
 
-    private fun metricsFor(offer: TripOffer): OfferMetrics =
+    private fun metricsFor(
+        offer: TripOffer,
+        preferred: PreferredMetric = PreferredMetric.DEFAULT,
+    ): OfferMetrics =
         engine.evaluate(
             offer,
             CostProfile.ZERO,
             PlatformThreshold(minPerKmMxn = 8.0, minPerHourMxn = 140.0),
+            preferred,
         )
 
     @Test
@@ -118,6 +123,22 @@ class VerdictChipStateTest {
             VerdictChipState.ExplainKind.BOTH_WEAK,
             VerdictChipState.from(bothWeak).explainKind,
         )
+    }
+
+    @Test
+    fun `hero rate follows the preferred metric and the other turns secondary`() {
+        val offer =
+            TripOffer("uber", fareMxn = 100.0, pickupKm = 2.0, pickupMin = 5.0, tripKm = 8.0, tripMin = 15.0)
+
+        val ipk = VerdictChipState.from(metricsFor(offer))
+        assertEquals(PreferredMetric.IPK, ipk.preferred)
+        assertEquals("$10.00/km", ipk.heroRate)
+        assertEquals("$300/h", ipk.secondaryRate)
+
+        val iph = VerdictChipState.from(metricsFor(offer, PreferredMetric.IPH))
+        assertEquals(PreferredMetric.IPH, iph.preferred)
+        assertEquals("$300/h", iph.heroRate)
+        assertEquals("$10.00/km", iph.secondaryRate)
     }
 
     @Test

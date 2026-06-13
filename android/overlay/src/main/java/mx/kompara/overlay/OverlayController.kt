@@ -23,6 +23,7 @@ import kotlinx.coroutines.withContext
 import mx.kompara.capture.OfferEvent
 import mx.kompara.capture.OverlayPresenter
 import mx.kompara.data.settings.PlatformThreshold
+import mx.kompara.data.settings.PreferredMetric
 import mx.kompara.data.settings.SettingsRepository
 import mx.kompara.metrics.CostProfile
 import mx.kompara.metrics.CostProfileMapper
@@ -90,10 +91,22 @@ class OverlayController @Inject constructor(
      */
     override fun start(scope: CoroutineScope, events: Flow<OfferEvent>, overlayContext: Context) {
         this.overlayContext = overlayContext
-        val machine = OverlayStateMachine(evaluate = ::evaluate)
-        machine.visibility(events)
-            .onEach { visibility -> render(scope, visibility) }
-            .launchIn(scope)
+        scope.launch {
+            // Prime the snapshots BEFORE arming the offer pipeline, then keep them warm for the
+            // service's lifetime. evaluate() is synchronous and runs before render()'s refresh,
+            // so arming the pipeline first could grade the very first offer with default floors,
+            // default metric (B-079), or zero costs (B-032 "changes reflect instantly"). The
+            // offer sources re-emit continuously (a11y ticks / OCR frames), so the one-read
+            // delay cannot cost more than a beat — unlike a wrong verdict, which costs trust.
+            settingsSnapshot = settings.settings.first()
+            costProfileSnapshot = costProfiles.get()
+            settings.settings.onEach { settingsSnapshot = it }.launchIn(scope)
+            costProfiles.profile.onEach { costProfileSnapshot = it }.launchIn(scope)
+            val machine = OverlayStateMachine(evaluate = ::evaluate)
+            machine.visibility(events)
+                .onEach { visibility -> render(scope, visibility) }
+                .launchIn(scope)
+        }
     }
 
     /** Evaluate a parsed offer into full metrics, applying the driver's cost profile + threshold. */
@@ -101,16 +114,19 @@ class OverlayController @Inject constructor(
         val tripOffer = OfferMapping.toTripOffer(event.card)
         val costProfile: CostProfile = CostProfileMapper.toCostProfileOrZero(costProfileSnapshot)
         currentThreshold = thresholdSnapshot()
-        return engine.evaluate(tripOffer, costProfile, currentThreshold)
+        return engine.evaluate(tripOffer, costProfile, currentThreshold, preferredMetricSnapshot())
     }
 
-    // Snapshots refreshed by [start]'s collectors would be ideal; for the per-offer path we read the
-    // latest persisted values lazily and cache them so evaluate() stays synchronous.
+    // Kept current by [start]'s collectors (and refreshed again in [render] as a belt-and-braces
+    // re-read), so the synchronous evaluate() path always sees the latest persisted values.
     @Volatile private var costProfileSnapshot: mx.kompara.data.db.entity.CostProfileEntity? = null
     @Volatile private var settingsSnapshot: mx.kompara.data.settings.Settings? = null
 
     private fun thresholdSnapshot(): PlatformThreshold =
         settingsSnapshot?.effectiveThreshold ?: PlatformThreshold.DEFAULT
+
+    private fun preferredMetricSnapshot(): PreferredMetric =
+        settingsSnapshot?.preferredMetric ?: PreferredMetric.DEFAULT
 
     private suspend fun render(scope: CoroutineScope, visibility: OverlayVisibility) {
         // Refresh persisted snapshots so the next evaluate() and the threshold sheet are current,

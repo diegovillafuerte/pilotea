@@ -1,5 +1,7 @@
 package mx.kompara.metrics
 
+import mx.kompara.data.settings.PreferredMetric
+
 /**
  * The engine's full judgment on an offer: the traffic-light [level] plus the numbers behind it.
  *
@@ -22,6 +24,8 @@ package mx.kompara.metrics
  * @property netPerKmLevel how the km metric alone classified against its two floors; null when
  *   the rate was untestable. Lets the UI explain *why* the overall light landed where it did.
  * @property netPerHourLevel same for the hour metric
+ * @property preferredMetric which metric's floors decided [level] (B-079). Stamped here so the UI
+ *   can never pair the light with the wrong hero figure.
  */
 data class Verdict(
     val level: VerdictLevel,
@@ -32,4 +36,5 @@ data class Verdict(
     val missingInputs: List<String>,
     val netPerKmLevel: VerdictLevel? = null,
     val netPerHourLevel: VerdictLevel? = null,
+    val preferredMetric: PreferredMetric = PreferredMetric.DEFAULT,
 )

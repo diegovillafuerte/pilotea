@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import mx.kompara.data.model.Platform
+import mx.kompara.data.settings.PreferredMetric
 import mx.kompara.metrics.VerdictLevel
 import mx.kompara.overlay.R
 import mx.kompara.overlay.ThresholdSheet
@@ -51,7 +52,8 @@ import java.util.Locale
 /**
  * The in-app offer simulator (B-037). Shows the magic before the first shift: a mock Uber/DiDi offer
  * card with the **real** verdict chip overlaid, walked through a guided 3-offer script
- * (good → marginal → bad), plus a $/km playground that re-grades all three live. Reachable from
+ * (good → marginal → bad), plus a floor playground (the preferred metric's, B-079) that re-grades
+ * all three live. Reachable from
  * Ajustes and designed to be linked from the onboarding done-screen; it also doubles as the
  * Play-review demo, so the flow is self-explanatory.
  *
@@ -69,7 +71,7 @@ fun SimulatorScreen(
         onNext = viewModel::next,
         onPrevious = viewModel::previous,
         onStep = viewModel::goToStep,
-        onPerKmFloor = viewModel::setPerKmFloor,
+        onGreenFloor = viewModel::setGreenFloor,
         modifier = modifier,
     )
 }
@@ -82,7 +84,7 @@ internal fun SimulatorContent(
     onNext: () -> Unit,
     onPrevious: () -> Unit,
     onStep: (Int) -> Unit,
-    onPerKmFloor: (Double) -> Unit,
+    onGreenFloor: (Double) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -119,7 +121,11 @@ internal fun SimulatorContent(
             )
         }
 
-        ThresholdPlayground(perKm = state.threshold.minPerKmMxn, onPerKmFloor = onPerKmFloor)
+        ThresholdPlayground(
+            preferred = state.preferredMetric,
+            threshold = state.threshold,
+            onGreenFloor = onGreenFloor,
+        )
     }
 }
 
@@ -211,7 +217,7 @@ internal fun headlineResFor(level: VerdictLevel): Int = when (level) {
 
 @Composable
 private fun VerdictHeadline(step: SimulatorStep) {
-    val netPerKm = step.chipState.netPerKm
+    val heroRate = step.chipState.heroRate
     val headlineRes = headlineResFor(step.chipState.level)
     // The "¿por qué?" narrative stays keyed to the demo shape — it tells that scenario's
     // pickup-distance story, which the slider doesn't change.
@@ -222,7 +228,7 @@ private fun VerdictHeadline(step: SimulatorStep) {
     }
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(
-            text = stringResource(headlineRes, netPerKm),
+            text = stringResource(headlineRes, heroRate),
             color = step.chipState.level.brandColor,
             fontWeight = FontWeight.Bold,
             fontSize = 18.sp,
@@ -284,7 +290,15 @@ private fun StepNavigation(
 }
 
 @Composable
-private fun ThresholdPlayground(perKm: Double, onPerKmFloor: (Double) -> Unit) {
+private fun ThresholdPlayground(
+    preferred: PreferredMetric,
+    threshold: mx.kompara.data.settings.PlatformThreshold,
+    onGreenFloor: (Double) -> Unit,
+) {
+    val green = when (preferred) {
+        PreferredMetric.IPK -> threshold.minPerKmMxn
+        PreferredMetric.IPH -> threshold.minPerHourMxn
+    }
     Surface(
         shape = RoundedCornerShape(16.dp),
         tonalElevation = 2.dp,
@@ -298,23 +312,42 @@ private fun ThresholdPlayground(perKm: Double, onPerKmFloor: (Double) -> Unit) {
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(
-                text = stringResource(R.string.sim_playground_title),
+                text = stringResource(
+                    when (preferred) {
+                        PreferredMetric.IPK -> R.string.sim_playground_title
+                        PreferredMetric.IPH -> R.string.sim_playground_title_hour
+                    },
+                ),
                 fontWeight = FontWeight.Bold,
             )
             Text(
-                text = stringResource(
-                    R.string.sim_playground_value,
-                    String.format(Locale.forLanguageTag("es-MX"), "%.1f", perKm),
-                ),
+                text = when (preferred) {
+                    PreferredMetric.IPK -> stringResource(
+                        R.string.sim_playground_value,
+                        String.format(Locale.forLanguageTag("es-MX"), "%.1f", green),
+                    )
+                    PreferredMetric.IPH -> stringResource(
+                        R.string.sim_playground_value_hour,
+                        String.format(Locale.forLanguageTag("es-MX"), "%.0f", green),
+                    )
+                },
                 fontWeight = FontWeight.Black,
                 fontSize = 28.sp,
             )
-            Slider(
-                value = ThresholdSheet.clampPerKm(perKm).toFloat(),
-                onValueChange = { onPerKmFloor(it.toDouble()) },
-                valueRange = ThresholdSheet.MIN_PER_KM.toFloat()..ThresholdSheet.MAX_PER_KM.toFloat(),
-                steps = ThresholdSheet.stepCount,
-            )
+            when (preferred) {
+                PreferredMetric.IPK -> Slider(
+                    value = ThresholdSheet.clampPerKm(green).toFloat(),
+                    onValueChange = { onGreenFloor(it.toDouble()) },
+                    valueRange = ThresholdSheet.MIN_PER_KM.toFloat()..ThresholdSheet.MAX_PER_KM.toFloat(),
+                    steps = ThresholdSheet.stepCount,
+                )
+                PreferredMetric.IPH -> Slider(
+                    value = ThresholdSheet.clampPerHour(green).toFloat(),
+                    onValueChange = { onGreenFloor(it.toDouble()) },
+                    valueRange = ThresholdSheet.MIN_PER_HOUR.toFloat()..ThresholdSheet.MAX_PER_HOUR.toFloat(),
+                    steps = ThresholdSheet.hourStepCount,
+                )
+            }
             Text(
                 text = stringResource(R.string.sim_playground_hint),
                 style = MaterialTheme.typography.bodySmall,
@@ -369,7 +402,7 @@ private fun SimulatorGoodPreview() {
                 ),
                 threshold = mx.kompara.data.settings.PlatformThreshold.DEFAULT,
             ),
-            onSelectPlatform = {}, onNext = {}, onPrevious = {}, onStep = {}, onPerKmFloor = {},
+            onSelectPlatform = {}, onNext = {}, onPrevious = {}, onStep = {}, onGreenFloor = {},
         )
     }
 }

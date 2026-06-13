@@ -1,6 +1,7 @@
 package mx.kompara.metrics
 
 import mx.kompara.data.settings.PlatformThreshold
+import mx.kompara.data.settings.PreferredMetric
 import javax.inject.Inject
 
 /**
@@ -20,7 +21,7 @@ import javax.inject.Inject
  * Real captures are lossy. The engine judges with whatever it has:
  *  - missing fare → it cannot value the offer at all → RED, and every dependent rate is null.
  *  - missing a distance/time leg → the corresponding rate is null and that floor is simply not
- *    tested; the verdict is decided on the floor(s) that *can* be tested, and capped at YELLOW
+ *    tested; if it was the preferred metric, the other metric substitutes, capped at YELLOW
  *    because the read is provisional.
  *  - both legs of one dimension missing → that floor can't be tested.
  * Whatever was absent is listed in [Verdict.missingInputs].
@@ -29,11 +30,14 @@ class NetProfitEngine @Inject constructor() {
 
     /**
      * Evaluate [offer] against [costProfile] and [threshold] into a full [OfferMetrics] breakdown.
+     * [preferredMetric] selects which metric's floors colour the light (B-079); both rates are
+     * always computed and classified for the UI.
      */
     fun evaluate(
         offer: TripOffer,
         costProfile: CostProfile,
         threshold: PlatformThreshold,
+        preferredMetric: PreferredMetric = PreferredMetric.DEFAULT,
     ): OfferMetrics {
         val missing = mutableListOf<String>()
         if (offer.fareMxn == null) missing.add("fareMxn")
@@ -67,6 +71,7 @@ class NetProfitEngine @Inject constructor() {
         val level = decideLevel(
             kmLevel = kmLevel,
             hourLevel = hourLevel,
+            preferredMetric = preferredMetric,
             fareKnown = gross != null,
             hasMissingInputs = missing.isNotEmpty(),
         )
@@ -80,6 +85,7 @@ class NetProfitEngine @Inject constructor() {
             missingInputs = missing.toList(),
             netPerKmLevel = kmLevel,
             netPerHourLevel = hourLevel,
+            preferredMetric = preferredMetric,
         )
 
         return OfferMetrics(
@@ -97,32 +103,32 @@ class NetProfitEngine @Inject constructor() {
     }
 
     /**
-     * Decide the traffic-light level from two-tier floors.
+     * Decide the traffic-light level from the preferred metric's two-tier floors (B-079).
      *
-     * Each testable metric classifies independently: at/above its green floor → GREEN, below its
-     * red floor → RED, in between → YELLOW. The verdict is GREEN only when every testable metric
-     * is GREEN, RED only when every testable metric is RED (or nothing is testable), and YELLOW
-     * for any mix — so one strong metric never makes a confident GREEN, and one weak metric never
-     * sinks an otherwise-good offer to RED. When the fare is missing nothing can be judged → RED.
-     * When any input was missing the result is capped at YELLOW (a provisional read is never a
-     * confident GREEN).
+     * The preferred metric alone colours the light: at/above its green floor → GREEN, below its
+     * red floor → RED, in between → YELLOW. The other metric is still classified for the UI
+     * explainer but never moves the verdict — drivers optimize one metric per shift, and a blend
+     * reads as "off" against the number they're watching. When the preferred rate is untestable
+     * (missing data) the other metric substitutes, capped at YELLOW: a stand-in read is never a
+     * confident GREEN. When the fare is missing, or nothing is testable, → RED. When any input
+     * was missing the result is capped at YELLOW (a provisional read is never a confident GREEN).
      */
     private fun decideLevel(
         kmLevel: VerdictLevel?,
         hourLevel: VerdictLevel?,
+        preferredMetric: PreferredMetric,
         fareKnown: Boolean,
         hasMissingInputs: Boolean,
     ): VerdictLevel {
         if (!fareKnown) return VerdictLevel.RED
 
-        val levels = listOfNotNull(kmLevel, hourLevel)
-        if (levels.isEmpty()) return VerdictLevel.RED
-
-        val base = when {
-            levels.all { it == VerdictLevel.GREEN } -> VerdictLevel.GREEN
-            levels.all { it == VerdictLevel.RED } -> VerdictLevel.RED
-            else -> VerdictLevel.YELLOW
+        val (preferred, fallback) = when (preferredMetric) {
+            PreferredMetric.IPK -> kmLevel to hourLevel
+            PreferredMetric.IPH -> hourLevel to kmLevel
         }
+        val base = preferred
+            ?: fallback?.let { if (it == VerdictLevel.GREEN) VerdictLevel.YELLOW else it }
+            ?: return VerdictLevel.RED
 
         // Partial data is never a confident GREEN.
         return if (hasMissingInputs && base == VerdictLevel.GREEN) VerdictLevel.YELLOW else base

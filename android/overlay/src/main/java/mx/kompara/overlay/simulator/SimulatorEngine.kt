@@ -2,6 +2,7 @@ package mx.kompara.overlay.simulator
 
 import mx.kompara.data.model.Platform
 import mx.kompara.data.settings.PlatformThreshold
+import mx.kompara.data.settings.PreferredMetric
 import mx.kompara.metrics.CostProfile
 import mx.kompara.metrics.NetProfitEngine
 import mx.kompara.metrics.OfferMetrics
@@ -46,9 +47,10 @@ class SimulatorEngine(
         offer: DemoSnapshots.DemoOffer,
         costProfile: CostProfile,
         threshold: PlatformThreshold,
+        preferredMetric: PreferredMetric = PreferredMetric.DEFAULT,
     ): SimulatorResult {
         val snapshot = DemoSnapshots.load(offer)
-        return evaluate(offer, snapshot, costProfile, threshold)
+        return evaluate(offer, snapshot, costProfile, threshold, preferredMetric)
     }
 
     /** Overload that takes a pre-loaded [snapshot] (lets the UI cache the decode). */
@@ -57,6 +59,7 @@ class SimulatorEngine(
         snapshot: ParserSnapshot,
         costProfile: CostProfile,
         threshold: PlatformThreshold,
+        preferredMetric: PreferredMetric = PreferredMetric.DEFAULT,
     ): SimulatorResult {
         val spec = registry.specFor(snapshot)
             ?: error("No bundled spec recognizes demo snapshot ${offer.id} (${snapshot.packageName})")
@@ -64,7 +67,7 @@ class SimulatorEngine(
             ?: error("Spec ${spec.targetPackage} did not detect demo snapshot ${offer.id} as an offer card")
 
         val tripOffer = OfferMapping.toTripOffer(card)
-        val metrics = netProfitEngine.evaluate(tripOffer, costProfile, threshold)
+        val metrics = netProfitEngine.evaluate(tripOffer, costProfile, threshold, preferredMetric)
         val platform = OfferMapping.platformOf(card.platform)
 
         return SimulatorResult(

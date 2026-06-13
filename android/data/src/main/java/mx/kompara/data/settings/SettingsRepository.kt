@@ -56,6 +56,8 @@ class SettingsRepository @Inject constructor(
         intPreferencesKey(SettingsSerialization.KEY_SHARE_COUNT)
     private val fiscalExportCountKey =
         intPreferencesKey(SettingsSerialization.KEY_FISCAL_EXPORT_COUNT)
+    private val preferredMetricKey =
+        stringPreferencesKey(SettingsSerialization.KEY_PREFERRED_METRIC)
 
     val settings: Flow<Settings> = dataStore.data.map { prefs -> prefs.toSettings() }
 
@@ -224,6 +226,11 @@ class SettingsRepository @Inject constructor(
                 prefs[weeklyNetGoalKey] = goalMxn
             }
         }
+    }
+
+    /** Set which net rate decides the semáforo (B-079): IPK (net $/km) or IPH (net $/hr). */
+    suspend fun setPreferredMetric(metric: PreferredMetric) {
+        dataStore.edit { prefs -> prefs[preferredMetricKey] = metric.name }
     }
 
     /** Set the shared acceptance thresholds (B-076: one semáforo for every platform). */
