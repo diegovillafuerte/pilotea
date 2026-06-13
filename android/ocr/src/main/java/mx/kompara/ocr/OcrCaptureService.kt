@@ -148,12 +148,16 @@ class OcrCaptureService : Service() {
         val now = SystemClock.elapsedRealtime()
         if (card != null) {
             presence.onParsed(now)
+            // Re-assert on EVERY successful parse, not only on a new offer: a Parsed on the bus
+            // cancels any in-flight hide, so a stray NoCard from any other source can blank the
+            // chip for at most one OCR frame (~300 ms). Downstream distinctUntilChanged collapses
+            // identical verdicts, so steady re-assertion causes no re-render churn.
+            OfferEventBus.tryEmit(
+                OfferEvent.Parsed(card.platform, System.currentTimeMillis(), card),
+            )
             val key = "${card.fare}_${card.pickupDistanceKm}_${card.tripDistanceKm}"
             if (key != lastOfferKey) {
                 lastOfferKey = key
-                OfferEventBus.tryEmit(
-                    OfferEvent.Parsed(card.platform, System.currentTimeMillis(), card),
-                )
                 Log.d(TAG, "emitted DiDi offer: fare=${card.fare} pickup=${card.pickupDistanceKm}km trip=${card.tripDistanceKm}km")
             }
         } else if (lastOfferKey != null) {

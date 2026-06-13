@@ -3,6 +3,7 @@ package mx.kompara.capture
 import android.accessibilityservice.AccessibilityService
 import android.view.accessibility.AccessibilityEvent
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.flow.filterNot
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import javax.inject.Inject
@@ -53,7 +54,16 @@ class KomparaAccessibilityService : AccessibilityService() {
         // Run each coalesced snapshot through the spec engine and publish OfferEvents. The node-tree
         // path (Uber) feeds the shared OfferEventBus, which the OCR path (DiDi/inDrive, design §7)
         // also publishes to. (The trip log + telemetry still collect offerPipeline.offers directly.)
-        offerPipeline.offers.onEach { OfferEventBus.tryEmit(it) }.launchIn(scope)
+        //
+        // ONE WRITER PER PLATFORM: the node path is structurally blind on the SurfaceView platforms
+        // (no text in their trees), so for them every event it produces is a spurious NoCard — and
+        // a single one racing the OCR path's Parsed on the bus hides a live verdict (seen on-device
+        // 2026-06-12: a DiDi window event killed the chip ~0.6 s after it appeared). Only the OCR
+        // service speaks for those packages.
+        offerPipeline.offers
+            .filterNot { it.packageName in OCR_OWNED_PACKAGES }
+            .onEach { OfferEventBus.tryEmit(it) }
+            .launchIn(scope)
         // Drive the verdict overlay from the unified bus. The service is the only place allowed to
         // attach the TYPE_ACCESSIBILITY_OVERLAY window; the presenter (an :overlay OverlayController,
         // injected as an interface to avoid a :capture -> :overlay cycle) does the window plumbing.
@@ -89,6 +99,16 @@ class KomparaAccessibilityService : AccessibilityService() {
         const val INDRIVE_DRIVER_PACKAGE = "sinet.startup.inDriver"
         val TARGET_PACKAGES = setOf(
             UBER_DRIVER_PACKAGE,
+            DIDI_DRIVER_PACKAGE,
+            INDRIVE_DRIVER_PACKAGE,
+        )
+
+        /**
+         * SurfaceView platforms owned exclusively by the OCR capture path (design §7). The node
+         * path never forwards bus events for these — it cannot see their text, so anything it says
+         * about them is noise that would fight the OCR verdict.
+         */
+        val OCR_OWNED_PACKAGES = setOf(
             DIDI_DRIVER_PACKAGE,
             INDRIVE_DRIVER_PACKAGE,
         )
