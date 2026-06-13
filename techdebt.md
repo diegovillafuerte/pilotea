@@ -354,7 +354,28 @@ Conscious deferrals. Each entry: date, severity, context, why deferred, when to 
 - **Why deferred:** Out of scope for B-079 (overlay/settings surface). Fixing it properly means snapshotting the floors + metric the chip actually used at offer time (or reading Settings in the tracker), and deciding whether history should re-grade when floors change — a product question, not a one-liner.
 - **When to fix:** When offer history / recommendations consume `verdictLevel` for anything driver-facing. Pass the live `Settings` (floors + preferredMetric) into `evaluateVerdict`, or persist the verdict the overlay actually rendered.
 
-## TD-026: Reader-down banner has no dismiss gesture
+## TD-026: Design-system drift to reconcile (B-080)
+- **Date:** 2026-06-12
+- **Severity:** low
+- **Context:** `docs/design-principles.md` (added in B-080) codifies the visual language and declares
+  canonical values, but two real inconsistencies remain in the codebase: (1) screen-edge padding
+  varies — Inicio/Comparar use 16dp, Thresholds/Ajustes use 24dp, Simulator 20dp, Lector disconnected
+  32dp (16dp is now canonical; B-080 only reconciled the Lector connected screen). (2) The verdict
+  palette is defined twice with slightly different hex: `:ui` theme `Color.kt` (`#1B8A3A/#F2B705/#D32F2F`)
+  vs `overlay/VerdictColors.kt` (`#2E7D32/#F9A825/#C62828`) — two sources of truth for the brand's core
+  signal.
+- **Why deferred:** Mass-reconciling padding across screens the user already approved would violate the
+  surgical-changes rule; the dual palette consolidation should happen when the overlay is next touched
+  (it risks a visible colour shift on the chip, so it wants on-device verification).
+- **When to fix:** Move each screen's edge padding to 16dp when you next touch that screen. Consolidate
+  the overlay onto the `:ui` theme verdict colours during the next overlay change, verifying the chip
+  colours on a real device.
+- **Also (Codex B-080 review):** the design rules are documentation-only — nothing enforces "no raw
+  hex / no raw fontSize / spacing scale". Consider a Detekt or Android-lint rule set that errors with
+  a message pointing at `docs/design-principles.md`, so the doc doesn't silently drift. Lower priority
+  than the two reconciliations above.
+
+## TD-027: Reader-down banner has no dismiss gesture
 - **Date:** 2026-06-12
 - **Severity:** low
 - **Context:** The B-078 reader-down banner (overlay pill on DiDi/inDrive while the screen reader is dead) can only be cleared by tapping it (restart consent), restarting the reader elsewhere, or leaving the host app. A driver who deliberately wants the reader off for the rest of a shift has no swipe-to-dismiss; the banner re-appears each time they re-enter DiDi. Mitigated by the hasRunThisSession gate (never shows for drivers who didn't enable the reader this session).

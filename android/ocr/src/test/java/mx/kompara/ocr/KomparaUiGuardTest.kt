@@ -9,7 +9,7 @@ class KomparaUiGuardTest {
     @Test
     fun `kompara shell screen is own UI`() {
         // Real OCR of the Inicio tab with the chip overlay attached (2026-06-12 live session).
-        val text = "Aún no hay números | No conviene | \$0.02/km | ganancia neta | " +
+        val text = "Aún no hay números | Rojo | \$0.02/km | ganancia neta | " +
             "Inicio | Comparar | Lector | Fiscal | \$0.14 | Ajustes"
         assertTrue(KomparaUiGuard.isOwnUi(text))
     }

@@ -75,7 +75,12 @@ fun VerdictChipUi(
     var expanded by remember { mutableStateOf(false) }
     var sheetOpen by remember { mutableStateOf(false) }
 
-    val chipDescription = androidx.compose.ui.res.stringResource(R.string.overlay_chip_content_description)
+    // The verdict is colour-only on screen now, so TalkBack gets it spoken here: the level word
+    // (verde/amarillo/rojo) leads the chip's description so blind/low-vision drivers don't lose it.
+    val chipDescription = androidx.compose.ui.res.stringResource(
+        R.string.overlay_chip_content_description,
+        androidx.compose.ui.res.stringResource(state.level.labelRes),
+    )
 
     Column(
         modifier = modifier
@@ -125,13 +130,10 @@ fun VerdictChipUi(
 
 @Composable
 private fun CollapsedContent(state: VerdictChipState) {
+    // No verdict word: the chip's colour already carries good/regular/bad, so dropping the label
+    // line keeps the chip thin and the net rate the one thing the driver reads (B-080). The
+    // verdict is still spoken via the chip's contentDescription (set in VerdictChipUi).
     val onColor = state.level.onBrandColor
-    Text(
-        text = androidx.compose.ui.res.stringResource(state.level.labelRes),
-        color = onColor,
-        fontWeight = FontWeight.Bold,
-        fontSize = 13.sp,
-    )
     Text(
         text = state.heroRate,
         color = onColor,

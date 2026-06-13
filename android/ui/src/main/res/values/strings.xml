@@ -36,16 +36,20 @@
     <string name="lector_empty_title">El lector está apagado</string>
     <string name="lector_empty_body">Enciéndelo y Kompara te dirá al instante cuánto ganas de verdad con cada viaje.</string>
     <string name="lector_empty_cta">Encender lector</string>
-    <string name="lector_on_title">El lector está encendido</string>
-    <string name="lector_on_body">Kompara está leyendo Uber y DiDi. Abre la app de la plataforma y espera una oferta — el veredicto aparecerá solo.</string>
+    <string name="lector_empty_hint">Después de encenderlo, aquí también activas el lector de pantalla para DiDi.</string>
+    <string name="lector_header">Lector</string>
+    <string name="lector_intro">Kompara lee las ofertas en tu pantalla y les pone el semáforo encima. Todo se queda en tu teléfono.</string>
+    <string name="lector_uber_title">Ofertas de Uber</string>
+    <string name="lector_uber_body">Siempre activo una vez que enciendes el servicio de accesibilidad.</string>
+    <string name="lector_didi_title">Ofertas de DiDi</string>
+    <string name="lector_didi_body">Para leer las ofertas de DiDi, Kompara captura tu pantalla y la analiza solo en tu teléfono. Se apaga al bloquear el equipo.</string>
+    <string name="lector_status_on">Activo</string>
+    <string name="lector_ocr_status_off">Detenido</string>
     <string name="lector_on_cta">Probar en el simulador</string>
     <string name="lector_settings_cta">Configuración de accesibilidad</string>
     <string name="lector_semaforo_cta">Ajustar mi semáforo</string>
 
     <!-- B-075: screen-capture (OCR) reader controls — DiDi has no accessibility text. -->
-    <string name="lector_ocr_title">Lector de pantalla para DiDi</string>
-    <string name="lector_ocr_running">Activo: verás el semáforo sobre cada oferta de DiDi.</string>
-    <string name="lector_ocr_stopped">Detenido: inícialo para ver el semáforo en DiDi. Se detiene al bloquear el teléfono.</string>
     <string name="lector_ocr_start_cta">Iniciar lector de pantalla</string>
     <string name="lector_ocr_restart_cta">Reiniciar lector de pantalla</string>
     <!-- Prominent disclosure (Play policy) shown BEFORE the system capture consent.
@@ -77,8 +81,8 @@
     <string name="thresholds_intro">Define cuándo un viaje se marca en verde, amarillo o rojo: verde si gana al menos el piso verde, rojo si gana menos que el piso rojo, y amarillo entre los dos. Los pisos son netos — después de gasolina y desgaste — y el mismo semáforo aplica a todas tus apps.</string>
     <string name="thresholds_metric_title">¿Qué decide tu semáforo?</string>
     <string name="thresholds_metric_hint">La métrica elegida pinta el color y aparece en grande en el chip; la otra queda de referencia.</string>
-    <string name="thresholds_metric_ipk">Por kilómetro (IPK)</string>
-    <string name="thresholds_metric_iph">Por hora (IPH)</string>
+    <string name="thresholds_metric_ipk">Por kilómetro</string>
+    <string name="thresholds_metric_iph">Por hora</string>
     <string name="thresholds_section_km">Por kilómetro (neto)</string>
     <string name="thresholds_section_hour">Por hora (neto)</string>
     <string name="thresholds_green_label">Verde desde</string>
@@ -99,7 +103,7 @@
     <string name="help_a_reader">Ve a la pestaña Lector y toca \"Encender lector\". Te llevamos a los Ajustes de accesibilidad de Android: busca Kompara, activa el interruptor y regresa a la app. Para DiDi, el lector usa además la captura de pantalla del sistema — acepta el aviso de Android cuando aparezca. Puedes probar todo sin viajes reales en el simulador (Ajustes → Ver el simulador).</string>
 
     <string name="help_q_verdict">¿Qué significa el semáforo?</string>
-    <string name="help_a_verdict">Cada oferta se mide en dos números netos — lo que te queda después de gasolina y desgaste: ganancia por km y ganancia por hora. Tú eliges cuál de los dos decide el color en Ajustes → Tu semáforo (por km de fábrica): ese aparece en grande en el chip y el otro queda de referencia. Verde: llega a tu piso verde. Rojo: gana menos que tu piso rojo. Amarillo: está entre los dos. Toca el chip para ver el detalle y por qué salió ese color; mantenlo presionado para ajustar los pisos de tu métrica sin salir de la otra app, o edita los cuatro pisos en Ajustes → Tu semáforo.</string>
+    <string name="help_a_verdict">Cada oferta se mide en dos números netos — lo que te queda después de gasolina y desgaste: ganancia por km y ganancia por hora. Tú eliges cuál de los dos decide el color en Ajustes → Tu semáforo: ese aparece en grande en el chip y el otro queda de referencia. Verde: llega a tu piso verde. Rojo: gana menos que tu piso rojo. Amarillo: está entre los dos. Toca el chip para ver el detalle y por qué salió ese color; mantenlo presionado para ajustar los pisos de tu métrica sin salir de la otra app, o edita los cuatro pisos en Ajustes → Tu semáforo.</string>
 
     <string name="help_q_battery">Mi teléfono apaga el lector, ¿qué hago?</string>
     <string name="help_a_battery">Casi siempre es el ahorrador de batería. En Ajustes → Batería pon a Kompara \"Sin restricciones\" (en Xiaomi/Oppo/Vivo activa también el inicio automático). En la pantalla de apps recientes, mantén presionada la tarjeta de Kompara y fíjala con el candado. Activa las notificaciones de Kompara para que te avisemos si el lector se apaga mientras manejas.</string>
@@ -119,9 +123,9 @@
     <!-- ============================================================= -->
     <!-- Componente: VerdictBadge (semáforo de veredicto)             -->
     <!-- ============================================================= -->
-    <string name="verdict_green">Conviene</string>
-    <string name="verdict_yellow">Regular</string>
-    <string name="verdict_red">No conviene</string>
+    <string name="verdict_green">Verde</string>
+    <string name="verdict_yellow">Amarillo</string>
+    <string name="verdict_red">Rojo</string>
 
     <!-- ============================================================= -->
     <!-- Componente: MetricCard / generales                           -->
@@ -221,7 +225,7 @@
     <string name="onb_disc_que_cuerpo">Kompara lee el contenido de pantalla de las apps de Uber y DiDi mientras manejas — los textos de la oferta del viaje (tarifa, distancia, tiempo y destino).</string>
     <string name="onb_disc_porque_titulo">Para qué</string>
     <!-- TODO(legal-B038) -->
-    <string name="onb_disc_porque_cuerpo">Únicamente para calcular las métricas del viaje (ganancia por km, por hora y por viaje) y mostrarte el semáforo de si conviene o no.</string>
+    <string name="onb_disc_porque_cuerpo">Únicamente para calcular las métricas del viaje (ganancia por km y ganancia por hora) y mostrarte el semáforo del viaje.</string>
     <string name="onb_disc_donde_titulo">Dónde se procesa</string>
     <!-- TODO(legal-B038) -->
     <string name="onb_disc_donde_cuerpo">El procesamiento ocurre solo en tu teléfono. Kompara no vende, no comparte ni sube a internet el contenido de tu pantalla. Tu cuenta solo guarda tu número de WhatsApp, tu configuración y tus totales.</string>

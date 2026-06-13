@@ -26,8 +26,8 @@ import mx.kompara.ui.theme.VerdictYellow
 /**
  * The traffic-light verdict the design system speaks in. The level itself lives in `:metrics`
  * ([VerdictLevel] = GREEN / YELLOW / RED); `:ui` owns how it *looks* and *reads* in Spanish —
- * "Conviene" / "Regular" / "No conviene" — so the chip is the single source of truth for verdict
- * styling across in-app surfaces.
+ * "Verde" / "Amarillo" / "Rojo" — so the chip is the single source of truth for verdict
+ * styling across in-app surfaces. The colour carries the good/bad signal; the word just names it.
  */
 
 /** Brand traffic-light fill for a verdict level. */
@@ -75,7 +75,7 @@ fun VerdictBadge(
     )
 }
 
-@Preview(showBackground = true, name = "Verdict — Conviene")
+@Preview(showBackground = true, name = "Verdict — Verde")
 @Composable
 private fun VerdictBadgeGreenPreview() {
     KomparaTheme { VerdictBadge(level = VerdictLevel.GREEN) }
@@ -87,7 +87,7 @@ private fun VerdictBadgeYellowPreview() {
     KomparaTheme { VerdictBadge(level = VerdictLevel.YELLOW) }
 }
 
-@Preview(showBackground = true, name = "Verdict — No conviene")
+@Preview(showBackground = true, name = "Verdict — Rojo")
 @Composable
 private fun VerdictBadgeRedPreview() {
     KomparaTheme { VerdictBadge(level = VerdictLevel.RED) }
