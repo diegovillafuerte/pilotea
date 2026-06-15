@@ -163,4 +163,22 @@ class OcrLifecycleClassifierTest {
         assertEquals(false, markers.isTripLike("Buscando viajes | Estás conectado"))
         assertEquals(false, markers.isTripLike("MXN96.17 | Aceptar | Viaje: 32 min (11.3 km)"))
     }
+
+    @Test
+    fun `the real DiDi offer-accepted to-pickup screen is recognised as a trip (B-084)`() {
+        // The active to-pickup screen captured on-device 2026-06-15 (PII redacted): the old marker
+        // set matched ZERO of these phrases, so accepted DiDi rides never opened a trip.
+        val toPickup = "Viaje aceptado | Llegué por el pasajero | A ¡Vamos! | [PICKUP] | ★ 4.9 12 viajes | " +
+            "6 min 1.9 km | Llega antes de la(s) 14:45 | La grabación iniciará al empezar el viaje | $7.02/km"
+        assertTrue(OcrTripMarkers.DEFAULT.isTripLike(toPickup))
+    }
+
+    @Test
+    fun `the cancel-reason dialog does NOT open a trip, even though it mentions trip words (B-084)`() {
+        // The cancel-reason dialog (run 1, 2026-06-15) falsely matched "Punto de encuentro" + "viaje
+        // en curso" and manufactured a bare zero-value trip. The exclusion guard must veto it.
+        val cancelDialog = "¿Por qué cancelaste el viaje? | Por favor dinos por qué | " +
+            "Punto de encuentro muy lejano | Tenía otro viaje en curso"
+        assertEquals(false, OcrTripMarkers.DEFAULT.isTripLike(cancelDialog))
+    }
 }

@@ -41,6 +41,9 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    // A real DataStore-backed SettingsRepository (temp-file) in the TripLifecycleTracker test, so the
+    // ledger-verdict path is exercised against configured thresholds without mocking DataStore (B-083).
+    testImplementation(libs.androidx.datastore.preferences)
     // Robolectric gives us a real android.graphics.Rect + AccessibilityNodeInfo on the JVM so the
     // flattener/model tests run in CI without an emulator (instrumented tests are out of scope).
     testImplementation(libs.robolectric)

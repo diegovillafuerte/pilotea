@@ -1,6 +1,7 @@
 package mx.kompara.capture.lifecycle
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import mx.kompara.data.db.dao.OfferDao
 import mx.kompara.data.db.dao.ShiftDao
 import mx.kompara.data.db.dao.TripDao
@@ -12,7 +13,7 @@ import mx.kompara.metrics.CostProfileMapper
 import mx.kompara.metrics.NetProfitEngine
 import mx.kompara.metrics.TripOffer
 import mx.kompara.data.settings.CostProfileRepository
-import mx.kompara.data.settings.PlatformThreshold
+import mx.kompara.data.settings.SettingsRepository
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -48,6 +49,7 @@ class TripLifecycleTracker @Inject constructor(
     private val tripDao: TripDao,
     private val shiftDao: ShiftDao,
     private val costProfileRepository: CostProfileRepository,
+    private val settingsRepository: SettingsRepository,
     private val engine: NetProfitEngine,
     private val rollupTrigger: RollupTrigger,
     private val heuristics: TripStateHeuristics = TripStateHeuristics.DEFAULT,
@@ -100,6 +102,10 @@ class TripLifecycleTracker @Inject constructor(
     private suspend fun evaluateVerdict(platform: String, card: mx.kompara.parsers.model.OfferCard): String? {
         if (card.fare == null) return null
         val costProfile = CostProfileMapper.toCostProfileOrZero(costProfileRepository.get())
+        // Grade against the driver's CONFIGURED floors + preferred metric — the SAME inputs the
+        // overlay graded the live chip with. Reading PlatformThreshold.DEFAULT here persisted a
+        // traffic-light colour one rung greener than the driver actually saw (B-083 / TD-025).
+        val settings = settingsRepository.settings.first()
         val offer = TripOffer(
             platform = platform.lowercase(),
             fareMxn = card.fare,
@@ -108,7 +114,12 @@ class TripLifecycleTracker @Inject constructor(
             tripKm = card.tripDistanceKm,
             tripMin = card.tripDurationMin,
         )
-        return engine.evaluate(offer, costProfile, PlatformThreshold.DEFAULT).verdict.level.name
+        return engine.evaluate(
+            offer,
+            costProfile,
+            settings.effectiveThreshold,
+            settings.preferredMetric,
+        ).verdict.level.name
     }
 
     // --- Trips --------------------------------------------------------------------------------
