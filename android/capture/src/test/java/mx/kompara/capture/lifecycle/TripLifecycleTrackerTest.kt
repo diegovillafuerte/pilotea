@@ -1,5 +1,6 @@
 package mx.kompara.capture.lifecycle
 
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -14,14 +15,19 @@ import mx.kompara.data.db.entity.OfferOutcome
 import mx.kompara.data.db.entity.ShiftEntity
 import mx.kompara.data.db.entity.TripEntity
 import mx.kompara.data.settings.CostProfileRepository
+import mx.kompara.data.settings.PlatformThreshold
+import mx.kompara.data.settings.SettingsRepository
 import mx.kompara.metrics.NetProfitEngine
 import mx.kompara.parsers.model.OfferCard
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
+import java.io.File
 
 /**
  * The offer→accept→trip→complete state machine and shift inferer in [TripLifecycleTracker] (B-039),
@@ -33,6 +39,21 @@ class TripLifecycleTrackerTest {
 
     private val uber = "com.ubercab.driver"
     private val minute = 60_000L
+
+    // A real DataStore-backed SettingsRepository over a temp file (cheap, no Android): the verdict
+    // path reads the driver's configured threshold/metric through it (B-083). Default = untuned, so
+    // effectiveThreshold == PlatformThreshold.DEFAULT and the existing tests keep their behaviour.
+    private lateinit var settingsFile: File
+    private lateinit var settings: SettingsRepository
+
+    @Before fun setUp() {
+        settingsFile = File.createTempFile("tracker_settings", ".preferences_pb").also { it.delete() }
+        settings = SettingsRepository(PreferenceDataStoreFactory.create(produceFile = { settingsFile }))
+    }
+
+    @After fun tearDown() {
+        settingsFile.delete()
+    }
 
     private fun card(fare: Double = 100.0, tripKm: Double = 10.0, tripMin: Double = 20.0) =
         OfferCard(platform = uber, fare = fare, tripDistanceKm = tripKm, tripDurationMin = tripMin)
@@ -47,6 +68,7 @@ class TripLifecycleTrackerTest {
         tripDao = trips,
         shiftDao = shifts,
         costProfileRepository = CostProfileRepository(FakeCostProfileDao()),
+        settingsRepository = settings,
         engine = NetProfitEngine(),
         rollupTrigger = rollups,
         heuristics = TripStateHeuristics.DEFAULT,
@@ -171,6 +193,45 @@ class TripLifecycleTrackerTest {
         assertEquals(trip.startedAt, trip.endedAt)
         assertEquals(0.0, trip.grossMxn, 1e-9)
         assertEquals(0.0, trip.distanceKm, 1e-9)
+    }
+
+    // --- Persisted verdict colour (B-083) ----------------------------------------------------
+
+    // A complete card (every leg present, so no missing-input YELLOW cap) worth exactly 9.0 $/km net
+    // at zero marginal cost: GREEN under the 8.0/km default, YELLOW under a stricter 10.0/km floor.
+    private fun ninePerKmCard() = OfferCard(
+        platform = uber,
+        fare = 90.0,
+        pickupDistanceKm = 0.0,
+        pickupEtaMin = 0.0,
+        tripDistanceKm = 10.0,
+        tripDurationMin = 20.0,
+    )
+
+    @Test
+    fun `ledger persists the driver's configured threshold colour, not the default (B-083)`() = runTest {
+        val offers = FakeOfferDao()
+        val t = tracker(offers, FakeTripDao(), FakeShiftDao(), CountingRollupTrigger())
+        // The driver tuned a stricter floor (the on-device values: 10.0/7.5 $/km). 9.0 $/km is YELLOW
+        // under it, even though it is GREEN under PlatformThreshold.DEFAULT (8.0/km).
+        settings.setThreshold(
+            PlatformThreshold(minPerKmMxn = 10.0, minPerHourMxn = 154.0, redPerKmMxn = 7.5, redPerHourMxn = 115.5),
+        )
+
+        t.handle(LifecycleSignal.OfferSeen(uber, 1_000_000L, ninePerKmCard()))
+
+        assertEquals("YELLOW", offers.all().single().verdict)
+    }
+
+    @Test
+    fun `same offer reads GREEN under the default threshold (B-083 control)`() = runTest {
+        val offers = FakeOfferDao()
+        val t = tracker(offers, FakeTripDao(), FakeShiftDao(), CountingRollupTrigger())
+        // No tuning ⇒ effectiveThreshold == PlatformThreshold.DEFAULT. Same card, GREEN — confirms the
+        // divergence the configured-threshold test guards against is real (one rung greener).
+        t.handle(LifecycleSignal.OfferSeen(uber, 1_000_000L, ninePerKmCard()))
+
+        assertEquals("GREEN", offers.all().single().verdict)
     }
 
     // --- Shift inference ---------------------------------------------------------------------

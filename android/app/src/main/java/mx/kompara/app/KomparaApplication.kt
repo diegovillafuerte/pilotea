@@ -117,6 +117,11 @@ class KomparaApplication : Application(), Configuration.Provider {
         // Daily background recompute keeps aggregates fresh even when no trip closes (e.g. an open
         // shift crossing midnight); on-trip-close one-shots handle the prompt case.
         RollupWorker.schedulePeriodic(workManager)
+        // B-081: refresh the trailing-window CAPTURED aggregates on app open so the ledger-repair
+        // migration (v4, which purges phantom + uptime-dated rows) is reflected promptly — e.g. an
+        // uptime-dated open shift that had over-counted online hours. Idempotent (trailing-window
+        // recompute, REPLACE policy), mirroring the fiscal/week-close "ensureScheduled + runNow".
+        RollupWorker.triggerOnce(workManager)
 
         // Fetch the freshest signed parser bundle now (so a kill switch applies this session), then
         // let the periodic worker keep it current. refresh() never throws and no-ops when nothing is

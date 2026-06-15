@@ -47,7 +47,9 @@ import mx.kompara.data.db.entity.WeeklyAggregateEntity
     // population_stats benchmark cache table. See KomparaMigrations.MIGRATION_1_2.
     // v3 (B-051): adds the fiscal_config cache table (IMSS-threshold remote config).
     // See KomparaMigrations.MIGRATION_2_3.
-    version = 3,
+    // v4 (B-081): DATA-ONLY repair — purges phantom zero-value trips + uptime-dated (1970) rows the
+    // pre-fix node path wrote. No schema change. See KomparaMigrations.MIGRATION_3_4.
+    version = 4,
     exportSchema = true,
 )
 abstract class KomparaDatabase : RoomDatabase() {
