@@ -33,6 +33,7 @@ import mx.kompara.capture.OfferEvent
 import mx.kompara.capture.OfferEventBus
 import mx.kompara.capture.lifecycle.OcrLifecycleBus
 import mx.kompara.data.service.ScreenReaderState
+import mx.kompara.data.service.ScreenRect
 import java.io.File
 
 /**
@@ -84,7 +85,10 @@ class OcrCaptureService : Service() {
     // brief parse+emit, and teardown's runBlocking can't stall the lifecycle callback for long.
     private val stateMutex = Mutex()
 
-    private data class CapturedFrame(val generation: Int, val bitmap: Bitmap)
+    // chipRect is snapshotted at CAPTURE time so the mask matches THESE pixels: OCR is async, and a
+    // drag/attach/detach between capture and parse would otherwise misalign the live rect with the
+    // frame (leak the old chip block, or blank host text at the new spot). See ChipMask / B-0xx.
+    private data class CapturedFrame(val generation: Int, val bitmap: Bitmap, val chipRect: ScreenRect?)
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -180,7 +184,7 @@ class OcrCaptureService : Service() {
                 lastOcrAt = now
                 // Hand off to the sequential consumer, tagged with this session's generation; CONFLATED
                 // replaces any unprocessed frame. Recycle if the channel is closed (teardown race).
-                val frame = CapturedFrame(generation, image.toBitmap(width, height))
+                val frame = CapturedFrame(generation, image.toBitmap(width, height), ScreenReaderState.overlayChipRect)
                 if (frameChannel.trySend(frame).isFailure) frame.bitmap.recycle()
             } finally {
                 image.close()
@@ -208,11 +212,16 @@ class OcrCaptureService : Service() {
         // session was closed and reset. The generation check is INSIDE the lock, so it can't race the
         // bump in teardown.
         stateMutex.withLock {
-            if (frame.generation == captureGeneration) processFrame(blocks)
+            if (frame.generation == captureGeneration) processFrame(blocks, frame.chipRect)
         }
     }
 
-    private fun processFrame(blocks: List<OcrBlock>) {
+    private fun processFrame(rawBlocks: List<OcrBlock>, chipRect: ScreenRect?) {
+        // Strip our own chip's pixels FIRST: MediaProjection captures the whole screen including the
+        // floating verdict chip, and its bare-"$" rate text ("$15.00/km") otherwise gets parsed as
+        // the offer fare — the self-capture loop that collapsed the live verdict to $0. [chipRect] is
+        // the rect snapshotted when THIS frame was captured (a null rect = chip hidden ⇒ no-op).
+        val blocks = ChipMask.maskOwnChip(rawBlocks, chipRect)
         val joined = blocks.joinToString(" | ") { it.text }
         // Raw OCR text is screen content — log in debug builds only (Play data-safety posture);
         // release logcat must never expose it.
