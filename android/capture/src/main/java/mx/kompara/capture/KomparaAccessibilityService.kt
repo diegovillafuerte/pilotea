@@ -65,15 +65,18 @@ class KomparaAccessibilityService : AccessibilityService() {
         // (B-033). The pipeline starts on the bundled baseline; this upgrades it as the
         // SpecConfigRepository emits remote-cached/verified specs.
         offerPipeline.trackActiveSpecs(scope)
-        // Run each coalesced snapshot through the spec engine and publish OfferEvents. The node-tree
-        // path (Uber) feeds the shared OfferEventBus, which the OCR path (DiDi/inDrive, design §7)
-        // also publishes to. (The trip log + telemetry still collect offerPipeline.offers directly.)
+        // Run each coalesced snapshot through the spec engine and publish OfferEvents to the shared
+        // OfferEventBus, which the OCR path (design §7) also publishes to. (The trip log + telemetry
+        // still collect offerPipeline.offers directly.)
         //
-        // ONE WRITER PER PLATFORM: the node path is structurally blind on the SurfaceView platforms
-        // (no text in their trees), so for them every event it produces is a spurious NoCard — and
-        // a single one racing the OCR path's Parsed on the bus hides a live verdict (seen on-device
-        // 2026-06-12: a DiDi window event killed the chip ~0.6 s after it appeared). Only the OCR
-        // service speaks for those packages.
+        // ONE WRITER PER PLATFORM: the node path is structurally blind wherever the host renders its
+        // offer to a SurfaceView/Compose surface with no accessibility text, so for those packages
+        // every event it produces is a spurious NoCard — and a single one racing the OCR path's
+        // Parsed on the bus hides a live verdict (seen on-device 2026-06-12: a DiDi window event
+        // killed the chip ~0.6 s after it appeared). As of 2026-06-15 that is ALL THREE target apps —
+        // Uber moved to a UberComposeView/TextureView offer card — so OCR_OWNED_PACKAGES now covers
+        // every target and the OCR service is the sole bus writer. The node path keeps running for
+        // telemetry/trip-log; this filter just keeps its (now always-NoCard) verdicts off the bus.
         offerPipeline.offers
             .filterNot { it.packageName in OCR_OWNED_PACKAGES }
             .onEach { OfferEventBus.tryEmit(it) }
@@ -185,11 +188,18 @@ class KomparaAccessibilityService : AccessibilityService() {
         )
 
         /**
-         * SurfaceView platforms owned exclusively by the OCR capture path (design §7). The node
-         * path never forwards bus events for these — it cannot see their text, so anything it says
-         * about them is noise that would fight the OCR verdict.
+         * Platforms owned exclusively by the OCR capture path (design §7). The node path never
+         * forwards bus events for these — it cannot see their offer text, so anything it says about
+         * them is noise that would fight the OCR verdict.
+         *
+         * DiDi/inDrive render to a Flutter SurfaceView. **Uber joined this set on 2026-06-15**: its
+         * current driver build renders the trip-offer card inside a `UberComposeView` /
+         * `TextureView` with NO accessibility semantics (verified on-device — `getWindows()` returns
+         * only map chrome, no fare/distance), so the node-tree reader is blind to Uber offers too and
+         * [mx.kompara.ocr.UberOcrParser] reads them off the OCR stream instead.
          */
         val OCR_OWNED_PACKAGES = setOf(
+            UBER_DRIVER_PACKAGE,
             DIDI_DRIVER_PACKAGE,
             INDRIVE_DRIVER_PACKAGE,
         )

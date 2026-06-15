@@ -47,8 +47,10 @@ class OcrCaptureService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val engine = OcrEngine()
     private val didiParser = DidiOcrParser()
+    private val uberParser = UberOcrParser()
     private val presence = CardPresenceTracker()
     private var lastOfferKey: String? = null
+    private var lastOfferPackage: String? = null
     private var projection: MediaProjection? = null
     private var virtualDisplay: VirtualDisplay? = null
     private var imageReader: ImageReader? = null
@@ -142,7 +144,11 @@ class OcrCaptureService : Service() {
         // Kompara's own UI are never parsed (the simulator's mock cards and our own stats would
         // feed back into the pipeline).
         val ownUi = KomparaUiGuard.isOwnUi(joined)
-        val card = if (ownUi) null else didiParser.parse(blocks)
+        // Try Uber first, then DiDi. The two OCR parsers are disjoint by fare format (Uber renders
+        // "MXN…", DiDi a bare "$"), so whichever returns a card also identifies the platform —
+        // `card.platform` is the host package, no separate detector needed. (B-029-OCR: Uber's offer
+        // card is no longer accessibility-readable, design §7 update 2026-06-15.)
+        val card = if (ownUi) null else (uberParser.parse(blocks) ?: didiParser.parse(blocks))
         // Monotonic clock for presence math (a wall-clock jump must not hide a live card or pin a
         // stale one); wall clock only for event timestamps and fixture filenames.
         val now = SystemClock.elapsedRealtime()
@@ -155,17 +161,23 @@ class OcrCaptureService : Service() {
             OfferEventBus.tryEmit(
                 OfferEvent.Parsed(card.platform, System.currentTimeMillis(), card),
             )
-            val key = "${card.fare}_${card.pickupDistanceKm}_${card.tripDistanceKm}"
+            lastOfferPackage = card.platform
+            val key = "${card.platform}_${card.fare}_${card.pickupDistanceKm}_${card.tripDistanceKm}"
             if (key != lastOfferKey) {
                 lastOfferKey = key
-                Log.d(TAG, "emitted DiDi offer: fare=${card.fare} pickup=${card.pickupDistanceKm}km trip=${card.tripDistanceKm}km")
+                Log.d(TAG, "emitted ${card.platform} offer: fare=${card.fare} pickup=${card.pickupDistanceKm}km trip=${card.tripDistanceKm}km")
             }
         } else if (lastOfferKey != null) {
-            if (presence.onMiss(!ownUi && didiParser.hasCardSignature(blocks), now)) {
+            val signature = !ownUi &&
+                (uberParser.hasCardSignature(blocks) || didiParser.hasCardSignature(blocks))
+            if (presence.onMiss(signature, now)) {
+                // Hide the chip for whichever platform's card we last showed (NOT always DiDi).
+                val gonePackage = lastOfferPackage ?: DidiOcrParser.DIDI_PACKAGE
                 lastOfferKey = null
+                lastOfferPackage = null
                 OfferEventBus.tryEmit(
                     OfferEvent.NoCard(
-                        DidiOcrParser.DIDI_PACKAGE,
+                        gonePackage,
                         System.currentTimeMillis(),
                         OfferEvent.Reason.NOT_AN_OFFER,
                     ),
@@ -184,7 +196,8 @@ class OcrCaptureService : Service() {
     }
 
     private fun looksLikeOffer(text: String): Boolean =
-        text.contains("$") && (text.contains("km", true) || text.contains("min", true))
+        (text.contains("$") || text.contains("MXN", true)) &&
+            (text.contains("km", true) || text.contains("min", true))
 
     private fun blocksToJson(blocks: List<OcrBlock>): String =
         blocks.joinToString(prefix = "[\n", postfix = "\n]", separator = ",\n") { b ->
@@ -258,12 +271,15 @@ class OcrCaptureService : Service() {
         projection?.stop(); projection = null
         ScreenReaderState.setRunning(false)
         // Never strand a verdict: the overlay (hosted by the accessibility service) only hides on
-        // bus events, so if capture dies mid-offer we must emit the NoCard ourselves.
+        // bus events, so if capture dies mid-offer we must emit the NoCard ourselves — for whichever
+        // platform's card was last on screen.
         if (lastOfferKey != null) {
+            val gonePackage = lastOfferPackage ?: DidiOcrParser.DIDI_PACKAGE
             lastOfferKey = null
+            lastOfferPackage = null
             OfferEventBus.tryEmit(
                 OfferEvent.NoCard(
-                    DidiOcrParser.DIDI_PACKAGE,
+                    gonePackage,
                     System.currentTimeMillis(),
                     OfferEvent.Reason.NOT_AN_OFFER,
                 ),

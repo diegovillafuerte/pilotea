@@ -90,10 +90,23 @@ Verified against the live MX driver apps on a Samsung S25 (uiautomator + our own
 
 | App | Rendering | Accessibility text exposed? | Node-tree reader |
 |---|---|---|---|
-| **Uber Driver** (`com.ubercab.driver`) | Native views (TextView/Button/WebView) | **Yes** — real text strings present | **Works** ✅ |
+| **Uber Driver** (`com.ubercab.driver`) | Native views (TextView/Button/WebView) | **Yes** — real text strings present | **Works** ✅ *(offer card SUPERSEDED 2026-06-15 — see §7.1)* |
 | **DiDi Conductor** (`com.didiglobal.driver`) | `SurfaceView` (full-surface render) | **No** — 53 nodes, zero text/content-desc | **Cannot read** ❌ |
 | **inDrive** (`sinet.startup.inDriver`) | `SurfaceView` | **No** — zero text | **Cannot read** ❌ |
 
 **Implication:** the accessibility node-tree approach (B-027/B-028) reads **Uber only**. DiDi and inDrive render everything on a SurfaceView and expose nothing to accessibility, so the reader receives no text for them — confirmed by their home/login screens (the offer card is on the same surface). This is the contingency anticipated in §1 ("OCR hedge if a platform strips accessibility nodes"). It also explains how Ruta Rentable supports DiDi in MX: it must use **MediaProjection + OCR**, not accessibility nodes.
 
 **Decision pending (Juan):** build the MediaProjection + on-device OCR capture path (ML Kit) for DiDi/inDrive — the hedge becomes required, not optional — vs. launch Uber-first on the working node-tree path and add OCR after. Tradeoffs: MediaProjection needs per-session consent + a persistent capture indicator on Android 14+, changes the Play data-safety/declaration story, and is heavier on battery. The node-tree path for Uber has none of that.
+
+### 7.1 Uber offer card is no longer node-readable (2026-06-15) — CRITICAL UPDATE
+
+Re-verified on the same Samsung S25 (CDMX) against a **live Uber offer card** (the 2026-06-11 check confirmed Uber exposed *some* text, but had not been validated against a real trip-offer card). The current Uber Driver build renders the trip-offer card inside `com.uber.rib.core.compose.root.UberComposeView` — a full-screen (`[0,0][1080,2340]`) Compose host — plus an `android.view.TextureView`, with **no accessibility semantics on the card**. `getWindows()` returns only ~22 chrome nodes (`"Buscando viajes"`, `"+MXN 10"`, `"No es posible desconectarse"`); the fare/distance/`Aceptar` text is in **neither `text` nor `contentDescription`** (confirmed via `uiautomator dump` + `KomparaCapture` logs). MediaProjection OCR reads the same card perfectly.
+
+**Implication:** the node-tree path now reads **none** of the three target apps' offer cards. The `uber-driver.json` declarative spec is effectively dead for live offers (kept for the simulator + as a fixture reference). The "OCR hedge" of §1 is now the **primary** path for all three platforms.
+
+**Shipped (branch `feat/uber-ocr-capture`, verified live):**
+- `mx.kompara.ocr.UberOcrParser` — parses the Uber card from OCR text (fare `MXN<amount>` with `.` *or* `,` decimal; pickup leg vs. `Viaje:`-labelled trip leg; `Exclusivo`/`Radar de solicitud de viaje` variants; excludes `+MXN… incluido` / `por inicio de viaje` bonuses).
+- `OcrCaptureService` tries `UberOcrParser` then `DidiOcrParser` per frame — disjoint by fare format (`MXN` vs bare `$`), so `card.platform` self-identifies; emits `OfferEvent` tagged with the right package.
+- `KomparaAccessibilityService.OCR_OWNED_PACKAGES` now includes `com.ubercab.driver`, so the node path stops emitting Uber `NoCard`s that would race and blank the OCR verdict ("one writer per platform").
+
+**Consequence:** Uber now **requires the screen reader (MediaProjection consent)** like DiDi/inDrive — it no longer works on accessibility alone. The reader-down banner (B-078) already covers this since it keys off `OCR_OWNED_PACKAGES`.
