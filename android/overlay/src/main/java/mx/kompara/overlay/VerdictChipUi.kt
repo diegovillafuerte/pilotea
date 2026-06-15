@@ -5,14 +5,17 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -25,7 +28,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -36,6 +41,7 @@ import mx.kompara.data.settings.PreferredMetric
 import mx.kompara.ui.components.brandColor
 import mx.kompara.ui.components.labelRes
 import mx.kompara.ui.components.onBrandColor
+import mx.kompara.ui.theme.BrandGreen
 
 /**
  * Callbacks the host (the [OverlayController]) wires the chip to. Drag deltas move the *window*
@@ -56,11 +62,14 @@ data class VerdictChipCallbacks(
  *
  * Collapsed: a traffic-light pill with the driver's preferred rate big (the one-second read —
  * net $/km or net $/hr per [VerdictChipState.preferred], B-079) and the other rate right under it
- * as context. The net total ("ganancia neta") lives in the expanded detail: the host app already
- * shows the fare, so repeating a peso total up front spends glance budget without adding signal.
- * Tap toggles the expanded detail rows (net profit, $/min, gross $/km, and a missing-data hint).
+ * as context. A slim brand strip (the Kompara "K" mark + wordmark) sits on top so a screenshot a
+ * driver shares is self-branding — a deliberate word-of-mouth growth lever.
+ *
  * Long-press opens the inline quick-threshold sheet (green + red floor sliders for the preferred
- * metric, persisting through [VerdictChipCallbacks.onThresholdChange]).
+ * metric, persisting through [VerdictChipCallbacks.onThresholdChange]); drag moves the chip. A plain
+ * tap does nothing — the old tap-to-expand detail was removed (it covered the host screen, fired by
+ * accident mid-drag, and added no decision-relevant signal). It is parked for possible reuse in
+ * docs/parked/verdict-chip-tap-to-expand.md.
  *
  * Glanceability (1-second cognition target): the hero figure is heavy and oversized; colour does
  * most of the talking so the meaning lands peripherally.
@@ -72,7 +81,6 @@ fun VerdictChipUi(
     callbacks: VerdictChipCallbacks = VerdictChipCallbacks(),
     modifier: Modifier = Modifier,
 ) {
-    var expanded by remember { mutableStateOf(false) }
     var sheetOpen by remember { mutableStateOf(false) }
 
     // The verdict is colour-only on screen now, so TalkBack gets it spoken here: the level word
@@ -85,8 +93,11 @@ fun VerdictChipUi(
     Column(
         modifier = modifier
             .widthIn(min = 132.dp)
+            // Size to the chip's own content (the body's net rate), then let the brand strip + body
+            // fillMaxWidth fill THAT — not the overlay window's max width. Without this the
+            // fillMaxWidth children would stretch the floating pill into a screen-wide touch band.
+            .width(IntrinsicSize.Max)
             .clip(RoundedCornerShape(16.dp))
-            .background(state.level.brandColor)
             .pointerInput(Unit) {
                 detectDragGestures(
                     onDrag = { change, dragAmount ->
@@ -97,24 +108,23 @@ fun VerdictChipUi(
                 )
             }
             .pointerInput(Unit) {
-                detectTapGestures(
-                    onTap = { expanded = !expanded },
-                    onLongPress = { sheetOpen = true },
-                )
+                detectTapGestures(onLongPress = { sheetOpen = true })
             }
-            .semantics { contentDescription = chipDescription }
-            .padding(horizontal = 14.dp, vertical = 10.dp),
+            .semantics { contentDescription = chipDescription },
     ) {
-        CollapsedContent(state)
+        BrandStrip()
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(state.level.brandColor)
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+        ) {
+            CollapsedContent(state)
 
-        if (expanded) {
-            Spacer(Modifier.height(8.dp))
-            ExpandedDetail(state)
-        }
-
-        if (state.hasMissingData) {
-            Spacer(Modifier.height(4.dp))
-            MissingHint(state.missingHintKind)
+            if (state.hasMissingData) {
+                Spacer(Modifier.height(4.dp))
+                MissingHint(state.missingHintKind)
+            }
         }
     }
 
@@ -148,44 +158,33 @@ private fun CollapsedContent(state: VerdictChipState) {
     )
 }
 
+/**
+ * The brand strip atop the chip: the Kompara "K" mark + wordmark on a brand-green band. Always
+ * visible so a screenshot the driver shares carries the brand. Sits above the verdict-coloured body;
+ * the chip's outer clip rounds both into one pill.
+ */
 @Composable
-private fun ExpandedDetail(state: VerdictChipState) {
-    val onColor = state.level.onBrandColor
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        ExplainLine(state.explainKind, color = onColor)
-        DetailRow(label = androidx.compose.ui.res.stringResource(R.string.overlay_net_profit_label), value = state.netProfit, color = onColor)
-        DetailRow(label = androidx.compose.ui.res.stringResource(R.string.overlay_per_min_label), value = state.netPerMin, color = onColor)
-        DetailRow(label = androidx.compose.ui.res.stringResource(R.string.overlay_gross_per_km_label), value = state.grossPerKm, color = onColor)
-    }
-}
-
-/** The one-line "¿por qué?" — which floor passed/failed — at the top of the expanded detail. */
-@Composable
-private fun ExplainLine(kind: VerdictChipState.ExplainKind, color: androidx.compose.ui.graphics.Color) {
-    val res = when (kind) {
-        VerdictChipState.ExplainKind.NONE -> return
-        VerdictChipState.ExplainKind.BOTH_STRONG -> R.string.overlay_explain_both_strong
-        VerdictChipState.ExplainKind.KM_WEAK -> R.string.overlay_explain_km_weak
-        VerdictChipState.ExplainKind.HOUR_WEAK -> R.string.overlay_explain_hour_weak
-        VerdictChipState.ExplainKind.BOTH_WEAK -> R.string.overlay_explain_both_weak
-    }
-    Text(
-        text = androidx.compose.ui.res.stringResource(res),
-        color = color,
-        fontSize = 11.sp,
-        modifier = Modifier.widthIn(max = 180.dp).padding(bottom = 2.dp),
-    )
-}
-
-@Composable
-private fun DetailRow(label: String, value: String, color: androidx.compose.ui.graphics.Color) {
+private fun BrandStrip() {
     Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(BrandGreen)
+            .padding(horizontal = 12.dp, vertical = 5.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(text = label, color = color, fontSize = 12.sp)
-        Spacer(Modifier.width(12.dp))
-        Text(text = value, color = color, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+        Icon(
+            painter = painterResource(mx.kompara.ui.R.drawable.ic_kompara_logomark),
+            contentDescription = null,
+            tint = Color.White,
+            modifier = Modifier.size(15.dp),
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(
+            text = androidx.compose.ui.res.stringResource(R.string.overlay_brand_name),
+            color = Color.White,
+            fontWeight = FontWeight.Medium,
+            fontSize = 12.sp,
+        )
     }
 }
 

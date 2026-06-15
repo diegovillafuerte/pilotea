@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Kompara "K" brand mark — the same glyph as the launcher foreground (app/.../ic_launcher_foreground),
+  re-centred in a tight square viewport and white/tintable so surfaces can colour it (the overlay chip
+  brand strip tints it white on brand green). Single-path glyph, no background. Placeholder mark until
+  final branding (B-026/B-053); keep this in sync with the launcher if that changes.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="52"
+    android:viewportHeight="52"
+    android:tint="#FFFFFFFF">
+    <group
+        android:translateX="-29.5"
+        android:translateY="-28">
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M38,30h8v22l16,-22h10L56,52l17,26h-10L49,57v21h-8z" />
+    </group>
+</vector>

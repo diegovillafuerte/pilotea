@@ -2,11 +2,15 @@
 <resources>
     <!-- Verdict overlay chip copy. Spanish (es-MX), the only locale the chofer sees. -->
 
+    <!-- Brand strip (atop the chip) — wordmark, not translatable. -->
+    <string name="overlay_brand_name" translatable="false">Kompara</string>
+
     <!-- Collapsed chip labels -->
     <string name="overlay_per_km_label">por km</string>
     <string name="overlay_net_profit_label">ganancia neta</string>
 
-    <!-- Expanded detail row -->
+    <!-- Expanded detail row — PARKED with the tap-to-expand feature (docs/parked/verdict-chip-tap-to-expand.md);
+         kept so reinstating the detail view needs no new copy. -->
     <string name="overlay_per_min_label">por min</string>
     <string name="overlay_gross_per_km_label">bruto por km</string>
     <string name="overlay_net_per_km_label">neto por km</string>
@@ -33,7 +37,7 @@
     <string name="overlay_threshold_close">Listo</string>
 
     <!-- Content descriptions (accessibility / TalkBack) -->
-    <string name="overlay_chip_content_description">Veredicto del viaje: %1$s. Toca para ver el detalle, mantén presionado para ajustar el piso.</string>
+    <string name="overlay_chip_content_description">Veredicto del viaje: %1$s. Mantén presionado para ajustar el piso.</string>
 
     <!-- Reader-down banner (B-078): shown over DiDi/inDrive while the screen reader is off.
          "toca y confirma" — the tap leads to the system capture dialog, not an instant restart. -->
