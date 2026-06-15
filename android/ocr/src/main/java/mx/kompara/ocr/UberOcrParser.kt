@@ -79,17 +79,20 @@ class UberOcrParser {
     }
 
     /**
-     * Whether the frame still carries the offer-card *signature* — a (non-bonus) fare plus at least
-     * one leg line — even if full parsing failed. Mirrors [DidiOcrParser.hasCardSignature]: the
-     * animating map garbles single frames ("1l min", "Vlaje"), so a failed parse WITH the signature
-     * means "card still up, frame garbled", not "card gone". The searching/idle screen ("+MXN 10",
-     * "1-2 min") fails this — its only currency is a "+" bonus and it has no leg line.
+     * Whether the frame still carries the offer-card *signature* so the chip HOLDS through frames a
+     * full parse can't read (B-077). The signature is a single non-bonus `MXN` fare — deliberately
+     * NOT fare-plus-leg.
+     *
+     * Why fare-only: Uber's "Radar de solicitud de viaje" animates the card, and the `N min (X km)`
+     * leg line drops out on many frames while the `MXN` fare stays on every one (on-device
+     * 2026-06-15). Requiring the leg here made the chip BLINK in sync with the radar animation —
+     * shown on full frames, hidden on the leg-less ones. The non-bonus fare alone is a reliable offer
+     * marker: the searching/idle screen's only currency is a `+MXN` bonus (excluded by [fareRegex]'s
+     * `(?<!\+)` lookbehind), so it still fails this. Full [parse] still requires the labeled trip leg;
+     * this governs only whether an already-shown verdict holds, so a leg-less frame keeps the last
+     * value rather than blanking.
      */
-    fun hasCardSignature(blocks: List<OcrBlock>): Boolean {
-        val hasFare = extractFare(blocks) != null
-        val hasLeg = blocks.any { legRegex.containsMatchIn(it.text) }
-        return hasFare && hasLeg
-    }
+    fun hasCardSignature(blocks: List<OcrBlock>): Boolean = extractFare(blocks) != null
 
     /** The real fare: the largest non-bonus "MXN" amount. Bonus lines are excluded twice over. */
     private fun extractFare(blocks: List<OcrBlock>): Double? =

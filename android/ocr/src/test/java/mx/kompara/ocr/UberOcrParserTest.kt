@@ -219,5 +219,23 @@ class UberOcrParserTest {
         assertEquals(0.8, card.tripDistanceKm!!, 0.001)
     }
 
+    @Test
+    fun `radar frame with the fare but no leg still holds the card signature (blink fix)`() {
+        // Uber's "Radar de solicitud de viaje" animates the card: the MXN fare is on EVERY frame but
+        // the "Viaje: N min (X km)" leg drops out on many (real capture, on-device 2026-06-15). The
+        // signature must hold on the leg-less frames, otherwise the chip blinks in sync with the radar
+        // animation (shown on full frames, hidden on leg-less ones).
+        val fareOnlyRadarFrame = listOf(
+            block("Radar de solicitud de viaje"),
+            block("2 UberX"),
+            block("MXN119.16"),
+            block("ldentidad verificada"),
+            block("* 4.73 (385) 9 +MXN6.00 inclu"),
+            block("Viaje disponible"), // NO "Viaje: N min (X km)" leg this frame
+        )
+        assertNull(parser.parse(fareOnlyRadarFrame)) // no labeled leg → no new verdict this frame
+        assertTrue(parser.hasCardSignature(fareOnlyRadarFrame)) // fare holds the chip → no blink
+    }
+
     private fun block(text: String) = OcrBlock(text, OcrBounds(0, 0, 0, 0))
 }
