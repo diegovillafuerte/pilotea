@@ -199,5 +199,25 @@ class UberOcrParserTest {
         assertEquals(135.00, parser.parse(intact)!!.fare!!, 0.001)
     }
 
+    @Test
+    fun `recovers a pickup distance whose decimal point OCR dropped`() {
+        // Real first-frame garble from a live Polanco offer (2026-06-15): the "0.4 km" pickup OCR'd as
+        // "04 km", which naively parsed to 4.0 km — a 10× error that the overlay self-corrected on the
+        // next frame but the ledger had already frozen into the offer record. A leading-zero,
+        // separator-less distance is a dropped decimal, so it must read back as 0.4 km.
+        val decimalDropped = listOf(
+            block("UberX Exclusivo"),
+            block("MXN29.45"),
+            block("A 2 min (04 km)"),
+            block("Viaje: 5 min (0.8 km)"),
+            block("Aceptar"),
+        )
+        val card = parser.parse(decimalDropped)!!
+        assertEquals(29.45, card.fare!!, 0.001)
+        assertEquals(0.4, card.pickupDistanceKm!!, 0.001) // not 4.0
+        assertEquals(2.0, card.pickupEtaMin!!, 0.001)
+        assertEquals(0.8, card.tripDistanceKm!!, 0.001)
+    }
+
     private fun block(text: String) = OcrBlock(text, OcrBounds(0, 0, 0, 0))
 }

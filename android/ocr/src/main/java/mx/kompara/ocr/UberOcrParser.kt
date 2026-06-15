@@ -149,10 +149,23 @@ class UberOcrParser {
             .replace('I', '1')
             .replace('L', '1')
         // "," is a thousands separator when a "." is also present, otherwise the decimal point.
-        return if (digits.contains('.')) digits.replace(",", "") else digits.replace(',', '.')
+        val normalized = if (digits.contains('.')) digits.replace(",", "") else digits.replace(',', '.')
+        // Recover a dropped decimal point. Uber renders sub-10 km legs with one decimal ("0.4 km"),
+        // so a separator-less token with a leading zero ("04") is an OCR decimal-loss, never a real
+        // value — no card ever shows "04 km". Reinsert it ("04" → "0.4") so a 0.4 km pickup can't be
+        // read as 4.0 km: a 10× error seen live (2026-06-15) that the overlay self-corrected on the
+        // next frame, but which the ledger had already frozen into the offer's first-frame record.
+        return if (!normalized.contains('.') && normalized.matches(LEADING_ZERO_DECIMAL_LOSS)) {
+            "0." + normalized.substring(1)
+        } else {
+            normalized
+        }
     }
 
     companion object {
         const val UBER_PACKAGE = "com.ubercab.driver"
+
+        /** A leading zero followed by more digits and no separator — the OCR decimal-loss signature. */
+        private val LEADING_ZERO_DECIMAL_LOSS = Regex("""0[0-9]+""")
     }
 }

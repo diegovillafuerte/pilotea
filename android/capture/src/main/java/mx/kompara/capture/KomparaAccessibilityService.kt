@@ -167,7 +167,13 @@ class KomparaAccessibilityService : AccessibilityService() {
             foregroundOcrOwnedApp.value = false
         }
 
-        pipeline.submit(CaptureEvent(packageName = pkg, timestampMs = event.eventTime))
+        // Wall-clock, NOT event.eventTime: this timestamp flows through ScreenSnapshot into the B-039
+        // ledger (OfferEntity.seenAt, TripEntity.startedAt) and is merged with the OCR path's signals
+        // — which stamp System.currentTimeMillis() — into the single TripLifecycleTracker stream. Using
+        // event.eventTime (SystemClock.uptimeMillis) here mixed two clock domains: it persisted trips
+        // dated to 1970 and made cross-path shift/accept-window math nonsensical. The event was just
+        // delivered, so submit-time wall-clock == the event's wall-clock within a millisecond.
+        pipeline.submit(CaptureEvent(packageName = pkg, timestampMs = System.currentTimeMillis()))
     }
 
     override fun onInterrupt() {
