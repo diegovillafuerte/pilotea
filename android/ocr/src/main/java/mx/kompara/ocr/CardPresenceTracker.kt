@@ -24,6 +24,24 @@ class CardPresenceTracker(
     private var missStreak = 0
     private var lastParseAtMs = 0L
 
+    /**
+     * Whether an offer card is currently considered on-screen — true from the first [onParsed] until
+     * [onMiss] declares it gone (held through transient garbled frames). The lifecycle classifier
+     * reuses this so an offer "session" survives the same OCR dropouts the overlay verdict does,
+     * instead of splitting into duplicate offers on a single bad frame.
+     */
+    fun isPresent(): Boolean = tracking
+
+    /**
+     * Forget any tracked card. Called when capture restarts (re-consent) so a new projection begins
+     * from a clean state instead of inheriting a stale "card present" that would starve [onMiss].
+     */
+    fun reset() {
+        tracking = false
+        missStreak = 0
+        lastParseAtMs = 0L
+    }
+
     /** Record a frame that parsed into a full offer. */
     fun onParsed(nowMs: Long) {
         tracking = true

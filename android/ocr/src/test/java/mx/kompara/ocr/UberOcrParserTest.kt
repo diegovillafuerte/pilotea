@@ -181,5 +181,23 @@ class UberOcrParserTest {
         assertNull(DidiOcrParser().parse(exclusivo))
     }
 
+    @Test
+    fun `DiDi parser ignores an Uber MX$ fare even when the Uber parse fails`() {
+        // The OCR service tries Uber then DiDi. If an "MX$" Uber offer garbles its "Viaje:" label,
+        // UberOcrParser returns null — DiDi must NOT step in: its bare-$ fare regex must not match the
+        // "$" inside "MX$", or the ledger would mis-attribute a live Uber offer to DiDi.
+        val uberMxDollarGarbledTrip = listOf(
+            block("UberX Exclusivo"),
+            block("MX\$135.00"),
+            block("A 5 min (0.8 km)"),
+            block("Vlaje 14 min (4.2 km)"), // "Viaje" mangled → no labelled trip leg
+        )
+        assertNull(parser.parse(uberMxDollarGarbledTrip)) // Uber: no trip leg → null
+        assertNull(DidiOcrParser().parse(uberMxDollarGarbledTrip)) // DiDi must not steal the MX$ fare
+        // And the same offer, un-garbled, IS a clean Uber parse (MX$ fare supported).
+        val intact = uberMxDollarGarbledTrip.dropLast(1) + block("Viaje: 14 min (4.2 km)")
+        assertEquals(135.00, parser.parse(intact)!!.fare!!, 0.001)
+    }
+
     private fun block(text: String) = OcrBlock(text, OcrBounds(0, 0, 0, 0))
 }

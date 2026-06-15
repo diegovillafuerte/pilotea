@@ -110,3 +110,13 @@ Re-verified on the same Samsung S25 (CDMX) against a **live Uber offer card** (t
 - `KomparaAccessibilityService.OCR_OWNED_PACKAGES` now includes `com.ubercab.driver`, so the node path stops emitting Uber `NoCard`s that would race and blank the OCR verdict ("one writer per platform").
 
 **Consequence:** Uber now **requires the screen reader (MediaProjection consent)** like DiDi/inDrive — it no longer works on accessibility alone. The reader-down banner (B-078) already covers this since it keys off `OCR_OWNED_PACKAGES`.
+
+### 7.2 OCR trip ledger (B-039 via OCR)
+
+The automatic trip ledger (B-039: offer → accept → trip → shift) was fed only by the node-path `OfferEventLifecycleMapper`, which never sees a real offer card (no platform exposes one to accessibility — §7/§7.1). So the ledger recorded no real offers for **any** platform. The OCR path now also drives the ledger:
+
+- `OcrLifecycleClassifier` (`:ocr`) maps each OCR frame → one transition-deduped `LifecycleSignal` (`OfferSeen` / `TripStateEntered` / `IdleStateEntered`), published on `OcrLifecycleBus` (`:capture`); `:app` merges it with the node mapper's stream into `TripLifecycleTracker`. The node mapper now drops `OCR_OWNED_PACKAGES` (one writer per platform).
+- **Offer session** = a continuous run of card-presence (debounced via `CardPresenceTracker.isPresent()`), keyed on **(platform, fare)** — the OCR-jittery distance/duration (TD-028) is excluded so noise can't spawn duplicate ledger offers; a genuine platform/fare change starts a fresh `OfferSeen`.
+- **Host gating/attribution:** MediaProjection captures the whole screen, so trip/idle are attributed to — and gated on — the foreground target app (a parsed card's platform, else the accessibility service's fresh `ScreenReaderState.foregroundHostPackage`). A non-host app (WhatsApp, the shade) can't mutate the ledger.
+- **Concurrency:** frames run through a single CONFLATED-channel consumer tagged with an immutable per-session capture generation; teardown bumps the generation and runs its close+reset under a mutex, so an in-flight/stale frame can never write the ledger after a re-consent/teardown.
+- The trip-screen markers, the accept window, and the host-freshness window are **reasoned defaults that NEED on-device calibration** (techdebt), the same posture as the node-path `TripStateHeuristics`/`TripStateMarkers`.

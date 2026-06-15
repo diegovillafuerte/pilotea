@@ -148,6 +148,12 @@ class KomparaAccessibilityService : AccessibilityService() {
         // misconfiguration can never leak non-target events into the pipeline.
         if (pkg !in TARGET_PACKAGES) return
 
+        // Publish the foreground host for the OCR ledger gate (B-039 §7.1): MediaProjection sees the
+        // whole screen, so the OCR path must only attribute trip/idle to the ledger while a target
+        // app is actually foreground. We only get events for target packages, so a recent timestamp
+        // is exactly that signal. Monotonic clock — must match the OCR service's freshness check.
+        ScreenReaderState.setForegroundHost(pkg, android.os.SystemClock.elapsedRealtime())
+
         // Reader-down banner edges (B-078) — flag reads only; nothing measurable on the hot path.
         // RISE: an OCR-owned event arms the signal, but only when the banner could actually show
         // (reader ran this session — recovery affordance, not an onboarding nag — and is down now).

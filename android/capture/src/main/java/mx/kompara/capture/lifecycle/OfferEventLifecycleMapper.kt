@@ -1,8 +1,10 @@
 package mx.kompara.capture.lifecycle
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.filterNot
 import kotlinx.coroutines.flow.map
 import mx.kompara.capture.EventPipeline
+import mx.kompara.capture.KomparaAccessibilityService
 import mx.kompara.capture.OfferEvent
 import mx.kompara.capture.OfferEventPipeline
 import mx.kompara.capture.ScreenSnapshot
@@ -37,9 +39,19 @@ class OfferEventLifecycleMapper @Inject constructor(
      */
     fun signals(): Flow<LifecycleSignal> = signals(eventPipeline.snapshots)
 
-    /** Map the given [snapshots] flow to lifecycle signals (1:1). Exposed for tests. */
+    /**
+     * Map the given [snapshots] flow to lifecycle signals. Exposed for tests.
+     *
+     * Snapshots from [KomparaAccessibilityService.OCR_OWNED_PACKAGES] are dropped: their offer cards
+     * aren't in the node tree (design §7.1), so the OCR path owns their whole lifecycle via
+     * [OcrLifecycleBus] — one writer per platform, exactly as the overlay bus does. Without this the
+     * node path would emit (always-Idle, since it can't read the card) signals that fight the OCR
+     * verdict's offer/trip signals on the merged stream `:app` feeds the tracker.
+     */
     fun signals(snapshots: Flow<ScreenSnapshot>): Flow<LifecycleSignal> =
-        snapshots.map { classify(it) }
+        snapshots
+            .filterNot { it.packageName in KomparaAccessibilityService.OCR_OWNED_PACKAGES }
+            .map { classify(it) }
 
     /** Classify a single snapshot. Exposed for tests. */
     fun classify(snapshot: ScreenSnapshot): LifecycleSignal {

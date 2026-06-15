@@ -8,9 +8,11 @@ import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
 import mx.kompara.billing.EntitlementRepository
 import mx.kompara.capture.OfferEventPipeline
+import mx.kompara.capture.lifecycle.OcrLifecycleBus
 import mx.kompara.capture.lifecycle.OfferEventLifecycleMapper
 import mx.kompara.capture.lifecycle.TripLifecycleTracker
 import mx.kompara.capture.telemetry.TelemetryCollector
@@ -99,12 +101,18 @@ class KomparaApplication : Application(), Configuration.Provider {
         // (TTL-gated, offline-tolerant) keeps the percentile cache fresh regardless.
         aggregateSyncScheduler.ensurePeriodic()
 
-        // B-039: build the driver's automatic ledger from the same capture stream. The tracker
-        // observes coalesced snapshots (hot SharedFlow → emits nothing until the service connects),
-        // infers offers/trips/shifts, and triggers rollups on trip close. App-scoped so a transient
-        // failure never crashes the app or stops capture, mirroring the telemetry collector.
+        // B-039: build the driver's automatic ledger from the capture stream. The tracker infers
+        // offers/trips/shifts and triggers rollups on trip close. App-scoped so a transient failure
+        // never crashes the app or stops capture, mirroring the telemetry collector.
+        //
+        // Two sources, merged: the node-path mapper (for any future accessibility-readable host) and
+        // the OCR path (design §7.1 — the only source that sees real offer cards today, since
+        // DiDi/inDrive/Uber all render them outside the node tree). The mapper drops OCR-owned
+        // packages, so the two never both speak for one platform.
         appScope.launch {
-            tripLifecycleTracker.collect(lifecycleMapper.signals())
+            tripLifecycleTracker.collect(
+                merge(lifecycleMapper.signals(), OcrLifecycleBus.signals),
+            )
         }
         // Daily background recompute keeps aggregates fresh even when no trip closes (e.g. an open
         // shift crossing midnight); on-trip-close one-shots handle the prompt case.

@@ -38,4 +38,33 @@ object ScreenReaderState {
         _running.value = running
         if (running) _hasRunThisSession.value = true
     }
+
+    // Which target host app (Uber/DiDi/inDrive) the accessibility service last observed foreground,
+    // and the elapsedRealtime it was seen. The OCR ledger path (B-039) reads these to GATE its
+    // trip/idle signals: MediaProjection captures the WHOLE screen, so without this a non-host app
+    // (WhatsApp, the notification shade) would feed bogus state changes into the trip ledger and
+    // close trips / resolve offers from unrelated screens. The accessibility service only receives
+    // events for target packages, so a fresh timestamp ≈ "a target app is foreground"; staleness
+    // means the driver switched away (or the host screen went static).
+    @Volatile
+    var foregroundHostPackage: String? = null
+        private set
+
+    @Volatile
+    var foregroundHostSeenAtMs: Long = 0L
+        private set
+
+    /** Called by the accessibility service on every target-app event. */
+    fun setForegroundHost(packageName: String, seenAtMs: Long) {
+        foregroundHostPackage = packageName
+        foregroundHostSeenAtMs = seenAtMs
+    }
+
+    /**
+     * The foreground host package if a target app was seen within [freshnessMs] of [nowMs], else null
+     * (driver switched away / screen went static — OCR frames must NOT be attributed to the ledger).
+     * Pure so the OCR gate is unit-testable.
+     */
+    fun freshForegroundHost(nowMs: Long, freshnessMs: Long): String? =
+        foregroundHostPackage?.takeIf { nowMs - foregroundHostSeenAtMs < freshnessMs }
 }

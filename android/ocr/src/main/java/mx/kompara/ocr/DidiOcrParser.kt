@@ -19,7 +19,10 @@ import mx.kompara.parsers.model.OfferCard
  */
 class DidiOcrParser {
 
-    private val fareRegex = Regex("""\$\s*([0-9][0-9,]*\.[0-9]{2})""")
+    // A bare "$" fare — NOT the "$" inside Uber's "MX$" (the negative lookbehind keeps DiDi disjoint
+    // from UberOcrParser so the OCR service's "try Uber, else DiDi" fallback can't mis-attribute a
+    // garbled Uber MX$ frame to DiDi).
+    private val fareRegex = Regex("""(?<![A-Za-z])\$\s*([0-9][0-9,]*\.[0-9]{2})""")
     private val acceptRegex = Regex("""Aceptar\s*\$\s*([0-9][0-9,]*\.[0-9]{2})""", RegexOption.IGNORE_CASE)
     // Distance leg: "6min (1.2km)" OR short pickups in meters "5min (862m)".
     private val legRegex =

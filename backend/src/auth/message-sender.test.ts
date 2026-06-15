@@ -12,7 +12,7 @@ import { DevLogSender, TwilioWhatsAppSender, senderFromEnv } from "./message-sen
 
 /** Stub global fetch with a 200 OK and return the mock for assertions. */
 function mockFetchOk() {
-  const fetchMock = vi.fn(async () => ({ ok: true, status: 200, text: async () => "" }) as any);
+  const fetchMock = vi.fn(async () => ({ ok: true, status: 200, text: async () => "" }) as unknown as Response);
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
 }
@@ -65,7 +65,7 @@ describe("TwilioWhatsAppSender", () => {
   it("throws on a non-2xx Twilio response", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => ({ ok: false, status: 400, text: async () => "bad" }) as any),
+      vi.fn(async () => ({ ok: false, status: 400, text: async () => "bad" }) as unknown as Response),
     );
     const sender = new TwilioWhatsAppSender("AC123", "tok", "whatsapp:+1", "HX");
 
