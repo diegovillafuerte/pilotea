@@ -77,11 +77,16 @@ class DidiOcrParser {
     private data class FareHit(val value: Double, val bounds: OcrBounds)
 
     private fun extractFare(blocks: List<OcrBlock>): FareHit? {
+        // A non-positive fare is never a real offer — it's the "$0.00" wallet/earnings pill (or
+        // Kompara's own "$0.00/km" chip text self-captured). Reject ≤0 in BOTH paths so the frame
+        // reads as "no card" instead of emitting a $0 verdict (the cross-app $0.00 chip bug).
         // Most reliable: the amount on the "Aceptar $X" button echoes the current price — and on the
         // "Pon Tu Precio" bid card it disambiguates the real fare from the higher bid options.
         for (b in blocks) {
             acceptRegex.find(b.text)?.let { m ->
-                m.groupValues[1].replace(",", "").toDoubleOrNull()?.let { return FareHit(it, b.bounds) }
+                m.groupValues[1].replace(",", "").toDoubleOrNull()
+                    ?.takeIf { it > 0.0 }
+                    ?.let { return FareHit(it, b.bounds) }
             }
         }
         // Fallback: the fare is rendered far taller than any other currency text; tallest wins.
@@ -89,6 +94,7 @@ class DidiOcrParser {
             .mapNotNull { b ->
                 fareRegex.find(b.text)?.let { m ->
                     m.groupValues[1].replace(",", "").toDoubleOrNull()
+                        ?.takeIf { it > 0.0 }
                         ?.let { FareHit(it, b.bounds) to (b.bounds.bottom - b.bounds.top) }
                 }
             }

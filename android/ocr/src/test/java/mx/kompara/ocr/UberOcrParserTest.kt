@@ -245,6 +245,22 @@ class UberOcrParserTest {
         assertTrue(cb == null || (cb.right == 0 && cb.bottom == 0))
     }
 
+    @Test
+    fun `rejects a zero fare so no zero verdict reaches the chip`() {
+        // The cross-app "$0.00" chip bug, at the parser boundary: an MXN amount cleaned/garbled to
+        // "0.00" must NOT produce a card — a real ride always has a positive fare. A $0-only frame is
+        // therefore not even a live-card signature (nothing to hold).
+        val zeroFare = listOf(
+            block("2 Reservar UberX"),
+            block("MXN0.00"),
+            block("A 5 min (1.0 km)"),
+            block("Viaje: 51 min (13.0 km)"),
+            block("Aceptar"),
+        )
+        assertNull(parser.parse(zeroFare))
+        assertFalse(parser.hasCardSignature(zeroFare))
+    }
+
     private fun block(text: String) = OcrBlock(text, OcrBounds(0, 0, 0, 0))
     private fun block(text: String, left: Int, top: Int, right: Int, bottom: Int) =
         OcrBlock(text, OcrBounds(left, top, right, bottom))

@@ -103,6 +103,10 @@ class UberOcrParser {
             .mapNotNull { b ->
                 fareRegex.find(b.text)?.groupValues?.get(1)
                     ?.let { cleanNumber(it).toDoubleOrNull() }
+                    // A non-positive fare is never a real ride — it's an OCR misread (a garbled glyph
+                    // cleaned to "0.00") or a captured "$0.00" pill. Drop it so no $0 verdict can reach
+                    // the chip (the red "$0.00/km" seen over a cross-app Uber broadcast, 2026-06-15).
+                    ?.takeIf { it > 0.0 }
                     ?.let { FareHit(it, b.bounds) }
             }
             .maxByOrNull { it.value }

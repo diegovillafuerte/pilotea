@@ -117,6 +117,32 @@ class DidiOcrParserTest {
         assertEquals(false, parser.hasCardSignature(idle))
     }
 
+    @Test
+    fun `rejects the zero wallet pill as a fare even with legs present`() {
+        // Harder than the idle-screen case: a "$0.00" pill alongside two real-looking legs must still
+        // read as "no card". The fare guard (>0), not just the missing-leg guard, has to reject it.
+        val zeroFareWithLegs = listOf(
+            block("\$0.00", 400, 80, 520, 130),
+            block("6min (1.2km)", 139, 1692, 441, 1745),
+            block("24min (4km)", 156, 1902, 514, 1960),
+        )
+        assertNull(parser.parse(zeroFareWithLegs))
+    }
+
+    @Test
+    fun `does not manufacture a zero card from a cross-app Uber frame`() {
+        // Driver is in DiDi; an Uber broadcast pops. Its only bare "$" is the "$0.00" earnings pill,
+        // and its two legs match DiDi's leg regex — exactly the frame that used to emit a $0 DiDi
+        // verdict. With the fare guard, DiDi stays silent (Uber owns this screen).
+        val uberBroadcastOverDidi = listOf(
+            block("MXN119.68", 64, 700, 540, 770), // Uber fare — not a bare "$"
+            block("\$0.00", 280, 120, 460, 175), // Uber earnings pill — bare "$"
+            block("A 9 min (2.1 km)", 190, 980, 540, 1030),
+            block("Viaje: 36 min (12.4 km)", 191, 1100, 690, 1150),
+        )
+        assertNull(parser.parse(uberBroadcastOverDidi))
+    }
+
     private fun block(text: String, l: Int, t: Int, r: Int, b: Int) =
         OcrBlock(text, OcrBounds(l, t, r, b))
 }

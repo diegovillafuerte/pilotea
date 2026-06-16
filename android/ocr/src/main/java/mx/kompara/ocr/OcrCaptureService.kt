@@ -239,11 +239,9 @@ class OcrCaptureService : Service() {
         // Kompara's own UI are never parsed (the simulator's mock cards and our own stats would
         // feed back into the pipeline).
         val ownUi = KomparaUiGuard.isOwnUi(joined)
-        // Try Uber first, then DiDi. The two OCR parsers are disjoint by fare format (Uber renders
-        // "MXN…", DiDi a bare "$"), so whichever returns a card also identifies the platform —
-        // `card.platform` is the host package, no separate detector needed. (B-029-OCR: Uber's offer
-        // card is no longer accessibility-readable, design §7 update 2026-06-15.)
-        val card = if (ownUi) null else (uberParser.parse(blocks) ?: didiParser.parse(blocks))
+        // Pick the card (and the platform) for this frame; see [selectOfferCard] — Uber first, with a
+        // cross-app hold so a garbled Uber frame can't be mis-attributed to DiDi via a "$0.00" pill.
+        val card = if (ownUi) null else selectOfferCard(uberParser, didiParser, blocks)
         // The offer-card signature (fare + leg) survives the OCR garble that fails a full parse;
         // shared by the presence tracker (hold the chip) and the lifecycle classifier (hold OFFER).
         val signature = !ownUi &&
