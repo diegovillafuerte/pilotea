@@ -197,18 +197,8 @@ class OverlayController @Inject constructor(
                     chipState = VerdictChipState.from(visibility.metrics)
                     currentThreshold = thresholdSnapshot()
                     attach(scope)
-                    // Diagnostic (chip-not-showing report, S-024 test): confirm a chip was shown and
-                    // where, so a missed chip can be told apart from one drawn off-screen.
-                    android.util.Log.d(
-                        "OverlayController",
-                        "SHOW chip · params.y=${layoutParams?.y} screenOffsetY=$chipScreenOffsetY " +
-                            "screenH=${screenHeight()} attached=${composeView != null}",
-                    )
                 }
-                OverlayVisibility.Hidden -> {
-                    android.util.Log.d("OverlayController", "HIDE chip (grace elapsed / no card)")
-                    detach()
-                }
+                OverlayVisibility.Hidden -> detach()
             }
         }
     }
