@@ -39,4 +39,17 @@ class AjustesViewModel @Inject constructor(
     fun setShareWeeklyReminderEnabled(enabled: Boolean) {
         viewModelScope.launch { settingsRepository.setShareWeeklyReminderEnabled(enabled) }
     }
+
+    /**
+     * Debug-only premium override — the way to test the paywall before Play Billing works. Surfaced
+     * as a switch in Ajustes ONLY in debug builds; unlocks every [mx.kompara.billing.Capability].
+     */
+    val debugPremiumEnabled: StateFlow<Boolean> =
+        settingsRepository.settings
+            .map { it.debugPremium }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    fun setDebugPremium(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.setDebugPremium(enabled) }
+    }
 }

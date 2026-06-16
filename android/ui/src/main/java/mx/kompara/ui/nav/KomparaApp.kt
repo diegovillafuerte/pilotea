@@ -2,12 +2,24 @@ package mx.kompara.ui.nav
 
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
@@ -17,6 +29,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import mx.kompara.ui.components.KomparaWordmark
 import mx.kompara.ui.imports.importDestination
 import mx.kompara.ui.paywall.GateSurface
 import mx.kompara.ui.paywall.PaywallScreen
@@ -66,6 +79,10 @@ fun KomparaApp(
     // Tu semáforo…) this lights the tab it was opened from rather than falling back to Inicio, so a
     // re-tap can pop that detail stack back to the tab root (B-074 F5).
     val current = KomparaDestination.activeTab(backStack.map { it.destination.route })
+    // The brand top bar shows only on the five tab roots (detail screens have their own chrome), so
+    // Kompara branding rides every main screen consistently (S-024 feedback).
+    val currentRoute = backStack.lastOrNull()?.destination?.route
+    val isTabRoot = KomparaDestination.barItems.any { it.route == currentRoute }
 
     if (navigateToReaderTrial) {
         LaunchedEffect(Unit) { navController.navigateToReaderTrial() }
@@ -78,6 +95,7 @@ fun KomparaApp(
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
+        topBar = { if (isTabRoot) KomparaTopBar(current) },
         bottomBar = {
             KomparaBottomBar(
                 current = current,
@@ -110,6 +128,32 @@ fun KomparaApp(
             tabScreens(navController)
             statsScreens(navController)
             registerExtraDestinations(navController)
+        }
+    }
+}
+
+/**
+ * The shared brand top bar shown on every tab root (S-024): the Kompara wordmark + the current tab's
+ * label, so the whole app reads as one branded surface. Insets below the status bar; tonal like the
+ * bottom bar.
+ */
+@Composable
+private fun KomparaTopBar(current: KomparaDestination) {
+    Surface(color = MaterialTheme.colorScheme.surfaceContainer, tonalElevation = 3.dp) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .windowInsetsPadding(WindowInsets.statusBars)
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            KomparaWordmark()
+            Text(
+                text = stringResource(current.labelRes),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

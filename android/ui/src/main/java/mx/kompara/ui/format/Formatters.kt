@@ -28,6 +28,18 @@ object Formatters {
     }
 
     /**
+     * Pesos rounded to whole pesos (no cents), e.g. `formatMxnWhole(4200.49)` → "$4,200". Used by
+     * the Comparar benchmark table where cents are noise and long numbers wrapped (S-024).
+     */
+    fun formatMxnWhole(amount: Double): String {
+        val nf = NumberFormat.getNumberInstance(MX).apply {
+            minimumFractionDigits = 0
+            maximumFractionDigits = 0
+        }
+        return "$" + nf.format(amount)
+    }
+
+    /**
      * Distance in kilometres with one decimal and a "km" suffix, e.g. `formatKm(12.34)` → "12.3 km".
      */
     fun formatKm(km: Double): String {
@@ -61,6 +73,15 @@ object Formatters {
      * shape (with a "/viaje" or "/km" suffix the caller picks via [formatMxn] when needed).
      */
     fun formatPerKm(amountPerKm: Double): String = formatMxn(amountPerKm) + "/km"
+
+    /** A money-per-km rate with one decimal, e.g. `formatPerKmOneDecimal(8.43)` → "$8.4/km" (S-024). */
+    fun formatPerKmOneDecimal(amountPerKm: Double): String {
+        val nf = NumberFormat.getNumberInstance(MX).apply {
+            minimumFractionDigits = 1
+            maximumFractionDigits = 1
+        }
+        return "$" + nf.format(amountPerKm) + "/km"
+    }
 
     /** A count-per-hour rate with one decimal, e.g. `formatPerHourCount(2.34)` → "2.3/h". */
     fun formatPerHourCount(countPerHour: Double): String {

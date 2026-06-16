@@ -91,7 +91,7 @@ class RecommendationEngine {
             id = "high_eph_percentile",
             type = RecommendationType.POSITIVE,
             title = "Estás en el top ${pct.topPercent}%",
-            body = "Tu ingreso por hora está en el top ${pct.topPercent}% de los choferes en $cityLabel." +
+            body = "Tu ingreso por hora está en el top ${pct.topPercent}% de los conductores en $cityLabel." +
                 " Vas muy bien — sigue manejando en tus mejores bloques.",
             premium = true,
         )
@@ -109,7 +109,7 @@ class RecommendationEngine {
             id = "low_ept_percentile",
             type = RecommendationType.INFO,
             title = "Tu pago por viaje es bajo",
-            body = "Tu ingreso por viaje está por debajo de la mitad de los choferes en tu ciudad. Rechaza" +
+            body = "Tu ingreso por viaje está por debajo de la mitad de los conductores en tu ciudad. Rechaza" +
                 " los viajes cortos en horas pico y deja que la app te traiga uno mejor.",
             premium = true,
         )
@@ -130,7 +130,7 @@ class RecommendationEngine {
             type = RecommendationType.WARNING,
             title = "Tu comisión está alta",
             body = "Esta semana la plataforma se quedó con el ${formatPct(commission)} — más que la mayoría" +
-                " de los choferes en tu ciudad. Revisa si tuviste cancelaciones o ajustes que te la subieron.",
+                " de los conductores en tu ciudad. Revisa si tuviste cancelaciones o ajustes que te la subieron.",
             premium = true,
         )
     }

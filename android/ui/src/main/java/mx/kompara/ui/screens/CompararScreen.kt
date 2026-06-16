@@ -111,7 +111,6 @@ private fun CompararContent(
             .fillMaxWidth()
             .verticalScroll(rememberScrollState()),
     ) {
-        BrandBar()
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -154,24 +153,6 @@ private fun CompararContent(
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun BrandBar() {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        KomparaWordmark()
-        Text(
-            text = stringResource(R.string.nav_comparar),
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
 }
 
@@ -397,9 +378,11 @@ private fun androidx.compose.foundation.layout.RowScope.ValueCell(
 ) {
     Text(
         text = text,
-        style = MaterialTheme.typography.bodyMedium,
+        style = MaterialTheme.typography.bodySmall,
         fontWeight = weight2,
         color = color,
+        maxLines = 1,
+        softWrap = false,
         modifier = Modifier.weight(weight),
         textAlign = androidx.compose.ui.text.style.TextAlign.Center,
     )
@@ -501,12 +484,13 @@ private fun WeeklyComparison.maskedForLock(): WeeklyComparison =
 private fun formatOrDash(unit: MetricUnit, value: Double?): String =
     if (value == null) Formatters.DASH else formatMetric(unit, value)
 
+// Whole numbers so values fit one line — except viajes por hora, which keeps one decimal (S-024 feedback).
 private fun formatMetric(unit: MetricUnit, v: Double): String = when (unit) {
-    MetricUnit.MXN -> Formatters.formatMxn(v)
-    MetricUnit.PER_HOUR -> Formatters.formatPerHour(v)
-    MetricUnit.PER_KM -> Formatters.formatPerKm(v)
+    MetricUnit.MXN -> Formatters.formatMxnWhole(v)
+    MetricUnit.PER_HOUR -> Formatters.formatPerHourWhole(v)
+    MetricUnit.PER_KM -> Formatters.formatPerKmOneDecimal(v)
     MetricUnit.COUNT_PER_HOUR -> Formatters.formatPerHourCount(v)
-    MetricUnit.PERCENT -> "${Math.round(v)} %"
+    MetricUnit.PERCENT -> "${Math.round(v)}%"
 }
 
 @Composable

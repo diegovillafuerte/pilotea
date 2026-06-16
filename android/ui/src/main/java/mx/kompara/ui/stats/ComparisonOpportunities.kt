@@ -73,7 +73,7 @@ object ComparisonOpportunities {
                     out += Recommendation(
                         id = "compare_platform_mix",
                         type = RecommendationType.INFO,
-                        title = "Los choferes ganan $gapPct% más con ${better.display()}",
+                        title = "Los conductores ganan $gapPct% más con ${better.display()}",
                         body = "Tú manejas más ${worse.display()} — prueba más ${better.display()}.",
                         premium = true,
                     )

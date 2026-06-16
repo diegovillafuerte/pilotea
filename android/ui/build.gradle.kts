@@ -20,6 +20,9 @@ android {
 
     buildFeatures {
         compose = true
+        // BuildConfig.DEBUG gates the debug-only "Premium (prueba)" toggle in Ajustes (the way to
+        // test the paywall before Play Billing works) so it's stripped from release builds.
+        buildConfig = true
     }
 
     testOptions {

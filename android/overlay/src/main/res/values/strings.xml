@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Verdict overlay chip copy. Spanish (es-MX), the only locale the chofer sees. -->
+    <!-- Verdict overlay chip copy. Spanish (es-MX), the only locale the conductor sees. -->
 
     <!-- Brand strip (atop the chip) — wordmark, not translatable. -->
     <string name="overlay_brand_name" translatable="false">Kompara</string>
