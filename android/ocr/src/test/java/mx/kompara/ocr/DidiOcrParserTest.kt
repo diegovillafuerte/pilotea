@@ -127,6 +127,9 @@ class DidiOcrParserTest {
             block("24min (4km)", 156, 1902, 514, 1960),
         )
         assertNull(parser.parse(zeroFareWithLegs))
+        // ...and it is not a live-card signature, so the chip HIDES rather than pinning a stale
+        // verdict (codex review: keep hasCardSignature consistent with the >0 fare guard).
+        assertEquals(false, parser.hasCardSignature(zeroFareWithLegs))
     }
 
     @Test

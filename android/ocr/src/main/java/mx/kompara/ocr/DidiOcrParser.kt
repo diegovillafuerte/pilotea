@@ -63,15 +63,17 @@ class DidiOcrParser {
     }
 
     /**
-     * Whether the frame still carries the offer-card *signature* — a currency amount plus at least
+     * Whether the frame still carries the offer-card *signature* — a POSITIVE fare plus at least
      * one "Nmin (X km)" leg — even though full parsing failed (B-077). The map animating under the
      * card garbles single frames often ("1nmin", "Zmin"), so a failed parse with the signature
-     * present means "card still up, frame garbled", not "card gone". The idle map screen fails
-     * this: its "$0.00" wallet pill has no leg line.
+     * present means "card still up, frame garbled", not "card gone". The fare check goes through
+     * [extractFare] (which rejects ≤0) so a "$0.00" wallet/earnings pill never reads as a live card,
+     * even with a stray leg on screen — the frame then hides as "no card" instead of pinning a stale
+     * verdict, matching the zero-fare guard in [parse] (and [UberOcrParser.hasCardSignature]).
      */
     fun hasCardSignature(blocks: List<OcrBlock>): Boolean {
         val text = blocks.joinToString(" ") { it.text }
-        return fareRegex.containsMatchIn(text) && legRegex.containsMatchIn(text)
+        return extractFare(blocks) != null && legRegex.containsMatchIn(text)
     }
 
     private data class FareHit(val value: Double, val bounds: OcrBounds)
