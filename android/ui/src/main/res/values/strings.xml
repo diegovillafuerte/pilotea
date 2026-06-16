@@ -39,12 +39,9 @@
     <string name="lector_empty_hint">Después de encenderlo, aquí también activas el lector de pantalla para DiDi.</string>
     <string name="lector_header">Lector</string>
     <string name="lector_intro">Kompara lee las ofertas en tu pantalla y les pone el semáforo encima. Todo se queda en tu teléfono.</string>
-    <string name="lector_uber_title">Ofertas de Uber</string>
-    <string name="lector_uber_body">Siempre activo una vez que enciendes el servicio de accesibilidad.</string>
-    <string name="lector_didi_title">Ofertas de DiDi</string>
-    <string name="lector_didi_body">Para leer las ofertas de DiDi, Kompara captura tu pantalla y la analiza solo en tu teléfono. Se apaga al bloquear el equipo.</string>
     <string name="lector_status_on">Activo</string>
     <string name="lector_ocr_status_off">Detenido</string>
+    <string name="lector_screen_reader_label">Lector de pantalla</string>
     <string name="lector_on_cta">Probar en el simulador</string>
     <string name="lector_settings_cta">Configuración de accesibilidad</string>
     <string name="lector_semaforo_cta">Ajustar mi semáforo</string>
