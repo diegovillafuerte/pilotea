@@ -1,6 +1,5 @@
 package mx.kompara.ui.nav
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,7 +12,6 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -22,8 +20,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
@@ -31,12 +27,11 @@ import androidx.compose.ui.unit.dp
 import mx.kompara.ui.theme.KomparaTheme
 
 private val BarHeight = 64.dp
-private val CenterButtonSize = 60.dp
 
 /**
- * Kompara's bottom navigation bar. Four flat tabs plus a raised, filled circle for the centre
- * [KomparaDestination.LECTOR] action — the product's signature gesture, echoing the web MVP's
- * "Subir" button so a chofer's thumb always lands on the reader.
+ * Kompara's bottom navigation bar: five uniform flat tabs (Inicio · Comparar · Lector · Fiscal ·
+ * Ajustes), the selected one tinted in the brand primary. No raised centre button — matches the
+ * redesign prototypes; the Lector tab is a normal tab like the rest.
  *
  * @param current the currently-selected destination (drives the highlight).
  * @param onSelect invoked with the tapped destination.
@@ -89,22 +84,15 @@ private fun KomparaBottomBarContent(
             verticalAlignment = Alignment.Bottom,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
+            // All five tabs are uniform flat tabs (no raised centre button) — matches the redesign
+            // prototypes; the Lector tab is a normal tab like the rest.
             KomparaDestination.barItems.forEach { destination ->
-                if (destination.isCenter) {
-                    CenterTab(
-                        destination = destination,
-                        selected = destination == current,
-                        onClick = { onSelect(destination) },
-                        modifier = Modifier.weight(1f),
-                    )
-                } else {
-                    FlatTab(
-                        destination = destination,
-                        selected = destination == current,
-                        onClick = { onSelect(destination) },
-                        modifier = Modifier.weight(1f),
-                    )
-                }
+                FlatTab(
+                    destination = destination,
+                    selected = destination == current,
+                    onClick = { onSelect(destination) },
+                    modifier = Modifier.weight(1f),
+                )
             }
         }
     }
@@ -145,50 +133,6 @@ private fun FlatTab(
             text = stringResource(destination.labelRes),
             style = MaterialTheme.typography.labelMedium,
             color = tint,
-        )
-    }
-}
-
-@Composable
-private fun CenterTab(
-    destination: KomparaDestination,
-    selected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    // The reader button is always the brand circle. The column flows from the raised circle down to
-    // the label; the parent Box is taller than the bar so the circle rises above it, and the bottom
-    // padding drops the label onto the same baseline as the flat tabs' labels.
-    val circleColor = MaterialTheme.colorScheme.primary
-    Column(
-        modifier = modifier.padding(bottom = 10.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Box(
-            modifier = Modifier
-                .size(CenterButtonSize)
-                .shadow(elevation = 8.dp, shape = CircleShape, clip = false)
-                .clip(CircleShape)
-                .background(circleColor)
-                .selectable(
-                    selected = selected,
-                    role = Role.Tab,
-                    onClick = onClick,
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = destination.icon,
-                contentDescription = stringResource(destination.contentDescriptionRes),
-                tint = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.size(30.dp),
-            )
-        }
-        Spacer(modifier = Modifier.height(2.dp))
-        Text(
-            text = stringResource(destination.labelRes),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.primary,
         )
     }
 }

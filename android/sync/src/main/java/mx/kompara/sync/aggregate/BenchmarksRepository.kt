@@ -154,7 +154,17 @@ class BenchmarksRepository @Inject constructor(
         /** The shared fallback city slug B-046 uses when a city sample is < 20. */
         const val NATIONAL_CITY: String = "national"
 
-        /** Platforms benchmarks are fetched for by default (launch scope + inDrive fast-follow). */
-        val DEFAULT_PLATFORMS = listOf("uber", "didi", "indrive")
+        /**
+         * The combined cross-platform population (B-085). Ranking a driver's blended
+         * (cross-app) value against this answers "vs. ALL choferes", not one app's.
+         */
+        const val ALL_PLATFORM: String = "all"
+
+        /**
+         * Platforms benchmarks are fetched for by default (launch scope + inDrive
+         * fast-follow). Includes the synthetic [ALL_PLATFORM] combined population so
+         * the Comparar tab can rank the blended driver value against everyone.
+         */
+        val DEFAULT_PLATFORMS = listOf("uber", "didi", "indrive", ALL_PLATFORM)
     }
 }

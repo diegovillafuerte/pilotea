@@ -1,6 +1,7 @@
 package mx.kompara.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,67 +10,73 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import mx.kompara.billing.GateState
 import mx.kompara.data.model.Platform
-import mx.kompara.metrics.compare.CompareMetric
-import mx.kompara.metrics.compare.CompareResult
-import mx.kompara.metrics.compare.CompareRow
-import mx.kompara.metrics.compare.CompareVerdict
-import mx.kompara.metrics.compare.CompareWinner
-import mx.kompara.metrics.compare.PlatformMetrics
+import mx.kompara.metrics.percentile.PercentileResult
+import mx.kompara.metrics.recommendation.Recommendation
 import mx.kompara.ui.R
 import mx.kompara.ui.components.EmptyState
+import mx.kompara.ui.components.KomparaWordmark
+import mx.kompara.ui.components.PercentileBadge
+import mx.kompara.ui.components.PercentileBar
+import mx.kompara.ui.components.RecommendationCard
 import mx.kompara.ui.format.Formatters
+import mx.kompara.ui.paywall.GateFunnel
 import mx.kompara.ui.paywall.GateSurface
 import mx.kompara.ui.paywall.PaywallGate
-import mx.kompara.ui.stats.CompareMode
-import mx.kompara.ui.stats.CompareUiData
+import mx.kompara.ui.stats.ComparisonRow
 import mx.kompara.ui.stats.CompareUiState
-import mx.kompara.ui.stats.CompareUiText
-import mx.kompara.ui.stats.CompararViewModel
+import mx.kompara.ui.stats.MetricUnit
+import mx.kompara.ui.stats.WeeklyComparison
+import mx.kompara.ui.theme.BrandGreen
 import mx.kompara.ui.theme.KomparaTheme
 import mx.kompara.ui.theme.VerdictGreen
 
 /**
- * The Comparar tab (B-047): which platform paid better per metric this week, from auto-captured weekly
- * aggregates. Three states (B-047 req 3): no data → empty CTA to the Lector; one platform → "agrega
- * otra" + a clearly-marked example teaser; 2+ → the real comparison with a verdict summary on top and
- * per-metric paired bars (winner in verde + badge; "No comparable" rows dimmed with a reason).
- *
- * Premium gate (B-047 req 4 / B-050): the verdict summary shows FREE as the tease; the per-metric
- * breakdown is wrapped in the [PaywallGate] for [GateSurface.COMPARE]. Documented choice — the headline
- * insight hooks the driver, the detailed proof is the premium payoff.
+ * The Comparar tab (S-024) — a weekly benchmarking hub. A branded, shareable percentile hero (FREE)
+ * over a benchmark table comparing the driver's blended value to each platform's city average and to
+ * their percentile vs. all drivers, plus comparison opportunities. The table + opportunities are the
+ * premium payoff behind [GateSurface.COMPARE]. Weekly only — day/hour is deferred (B-090).
  */
 @Composable
 fun CompararScreen(
     modifier: Modifier = Modifier,
     onUpgrade: (GateSurface) -> Unit = {},
     onOpenReader: () -> Unit = {},
-    viewModel: CompararViewModel = hiltViewModel(),
+    onShare: () -> Unit = {},
+    onOpenInicio: () -> Unit = {},
+    viewModel: mx.kompara.ui.stats.CompararViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val gateState by viewModel.gateState.collectAsStateWithLifecycle()
@@ -77,9 +84,10 @@ fun CompararScreen(
         state = state,
         gateState = gateState,
         onSelectWeek = viewModel::selectWeek,
-        onSelectPair = viewModel::selectPair,
         onUpgrade = onUpgrade,
         onOpenReader = onOpenReader,
+        onShare = onShare,
+        onOpenInicio = onOpenInicio,
         gateFunnel = viewModel.gateFunnel,
         modifier = modifier,
     )
@@ -90,85 +98,58 @@ private fun CompararContent(
     state: CompareUiState,
     gateState: GateState,
     onSelectWeek: (String) -> Unit,
-    onSelectPair: (Platform, Platform) -> Unit,
     onUpgrade: (GateSurface) -> Unit,
     onOpenReader: () -> Unit,
-    gateFunnel: mx.kompara.ui.paywall.GateFunnel,
+    onShare: () -> Unit,
+    onOpenInicio: () -> Unit,
+    gateFunnel: GateFunnel,
     modifier: Modifier = Modifier,
 ) {
     if (state.loading) return
-    val data = state.data
-    if (data == null) {
-        EmptyState(
-            icon = Icons.AutoMirrored.Filled.List,
-            title = stringResource(R.string.comparar_no_data_title),
-            body = stringResource(R.string.comparar_no_data_body),
-            ctaText = stringResource(R.string.comparar_no_data_cta),
-            onCtaClick = onOpenReader,
-            modifier = modifier,
-        )
-        return
-    }
-
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+            .verticalScroll(rememberScrollState()),
     ) {
-        WeekPickerRow(
-            weeks = state.availableWeeks,
-            selected = data.weekStart,
-            onSelect = onSelectWeek,
-        )
-
-        when (val mode = data.mode) {
-            CompareMode.Empty -> EmptyBody(onOpenReader)
-            is CompareMode.SinglePlatform -> SinglePlatformBody(mode.platform)
-            is CompareMode.Comparison -> ComparisonBody(
-                mode = mode,
-                gateState = gateState,
-                onSelectPair = onSelectPair,
-                onUpgrade = onUpgrade,
-                gateFunnel = gateFunnel,
-            )
-        }
-    }
-}
-
-@Composable
-private fun WeekPickerRow(
-    weeks: List<String>,
-    selected: String,
-    onSelect: (String) -> Unit,
-) {
-    if (weeks.size <= 1) {
-        Text(
-            text = Formatters.formatWeekRangeLabel(selected),
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        return
-    }
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(
-            text = stringResource(R.string.comparar_week_picker_label),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        // Horizontal scroll so a long history doesn't overflow at 360 dp.
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            weeks.forEach { week ->
-                FilterChip(
-                    selected = week == selected,
-                    onClick = { onSelect(week) },
-                    label = { Text(Formatters.formatWeekRangeLabel(week)) },
+            val data = state.data
+            if (data == null) {
+                EmptyState(
+                    icon = Icons.AutoMirrored.Filled.List,
+                    title = stringResource(R.string.comparar_no_data_title),
+                    body = stringResource(R.string.comparar_no_data_body),
+                    ctaText = stringResource(R.string.comparar_no_data_cta),
+                    onCtaClick = onOpenReader,
+                )
+            } else {
+                val c = data.comparison
+                WeekDropdown(state.availableWeeks, data.weekStart, onSelectWeek)
+                ShareableHeroCard(standing = c.standing, onShare = onShare)
+                c.singlePlatform?.let { SinglePlatformNote(it) }
+                PaywallGate(
+                    surface = GateSurface.COMPARE,
+                    state = gateState,
+                    valueHint = stringResource(R.string.gate_hint_compare),
+                    funnel = gateFunnel,
+                    onUpgrade = onUpgrade,
+                    ctaText = stringResource(R.string.paywall_cta),
+                ) {
+                    // Never hand real premium values to the (only alpha-dimmed on API 26–30) tease:
+                    // when locked, render the table shape with masked values + no opportunities.
+                    val gated = if (gateState.isLocked) c.maskedForLock() else c
+                    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        BenchmarkTable(gated)
+                        OpportunitiesSection(gated.opportunities)
+                    }
+                }
+                CrossLinkToInicio(onOpenInicio)
+                Text(
+                    text = stringResource(R.string.comparar_soon_day_hour),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.outline,
                 )
             }
         }
@@ -176,359 +157,411 @@ private fun WeekPickerRow(
 }
 
 @Composable
-private fun EmptyBody(onOpenReader: () -> Unit) {
-    EmptyState(
-        icon = Icons.AutoMirrored.Filled.List,
-        title = stringResource(R.string.comparar_no_data_title),
-        body = stringResource(R.string.comparar_no_data_body),
-        ctaText = stringResource(R.string.comparar_no_data_cta),
-        onCtaClick = onOpenReader,
-    )
-}
-
-@Composable
-private fun SinglePlatformBody(platform: Platform) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(
-            text = stringResource(R.string.comparar_single_title),
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        Text(
-            text = stringResource(R.string.comparar_single_body, CompareUiText.platformName(platform)),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        // A clearly-marked static example so the driver sees the shape of the payoff.
-        ExampleTeaser()
-    }
-}
-
-/** A static "Ejemplo" comparison so a single-platform driver sees what they'd get (clearly fake). */
-@Composable
-private fun ExampleTeaser() {
-    val example = exampleResult()
+private fun WeekDropdown(weeks: List<String>, selected: String, onSelect: (String) -> Unit) {
+    var open by remember { mutableStateOf(false) }
     Box {
-        Column(
+        Row(
             modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp)),
+                .clip(RoundedCornerShape(50))
+                .background(MaterialTheme.colorScheme.surfaceContainer)
+                .clickable(enabled = weeks.size > 1) { open = true }
+                .padding(horizontal = 14.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            VerdictCard(example.verdict)
-            Spacer(Modifier.height(12.dp))
-            example.comparableRows.forEach { row ->
-                CompareRowBars(row, Platform.UBER, Platform.DIDI)
-                Spacer(Modifier.height(8.dp))
+            Text(
+                text = Formatters.formatWeekRangeLabel(selected),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            if (weeks.size > 1) {
+                Text("▾", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        // The "Ejemplo" tag pinned to the corner.
-        Text(
-            text = stringResource(R.string.comparar_example_tag),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSecondaryContainer,
-            modifier = Modifier
-                .padding(8.dp)
-                .clip(RoundedCornerShape(50))
-                .background(MaterialTheme.colorScheme.secondaryContainer)
-                .padding(horizontal = 10.dp, vertical = 4.dp),
-        )
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            weeks.forEach { week ->
+                DropdownMenuItem(
+                    text = { Text(Formatters.formatWeekRangeLabel(week)) },
+                    onClick = {
+                        open = false
+                        onSelect(week)
+                    },
+                )
+            }
+        }
     }
 }
 
+/** The free, branded, screenshot-worthy hero: the driver's city standing. */
 @Composable
-private fun ComparisonBody(
-    mode: CompareMode.Comparison,
-    gateState: GateState,
-    onSelectPair: (Platform, Platform) -> Unit,
-    onUpgrade: (GateSurface) -> Unit,
-    gateFunnel: mx.kompara.ui.paywall.GateFunnel,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        // Platform-pair chooser only when 3+ platforms have data.
-        if (mode.showsChips) {
-            PlatformPairChooser(
-                platforms = mode.platforms,
-                selectedA = mode.platformA,
-                selectedB = mode.platformB,
-                onSelectPair = onSelectPair,
-            )
-        }
-
-        // Verdict summary — FREE tease (B-047 req 4).
-        VerdictCard(mode.result.verdict)
-
-        // Per-metric breakdown — premium-gated.
-        Text(
-            text = stringResource(R.string.comparar_breakdown_title),
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        PaywallGate(
-            surface = GateSurface.COMPARE,
-            state = gateState,
-            valueHint = stringResource(R.string.comparar_gate_breakdown_hint),
-            funnel = gateFunnel,
-            onUpgrade = onUpgrade,
-            ctaText = stringResource(R.string.paywall_cta),
-        ) {
-            MetricBreakdown(mode.result, mode.platformA, mode.platformB)
-        }
-    }
-}
-
-@Composable
-private fun PlatformPairChooser(
-    platforms: List<Platform>,
-    selectedA: Platform,
-    selectedB: Platform,
-    onSelectPair: (Platform, Platform) -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        platforms.forEach { platform ->
-            val isSelected = platform == selectedA || platform == selectedB
-            FilterChip(
-                selected = isSelected,
-                onClick = {
-                    // Toggle the platform into/out of the pair, keeping exactly two distinct.
-                    val next = nextPair(platforms, selectedA, selectedB, platform)
-                    onSelectPair(next.first, next.second)
-                },
-                label = { Text(CompareUiText.platformName(platform)) },
-            )
-        }
-    }
-}
-
-/** Compute the next selected pair when [tapped] is toggled, always returning two distinct platforms. */
-private fun nextPair(
-    platforms: List<Platform>,
-    a: Platform,
-    b: Platform,
-    tapped: Platform,
-): Pair<Platform, Platform> {
-    return when (tapped) {
-        a -> {
-            // Drop A: pick the first other platform that isn't B.
-            val replacement = platforms.firstOrNull { it != b && it != a } ?: b
-            replacement to b
-        }
-        b -> {
-            val replacement = platforms.firstOrNull { it != a && it != b } ?: a
-            a to replacement
-        }
-        else -> a to tapped // replace B with the newly-tapped platform
-    }
-}
-
-/** The headline verdict card. Always shown (free tease). */
-@Composable
-private fun VerdictCard(verdict: CompareVerdict?, modifier: Modifier = Modifier) {
-    val sentence = verdict?.let {
-        CompareUiText.verdictSentence(it) { name -> runCatching { Platform.valueOf(name) }.getOrNull() }
-    }
+private fun ShareableHeroCard(standing: PercentileResult?, onShare: () -> Unit) {
     Card(
-        modifier = modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainer,
             contentColor = MaterialTheme.colorScheme.onSurface,
         ),
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(
-                text = stringResource(R.string.comparar_verdict_title),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text = sentence ?: stringResource(R.string.comparar_not_comparable),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-        }
-    }
-}
-
-@Composable
-private fun MetricBreakdown(result: CompareResult, platformA: Platform, platformB: Platform) {
-    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        result.rows.forEach { row ->
-            if (row.comparable) {
-                CompareRowBars(row, platformA, platformB)
-            } else {
-                NotComparableRow(row)
-            }
-        }
-    }
-}
-
-/**
- * One metric: the label, then two horizontally-paired bars (A on top, B below) whose widths are
- * proportional to the values; the winner's bar is verde with a "Gana" badge.
- */
-@Composable
-private fun CompareRowBars(row: CompareRow, platformA: Platform, platformB: Platform) {
-    val valueA = row.valueA ?: 0.0
-    val valueB = row.valueB ?: 0.0
-    // Proportional widths: scale to the larger value (for commission, the bar still shows magnitude;
-    // the verde winner highlights "better" regardless of bar length).
-    val maxValue = maxOf(valueA, valueB).coerceAtLeast(1e-9)
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Text(
-                text = CompareUiText.metricLabel(row.metric),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            row.pctDifference?.takeIf { it > 0.0 }?.let { pct ->
-                Text(
-                    text = "+${CompareUiText.pctLabel(pct)}",
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = VerdictGreen,
-                )
-            }
-        }
-        PairedBar(
-            label = CompareUiText.platformName(platformA),
-            value = CompareUiText.metricValue(row.metric, valueA),
-            fraction = (valueA / maxValue).toFloat(),
-            isWinner = row.winner == CompareWinner.A,
-        )
-        PairedBar(
-            label = CompareUiText.platformName(platformB),
-            value = CompareUiText.metricValue(row.metric, valueB),
-            fraction = (valueB / maxValue).toFloat(),
-            isWinner = row.winner == CompareWinner.B,
-        )
-    }
-}
-
-@Composable
-private fun PairedBar(
-    label: String,
-    value: String,
-    fraction: Float,
-    isWinner: Boolean,
-) {
-    val barColor = if (isWinner) VerdictGreen else MaterialTheme.colorScheme.surfaceVariant
-    val onBar = if (isWinner) {
-        MaterialTheme.colorScheme.onPrimary
-    } else {
-        MaterialTheme.colorScheme.onSurfaceVariant
-    }
-    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.width(56.dp),
-        )
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .height(28.dp)
-                .clip(RoundedCornerShape(6.dp))
-                .background(MaterialTheme.colorScheme.surface),
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(fraction.coerceIn(0.04f, 1f))
-                    .height(28.dp)
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(barColor),
-                contentAlignment = Alignment.CenterStart,
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
+                KomparaWordmark()
+                IconButton(onClick = onShare) {
+                    Icon(
+                        imageVector = Icons.Filled.Share,
+                        contentDescription = stringResource(R.string.share_card_share_cta),
+                        tint = VerdictGreen,
+                    )
+                }
+            }
+            if (standing == null) {
+                Text(
+                    text = stringResource(R.string.comparar_hero_pending),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                Text(
+                    text = stringResource(R.string.comparar_hero_standing, standing.displayPercentile),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                PercentileBar(
+                    displayPercentile = standing.displayPercentile,
+                    contentDescription = standingBarDescription(standing),
+                )
                 Row(
-                    modifier = Modifier.padding(horizontal = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = value,
+                        text = stringResource(R.string.comparar_hero_place_label),
                         style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = onBar,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    if (isWinner) {
-                        Text(
-                            text = stringResource(R.string.comparar_winner_badge),
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = onBar,
-                        )
-                    }
+                    PercentileBadge(
+                        topPercent = standing.topPercent,
+                        contentDescription = stringResource(
+                            R.string.percentile_badge_description,
+                            standing.displayPercentile,
+                        ),
+                    )
+                }
+                if (standing.isSynthetic) {
+                    Text(
+                        text = stringResource(R.string.percentile_synthetic_tag),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
         }
     }
 }
 
-/** A dimmed "No comparable" row with the reason (e.g. "inDrive no reporta este dato"). */
 @Composable
-private fun NotComparableRow(row: CompareRow) {
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Text(
-            text = CompareUiText.metricLabel(row.metric),
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        val reason = row.missingPlatform
-            ?.let { name -> runCatching { Platform.valueOf(name) }.getOrNull() }
-            ?.let { stringResource(R.string.comparar_not_comparable_reason, CompareUiText.platformName(it)) }
-            ?: stringResource(R.string.comparar_not_comparable)
-        Text(
-            text = reason,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.outline,
-        )
+private fun standingBarDescription(standing: PercentileResult): String =
+    if (standing.isNationalFallback) {
+        stringResource(R.string.percentile_bar_description_national, standing.displayPercentile)
+    } else {
+        stringResource(R.string.percentile_bar_description, standing.displayPercentile)
     }
+
+@Composable
+private fun SinglePlatformNote(platform: Platform) {
+    Text(
+        text = stringResource(R.string.comparar_single_note, platformName(platform)),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
-// ─── Previews / example data ──────────────────────────────────────────────────────────────────────
+// ─── Benchmark table ──────────────────────────────────────────────────────────────────────────────
 
-/** A static "ejemplo" result for the single-platform teaser — clearly fake, never real numbers. */
-private fun exampleResult(): CompareResult =
-    mx.kompara.metrics.compare.CompareCalculator.compare(
-        PlatformMetrics.of(
-            platform = Platform.UBER.name,
-            earningsPerKm = 8.5,
-            earningsPerHour = 165.0,
-            earningsPerTrip = 52.0,
-        ),
-        PlatformMetrics.of(
-            platform = Platform.DIDI.name,
-            earningsPerKm = 9.5,
-            earningsPerHour = 150.0,
-            earningsPerTrip = 58.0,
-        ),
-    )
-
-@Preview(showBackground = true, name = "Comparar — comparación")
 @Composable
-private fun CompararComparisonPreview() {
-    KomparaTheme {
-        val result = mx.kompara.metrics.compare.CompareCalculator.compare(
-            PlatformMetrics.of(Platform.UBER.name, earningsPerKm = 10.0, earningsPerHour = 200.0, earningsPerTrip = 50.0, netEarnings = 1800.0, totalTrips = 60),
-            PlatformMetrics.of(Platform.DIDI.name, earningsPerKm = 11.2, earningsPerHour = 150.0, earningsPerTrip = 60.0, netEarnings = 1500.0, totalTrips = 45),
-        )
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            VerdictCard(result.verdict)
-            MetricBreakdown(result, Platform.UBER, Platform.DIDI)
+private fun BenchmarkTable(comparison: WeeklyComparison) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+        ),
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+            TableHeader()
+            comparison.rows.forEach { row -> TableRow(row) }
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = stringResource(R.string.comparar_legend),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.outline,
+            )
         }
     }
 }
 
-@Preview(showBackground = true, name = "Comparar — una plataforma")
 @Composable
-private fun CompararSinglePreview() {
+private fun TableHeader() {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.Bottom,
+    ) {
+        HeaderCell(stringResource(R.string.comparar_col_metric), 1.6f, Alignment.Start)
+        HeaderCell(stringResource(R.string.comparar_col_tu), 1f, Alignment.CenterHorizontally)
+        HeaderCell("Uber", 1f, Alignment.CenterHorizontally)
+        HeaderCell("DiDi", 1f, Alignment.CenterHorizontally)
+        HeaderCell(stringResource(R.string.comparar_col_place), 1.3f, Alignment.CenterHorizontally)
+    }
+}
+
+@Composable
+private fun androidx.compose.foundation.layout.RowScope.HeaderCell(
+    text: String,
+    weight: Float,
+    align: Alignment.Horizontal,
+) {
+    Column(modifier = Modifier.weight(weight), horizontalAlignment = align) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun TableRow(row: ComparisonRow) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // Métrica
+        Column(modifier = Modifier.weight(1.6f)) {
+            Text(
+                text = metricLabel(row.metric),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            if (row.lowerIsBetter) {
+                Text(
+                    text = stringResource(R.string.comparar_lower_better),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = VerdictGreen,
+                )
+            }
+        }
+        // Tú (blended) — the protagonist, emerald.
+        ValueCell(formatOrDash(row.unit, row.tu), 1f, BrandGreen, FontWeight.SemiBold)
+        // City averages.
+        ValueCell(formatOrDash(row.unit, row.uberAvg), 1f, MaterialTheme.colorScheme.onSurfaceVariant)
+        ValueCell(formatOrDash(row.unit, row.didiAvg), 1f, MaterialTheme.colorScheme.onSurfaceVariant)
+        // Tu lugar (percentile vs all drivers).
+        PercentileCell(row.percentile, 1.3f)
+    }
+}
+
+@Composable
+private fun androidx.compose.foundation.layout.RowScope.ValueCell(
+    text: String,
+    weight: Float,
+    color: Color,
+    weight2: FontWeight = FontWeight.Normal,
+) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodySmall,
+        fontWeight = weight2,
+        color = color,
+        maxLines = 1,
+        softWrap = false,
+        modifier = Modifier.weight(weight),
+        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+    )
+}
+
+@Composable
+private fun androidx.compose.foundation.layout.RowScope.PercentileCell(p: PercentileResult?, weight: Float) {
+    Column(
+        modifier = Modifier.weight(weight),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        if (p == null) {
+            Text(
+                text = Formatters.DASH,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.outline,
+            )
+        } else {
+            Text(
+                text = stringResource(R.string.metric_percentile_format, p.topPercent),
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = VerdictGreen,
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.8f)
+                    .height(3.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth((p.displayPercentile / 100f).coerceIn(0.02f, 1f))
+                        .height(3.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(BrandGreen),
+                )
+            }
+        }
+    }
+}
+
+// ─── Opportunities + cross-link ─────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun OpportunitiesSection(items: List<Recommendation>) {
+    if (items.isEmpty()) return
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(
+            text = stringResource(R.string.comparar_opps_title),
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        items.forEach { rec -> RecommendationCard(type = rec.type, title = rec.title, body = rec.body) }
+    }
+}
+
+@Composable
+private fun CrossLinkToInicio(onOpenInicio: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .clickable(onClick = onOpenInicio)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = stringResource(R.string.comparar_xlink_inicio),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            text = stringResource(R.string.comparar_xlink_inicio_cta),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+        )
+    }
+}
+
+// ─── Formatting helpers ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Strip every premium value (driver value, city averages, percentile) and the opportunities so the
+ * locked tease can't leak real numbers through the blur/alpha. The metric labels + table shape stay,
+ * so a free driver still sees the *structure* of the payoff (the hero already gave one free taste).
+ */
+private fun WeeklyComparison.maskedForLock(): WeeklyComparison =
+    copy(
+        rows = rows.map { it.copy(tu = null, uberAvg = null, didiAvg = null, percentile = null) },
+        opportunities = emptyList(),
+    )
+
+private fun formatOrDash(unit: MetricUnit, value: Double?): String =
+    if (value == null) Formatters.DASH else formatMetric(unit, value)
+
+// Whole numbers so values fit one line — except viajes por hora, which keeps one decimal (S-024 feedback).
+private fun formatMetric(unit: MetricUnit, v: Double): String = when (unit) {
+    MetricUnit.MXN -> Formatters.formatMxnWhole(v)
+    MetricUnit.PER_HOUR -> Formatters.formatPerHourWhole(v)
+    MetricUnit.PER_KM -> Formatters.formatPerKmOneDecimal(v)
+    MetricUnit.COUNT_PER_HOUR -> Formatters.formatPerHourCount(v)
+    MetricUnit.PERCENT -> "${Math.round(v)}%"
+}
+
+@Composable
+private fun metricLabel(key: String): String = stringResource(
+    when (key) {
+        "net_earnings" -> R.string.comparar_metric_net
+        "earnings_per_hour" -> R.string.comparar_metric_iph
+        "earnings_per_km" -> R.string.comparar_metric_ipk
+        "earnings_per_trip" -> R.string.comparar_metric_ipt
+        "trips_per_hour" -> R.string.comparar_metric_tph
+        "platform_commission_pct" -> R.string.comparar_metric_take
+        else -> R.string.comparar_metric_net
+    },
+)
+
+private fun platformName(platform: Platform): String = when (platform) {
+    Platform.UBER -> "Uber"
+    Platform.DIDI -> "DiDi"
+    Platform.INDRIVE -> "inDrive"
+    else -> "tu app"
+}
+
+// ─── Previews ───────────────────────────────────────────────────────────────────────────────────────
+
+private fun previewComparison(singlePlatform: Platform? = null): WeeklyComparison = WeeklyComparison(
+    weekStart = "2026-06-02",
+    rows = mx.kompara.ui.stats.COMPARE_METRICS.mapIndexed { i, spec ->
+        ComparisonRow(
+            metric = spec.key,
+            unit = spec.unit,
+            tu = listOf(3200.0, 160.0, 9.2, 54.0, 2.3, null)[i],
+            uberAvg = if (spec.uberNa != null) null else listOf(2900.0, 150.0, 0.0, 52.0, 2.1, 24.0)[i],
+            didiAvg = if (spec.didiNa != null) null else listOf(2750.0, 145.0, 9.5, 58.0, 2.4, 0.0)[i],
+            percentile = if (i == 5) null else PercentileResult(spec.key, 0.0, 78, 78, 1500, false, true),
+            lowerIsBetter = spec.lowerIsBetter,
+            uberNa = spec.uberNa,
+            didiNa = spec.didiNa,
+        )
+    },
+    standing = PercentileResult("earnings_per_hour", 0.0, 78, 78, 1500, false, true),
+    standingMetric = "earnings_per_hour",
+    platformsWithData = if (singlePlatform != null) listOf(singlePlatform) else listOf(Platform.UBER, Platform.DIDI),
+    singlePlatform = singlePlatform,
+)
+
+@Preview(showBackground = true, name = "Comparar — completo")
+@Composable
+private fun CompararFullPreview() {
     KomparaTheme {
-        Column(Modifier.padding(16.dp)) { SinglePlatformBody(Platform.UBER) }
+        CompararContent(
+            state = CompareUiState(false, listOf("2026-06-02", "2026-05-26"), mx.kompara.ui.stats.CompareUiData("2026-06-02", previewComparison())),
+            gateState = GateState.UNLOCKED,
+            onSelectWeek = {}, onUpgrade = {}, onOpenReader = {}, onShare = {}, onOpenInicio = {},
+            gateFunnel = object : GateFunnel {
+                override suspend fun record(surface: GateSurface, event: mx.kompara.ui.paywall.GateEvent) {}
+            },
+        )
+    }
+}
+
+@Preview(showBackground = true, name = "Comparar — vacío")
+@Composable
+private fun CompararEmptyPreview() {
+    KomparaTheme {
+        CompararContent(
+            state = CompareUiState(false, emptyList(), null),
+            gateState = GateState.UNLOCKED,
+            onSelectWeek = {}, onUpgrade = {}, onOpenReader = {}, onShare = {}, onOpenInicio = {},
+            gateFunnel = object : GateFunnel {
+                override suspend fun record(surface: GateSurface, event: mx.kompara.ui.paywall.GateEvent) {}
+            },
+        )
     }
 }

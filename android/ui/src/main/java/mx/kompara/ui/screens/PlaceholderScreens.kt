@@ -20,6 +20,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import mx.kompara.ui.BuildConfig
 import mx.kompara.ui.R
 import mx.kompara.ui.components.EmptyState
 import mx.kompara.ui.components.PrimaryButton
@@ -44,6 +45,7 @@ fun AjustesScreen(
 ) {
     val fiscalSummaryEnabled by viewModel.fiscalMonthlySummaryEnabled.collectAsStateWithLifecycle()
     val shareReminderEnabled by viewModel.shareWeeklyReminderEnabled.collectAsStateWithLifecycle()
+    val debugPremiumEnabled by viewModel.debugPremiumEnabled.collectAsStateWithLifecycle()
     AjustesContent(
         modifier = modifier,
         onOpenSimulator = onOpenSimulator,
@@ -57,6 +59,8 @@ fun AjustesScreen(
         onFiscalSummaryToggled = viewModel::setFiscalMonthlySummaryEnabled,
         shareReminderEnabled = shareReminderEnabled,
         onShareReminderToggled = viewModel::setShareWeeklyReminderEnabled,
+        debugPremiumEnabled = debugPremiumEnabled,
+        onDebugPremiumToggled = viewModel::setDebugPremium,
     )
 }
 
@@ -74,6 +78,8 @@ private fun AjustesContent(
     onFiscalSummaryToggled: (Boolean) -> Unit = {},
     shareReminderEnabled: Boolean = true,
     onShareReminderToggled: (Boolean) -> Unit = {},
+    debugPremiumEnabled: Boolean = false,
+    onDebugPremiumToggled: (Boolean) -> Unit = {},
 ) {
     Column(
         modifier = modifier
@@ -106,6 +112,15 @@ private fun AjustesContent(
             checked = shareReminderEnabled,
             onToggled = onShareReminderToggled,
         )
+        // Debug-only: unlock the paywall to preview the premium experience (Play Billing is
+        // unavailable in dev). Stripped from release builds via BuildConfig.DEBUG.
+        if (BuildConfig.DEBUG) {
+            SettingToggleRow(
+                label = stringResource(R.string.ajustes_debug_premium),
+                checked = debugPremiumEnabled,
+                onToggled = onDebugPremiumToggled,
+            )
+        }
     }
 }
 

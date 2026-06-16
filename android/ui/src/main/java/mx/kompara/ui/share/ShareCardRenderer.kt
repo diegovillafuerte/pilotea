@@ -24,7 +24,7 @@ object ShareCardRenderer {
     // Brand palette as ARGB ints (KomparaTheme: SurfaceDark, BrandGreen/Dark, OnSurfaceDark, etc.).
     private const val BG_TOP = 0xFF121417.toInt() // SurfaceDark
     private const val BG_BOTTOM = 0xFF06351C.toInt() // BrandGreenContainerDark (verde accent)
-    private const val BRAND_GREEN = 0xFF12A150.toInt() // BrandGreen
+    private const val BRAND_GREEN = 0xFF059669.toInt() // BrandGreen (website emerald — matches theme/Color.kt)
     private const val ON_SURFACE = 0xFFF2F3F5.toInt() // OnSurfaceDark
     private const val ON_SURFACE_VARIANT = 0xFFBFC4CA.toInt() // OnSurfaceVariantDark
     private const val ON_BRAND = 0xFFFFFFFF.toInt() // OnVerdictGreen

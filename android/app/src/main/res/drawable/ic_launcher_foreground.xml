@@ -6,6 +6,6 @@
     android:viewportHeight="108">
     <!-- Placeholder "K" mark — replaced by real branding in B-026/B-053. -->
     <path
-        android:fillColor="#1DB954"
+        android:fillColor="#059669"
         android:pathData="M38,30h8v22l16,-22h10L56,52l17,26h-10L49,57v21h-8z" />
 </vector>

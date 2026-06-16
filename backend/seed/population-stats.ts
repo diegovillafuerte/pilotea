@@ -33,7 +33,12 @@ export const CITIES = [
   "national",
 ] as const;
 
-export const PLATFORMS = ["uber", "didi", "indrive"] as const;
+// "all" is a synthetic COMBINED population across every platform, so a driver's
+// blended (cross-app) value can be ranked against all drivers — not just one
+// app's population. The real-data fold produces the same `all` bucket (see
+// jobs/fold-population-stats.ts). It is a pseudo-platform: never a real wire
+// platform, only a benchmark bucket the client queries with platform=all.
+export const PLATFORMS = ["uber", "didi", "indrive", "all"] as const;
 
 export const METRICS = [
   "earnings_per_trip",
@@ -41,6 +46,9 @@ export const METRICS = [
   "earnings_per_hour",
   "trips_per_hour",
   "platform_commission_pct",
+  // Weekly net earnings total — the Comparar table's "Ganancia neta" row needs a
+  // population to rank against (B-085). Synthetic until the fold accrues real data.
+  "net_earnings",
 ] as const;
 
 // ─── Types ────────────────────────────────────────────────────
@@ -88,6 +96,7 @@ export function sampleSize(city: CityKey, platform: PlatformKey): number {
     uber: 1.0,
     didi: 0.7,
     indrive: 0.4,
+    all: 2.1, // ~ the sum of the three platforms' shares (combined population)
   };
 
   const base = baseSizes[cityTier[city]]!;
@@ -124,6 +133,9 @@ const PLATFORM_MODIFIERS: Record<
   uber: { earningsMultiplier: 1.0, commissionShift: 0 },
   didi: { earningsMultiplier: 0.92, commissionShift: -2 }, // DiDi slightly lower earnings, lower commission
   indrive: { earningsMultiplier: 0.85, commissionShift: -5 }, // InDrive lower earnings, much lower commission (driver sets price)
+  // Combined population: share-weighted blend of the three (rates land near a
+  // single platform; net total skews higher because multi-app drivers stack weeks).
+  all: { earningsMultiplier: 0.95, commissionShift: -1.6 },
 };
 
 function round2(n: number): number {
@@ -180,6 +192,11 @@ export function generateMetrics(
 
     // Platform commission %: median ~25%, varies by platform
     platform_commission_pct: generateBreakpoints(cm.commissionBase + pm.commissionShift, "tight"),
+
+    // Weekly net earnings total: national median ~$2,800 MXN. The "all" bucket
+    // (combined drivers, many multi-app) skews higher via its 2.1× sample + the
+    // earnings multiplier; wide spread (hours-driven, the most variable metric).
+    net_earnings: generateBreakpoints(2800 * mult, "wide"),
   };
 }
 

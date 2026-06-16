@@ -70,6 +70,8 @@
     <string name="ajustes_empty_body">Aquí podrás configurar tus plataformas, costos y umbrales de ganancia.</string>
     <string name="ajustes_empty_cta">Entendido</string>
     <string name="ajustes_open_simulator">Ver el simulador</string>
+    <!-- Switch solo-debug para probar el paywall sin Google Play (se oculta en release). -->
+    <string name="ajustes_debug_premium">Premium (prueba) — desbloquea todo</string>
 
     <!-- ============================================================= -->
     <!-- Umbrales del semáforo (B-070): editor completo en Ajustes     -->
@@ -94,7 +96,7 @@
     <!-- Ayuda (B-071): centro de ayuda dentro de la app               -->
     <!-- ============================================================= -->
     <string name="help_title">Ayuda</string>
-    <string name="help_intro">Respuestas rápidas a lo que más preguntan los choferes. Toca una pregunta para abrirla.</string>
+    <string name="help_intro">Respuestas rápidas a lo que más preguntan los conductores. Toca una pregunta para abrirla.</string>
 
     <string name="help_q_reader">¿Cómo activo el lector?</string>
     <string name="help_a_reader">Ve a la pestaña Lector y toca \"Encender lector\". Te llevamos a los Ajustes de accesibilidad de Android: busca Kompara, activa el interruptor y regresa a la app. Para DiDi, el lector usa además la captura de pantalla del sistema — acepta el aviso de Android cuando aparezca. Puedes probar todo sin viajes reales en el simulador (Ajustes → Ver el simulador).</string>
@@ -109,7 +111,7 @@
     <string name="help_a_privacy">Kompara lee únicamente los textos de la oferta que ya ves en tu pantalla (tarifa, distancia, tiempo) y todo el cálculo ocurre en tu teléfono. No vendemos ni compartimos el contenido de tu pantalla, y no se sube a internet. Tu cuenta solo guarda tu número de WhatsApp, tu configuración y tus totales. Ten en cuenta que usar herramientas de terceros puede contravenir los términos de Uber o DiDi; Kompara solo lee y nunca actúa por ti.</string>
 
     <string name="help_q_account">¿Para qué es mi cuenta?</string>
-    <string name="help_a_account">Tu cuenta se crea con tu número de WhatsApp (sin contraseñas) y guarda tu configuración y tu historial de forma segura, para que no pierdas nada si cambias de teléfono. Tu ciudad se usa para comparar tus ganancias con las de otros choferes cerca de ti.</string>
+    <string name="help_a_account">Tu cuenta se crea con tu número de WhatsApp (sin contraseñas) y guarda tu configuración y tu historial de forma segura, para que no pierdas nada si cambias de teléfono. Tu ciudad se usa para comparar tus ganancias con las de otros conductores cerca de ti.</string>
 
     <string name="help_q_price">¿Cuánto cuesta Kompara?</string>
     <string name="help_a_price">El lector y el semáforo en tiempo real son gratis. Kompara Premium agrega comparativas con tu ciudad, la comparación entre plataformas, todo tu historial y el seguimiento fiscal — con prueba gratis y sin pedir tarjeta.</string>
@@ -134,11 +136,11 @@
     <!-- Componente: Percentiles / comparativas (B-046)               -->
     <!-- ============================================================= -->
     <!-- contentDescription de la barra de 20 personas (mayor es mejor). -->
-    <string name="percentile_bar_description">Estás por encima del %1$d%% de los choferes de tu ciudad</string>
+    <string name="percentile_bar_description">Estás por encima del %1$d%% de los conductores de tu ciudad</string>
     <!-- contentDescription cuando se usó el promedio nacional (muestra local pequeña). -->
-    <string name="percentile_bar_description_national">Estás por encima del %1$d%% de los choferes a nivel nacional</string>
+    <string name="percentile_bar_description_national">Estás por encima del %1$d%% de los conductores a nivel nacional</string>
     <!-- contentDescription del badge "Top X%". -->
-    <string name="percentile_badge_description">Mejor que el %1$d%% de los choferes</string>
+    <string name="percentile_badge_description">Mejor que el %1$d%% de los conductores</string>
     <!-- Etiqueta cuando la comparativa usa datos sintéticos (aún no hay suficientes datos reales). -->
     <string name="percentile_synthetic_tag">Datos de muestra</string>
     <!-- Pista de upsell en el estado bloqueado (gratis por defecto; B-050 aplica el bloqueo). -->
@@ -187,7 +189,7 @@
     <string name="auth_code_dev_hint">Modo dev: ingresa %1$s para entrar sin backend.</string>
 
     <string name="auth_profile_titulo">Cuéntanos de ti</string>
-    <string name="auth_profile_cuerpo">Con tu ciudad comparamos tus ganancias con las de otros choferes cerca de ti. Puedes cambiarla cuando quieras.</string>
+    <string name="auth_profile_cuerpo">Con tu ciudad comparamos tus ganancias con las de otros conductores cerca de ti. Puedes cambiarla cuando quieras.</string>
     <string name="auth_profile_nombre_hint">Tu nombre (opcional)</string>
     <string name="auth_profile_ciudad_label">Tu ciudad</string>
     <string name="auth_profile_cta">Guardar y continuar</string>
@@ -327,7 +329,7 @@
     <string name="cost_nudge_title">Configura tus costos para ver ganancias netas</string>
     <string name="cost_nudge_cta">Configurar costos</string>
 
-    <!-- Estado vacío del tablero (chofer nuevo) -->
+    <!-- Estado vacío del tablero (conductor nuevo) -->
     <string name="dashboard_empty_title">Aún no hay números</string>
     <string name="dashboard_empty_body">Activa el lector y maneja — tus números aparecen solos.</string>
     <string name="dashboard_empty_cta">Probar el lector</string>
@@ -450,7 +452,7 @@
     <string name="fiscal_status_covered_past">Cubierto</string>
     <string name="fiscal_status_unlikely_past">No cubierto</string>
     <!-- Explicador en español sencillo (revisión legal pendiente, ver B-038) -->
-    <string name="fiscal_explainer_title">¿Qué es la cobertura del IMSS para choferes de plataforma?</string>
+    <string name="fiscal_explainer_title">¿Qué es la cobertura del IMSS para conductores de plataforma?</string>
     <string name="fiscal_explainer_body">Desde la reforma laboral de plataformas (2025), si en un mes ganas al menos un salario mínimo mensual (el umbral de arriba) en UNA plataforma, esa plataforma debe inscribirte al IMSS ese mes. Así obtienes servicios médicos, riesgos de trabajo y acumulas semanas para tu pensión.</string>
     <string name="fiscal_explainer_per_platform">La regla es por plataforma, no por la suma. Si ganas el umbral en Uber pero no en DiDi, quedas cubierto por Uber pero no por DiDi ese mes.</string>
     <string name="fiscal_explainer_pilot">El esquema está en periodo piloto y las reglas pueden cambiar. Kompara estima tu avance con los datos que capturas e importas.</string>
@@ -517,7 +519,7 @@
     <string name="paywall_cta">Probar Kompara Premium</string>
 
     <!-- Pistas de valor de una línea sobre el contenido difuminado por superficie. -->
-    <string name="gate_hint_benchmarks">Mira cómo te comparas con otros choferes de tu ciudad</string>
+    <string name="gate_hint_benchmarks">Mira cómo te comparas con otros conductores de tu ciudad</string>
     <string name="gate_hint_compare">Compara tus ganancias entre Uber y DiDi</string>
     <string name="gate_hint_history">Revisa todo tu historial, semana por semana</string>
     <string name="gate_hint_fiscal">Sigue tu avance hacia la cobertura del IMSS</string>
@@ -582,22 +584,56 @@
     <!-- Pista de valor de una línea para el gate del detalle. -->
     <string name="comparar_gate_breakdown_hint">Desbloquea el detalle por métrica con Premium</string>
 
+    <!-- ===== Comparar — rediseño tabla de benchmark (S-024) ========= -->
+    <!-- Marca compartida (logo K + wordmark). -->
+    <string name="brand_name">Kompara</string>
+    <!-- Héroe: %1$d = percentil del conductor (le gana a ese % de la ciudad). -->
+    <string name="comparar_hero_standing">Le ganas al %1$d%% de los conductores de tu ciudad</string>
+    <!-- Héroe cuando aún no hay benchmark para comparar. -->
+    <string name="comparar_hero_pending">Aún estamos midiendo cómo te comparas con tu ciudad</string>
+    <!-- Etiqueta bajo el héroe, junto a la insignia Top X%. -->
+    <string name="comparar_hero_place_label">Tu lugar esta semana</string>
+    <!-- Nota cuando el conductor solo maneja una app. %1$s = plataforma. -->
+    <string name="comparar_single_note">Solo manejas %1$s — «Tú» es tu %1$s. Igual te comparamos con el promedio de cada app.</string>
+    <!-- Encabezados de la tabla. -->
+    <string name="comparar_col_metric">Métrica</string>
+    <string name="comparar_col_tu">Tú</string>
+    <string name="comparar_col_place">Tu lugar</string>
+    <!-- Marca de "menos es mejor" en la fila de comisión. -->
+    <string name="comparar_lower_better">↓ menos es mejor</string>
+    <!-- Leyenda que decodifica las columnas. -->
+    <string name="comparar_legend">Tú = tu mezcla de apps · promedio = el conductor típico de tu ciudad · tu lugar = tu percentil. «—» = la app no reporta.</string>
+    <!-- Sección de oportunidades. -->
+    <string name="comparar_opps_title">Dónde puedes ganar más</string>
+    <!-- Enlace cruzado hacia Inicio (datos individuales). -->
+    <string name="comparar_xlink_inicio">Tus ganancias y tus mejores momentos</string>
+    <string name="comparar_xlink_inicio_cta">Inicio ›</string>
+    <!-- Nota de función diferida (por día y por hora). -->
+    <string name="comparar_soon_day_hour">Pronto: cómo te comparas por día y por hora</string>
+    <!-- Etiquetas de métricas de la tabla. -->
+    <string name="comparar_metric_net">Ganancia neta</string>
+    <string name="comparar_metric_iph">Por hora</string>
+    <string name="comparar_metric_ipk">Por km</string>
+    <string name="comparar_metric_ipt">Por viaje</string>
+    <string name="comparar_metric_tph">Viajes por hora</string>
+    <string name="comparar_metric_take">Comisión</string>
+
     <!-- ============================================================= -->
     <!-- Invita y gana — programa de referidos y partners (B-056)      -->
     <!-- ============================================================= -->
     <string name="referral_entry_title">Invita y gana</string>
     <string name="referral_title">Invita y gana</string>
-    <string name="referral_intro">Comparte tu código con otros choferes. Cuando lo usan, ¡los dos ganan días de premium gratis!</string>
+    <string name="referral_intro">Comparte tu código con otros conductores. Cuando lo usan, ¡los dos ganan días de premium gratis!</string>
     <string name="referral_your_code">Tu código</string>
     <string name="referral_copy">Copiar código</string>
     <string name="referral_copied">Código copiado</string>
     <string name="referral_share_whatsapp">Compartir por WhatsApp</string>
     <!-- %1$s = el código de referido. El enlace de Play es un placeholder hasta tener deep links dinámicos. -->
-    <string name="referral_share_message">¡Únete a Kompara, la app para choferes! Usa mi código %1$s al registrarte y los dos ganamos premium gratis. Descárgala: https://play.google.com/store/apps/details?id=mx.kompara</string>
-    <string name="referral_stat_redemptions">choferes invitados</string>
+    <string name="referral_share_message">¡Únete a Kompara, la app para conductores! Usa mi código %1$s al registrarte y los dos ganamos premium gratis. Descárgala: https://play.google.com/store/apps/details?id=mx.kompara</string>
+    <string name="referral_stat_redemptions">conductores invitados</string>
     <string name="referral_stat_days_earned">días premium ganados</string>
     <string name="referral_redeem_title">¿Te recomendaron?</string>
-    <string name="referral_redeem_subtitle">Ingresa el código que te compartió otro chofer.</string>
+    <string name="referral_redeem_subtitle">Ingresa el código que te compartió otro conductor.</string>
     <string name="referral_redeem_hint">Código de invitación</string>
     <string name="referral_redeem_cta">Canjear código</string>
     <!-- %1$d = días de premium otorgados al canjear. -->
@@ -605,7 +641,7 @@
     <string name="referral_retry">Reintentar</string>
     <!-- Estado sin cuenta (UI de cuenta aún diferida, TD-008) -->
     <string name="referral_signed_out_title">Necesitas tu cuenta</string>
-    <string name="referral_signed_out_body">Para invitar a otros choferes y ganar días de premium necesitas iniciar sesión con tu cuenta. Entra con tu número de WhatsApp y vuelve a intentarlo.</string>
+    <string name="referral_signed_out_body">Para invitar a otros conductores y ganar días de premium necesitas iniciar sesión con tu cuenta. Entra con tu número de WhatsApp y vuelve a intentarlo.</string>
     <string name="referral_signed_out_back">Volver</string>
 
     <!-- ============================================================= -->
@@ -622,7 +658,7 @@
     <string name="share_channel_name">Resúmenes</string>
     <string name="share_channel_desc">Aviso semanal cuando tu resumen para compartir está listo.</string>
     <string name="share_week_close_notif_title">Tu resumen de la semana está listo</string>
-    <string name="share_week_close_notif_body">Comparte tu semana en Kompara con tu grupo de choferes.</string>
+    <string name="share_week_close_notif_body">Comparte tu semana en Kompara con tu grupo de conductores.</string>
     <!-- Ajuste del recordatorio semanal -->
     <string name="share_settings_weekly_reminder">Recordatorio semanal para compartir</string>
 
