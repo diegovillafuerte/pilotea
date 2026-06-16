@@ -111,11 +111,14 @@ class DidiOcrParser {
             .mapNotNull { b ->
                 legRegex.find(b.text)?.let { m ->
                     val min = m.groupValues[1].toDoubleOrNull()
-                    val value = m.groupValues[2].replace(",", ".").toDoubleOrNull()
-                    val km = when {
-                        value == null -> null
-                        m.groupValues[3].equals("m", ignoreCase = true) -> value / 1000.0
-                        else -> value
+                    val normalized = m.groupValues[2].replace(",", ".")
+                    val km = if (m.groupValues[3].equals("m", ignoreCase = true)) {
+                        // Meters are a genuine integer ("862m" → 0.862 km) — never a dropped decimal.
+                        normalized.toDoubleOrNull()?.let { it / 1000.0 }
+                    } else {
+                        // Km always render with one decimal; reinsert a point OCR dropped ("130"→13.0)
+                        // so a separator-less leg can't read 10× high (DiDi mirror of the Uber fix).
+                        recoverDroppedDistanceDecimal(normalized).toDoubleOrNull()
                     }
                     if (min == null || km == null) null else Leg(min, km, b.bounds)
                 }

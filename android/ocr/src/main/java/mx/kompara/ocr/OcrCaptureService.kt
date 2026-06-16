@@ -59,6 +59,11 @@ class OcrCaptureService : Service() {
     // can't flip the chip's number/colour. Feeds ONLY the overlay chip; the B-039 ledger gets the raw
     // card (see the ledger feed below) so a stabilized value can't spawn a duplicate trip record.
     private val fareStabilizer = FareStabilizer()
+    // Drops a single gross OCR-outlier frame (a ×10 distance that slipped past decimal recovery, or a
+    // gross fare garble) before it can reach the chip, the stabilizer, OR the B-039 ledger. The
+    // stabilizer can't catch a ×10 trip leg — it keys the session on that leg, so the bad frame starts
+    // a fresh session and paints immediately.
+    private val frameOutlierGuard = FrameOutlierGuard()
     // B-039 OCR ledger: classifies each frame into offer/trip/idle lifecycle signals (transition-
     // deduped) for the trip tracker, since OCR-captured offers never reach the node-path ledger.
     private val lifecycleClassifier = OcrLifecycleClassifier()
@@ -239,16 +244,19 @@ class OcrCaptureService : Service() {
         // Kompara's own UI are never parsed (the simulator's mock cards and our own stats would
         // feed back into the pipeline).
         val ownUi = KomparaUiGuard.isOwnUi(joined)
+        // Monotonic clock for presence/outlier math (a wall-clock jump must not hide a live card or pin
+        // a stale one); wall clock only for event timestamps and fixture filenames.
+        val now = SystemClock.elapsedRealtime()
         // Pick the card (and the platform) for this frame; see [selectOfferCard] — Uber first, with a
         // cross-app hold so a garbled Uber frame can't be mis-attributed to DiDi via a "$0.00" pill.
-        val card = if (ownUi) null else selectOfferCard(uberParser, didiParser, blocks)
+        val parsed = if (ownUi) null else selectOfferCard(uberParser, didiParser, blocks)
+        // Drop a single gross OCR outlier (a ×10 distance, a gross fare garble) before it reaches the
+        // chip OR the ledger; the signature below still holds the verdict across it, as for any garble.
+        val card = parsed?.takeIf { frameOutlierGuard.accept(it, now) }
         // The offer-card signature (fare + leg) survives the OCR garble that fails a full parse;
         // shared by the presence tracker (hold the chip) and the lifecycle classifier (hold OFFER).
         val signature = !ownUi &&
             (uberParser.hasCardSignature(blocks) || didiParser.hasCardSignature(blocks))
-        // Monotonic clock for presence math (a wall-clock jump must not hide a live card or pin a
-        // stale one); wall clock only for event timestamps and fixture filenames.
-        val now = SystemClock.elapsedRealtime()
         // Replace the raw parsed fare with the stabilized one so a one-frame OCR garble can't flip
         // the verdict. Keyed on the trip leg (stable), not the fare. Null when no card this frame.
         val shownCard = card?.let { fareStabilizer.onParsed(it, System.currentTimeMillis()) }
@@ -276,7 +284,10 @@ class OcrCaptureService : Service() {
                 val gonePackage = lastOfferPackage ?: DidiOcrParser.DIDI_PACKAGE
                 lastOfferKey = null
                 lastOfferPackage = null
-                fareStabilizer.reset() // card truly gone → forget the session so the next offer paints fresh
+                // Card truly gone → forget the session so the next offer paints fresh and is judged
+                // only against itself.
+                fareStabilizer.reset()
+                frameOutlierGuard.reset()
                 OfferEventBus.tryEmit(
                     OfferEvent.NoCard(
                         gonePackage,
@@ -423,6 +434,7 @@ class OcrCaptureService : Service() {
                     ?.let { OcrLifecycleBus.tryEmit(it) }
                 presence.reset()
                 fareStabilizer.reset()
+                frameOutlierGuard.reset()
             }
         }
     }

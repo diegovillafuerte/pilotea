@@ -74,6 +74,26 @@ class DidiOcrParserTest {
     }
 
     @Test
+    fun `recovers a ×10 km leg whose decimal point OCR dropped, leaving meters intact`() {
+        // The DiDi mirror of the Uber decimal-loss fix. From the live $200.85 offer (2026-06-15) whose
+        // real 11.3 km trip flickered separator-less to "113km": it must read 11.3 km, not 113 km
+        // (~10× net $/km error → a good ride shown RED). The pickup is in METERS ("862m") and must stay
+        // a genuine integer (0.862 km) — meters are never a dropped decimal.
+        val decimalDropped = listOf(
+            block("\$200.85", 83, 973, 543, 1085),
+            block("5min (862m)", 139, 1692, 441, 1745),
+            block("59min (113km)", 156, 1902, 514, 1960),
+            block("Aceptar \$200.85", 200, 2150, 880, 2240),
+        )
+        val card = parser.parse(decimalDropped)!!
+        assertEquals(200.85, card.fare!!, 0.001)
+        assertEquals(0.862, card.pickupDistanceKm!!, 0.001) // meters untouched
+        assertEquals(5.0, card.pickupEtaMin!!, 0.001)
+        assertEquals(11.3, card.tripDistanceKm!!, 0.001) // "113" → 11.3, not 113.0
+        assertEquals(59.0, card.tripDurationMin!!, 0.001)
+    }
+
+    @Test
     fun `non-offer screen yields null`() {
         val home = listOf(
             block("La Magdalena", 134, 866, 393, 903),

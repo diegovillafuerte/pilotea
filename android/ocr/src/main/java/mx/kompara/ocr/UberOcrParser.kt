@@ -129,7 +129,10 @@ class UberOcrParser {
 
     private fun toLeg(m: MatchResult, bounds: OcrBounds?): Leg? {
         val min = cleanMinutes(m.groupValues[1]) ?: return null
-        val km = cleanNumber(m.groupValues[2]).toDoubleOrNull() ?: return null
+        // Distances render with one decimal; reinsert a point OCR dropped ("130"→13.0, "L0"→1.0) so a
+        // separator-less leg can't read 10× high. Fares always keep their separator (the two-decimal
+        // fareRegex), so recovery is applied here on the leg, never on the fare.
+        val km = recoverDroppedDistanceDecimal(cleanNumber(m.groupValues[2])).toDoubleOrNull() ?: return null
         return Leg(min = min, km = km, bounds = bounds)
     }
 
@@ -170,23 +173,10 @@ class UberOcrParser {
             .replace('I', '1')
             .replace('L', '1')
         // "," is a thousands separator when a "." is also present, otherwise the decimal point.
-        val normalized = if (digits.contains('.')) digits.replace(",", "") else digits.replace(',', '.')
-        // Recover a dropped decimal point. Uber renders sub-10 km legs with one decimal ("0.4 km"),
-        // so a separator-less token with a leading zero ("04") is an OCR decimal-loss, never a real
-        // value — no card ever shows "04 km". Reinsert it ("04" → "0.4") so a 0.4 km pickup can't be
-        // read as 4.0 km: a 10× error seen live (2026-06-15) that the overlay self-corrected on the
-        // next frame, but which the ledger had already frozen into the offer's first-frame record.
-        return if (!normalized.contains('.') && normalized.matches(LEADING_ZERO_DECIMAL_LOSS)) {
-            "0." + normalized.substring(1)
-        } else {
-            normalized
-        }
+        return if (digits.contains('.')) digits.replace(",", "") else digits.replace(',', '.')
     }
 
     companion object {
         const val UBER_PACKAGE = "com.ubercab.driver"
-
-        /** A leading zero followed by more digits and no separator — the OCR decimal-loss signature. */
-        private val LEADING_ZERO_DECIMAL_LOSS = Regex("""0[0-9]+""")
     }
 }
