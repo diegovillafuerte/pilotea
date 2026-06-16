@@ -289,7 +289,7 @@
     <!-- ===== Watchdog (vigilancia del servicio) =====                  -->
     <string name="watchdog_channel_name">Estado del lector</string>
     <string name="watchdog_channel_desc">Avisos cuando el lector de Kompara se desactiva o lo apaga el teléfono.</string>
-    <string name="watchdog_notif_title">El lector de Kompara se apagó</string>
+    <string name="watchdog_notif_title">Kompara: el lector se apagó</string>
     <string name="watchdog_notif_body">Toca para reactivarlo y seguir viendo el veredicto de cada viaje.</string>
     <string name="watchdog_banner_titulo">El lector está apagado</string>
     <string name="watchdog_banner_cuerpo">Tu teléfono apagó el lector. Reactívalo para seguir viendo el veredicto de cada viaje.</string>

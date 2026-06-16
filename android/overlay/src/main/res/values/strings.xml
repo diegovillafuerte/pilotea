@@ -41,7 +41,7 @@
 
     <!-- Reader-down banner (B-078): shown over DiDi/inDrive while the screen reader is off.
          "toca y confirma" — the tap leads to the system capture dialog, not an instant restart. -->
-    <string name="overlay_reader_down">Lector apagado — toca y confirma para reactivar</string>
+    <string name="overlay_reader_down">Kompara: lector apagado — toca y confirma para reactivar</string>
 
     <!-- ============================================================= -->
     <!-- Simulador de viajes (B-037)                                   -->
