@@ -26,7 +26,6 @@ import kotlinx.coroutines.withContext
 import mx.kompara.capture.OfferEvent
 import mx.kompara.capture.OverlayPresenter
 import mx.kompara.data.service.ScreenReaderState
-import mx.kompara.data.service.ScreenRect
 import mx.kompara.data.settings.PlatformThreshold
 import mx.kompara.data.settings.PreferredMetric
 import mx.kompara.data.settings.SettingsRepository
@@ -208,51 +207,13 @@ class OverlayController @Inject constructor(
         // Never let an overlay attach failure crash the accessibility service process — that would
         // take the reader and fixture recording down with it. Log, reset, and let the next offer
         // retry. (The TYPE_ACCESSIBILITY_OVERLAY token comes from the service context set in start.)
-        runCatching { windowManager.addView(view, params) }
-            .onSuccess {
-                // Publish the chip's rect so :ocr masks it out of the capture (the $0 self-capture
-                // fix). The view isn't measured yet at addView, so republish once it lays out and on
-                // any later size change; drag handlers republish on move.
-                view.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> publishChipRect() }
-                publishChipRect()
-            }
-            .onFailure { error ->
-                android.util.Log.e("OverlayController", "overlay attach failed", error)
-                owner.onDestroy()
-                composeView = null
-                lifecycleOwner = null
-                layoutParams = null
-            }
-    }
-
-    /**
-     * Publish the chip's current display-pixel rect to [ScreenReaderState] so the OCR capture service
-     * masks the chip's own pixels out of each frame — without it the chip's "$X/km" text is parsed as
-     * the offer fare (the $0 self-capture loop). Same coordinate space as the OCR VirtualDisplay (both
-     * sized from currentWindowMetrics.bounds, TOP|START origin), so the rect maps 1:1 onto the bitmap.
-     */
-    private fun publishChipRect() {
-        val params = layoutParams ?: return
-        val view = composeView ?: return
-        val w = view.width.takeIf { it > 0 } ?: chipWidthPx
-        val h = view.height.takeIf { it > 0 } ?: chipHeightPx
-        // Prefer the view's ACTUAL on-screen origin: params.x/y are only the REQUESTED WindowManager
-        // offsets, while getLocationOnScreen reflects any gravity/inset/cutout adjustment and is in
-        // the same full-display pixel space as the OCR capture. It's valid only once laid out; before
-        // that (the first publish right after addView) fall back to the requested params — the layout
-        // listener republishes with the real location a beat later.
-        val left: Int
-        val top: Int
-        if (view.isLaidOut && view.width > 0) {
-            val loc = IntArray(2)
-            view.getLocationOnScreen(loc)
-            left = loc[0]
-            top = loc[1]
-        } else {
-            left = params.x
-            top = params.y
+        runCatching { windowManager.addView(view, params) }.onFailure { error ->
+            android.util.Log.e("OverlayController", "overlay attach failed", error)
+            owner.onDestroy()
+            composeView = null
+            lifecycleOwner = null
+            layoutParams = null
         }
-        ScreenReaderState.setOverlayChipRect(ScreenRect(left, top, left + w, top + h))
     }
 
     /** Remove the overlay window if attached. Main-thread only. Idempotent. */
@@ -263,7 +224,6 @@ class OverlayController @Inject constructor(
         composeView = null
         lifecycleOwner = null
         layoutParams = null
-        ScreenReaderState.clearOverlayChipRect()
     }
 
     // ─── Reader-down banner (B-078) ──────────────────────────────────────────────────────────────
@@ -346,7 +306,6 @@ class OverlayController @Inject constructor(
         lifecycleOwner = null
         layoutParams = null
         chipState = null
-        ScreenReaderState.clearOverlayChipRect()
         bannerView?.let { runCatching { windowManager.removeView(it) } }
         bannerOwner?.onDestroy()
         bannerView = null
@@ -368,7 +327,6 @@ class OverlayController @Inject constructor(
         params.x = clamped.x
         params.y = clamped.y
         runCatching { windowManager.updateViewLayout(view, params) }
-        publishChipRect()
     }
 
     private suspend fun onDragEnd() {
@@ -385,7 +343,6 @@ class OverlayController @Inject constructor(
             params.x = snapped.x
             params.y = snapped.y
             runCatching { windowManager.updateViewLayout(view, params) }
-            publishChipRect()
         }
         prefs.savePosition(snapped)
     }
