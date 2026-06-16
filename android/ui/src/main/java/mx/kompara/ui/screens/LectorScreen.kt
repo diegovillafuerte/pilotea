@@ -254,7 +254,6 @@ private fun ConnectedLector(
             Text(stringResource(R.string.lector_settings_cta))
         }
 
-        Spacer(Modifier.height(4.dp))
         OutlinedButton(
             onClick = onOpenSimulator,
             modifier = Modifier.fillMaxWidth(),
