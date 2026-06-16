@@ -220,6 +220,27 @@ class UberOcrParserTest {
     }
 
     @Test
+    fun `recovers ×10 trip and pickup distances whose decimal point OCR dropped`() {
+        // The exact ×10 corruption frame (fixture ocr_1781569264865.json, live 2026-06-15): the real
+        // 1.0 km pickup OCR'd as "A5 min (L0 km)" and the real 13.0 km trip as "Viaje: 51 min (130 km)"
+        // — the decimal point dropped. Naively that reads 10.0 km / 130.0 km, making net $/km ~10× too
+        // low so a great ride paints RED. The fare on this frame was itself garbled ("MXNAggo"), so we
+        // pair the real corrupted legs (with their fixture bounds) with the readable fare the SAME
+        // offer shows on its clean frames (MXN137.28, fixture ocr_1781569258770.json).
+        val decimalDropped = listOf(
+            block("MXN137.28", left = 103, top = 785, right = 769, bottom = 881),
+            block("A5 min (L0 km)", left = 191, top = 1551, right = 559, bottom = 1625),
+            block("Viaje: 51 min (130 km)", left = 191, top = 1763, right = 685, bottom = 1827),
+        )
+        val card = parser.parse(decimalDropped)!!
+        assertEquals(137.28, card.fare!!, 0.001)
+        assertEquals(1.0, card.pickupDistanceKm!!, 0.001) // "L0" → 1.0, not 10.0
+        assertEquals(5.0, card.pickupEtaMin!!, 0.001)
+        assertEquals(13.0, card.tripDistanceKm!!, 0.001) // "130" → 13.0, not 130.0
+        assertEquals(51.0, card.tripDurationMin!!, 0.001)
+    }
+
+    @Test
     fun `captures the fare and leg block union as contentBounds`() {
         // Real fixture coordinates (ocr_1781569258770.json): fare top=785, legs lower; the union is
         // what the overlay keeps the chip off so it never occludes the fare from the screen capture.
