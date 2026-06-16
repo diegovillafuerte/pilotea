@@ -582,6 +582,40 @@
     <!-- Pista de valor de una línea para el gate del detalle. -->
     <string name="comparar_gate_breakdown_hint">Desbloquea el detalle por métrica con Premium</string>
 
+    <!-- ===== Comparar — rediseño tabla de benchmark (S-024) ========= -->
+    <!-- Marca compartida (logo K + wordmark). -->
+    <string name="brand_name">Kompara</string>
+    <!-- Héroe: %1$d = percentil del chofer (le gana a ese % de la ciudad). -->
+    <string name="comparar_hero_standing">Le ganas al %1$d%% de los choferes de tu ciudad</string>
+    <!-- Héroe cuando aún no hay benchmark para comparar. -->
+    <string name="comparar_hero_pending">Aún estamos midiendo cómo te comparas con tu ciudad</string>
+    <!-- Etiqueta bajo el héroe, junto a la insignia Top X%. -->
+    <string name="comparar_hero_place_label">Tu lugar esta semana</string>
+    <!-- Nota cuando el chofer solo maneja una app. %1$s = plataforma. -->
+    <string name="comparar_single_note">Solo manejas %1$s — «Tú» es tu %1$s. Igual te comparamos con el promedio de cada app.</string>
+    <!-- Encabezados de la tabla. -->
+    <string name="comparar_col_metric">Métrica</string>
+    <string name="comparar_col_tu">Tú</string>
+    <string name="comparar_col_place">Tu lugar</string>
+    <!-- Marca de "menos es mejor" en la fila de comisión. -->
+    <string name="comparar_lower_better">↓ menos es mejor</string>
+    <!-- Leyenda que decodifica las columnas. -->
+    <string name="comparar_legend">Tú = tu mezcla de apps · promedio = el chofer típico de tu ciudad · tu lugar = tu percentil. «—» = la app no reporta.</string>
+    <!-- Sección de oportunidades. -->
+    <string name="comparar_opps_title">Dónde puedes ganar más</string>
+    <!-- Enlace cruzado hacia Inicio (datos individuales). -->
+    <string name="comparar_xlink_inicio">Tus ganancias y tus mejores momentos</string>
+    <string name="comparar_xlink_inicio_cta">Inicio ›</string>
+    <!-- Nota de función diferida (por día y por hora). -->
+    <string name="comparar_soon_day_hour">Pronto: cómo te comparas por día y por hora</string>
+    <!-- Etiquetas de métricas de la tabla. -->
+    <string name="comparar_metric_net">Ganancia neta</string>
+    <string name="comparar_metric_iph">IPH</string>
+    <string name="comparar_metric_ipk">IPK</string>
+    <string name="comparar_metric_ipt">IPT</string>
+    <string name="comparar_metric_tph">Viajes/hora</string>
+    <string name="comparar_metric_take">Take rate</string>
+
     <!-- ============================================================= -->
     <!-- Invita y gana — programa de referidos y partners (B-056)      -->
     <!-- ============================================================= -->

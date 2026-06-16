@@ -77,7 +77,13 @@ const METRIC_COLUMNS = {
   earnings_per_hour: weeklyAggregates.earningsPerHour,
   trips_per_hour: weeklyAggregates.tripsPerHour,
   platform_commission_pct: weeklyAggregates.platformCommissionPct,
+  // Weekly net earnings total — gives the Comparar "Ganancia neta" row a real
+  // population once enough weeks accrue (B-085).
+  net_earnings: weeklyAggregates.netEarnings,
 } as const;
+
+/** Combined cross-platform population bucket (mirrors the seed's "all"). */
+export const ALL_PLATFORM = "all";
 
 type MetricName = keyof typeof METRIC_COLUMNS;
 
@@ -164,9 +170,13 @@ function normalizeCity(city: string | null): string | null {
  * normalized city so the caller can bucket it.
  */
 interface DriverWeek {
+  driverId: string;
+  weekStart: string;
   city: string | null;
   platform: string;
   values: Partial<Record<MetricName, number>>;
+  /** Raw totals, kept so a driver's platforms can be blended into one "all" value. */
+  raw: { net: number | null; trips: number | null; km: number | null; hours: number | null };
 }
 
 /**
@@ -199,6 +209,11 @@ export async function foldPopulationStats(
       earningsPerHour: weeklyAggregates.earningsPerHour,
       tripsPerHour: weeklyAggregates.tripsPerHour,
       platformCommissionPct: weeklyAggregates.platformCommissionPct,
+      netEarnings: weeklyAggregates.netEarnings,
+      // Raw totals needed to blend a driver's cross-platform "all" value.
+      totalTrips: weeklyAggregates.totalTrips,
+      totalKm: weeklyAggregates.totalKm,
+      hoursOnline: weeklyAggregates.hoursOnline,
     })
     .from(weeklyAggregates)
     .innerJoin(drivers, eq(weeklyAggregates.driverId, drivers.id))
@@ -218,6 +233,7 @@ export async function foldPopulationStats(
       earnings_per_hour: r.earningsPerHour,
       trips_per_hour: r.tripsPerHour,
       platform_commission_pct: r.platformCommissionPct,
+      net_earnings: r.netEarnings,
     };
     for (const m of METRIC_NAMES) {
       const v = colVals[m];
@@ -226,9 +242,71 @@ export async function foldPopulationStats(
         if (Number.isFinite(num)) values[m] = num;
       }
     }
+    const numOrNull = (v: string | number | null): number | null => {
+      if (v === null) return null;
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
+    };
     driverWeeks.set(key, {
       source: r.source,
-      dw: { city: normalizeCity(r.city), platform: r.platform, values },
+      dw: {
+        driverId: r.driverId,
+        weekStart: String(r.weekStart),
+        city: normalizeCity(r.city),
+        platform: r.platform,
+        values,
+        raw: {
+          net: numOrNull(r.netEarnings),
+          trips: numOrNull(r.totalTrips),
+          km: numOrNull(r.totalKm),
+          hours: numOrNull(r.hoursOnline),
+        },
+      },
+    });
+  }
+
+  // Blend each driver's platforms into one cross-platform "all" driver-week, so a
+  // driver's combined value ranks against the whole population — not one app's.
+  // Sum the raw totals (net/trips/km/hours), recompute the rates, and emit one
+  // synthetic "all" driver-week per (driver, week). Commission isn't blended
+  // (no meaningful cross-platform commission), so "all" carries no commission.
+  const allDriverWeeks: DriverWeek[] = [];
+  const byDriverWeek = new Map<string, DriverWeek[]>();
+  for (const { dw } of driverWeeks.values()) {
+    const k = `${dw.driverId}|${dw.weekStart}`;
+    const arr = byDriverWeek.get(k);
+    if (arr) arr.push(dw);
+    else byDriverWeek.set(k, [dw]);
+  }
+  for (const group of byDriverWeek.values()) {
+    let net = 0;
+    let trips = 0;
+    let km = 0;
+    // Hours on the captured path are platform-agnostic and replicated on every
+    // platform-row, so we take the MAX (the period's true online hours) — summing
+    // would multiply by the number of apps and push the `all` $/hour benchmark too
+    // low. Mirrors PeriodStats.fromWeekly's max-hours rule on the Android side.
+    let hours = 0;
+    for (const dw of group) {
+      net += dw.raw.net ?? 0;
+      trips += dw.raw.trips ?? 0;
+      km += dw.raw.km ?? 0;
+      hours = Math.max(hours, dw.raw.hours ?? 0);
+    }
+    const v: Partial<Record<MetricName, number>> = { net_earnings: net };
+    if (trips > 0) v.earnings_per_trip = net / trips;
+    if (km > 0) v.earnings_per_km = net / km;
+    if (hours > 0) {
+      v.earnings_per_hour = net / hours;
+      v.trips_per_hour = trips / hours;
+    }
+    allDriverWeeks.push({
+      driverId: group[0]!.driverId,
+      weekStart: group[0]!.weekStart,
+      city: group[0]!.city,
+      platform: ALL_PLATFORM,
+      values: v,
+      raw: { net, trips, km, hours },
     });
   }
 
@@ -244,7 +322,11 @@ export async function foldPopulationStats(
     else buckets.set(k, [value]);
   };
 
-  for (const { dw } of driverWeeks.values()) {
+  const everyDriverWeek = [
+    ...Array.from(driverWeeks.values(), (e) => e.dw),
+    ...allDriverWeeks, // the blended cross-platform "all" weeks
+  ];
+  for (const dw of everyDriverWeek) {
     for (const m of METRIC_NAMES) {
       const v = dw.values[m];
       if (v === undefined) continue;

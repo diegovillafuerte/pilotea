@@ -162,6 +162,14 @@ private fun NavGraphBuilder.tabScreens(navController: NavController) {
                     restoreState = true
                 }
             },
+            onShare = { navController.navigate(KomparaDestination.SHARE_CARD_ROUTE) },
+            onOpenInicio = {
+                navController.navigate(KomparaDestination.INICIO.route) {
+                    popUpTo(KomparaDestination.START.route) { saveState = true }
+                    launchSingleTop = true
+                    restoreState = true
+                }
+            },
         )
     }
     composable(KomparaDestination.LECTOR.route) {

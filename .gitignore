@@ -65,3 +65,6 @@ pming/.workers.merge-lock/
 pming/.telemetry.jsonl
 .playwright-mcp/
 .claude/worktrees/
+
+# Scratch/working captures (may contain raw OCR with PII — never commit; see codex review)
+.session-captures/

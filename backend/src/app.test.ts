@@ -42,8 +42,8 @@ describe("GET /v1/benchmarks", () => {
     const res = await app.request("/v1/benchmarks?city=cdmx&platform=uber");
     expect(res.status).toBe(200);
     const body = (await res.json()) as { stats: unknown[] };
-    // 5 efficiency metrics seeded per city/platform/period
-    expect(body.stats.length).toBe(5);
+    // 6 metrics seeded per city/platform/period (5 efficiency + net_earnings — B-085)
+    expect(body.stats.length).toBe(6);
   });
 
   it("400s when required query params are missing", async () => {

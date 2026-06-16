@@ -39,6 +39,22 @@ object MetricPercentiles {
         "trips_per_hour" to stats.tripsPerHour,
     )
 
+    /**
+     * The Comparar tab's metric values (S-024): the 4 efficiency rates PLUS weekly net earnings,
+     * ranked against the combined `all` population (B-085). Commission is passed through when an
+     * imported week supplies it (null on the captured path → skipped by the repository). Insertion
+     * order matches [COMPARE_METRICS].
+     */
+    fun comparisonMetricValues(stats: PeriodStats, commissionPct: Double? = null): Map<String, Double?> =
+        linkedMapOf(
+            "net_earnings" to stats.netEarningsMxn,
+            "earnings_per_hour" to stats.earningsPerHour,
+            "earnings_per_km" to stats.earningsPerKm,
+            "earnings_per_trip" to stats.earningsPerTrip,
+            "trips_per_hour" to stats.tripsPerHour,
+            "platform_commission_pct" to commissionPct,
+        )
+
     /** Index [results] by metric key for O(1) per-card lookup. */
     fun byMetric(results: List<PercentileResult>): Map<String, PercentileResult> =
         results.associateBy { it.metric }
