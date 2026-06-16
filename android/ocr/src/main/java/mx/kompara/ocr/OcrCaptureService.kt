@@ -33,6 +33,7 @@ import mx.kompara.capture.OfferEvent
 import mx.kompara.capture.OfferEventBus
 import mx.kompara.capture.lifecycle.OcrLifecycleBus
 import mx.kompara.data.service.ScreenReaderState
+import mx.kompara.data.service.ScreenRect
 import java.io.File
 
 /**
@@ -54,6 +55,10 @@ class OcrCaptureService : Service() {
     private val didiParser = DidiOcrParser()
     private val uberParser = UberOcrParser()
     private val presence = CardPresenceTracker()
+    // Smooths the OCR fare across frames of one offer so a single garbled frame (MXN137.28→37.28)
+    // can't flip the chip's number/colour. Feeds ONLY the overlay chip; the B-039 ledger gets the raw
+    // card (see the ledger feed below) so a stabilized value can't spawn a duplicate trip record.
+    private val fareStabilizer = FareStabilizer()
     // B-039 OCR ledger: classifies each frame into offer/trip/idle lifecycle signals (transition-
     // deduped) for the trip tracker, since OCR-captured offers never reach the node-path ledger.
     private val lifecycleClassifier = OcrLifecycleClassifier()
@@ -84,7 +89,10 @@ class OcrCaptureService : Service() {
     // brief parse+emit, and teardown's runBlocking can't stall the lifecycle callback for long.
     private val stateMutex = Mutex()
 
-    private data class CapturedFrame(val generation: Int, val bitmap: Bitmap)
+    // chipRect is snapshotted at CAPTURE time so the mask matches THESE pixels: OCR is async, and a
+    // drag/attach/detach between capture and parse would otherwise misalign the live rect with the
+    // frame (leak the old chip block, or blank host text at the new spot). See [ChipMask].
+    private data class CapturedFrame(val generation: Int, val bitmap: Bitmap, val chipRect: ScreenRect?)
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -180,7 +188,7 @@ class OcrCaptureService : Service() {
                 lastOcrAt = now
                 // Hand off to the sequential consumer, tagged with this session's generation; CONFLATED
                 // replaces any unprocessed frame. Recycle if the channel is closed (teardown race).
-                val frame = CapturedFrame(generation, image.toBitmap(width, height))
+                val frame = CapturedFrame(generation, image.toBitmap(width, height), ScreenReaderState.overlayChipRect)
                 if (frameChannel.trySend(frame).isFailure) frame.bitmap.recycle()
             } finally {
                 image.close()
@@ -208,11 +216,18 @@ class OcrCaptureService : Service() {
         // session was closed and reset. The generation check is INSIDE the lock, so it can't race the
         // bump in teardown.
         stateMutex.withLock {
-            if (frame.generation == captureGeneration) processFrame(blocks)
+            if (frame.generation == captureGeneration) processFrame(blocks, frame.chipRect)
         }
     }
 
-    private fun processFrame(blocks: List<OcrBlock>) {
+    private fun processFrame(rawBlocks: List<OcrBlock>, chipRect: ScreenRect?) {
+        // Strip our own chip's text FIRST: MediaProjection captures the whole screen including the
+        // floating verdict chip, and its "MXN…"/"$…" amount otherwise gets parsed as the offer fare —
+        // the self-capture loop that collapsed the live verdict to $0. [chipRect] is the rect
+        // snapshotted when THIS frame was captured (a null rect = chip hidden ⇒ no-op). The chip is
+        // positioned/drag-constrained above the fare, so its rect covers only the header/map and this
+        // never drops the fare or legs.
+        val blocks = ChipMask.maskOwnChip(rawBlocks, chipRect)
         val joined = blocks.joinToString(" | ") { it.text }
         // Raw OCR text is screen content — log in debug builds only (Play data-safety posture);
         // release logcat must never expose it.
@@ -236,22 +251,25 @@ class OcrCaptureService : Service() {
         // Monotonic clock for presence math (a wall-clock jump must not hide a live card or pin a
         // stale one); wall clock only for event timestamps and fixture filenames.
         val now = SystemClock.elapsedRealtime()
-        if (card != null) {
+        // Replace the raw parsed fare with the stabilized one so a one-frame OCR garble can't flip
+        // the verdict. Keyed on the trip leg (stable), not the fare. Null when no card this frame.
+        val shownCard = card?.let { fareStabilizer.onParsed(it, System.currentTimeMillis()) }
+        if (shownCard != null) {
             presence.onParsed(now)
             // Re-assert on EVERY successful parse, not only on a new offer: a Parsed on the bus
             // cancels any in-flight hide, so a stray NoCard from any other source can blank the
             // chip for at most one OCR frame (~300 ms). Downstream distinctUntilChanged collapses
             // identical verdicts, so steady re-assertion causes no re-render churn.
             OfferEventBus.tryEmit(
-                OfferEvent.Parsed(card.platform, System.currentTimeMillis(), card),
+                OfferEvent.Parsed(shownCard.platform, System.currentTimeMillis(), shownCard),
             )
-            lastOfferPackage = card.platform
-            val key = "${card.platform}_${card.fare}_${card.pickupDistanceKm}_${card.tripDistanceKm}"
+            lastOfferPackage = shownCard.platform
+            val key = "${shownCard.platform}_${shownCard.fare}_${shownCard.pickupDistanceKm}_${shownCard.tripDistanceKm}"
             if (key != lastOfferKey) {
                 lastOfferKey = key
                 // Fare/distance are screen-derived — debug-only log (see processFrame's note).
                 if (BuildConfig.DEBUG) {
-                    Log.d(TAG, "emitted ${card.platform} offer: fare=${card.fare} pickup=${card.pickupDistanceKm}km trip=${card.tripDistanceKm}km")
+                    Log.d(TAG, "emitted ${shownCard.platform} offer: fare=${shownCard.fare} pickup=${shownCard.pickupDistanceKm}km trip=${shownCard.tripDistanceKm}km")
                 }
             }
         } else if (lastOfferKey != null) {
@@ -260,6 +278,7 @@ class OcrCaptureService : Service() {
                 val gonePackage = lastOfferPackage ?: DidiOcrParser.DIDI_PACKAGE
                 lastOfferKey = null
                 lastOfferPackage = null
+                fareStabilizer.reset() // card truly gone → forget the session so the next offer paints fresh
                 OfferEventBus.tryEmit(
                     OfferEvent.NoCard(
                         gonePackage,
@@ -285,6 +304,8 @@ class OcrCaptureService : Service() {
         if (!ownUi && hostPackage != null) {
             // presence.isPresent() is the DEBOUNCED "card on screen" state (held through garble),
             // so the offer session doesn't split on a single OCR dropout — same policy as the chip.
+            // The ledger gets the RAW card (unchanged from before this fix) — fare-stabilization is a
+            // chip-display concern; the B-039 ledger's own fare handling is out of scope here.
             lifecycleClassifier.onFrame(joined, card, presence.isPresent(), hostPackage, System.currentTimeMillis())
                 ?.let { OcrLifecycleBus.tryEmit(it) }
         }
@@ -403,6 +424,7 @@ class OcrCaptureService : Service() {
                 lifecycleClassifier.onCaptureEnd(System.currentTimeMillis())
                     ?.let { OcrLifecycleBus.tryEmit(it) }
                 presence.reset()
+                fareStabilizer.reset()
             }
         }
     }

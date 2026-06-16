@@ -67,4 +67,31 @@ object ScreenReaderState {
      */
     fun freshForegroundHost(nowMs: Long, freshnessMs: Long): String? =
         foregroundHostPackage?.takeIf { nowMs - foregroundHostSeenAtMs < freshnessMs }
+
+    // The overlay verdict chip's current on-screen rect in display pixels (top-left origin), or null
+    // when the chip is hidden. :overlay's OverlayController publishes it on attach/drag; :ocr's
+    // capture service reads it to MASK the chip's own pixels out of the OCR frame. MediaProjection
+    // mirrors the WHOLE screen including our chip, so without this the chip's own "MXN…"/"$…" text is
+    // OCR'd and misparsed as the offer fare — a self-capture feedback loop that collapsed the live
+    // verdict to $0. Lives here (not in :overlay) because :ocr can't depend on :overlay and this
+    // object is already the overlay↔capture bridge.
+    @Volatile
+    var overlayChipRect: ScreenRect? = null
+        private set
+
+    /** Publish the chip's current display-pixel rect (called by the overlay on attach/layout/drag). */
+    fun setOverlayChipRect(rect: ScreenRect) {
+        overlayChipRect = rect
+    }
+
+    /** The chip is hidden/detached — stop masking its (now-absent) region. */
+    fun clearOverlayChipRect() {
+        overlayChipRect = null
+    }
 }
+
+/**
+ * A rectangle in display pixels (top-left origin). Bridges the overlay chip's on-screen bounds from
+ * :overlay to :ocr without either touching android.graphics.Rect, so the masking logic stays pure.
+ */
+data class ScreenRect(val left: Int, val top: Int, val right: Int, val bottom: Int)

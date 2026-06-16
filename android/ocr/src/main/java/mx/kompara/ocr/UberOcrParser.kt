@@ -1,6 +1,7 @@
 package mx.kompara.ocr
 
 import mx.kompara.parsers.model.OfferCard
+import mx.kompara.parsers.model.OfferContentBounds
 
 /**
  * Parses an Uber Driver (MX) trip-offer card from OCR text blocks.
@@ -47,7 +48,7 @@ class UberOcrParser {
         Regex("""Viaje\s*:?\s*([0-9OlI]+)\s*min\s*\(\s*([0-9OlI][0-9OlI.,]*)\s*km""", RegexOption.IGNORE_CASE)
 
     fun parse(blocks: List<OcrBlock>): OfferCard? {
-        val fare = extractFare(blocks) ?: return null
+        val fareHit = extractFare(blocks) ?: return null
         val trip = extractTripLeg(blocks) ?: return null
         val pickup = extractPickupLeg(blocks)
 
@@ -67,14 +68,15 @@ class UberOcrParser {
         return OfferCard(
             platform = UBER_PACKAGE,
             variant = variant,
-            fare = fare,
+            fare = fareHit.value,
             pickupDistanceKm = pickup?.km,
             pickupEtaMin = pickup?.min,
             tripDistanceKm = trip.km,
             tripDurationMin = trip.min,
             surge = surge,
             paymentType = null,
-            raw = mapOf("fare" to "%.2f".format(fare)),
+            raw = mapOf("fare" to "%.2f".format(fareHit.value)),
+            contentBounds = unionBounds(fareHit.bounds, trip.bounds, pickup?.bounds),
         )
     }
 
@@ -85,14 +87,13 @@ class UberOcrParser {
      * means "card still up, frame garbled", not "card gone". The searching/idle screen ("+MXN 10",
      * "1-2 min") fails this — its only currency is a "+" bonus and it has no leg line.
      */
-    fun hasCardSignature(blocks: List<OcrBlock>): Boolean {
-        val hasFare = extractFare(blocks) != null
-        val hasLeg = blocks.any { legRegex.containsMatchIn(it.text) }
-        return hasFare && hasLeg
-    }
+    fun hasCardSignature(blocks: List<OcrBlock>): Boolean =
+        extractFare(blocks) != null && blocks.any { legRegex.containsMatchIn(it.text) }
 
-    /** The real fare: the largest non-bonus "MXN" amount. Bonus lines are excluded twice over. */
-    private fun extractFare(blocks: List<OcrBlock>): Double? =
+    private data class FareHit(val value: Double, val bounds: OcrBounds)
+
+    /** The real fare (largest non-bonus "MXN" amount) and the block it was read from. */
+    private fun extractFare(blocks: List<OcrBlock>): FareHit? =
         blocks
             .asSequence()
             .filterNot {
@@ -100,16 +101,19 @@ class UberOcrParser {
                     it.text.contains("por inicio", ignoreCase = true)
             }
             .mapNotNull { b ->
-                fareRegex.find(b.text)?.groupValues?.get(1)?.let { cleanNumber(it).toDoubleOrNull() }
+                fareRegex.find(b.text)?.groupValues?.get(1)
+                    ?.let { cleanNumber(it).toDoubleOrNull() }
+                    ?.let { FareHit(it, b.bounds) }
             }
-            .maxOrNull()
+            .maxByOrNull { it.value }
 
-    private data class Leg(val min: Double, val km: Double)
+    private data class Leg(val min: Double, val km: Double, val bounds: OcrBounds?)
 
-    /** Per-block first (precise), then a joined-text fallback in case OCR split the line. */
+    /** Per-block first (precise, keeps the block's bounds); joined-text fallback has no single block. */
     private fun extractTripLeg(blocks: List<OcrBlock>): Leg? {
-        blocks.firstNotNullOfOrNull { tripLegRegex.find(it.text)?.let(::toLeg) }?.let { return it }
-        return tripLegRegex.find(blocks.joinToString(" ") { it.text })?.let(::toLeg)
+        blocks.firstNotNullOfOrNull { b -> tripLegRegex.find(b.text)?.let { toLeg(it, b.bounds) } }
+            ?.let { return it }
+        return tripLegRegex.find(blocks.joinToString(" ") { it.text })?.let { toLeg(it, null) }
     }
 
     /** The pickup leg is the one leg line that is NOT the labeled trip leg. */
@@ -117,12 +121,25 @@ class UberOcrParser {
         blocks
             .asSequence()
             .filterNot { it.text.contains("Viaje", ignoreCase = true) }
-            .firstNotNullOfOrNull { legRegex.find(it.text)?.let(::toLeg) }
+            .firstNotNullOfOrNull { b -> legRegex.find(b.text)?.let { toLeg(it, b.bounds) } }
 
-    private fun toLeg(m: MatchResult): Leg? {
+    private fun toLeg(m: MatchResult, bounds: OcrBounds?): Leg? {
         val min = cleanMinutes(m.groupValues[1]) ?: return null
         val km = cleanNumber(m.groupValues[2]).toDoubleOrNull() ?: return null
-        return Leg(min = min, km = km)
+        return Leg(min = min, km = km, bounds = bounds)
+    }
+
+    /** Union the fare + leg block bounds into the offer-content rect the overlay keeps the chip off;
+     *  null when no block bounds were available (e.g. only a joined-text leg matched). */
+    private fun unionBounds(vararg parts: OcrBounds?): OfferContentBounds? {
+        val present = parts.filterNotNull()
+        if (present.isEmpty()) return null
+        return OfferContentBounds(
+            left = present.minOf { it.left },
+            top = present.minOf { it.top },
+            right = present.maxOf { it.right },
+            bottom = present.maxOf { it.bottom },
+        )
     }
 
     /**

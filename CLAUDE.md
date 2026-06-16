@@ -152,4 +152,5 @@ Track tech debt in `techdebt.md`. Whenever you make a conscious decision to defe
 | Web-era system design (reference) | `docs/technical-design.md` |
 | Business context | `docs/project-context.md` |
 | Tech debt tracking | `techdebt.md` |
+| Debugging lessons & playbook | `docs/debugging-lessons.md` |
 | PM system quick reference | `pming/skills.md` |

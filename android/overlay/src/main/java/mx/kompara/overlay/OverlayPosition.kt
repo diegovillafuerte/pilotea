@@ -10,6 +10,12 @@ package mx.kompara.overlay
 data class OverlayPosition(val x: Int, val y: Int)
 
 /**
+ * The offer's fare + leg block region (screen px, top-left origin) the chip must not cover. Sourced
+ * from the OCR parser's `OfferCard.contentBounds`; null when bounds are unavailable (node path).
+ */
+data class ContentRect(val left: Int, val top: Int, val right: Int, val bottom: Int)
+
+/**
  * Which horizontal edge the chip snaps to after a drag. The chip always lives flush against one
  * side (drivers flick it out of the way of the map), so a drag resolves to LEFT or RIGHT by which
  * half of the screen the chip's centre ended up in.
@@ -112,4 +118,42 @@ object OverlayPositioning {
         chipWidth = chipWidth,
         chipHeight = chipHeight,
     )
+
+    /** Gap (px) kept between the lifted chip and the offer content it dodges. */
+    const val GAP_PX: Int = 8
+
+    /**
+     * Keep the chip off the offer's fare/leg [content]. Returns [desired] unchanged only when there
+     * is no content or the chip sits ENTIRELY ABOVE the content's top edge — the clean top-right slot
+     * and any drag the driver left up there. Otherwise (the chip overlaps the fare/legs, OR is parked
+     * in the card body below the fare) it is lifted to just above the content, keeping the driver's x.
+     *
+     * ## Why above is the only safe region (on-device, 2026-06-15)
+     * The chip held steady when it sat above the fare but blinked whenever it sat below it. Below the
+     * fare you are still inside the tall offer card (rating, pickup leg, address, trip leg, Aceptar);
+     * the opaque chip then occludes a leg the screen-capture OCR must re-read every frame, the parser
+     * (which requires the trip leg) fails, and the verdict drops out — the flicker. Above the fare is
+     * clear map / card header, where nothing the parser needs is ever covered. So there is no BELOW
+     * fallback: a "below" slot is never clear on a full-height card.
+     *
+     * Only the vertical position is nudged (x, the driver's chosen side, is kept) and the result is
+     * clamped to the safe area. If the fare sits so high that the chip can't clear it above the top
+     * inset (never seen on a real card — the fare renders well down the screen), [clamp] docks it at
+     * the top inset: the least-bad slot, still mostly above the fare, and the chip is never hidden.
+     * Pure.
+     */
+    fun avoid(
+        desired: OverlayPosition,
+        content: ContentRect?,
+        screenWidth: Int,
+        screenHeight: Int,
+        chipWidth: Int,
+        chipHeight: Int,
+    ): OverlayPosition {
+        if (content == null || desired.y + chipHeight <= content.top) return desired
+        return clamp(
+            OverlayPosition(desired.x, content.top - chipHeight - GAP_PX),
+            screenWidth, screenHeight, chipWidth, chipHeight,
+        )
+    }
 }

@@ -1,6 +1,7 @@
 package mx.kompara.ocr
 
 import mx.kompara.parsers.model.OfferCard
+import mx.kompara.parsers.model.OfferContentBounds
 
 /**
  * Parses a DiDi Conductor (MX) offer card from OCR text blocks. DiDi renders its UI on a Flutter
@@ -30,7 +31,7 @@ class DidiOcrParser {
     private val surgeRegex = Regex("""[0-9]+(?:\.[0-9]+)?\s*x\b""", RegexOption.IGNORE_CASE)
 
     fun parse(blocks: List<OcrBlock>): OfferCard? {
-        val fare = extractFare(blocks) ?: return null
+        val fareHit = extractFare(blocks) ?: return null
         val legs = extractLegs(blocks)
         if (legs.size < 2) return null
         val (pickup, trip) = legs[0] to legs[1]
@@ -49,14 +50,15 @@ class DidiOcrParser {
         return OfferCard(
             platform = DIDI_PACKAGE,
             variant = if (bid) "bid" else if (surge) "surge" else null,
-            fare = fare,
+            fare = fareHit.value,
             pickupDistanceKm = pickup.km,
             pickupEtaMin = pickup.min,
             tripDistanceKm = trip.km,
             tripDurationMin = trip.min,
             surge = surge,
             paymentType = payment,
-            raw = mapOf("fare" to "%.2f".format(fare)),
+            raw = mapOf("fare" to "%.2f".format(fareHit.value)),
+            contentBounds = unionBounds(fareHit.bounds, pickup.bounds, trip.bounds),
         )
     }
 
@@ -72,12 +74,14 @@ class DidiOcrParser {
         return fareRegex.containsMatchIn(text) && legRegex.containsMatchIn(text)
     }
 
-    private fun extractFare(blocks: List<OcrBlock>): Double? {
+    private data class FareHit(val value: Double, val bounds: OcrBounds)
+
+    private fun extractFare(blocks: List<OcrBlock>): FareHit? {
         // Most reliable: the amount on the "Aceptar $X" button echoes the current price — and on the
         // "Pon Tu Precio" bid card it disambiguates the real fare from the higher bid options.
         for (b in blocks) {
             acceptRegex.find(b.text)?.let { m ->
-                m.groupValues[1].replace(",", "").toDoubleOrNull()?.let { return it }
+                m.groupValues[1].replace(",", "").toDoubleOrNull()?.let { return FareHit(it, b.bounds) }
             }
         }
         // Fallback: the fare is rendered far taller than any other currency text; tallest wins.
@@ -85,14 +89,14 @@ class DidiOcrParser {
             .mapNotNull { b ->
                 fareRegex.find(b.text)?.let { m ->
                     m.groupValues[1].replace(",", "").toDoubleOrNull()
-                        ?.let { it to (b.bounds.bottom - b.bounds.top) }
+                        ?.let { FareHit(it, b.bounds) to (b.bounds.bottom - b.bounds.top) }
                 }
             }
             .maxByOrNull { it.second }
             ?.first
     }
 
-    private data class Leg(val min: Double, val km: Double, val top: Int)
+    private data class Leg(val min: Double, val km: Double, val bounds: OcrBounds)
 
     private fun extractLegs(blocks: List<OcrBlock>): List<Leg> =
         blocks
@@ -105,10 +109,22 @@ class DidiOcrParser {
                         m.groupValues[3].equals("m", ignoreCase = true) -> value / 1000.0
                         else -> value
                     }
-                    if (min == null || km == null) null else Leg(min, km, b.bounds.top)
+                    if (min == null || km == null) null else Leg(min, km, b.bounds)
                 }
             }
-            .sortedBy { it.top }
+            .sortedBy { it.bounds.top }
+
+    /** Union the fare + leg block bounds into the offer-content rect the overlay keeps the chip off. */
+    private fun unionBounds(vararg parts: OcrBounds?): OfferContentBounds? {
+        val present = parts.filterNotNull()
+        if (present.isEmpty()) return null
+        return OfferContentBounds(
+            left = present.minOf { it.left },
+            top = present.minOf { it.top },
+            right = present.maxOf { it.right },
+            bottom = present.maxOf { it.bottom },
+        )
+    }
 
     companion object {
         const val DIDI_PACKAGE = "com.didiglobal.driver"

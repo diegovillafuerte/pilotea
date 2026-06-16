@@ -33,4 +33,20 @@ data class OfferCard(
      * normalization) text. Useful for debugging spec regressions in the fixture harness.
      */
     val raw: Map<String, String> = emptyMap(),
+    /**
+     * Screen-pixel union (top-left origin) of the offer's fare + leg blocks, when the card was read
+     * via OCR — otherwise null (node-path / simulator cards, or a frame whose blocks had no bounds).
+     * The overlay uses it to keep the chip from covering the fare: a chip parked over the fare
+     * occludes it from the MediaProjection screen-capture, breaking the read and making the chip
+     * blink. Same full-display pixel space as the OCR capture, so it maps 1:1 onto the chip's window.
+     */
+    val contentBounds: OfferContentBounds? = null,
 )
+
+/**
+ * A screen-pixel rectangle (top-left origin). Plain ints mirroring the OCR block bounds, so
+ * `:parsers` needs no `android.graphics` type or `:ocr` dependency. Serializable so fixtures can pin
+ * it.
+ */
+@Serializable
+data class OfferContentBounds(val left: Int, val top: Int, val right: Int, val bottom: Int)

@@ -26,6 +26,7 @@ import kotlinx.coroutines.withContext
 import mx.kompara.capture.OfferEvent
 import mx.kompara.capture.OverlayPresenter
 import mx.kompara.data.service.ScreenReaderState
+import mx.kompara.data.service.ScreenRect
 import mx.kompara.data.settings.PlatformThreshold
 import mx.kompara.data.settings.PreferredMetric
 import mx.kompara.data.settings.SettingsRepository
@@ -90,6 +91,27 @@ class OverlayController @Inject constructor(
     private var chipHeightPx: Int = DEFAULT_CHIP_HEIGHT_PX
 
     /**
+     * The current offer's fare/leg region the chip must not cover (from `OfferCard.contentBounds`),
+     * captured in [evaluate] and read once per show-session in [startPosition] so the chip is lifted
+     * off the fare when the driver has parked it there — the fix for the OCR-occlusion blink. Null
+     * when bounds are unavailable (node path) → positioning is unchanged. @Volatile: written on the
+     * offer flow, read on the main thread at attach.
+     */
+    @Volatile private var currentContentRect: ContentRect? = null
+
+    /**
+     * Vertical offset (px) between the overlay window's `params.y` and the chip's ACTUAL on-screen y
+     * (= the status-bar inset: the window is laid out below the status bar, but the OCR capture is
+     * full-screen with y=0 at the physical top). So `screenY = params.y + chipScreenOffsetY`. The
+     * fare's [currentContentRect] is in capture/screen space, so the positioning math must convert it
+     * into params space (subtract this) before constraining `params.y`; without it the chip is pinned
+     * `chipScreenOffsetY` px too low and lands on the fare when dragged down (on-device 2026-06-15).
+     * Seeded from the status-bar height (correct before first layout), then refined from a settled
+     * getLocationOnScreen. @Volatile: written on layout/drag (main), read on the offer flow.
+     */
+    @Volatile private var chipScreenOffsetY = 0
+
+    /**
      * Begin driving the overlay from [events]. Collected on [scope] (the service's scope). Each
      * `Parsed` evaluates the offer and shows the chip; `NoCard` hides it after a short grace.
      */
@@ -100,6 +122,10 @@ class OverlayController @Inject constructor(
         foregroundOcrOwnedApp: Flow<Boolean>,
     ) {
         this.overlayContext = overlayContext
+        // Seed the params↔screen offset from the status-bar height so the very first attach (e.g. a
+        // persisted low position) already converts the fare rect correctly, before any layout pass
+        // can refine it from getLocationOnScreen.
+        chipScreenOffsetY = statusBarHeightPx(overlayContext)
         scope.launch {
             // Prime the snapshots BEFORE arming the offer pipeline, then keep them warm for the
             // service's lifetime. evaluate() is synchronous and runs before render()'s refresh,
@@ -138,6 +164,10 @@ class OverlayController @Inject constructor(
 
     /** Evaluate a parsed offer into full metrics, applying the driver's cost profile + threshold. */
     private fun evaluate(event: OfferEvent.Parsed): OfferMetrics {
+        // Remember where the offer's fare/legs sit so attach() can lift the chip off them.
+        currentContentRect = event.card.contentBounds?.let {
+            ContentRect(it.left, it.top, it.right, it.bottom)
+        }
         val tripOffer = OfferMapping.toTripOffer(event.card)
         val costProfile: CostProfile = CostProfileMapper.toCostProfileOrZero(costProfileSnapshot)
         currentThreshold = thresholdSnapshot()
@@ -207,13 +237,63 @@ class OverlayController @Inject constructor(
         // Never let an overlay attach failure crash the accessibility service process — that would
         // take the reader and fixture recording down with it. Log, reset, and let the next offer
         // retry. (The TYPE_ACCESSIBILITY_OVERLAY token comes from the service context set in start.)
-        runCatching { windowManager.addView(view, params) }.onFailure { error ->
-            android.util.Log.e("OverlayController", "overlay attach failed", error)
-            owner.onDestroy()
-            composeView = null
-            lifecycleOwner = null
-            layoutParams = null
+        runCatching { windowManager.addView(view, params) }
+            .onSuccess {
+                // Publish the chip's rect so :ocr masks it out of the capture (the $0 self-capture
+                // fix). The view isn't measured yet at addView, so republish once it lays out and on
+                // any later size change; drag handlers republish on move.
+                view.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> publishChipRect() }
+                publishChipRect()
+            }
+            .onFailure { error ->
+                android.util.Log.e("OverlayController", "overlay attach failed", error)
+                owner.onDestroy()
+                composeView = null
+                lifecycleOwner = null
+                layoutParams = null
+            }
+    }
+
+    /**
+     * Publish the chip's current SCREEN-space rect to [ScreenReaderState] so the OCR capture service
+     * masks the chip's own pixels out of each frame — without it the chip's "MXN…"/"$…" text is parsed
+     * as the offer fare (the $0 self-capture loop). The window's `params.y` is offset DOWN from the
+     * capture's full-screen origin by the status-bar inset, so the screen rect is `params + offset`
+     * ([chipScreenOffsetY]). We also refine that offset here from a SETTLED getLocationOnScreen
+     * (reliable post-layout; it reads transiently as 0 right after a move, which we ignore).
+     */
+    private fun publishChipRect() {
+        val params = layoutParams ?: return
+        val view = composeView ?: return
+        val w = view.width.takeIf { it > 0 } ?: chipWidthPx
+        val h = view.height.takeIf { it > 0 } ?: chipHeightPx
+        // Refine the offset from the actual on-screen location, but only a settled, sane reading (the
+        // value jumps to 0 for a frame right after updateViewLayout, before the window settles).
+        if (view.isLaidOut && view.width > 0) {
+            val loc = IntArray(2)
+            view.getLocationOnScreen(loc)
+            val measured = loc[1] - params.y
+            if (measured in 1..MAX_SANE_TOP_INSET_PX) chipScreenOffsetY = measured
         }
+        val top = params.y + chipScreenOffsetY
+        ScreenReaderState.setOverlayChipRect(ScreenRect(params.x, top, params.x + w, top + h))
+    }
+
+    /** Status-bar inset (px) — the params↔screen vertical offset, available before the first layout. */
+    private fun statusBarHeightPx(context: Context): Int {
+        val id = context.resources.getIdentifier("status_bar_height", "dimen", "android")
+        return if (id > 0) context.resources.getDimensionPixelSize(id) else 0
+    }
+
+    /**
+     * [currentContentRect] (the fare/leg region) is in capture/screen space, but the positioning math
+     * constrains `params.y`, which is offset down by [chipScreenOffsetY]. Convert the rect into params
+     * space so "keep the chip above the fare" actually keeps its ON-SCREEN footprint above the fare.
+     */
+    private fun contentRectInParamsSpace(): ContentRect? {
+        val c = currentContentRect ?: return null
+        val o = chipScreenOffsetY
+        return ContentRect(c.left, c.top - o, c.right, c.bottom - o)
     }
 
     /** Remove the overlay window if attached. Main-thread only. Idempotent. */
@@ -224,6 +304,7 @@ class OverlayController @Inject constructor(
         composeView = null
         lifecycleOwner = null
         layoutParams = null
+        ScreenReaderState.clearOverlayChipRect()
     }
 
     // ─── Reader-down banner (B-078) ──────────────────────────────────────────────────────────────
@@ -306,6 +387,7 @@ class OverlayController @Inject constructor(
         lifecycleOwner = null
         layoutParams = null
         chipState = null
+        ScreenReaderState.clearOverlayChipRect()
         bannerView?.let { runCatching { windowManager.removeView(it) } }
         bannerOwner?.onDestroy()
         bannerView = null
@@ -316,35 +398,40 @@ class OverlayController @Inject constructor(
     private fun onDrag(dxPx: Float, dyPx: Float) {
         val params = layoutParams ?: return
         val view = composeView ?: return
+        val sw = screenWidth()
+        val sh = screenHeight()
+        val w = view.width.takeIf { it > 0 } ?: chipWidthPx
+        val h = view.height.takeIf { it > 0 } ?: chipHeightPx
         val proposed = OverlayPosition(params.x + dxPx.toInt(), params.y + dyPx.toInt())
-        val clamped = OverlayPositioning.clamp(
-            proposed,
-            screenWidth = screenWidth(),
-            screenHeight = screenHeight(),
-            chipWidth = view.width.takeIf { it > 0 } ?: chipWidthPx,
-            chipHeight = view.height.takeIf { it > 0 } ?: chipHeightPx,
-        )
-        params.x = clamped.x
-        params.y = clamped.y
+        val clamped = OverlayPositioning.clamp(proposed, sw, sh, w, h)
+        // The chip only shows while an offer is on screen, so every drag happens over a live fare:
+        // pin it above the offer content even mid-drag so a downward drag can't park it back on the
+        // card and re-occlude the fare from the OCR (the flicker). No-op when there's no content rect.
+        val resolved = OverlayPositioning.avoid(clamped, contentRectInParamsSpace(), sw, sh, w, h)
+        params.x = resolved.x
+        params.y = resolved.y
         runCatching { windowManager.updateViewLayout(view, params) }
+        publishChipRect() // keep the OCR mask aligned with the chip as it moves
     }
 
     private suspend fun onDragEnd() {
         val params = layoutParams ?: return
         val view = composeView ?: return
-        val snapped = OverlayPositioning.snapToEdge(
-            OverlayPosition(params.x, params.y),
-            screenWidth = screenWidth(),
-            screenHeight = screenHeight(),
-            chipWidth = view.width.takeIf { it > 0 } ?: chipWidthPx,
-            chipHeight = view.height.takeIf { it > 0 } ?: chipHeightPx,
-        )
+        val sw = screenWidth()
+        val sh = screenHeight()
+        val w = view.width.takeIf { it > 0 } ?: chipWidthPx
+        val h = view.height.takeIf { it > 0 } ?: chipHeightPx
+        val snapped = OverlayPositioning.snapToEdge(OverlayPosition(params.x, params.y), sw, sh, w, h)
+        // Same guard on release: snap to the edge, then keep it above the fare before persisting, so
+        // the saved slot the next offer restores is never one that sits on the card.
+        val resolved = OverlayPositioning.avoid(snapped, contentRectInParamsSpace(), sw, sh, w, h)
         withContext(Dispatchers.Main) {
-            params.x = snapped.x
-            params.y = snapped.y
+            params.x = resolved.x
+            params.y = resolved.y
             runCatching { windowManager.updateViewLayout(view, params) }
+            publishChipRect() // re-align the OCR mask to the snapped resting position
         }
-        prefs.savePosition(snapped)
+        prefs.savePosition(resolved)
     }
 
     private suspend fun onThresholdChange(updated: PlatformThreshold) {
@@ -373,13 +460,22 @@ class OverlayController @Inject constructor(
         return params
     }
 
-    /** Restored position if the driver moved the chip, else the default top-right slot. */
+    /** Restored position if the driver moved the chip, else the default top-right slot — then nudged
+     *  off the offer's fare so the chip never occludes it from the screen-capture OCR (the blink). */
     private fun startPosition(): OverlayPosition {
         val saved = persistedPositionSnapshot
         val w = chipWidthPx
         val h = chipHeightPx
-        val base = saved ?: OverlayPositioning.defaultPosition(screenWidth(), screenHeight(), w, h)
-        return OverlayPositioning.clamp(base, screenWidth(), screenHeight(), w, h)
+        val base = OverlayPositioning.clamp(
+            saved ?: OverlayPositioning.defaultPosition(screenWidth(), screenHeight(), w, h),
+            screenWidth(), screenHeight(), w, h,
+        )
+        // avoid() is a no-op when bounds are absent or the chip already sits entirely above the fare,
+        // so the collision-free default slot and any high drag are preserved; it lifts the chip above
+        // the fare whenever it would otherwise overlap or sit in the card body below it (below blinks
+        // — the chip occludes a leg the OCR must re-read). Computed once per attach (idempotent) ⇒ no
+        // per-frame churn, and NOT persisted ⇒ a later above-the-fare offer keeps the driver's slot.
+        return OverlayPositioning.avoid(base, contentRectInParamsSpace(), screenWidth(), screenHeight(), w, h)
     }
 
     @Volatile private var persistedPositionSnapshot: OverlayPosition? = null
@@ -401,9 +497,15 @@ class OverlayController @Inject constructor(
         }
 
     companion object {
-        /** Fallback chip footprint (px) used for positioning before the view has measured. */
-        const val DEFAULT_CHIP_WIDTH_PX = 360
-        const val DEFAULT_CHIP_HEIGHT_PX = 280
+        // Fallback chip footprint (px) used for positioning before the view has measured. Slight
+        // OVER-estimates of the real measured chip (~530x340 with the brand strip, S25) so the
+        // pre-measure default stays on-screen and avoid()'s lift clears the fare even before layout.
+        const val DEFAULT_CHIP_WIDTH_PX = 540
+        const val DEFAULT_CHIP_HEIGHT_PX = 360
+
+        /** Upper bound (px) for a believable params↔screen offset (status bar / cutout), so a transient
+         *  getLocationOnScreen glitch can't poison [chipScreenOffsetY] with an absurd value. */
+        private const val MAX_SANE_TOP_INSET_PX = 400
 
         /** Reader-down banner offset below the top edge (dp) — clears the host's status/app bar. */
         private const val BANNER_TOP_OFFSET_DP = 56

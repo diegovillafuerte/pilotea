@@ -219,5 +219,33 @@ class UberOcrParserTest {
         assertEquals(0.8, card.tripDistanceKm!!, 0.001)
     }
 
+    @Test
+    fun `captures the fare and leg block union as contentBounds`() {
+        // Real fixture coordinates (ocr_1781569258770.json): fare top=785, legs lower; the union is
+        // what the overlay keeps the chip off so it never occludes the fare from the screen capture.
+        val frame = listOf(
+            block("MXN137.28", left = 103, top = 785, right = 769, bottom = 881),
+            block("A 5 min (1.0 km)", left = 192, top = 1339, right = 551, bottom = 1384),
+            block("Viaje: 51 min (13.0 km)", left = 216, top = 1537, right = 687, bottom = 1590),
+        )
+        val card = parser.parse(frame)!!
+        assertEquals(137.28, card.fare!!, 0.001)
+        val cb = card.contentBounds!!
+        assertEquals(103, cb.left)
+        assertEquals(785, cb.top)
+        assertEquals(769, cb.right)
+        assertEquals(1590, cb.bottom)
+    }
+
+    @Test
+    fun `contentBounds degrades to a degenerate rect when blocks carry no bounds`() {
+        // The value-only fixtures (zero-bounds blocks) still parse; the union is (0,0,0,0), which the
+        // overlay's avoid() treats as no-overlap, so positioning is unaffected.
+        val cb = parser.parse(exclusivo)!!.contentBounds
+        assertTrue(cb == null || (cb.right == 0 && cb.bottom == 0))
+    }
+
     private fun block(text: String) = OcrBlock(text, OcrBounds(0, 0, 0, 0))
+    private fun block(text: String, left: Int, top: Int, right: Int, bottom: Int) =
+        OcrBlock(text, OcrBounds(left, top, right, bottom))
 }

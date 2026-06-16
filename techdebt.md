@@ -2,6 +2,24 @@
 
 Conscious deferrals. Each entry: date, severity, context, why deferred, when to fix.
 
+## 2026-06-15 | low | DiDi chip contentBounds can anchor to the "Aceptar $X" button, not the visible fare (chip-positioning)
+
+**Context:** `DidiOcrParser.extractFare` prefers the bottom "Aceptar $X" button for the fare VALUE and returns that block's bounds, so `OfferCard.contentBounds` (union of fare+pickup+trip) has its `top` at the topmost LEG, not the big visible fare rendered higher in the bottom sheet. `OverlayPositioning.avoid()` lifts the chip above `content.top`, so on some DiDi layouts the chip can cosmetically overlap the visible fare. Parsing is unaffected (the fare is read from the Aceptar button, which the chip never covers) and `ChipMask` still prevents self-capture — no $0/blink. DiDi verified working on-device 2026-06-15.
+**Why deferred:** Not the reported bug; DiDi verified working. The fix changes DiDi parsing/positioning and must be re-verified on-device (per the "verify before merge" lesson in `docs/debugging-lessons.md`), warranting its own session.
+**When to fix:** When polishing DiDi chip placement — have `DidiOcrParser` also capture the visible (tallest "$") fare block's bounds and include them in `contentBounds` even when the Aceptar amount supplies the value, so `avoid()` lifts above the visible fare. Verify on-device.
+
+## 2026-06-15 | low | avoid() repositions the chip only on attach/drag, not when a new offer arrives while already attached (chip-positioning)
+
+**Context:** `OverlayController.attach()` early-returns when the chip is already shown, so `OverlayPositioning.avoid()` runs at first attach and on drag but not when a back-to-back offer (no intervening `NoCard`) updates `currentContentRect`. If offer B's fare sits at a different y than A's, the chip keeps A's position and could overlap B's fare until a `NoCard` detaches it. Real offers almost always have a "Buscando viajes"/`NoCard` gap that detaches+reattaches the chip, so this rarely manifests; flagged by the chip-fix verification workflow as fast-follow.
+**Why deferred:** Low real-world incidence (NoCard gap between offers); per-frame repositioning was deliberately avoided to prevent chip jitter; the reported bug is fixed without it.
+**When to fix:** Reposition once on offer-identity change (key on `platform|tripKm|tripMin`) when the chip is already attached — re-run `startPosition()` + `updateViewLayout()`, gated so it stays once-per-offer, not per-frame.
+
+## 2026-06-15 | low | FareStabilizer session key is the trip leg only, so same-leg/different-fare offers can briefly show a stale fare (chip-positioning)
+
+**Context:** `FareStabilizer` keys its rolling-window session on `platform|tripKm(1dp)|tripMin` (NOT the fare, so fare jitter can't reset the window). Two consecutive offers with identical trip legs but different fares could reuse the prior window and show the previous fare for up to the 1.5s window. Mitigated by `reset()`-on-`NoCard` between offers and the window converging within ~1.5s; self-correcting.
+**Why deferred:** Transient and self-correcting; reset-on-NoCard covers the common case; keying on the leg is what gives the jitter-smoothing its stability.
+**When to fix:** If same-leg/different-fare collisions are observed on-device — add a fare bucket or the pickup leg to the session key, or reset on a detected offer transition, without letting frame-to-frame fare jitter reset the window.
+
 ## 2026-06-10 | low | Recommendation copy lives in code constants, not strings.xml (B-048)
 
 **Context:** The recommendations engine (`android/metrics/.../recommendation/RecommendationEngine.kt`) builds each tip's Spanish title/body inline in Kotlin, heavily parameterised with pesos/percentages/hour-blocks it computes. Only the section header (`recommendations_title`) and the premium gate hint (`gate_hint_recommendations`) are in `android/ui/.../res/values/strings.xml`. The engine is a pure `:metrics` module with no Android resources, and keeping each rule's copy beside its logic is what lets the exhaustive per-rule tests assert exact wording.
