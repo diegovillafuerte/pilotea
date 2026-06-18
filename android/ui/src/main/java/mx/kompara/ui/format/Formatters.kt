@@ -157,6 +157,17 @@ object Formatters {
                 .replaceFirstChar { if (it.isLowerCase()) it.titlecase(MX) else it.toString() }
         }.getOrDefault(monthStartIso)
 
+    /**
+     * The capitalised es-MX weekday name for an ISO date, e.g. "Sábado" for 2026-06-13. Used for the
+     * "Mejor día" brag-grid cell on the Tu Mes share card. Falls back to the raw ISO string if it
+     * can't be parsed.
+     */
+    fun formatWeekdayLabel(dayIso: String): String =
+        runCatching {
+            LocalDate.parse(dayIso, ISO).format(WEEKDAY)
+                .replaceFirstChar { if (it.isLowerCase()) it.titlecase(MX) else it.toString() }
+        }.getOrDefault(dayIso)
+
     /** An hour-of-day block range, e.g. `formatHourRange(18)` → "18:00–19:00". */
     fun formatHourRange(hour: Int): String {
         val h = ((hour % 24) + 24) % 24
@@ -175,5 +186,6 @@ object Formatters {
     private val WEEK_LABEL: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM", MX)
     private val MONTH_ABBREV: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM", MX)
     private val MONTH_YEAR: DateTimeFormatter = DateTimeFormatter.ofPattern("MMMM yyyy", MX)
+    private val WEEKDAY: DateTimeFormatter = DateTimeFormatter.ofPattern("EEEE", MX)
     private val CLOCK: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm", MX)
 }

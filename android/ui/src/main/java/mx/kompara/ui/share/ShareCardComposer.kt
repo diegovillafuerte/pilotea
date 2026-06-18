@@ -1,6 +1,7 @@
 package mx.kompara.ui.share
 
 import mx.kompara.data.model.City
+import mx.kompara.data.model.Platform
 import mx.kompara.metrics.percentile.PercentileResult
 import mx.kompara.ui.format.Formatters
 import mx.kompara.ui.stats.PeriodStats
@@ -32,6 +33,10 @@ object ShareCardComposer {
      *   one becomes the flex line. Not gated by entitlement — it is the card's marketing hook.
      * @param hideAmounts when true the net-earnings line is fully redacted (null) so no peso figure
      *   reaches the renderer; trips/hours/percentile/streak still show.
+     * @param bestApp the platform the driver earned most net on this period, or null when unknown —
+     *   becomes the "Mejor app" brag-grid cell (formatted via [platformName]).
+     * @param bestDay the localised weekday with the highest net ("Sábado"), or null when there is no
+     *   day breakdown — becomes the "Mejor día" brag-grid cell.
      */
     fun compose(
         stats: PeriodStats,
@@ -41,6 +46,8 @@ object ShareCardComposer {
         city: City,
         percentiles: List<PercentileResult>,
         hideAmounts: Boolean,
+        bestApp: Platform? = null,
+        bestDay: String? = null,
     ): ShareCardData = ShareCardData(
         periodLabel = periodLabel,
         periodKind = periodKind,
@@ -50,6 +57,8 @@ object ShareCardComposer {
         percentileFlex = bestFlex(percentiles, city),
         streakLine = streakLine(streakWeeks),
         hideAmounts = hideAmounts,
+        bestApp = bestApp?.let(::platformName),
+        bestDay = bestDay,
     )
 
     /**
@@ -88,6 +97,31 @@ object ShareCardComposer {
         } else {
             "🔥 $streakWeeks semanas seguidas"
         }
+    }
+
+    /** Compact streak for the brag-grid "Racha" cell ("🔥 4 sem"), or null when there is no streak. */
+    fun streakShort(streakWeeks: Int): String? {
+        if (streakWeeks <= 0) return null
+        return "🔥 $streakWeeks sem"
+    }
+
+    /**
+     * The compact "Tu lugar" grid value derived from [percentileFlex] — the same favorable percentile
+     * the caption brags about, but without the city or the 🚀 (the grid wants "Top 22%", not the full
+     * caption flex). Null when there is no favorable percentile. Exposed for unit tests.
+     */
+    fun placeFlex(percentileFlex: String?): String? {
+        if (percentileFlex == null) return null
+        // percentileFlex is "Top X% en <Ciudad> 🚀"; the grid wants just the "Top X%" prefix.
+        return percentileFlex.substringBefore(" en ").trim()
+    }
+
+    /** The human-facing platform name a driver would say out loud, used in the "Mejor app" cell. */
+    fun platformName(platform: Platform): String = when (platform) {
+        Platform.UBER -> "Uber"
+        Platform.DIDI -> "DiDi"
+        Platform.INDRIVE -> "inDrive"
+        Platform.UNKNOWN -> "—"
     }
 
     /** "1 viaje" / "38 viajes". */

@@ -26,11 +26,16 @@ import mx.kompara.ui.theme.BrandGreen
  * `:ui` so every screen (and any future tab brand bar) renders the same mark — previously the only
  * lockup was a private `BrandStrip` in the overlay module. Especially used on the Comparar shareable
  * hero, the screenshot-worthy surface.
+ *
+ * @param onEmerald when true, render the lockup for an emerald-gradient surface (the Tu Mes / Comparar
+ *   share heroes): the K glyph sits on a translucent-white tile and the wordmark is white — never a
+ *   verdict colour. When false (default) it's the neutral-surface lockup (emerald tile, onSurface text).
  */
 @Composable
 fun KomparaWordmark(
     modifier: Modifier = Modifier,
-    wordmarkColor: Color = MaterialTheme.colorScheme.onSurface,
+    onEmerald: Boolean = false,
+    wordmarkColor: Color = if (onEmerald) Color.White else MaterialTheme.colorScheme.onSurface,
 ) {
     Row(
         modifier = modifier,
@@ -41,7 +46,7 @@ fun KomparaWordmark(
             modifier = Modifier
                 .size(24.dp)
                 .clip(RoundedCornerShape(7.dp))
-                .background(BrandGreen),
+                .background(if (onEmerald) Color.White.copy(alpha = 0.18f) else BrandGreen),
             contentAlignment = Alignment.Center,
         ) {
             Icon(

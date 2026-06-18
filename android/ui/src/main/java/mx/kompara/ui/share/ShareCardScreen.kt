@@ -1,7 +1,8 @@
 package mx.kompara.ui.share
 
-import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -9,10 +10,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -20,21 +25,30 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import mx.kompara.ui.R
-import mx.kompara.ui.components.KomparaChip
+import mx.kompara.ui.components.KomparaButton
 import mx.kompara.ui.components.KomparaSwitch
-import mx.kompara.ui.components.PrimaryButton
+import mx.kompara.ui.theme.BrandGreen
+import mx.kompara.ui.theme.BrandGreenDark
+import mx.kompara.ui.theme.BrandGreenLight
+import mx.kompara.ui.theme.KomparaType
 
 /**
- * The share-card preview screen (B-055, route [mx.kompara.ui.nav.KomparaDestination.SHARE_CARD_ROUTE]):
- * shows the rendered "Tu Semana" card, a hide-amounts toggle, a story/landscape variant toggle, and
- * the "Compartir" button (WhatsApp-preferred share sheet).
+ * The "Tu mes" share screen (B-055, route [mx.kompara.ui.nav.KomparaDestination.SHARE_CARD_ROUTE]):
+ * a Wrapped-style emerald-gradient hero rendered INLINE in Compose (so the text/colours match the
+ * design system exactly), a hide-amounts toggle, and the "Compartir en WhatsApp" CTA.
+ *
+ * The inline hero is the on-screen *preview*; sharing still produces the deterministic [ShareCardRenderer]
+ * bitmap (the variant machinery lives on in the ViewModel) so the shared PNG is unchanged.
  */
 @Composable
 fun ShareCardScreen(
@@ -45,7 +59,6 @@ fun ShareCardScreen(
     ShareCardContent(
         state = state,
         onHideAmounts = viewModel::setHideAmounts,
-        onVariant = viewModel::setVariant,
         onShare = viewModel::share,
         modifier = modifier,
     )
@@ -55,7 +68,6 @@ fun ShareCardScreen(
 private fun ShareCardContent(
     state: ShareCardUiState,
     onHideAmounts: (Boolean) -> Unit,
-    onVariant: (ShareCardVariant) -> Unit,
     onShare: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -64,7 +76,7 @@ private fun ShareCardContent(
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
@@ -74,24 +86,23 @@ private fun ShareCardContent(
             modifier = Modifier.fillMaxWidth(),
         )
 
-        if (state.loading || state.bitmap == null) {
+        if (state.loading || state.data == null) {
             Spacer(Modifier.height(48.dp))
             CircularProgressIndicator()
         } else {
-            Image(
-                bitmap = state.bitmap.asImageBitmap(),
-                contentDescription = stringResource(R.string.share_card_preview_desc),
-                contentScale = ContentScale.Fit,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(if (state.variant == ShareCardVariant.STORY) 420.dp else 220.dp)
-                    .clip(RoundedCornerShape(16.dp)),
+            TuMesHeroCard(data = state.data)
+
+            KomparaButton(
+                text = stringResource(R.string.share_card_whatsapp_cta),
+                onClick = onShare,
+                fullWidth = true,
+                leadingIcon = Icons.Filled.Share,
             )
 
-            VariantToggle(selected = state.variant, onVariant = onVariant)
-
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 2.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -103,30 +114,135 @@ private fun ShareCardContent(
                 )
                 KomparaSwitch(checked = state.hideAmounts, onCheckedChange = onHideAmounts)
             }
-
-            PrimaryButton(text = stringResource(R.string.share_card_share_cta), onClick = onShare)
         }
     }
 }
 
+/**
+ * The Wrapped-style emerald hero: brand row, "Ganancia neta del mes", the big net number, and the
+ * 2×2 brag grid (Tu lugar / Mejor app / Mejor día / Racha). White text on the brand-emerald gradient
+ * (never a verdict colour). Cells with no data render a graceful dash rather than a blank.
+ */
 @Composable
-private fun VariantToggle(
-    selected: ShareCardVariant,
-    onVariant: (ShareCardVariant) -> Unit,
+private fun TuMesHeroCard(data: ShareCardData) {
+    val whiteHigh = Color.White.copy(alpha = 0.95f)
+    val whiteMid = Color.White.copy(alpha = 0.90f)
+    val whiteLow = Color.White.copy(alpha = 0.85f)
+    val dash = stringResource(R.string.share_card_value_dash)
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(
+                Brush.linearGradient(listOf(BrandGreenDark, BrandGreen, BrandGreenLight)),
+            )
+            .padding(22.dp),
+    ) {
+        // Brand row — "K  Kompara · Junio" (just the month, no year): the K logomark tile (white on a
+        // translucent-white tile, matching KomparaWordmark's onEmerald variant) + the brand-row text.
+        val monthOnly = data.periodLabel.substringBefore(' ')
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(7.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(24.dp)
+                    .clip(RoundedCornerShape(7.dp))
+                    .background(Color.White.copy(alpha = 0.18f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_kompara_logomark),
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(15.dp),
+                )
+            }
+            Text(
+                text = stringResource(R.string.share_card_brand_row, monthOnly),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = whiteHigh,
+            )
+        }
+
+        Text(
+            text = stringResource(R.string.share_card_net_label),
+            style = MaterialTheme.typography.bodyMedium,
+            color = whiteMid,
+            modifier = Modifier.padding(top = 18.dp),
+        )
+        Text(
+            text = data.netEarnings ?: stringResource(R.string.share_card_net_hidden),
+            style = KomparaType.metricValueLarge.copy(fontSize = 46.sp, lineHeight = 48.sp),
+            color = Color.White,
+        )
+
+        // 2×2 brag grid.
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 22.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            BragRow(
+                left = stringResource(R.string.share_card_label_place) to
+                    (ShareCardComposer.placeFlex(data.percentileFlex) ?: dash),
+                right = stringResource(R.string.share_card_label_best_app) to (data.bestApp ?: dash),
+                labelColor = whiteLow,
+            )
+            BragRow(
+                left = stringResource(R.string.share_card_label_best_day) to (data.bestDay ?: dash),
+                right = stringResource(R.string.share_card_label_streak) to streakValue(data, dash),
+                labelColor = whiteLow,
+            )
+        }
+    }
+}
+
+/** The compact "Racha" grid value ("🔥 4 sem"), derived from the streak line, or a dash. */
+private fun streakValue(data: ShareCardData, dash: String): String {
+    val line = data.streakLine ?: return dash
+    // streakLine is "🔥 N semanas seguidas" / "🔥 1 semana seguida"; the grid wants "🔥 N sem".
+    val n = line.filter { it.isDigit() }
+    return if (n.isEmpty()) dash else "🔥 $n sem"
+}
+
+@Composable
+private fun BragRow(
+    left: Pair<String, String>,
+    right: Pair<String, String>,
+    labelColor: Color,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        KomparaChip(
-            selected = selected == ShareCardVariant.STORY,
-            onClick = { onVariant(ShareCardVariant.STORY) },
-            label = stringResource(R.string.share_card_variant_story),
+        BragCell(label = left.first, value = left.second, labelColor = labelColor, modifier = Modifier.weight(1f))
+        BragCell(label = right.first, value = right.second, labelColor = labelColor, modifier = Modifier.weight(1f))
+    }
+}
+
+@Composable
+private fun BragCell(
+    label: String,
+    value: String,
+    labelColor: Color,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = labelColor,
         )
-        KomparaChip(
-            selected = selected == ShareCardVariant.LANDSCAPE,
-            onClick = { onVariant(ShareCardVariant.LANDSCAPE) },
-            label = stringResource(R.string.share_card_variant_landscape),
+        Text(
+            text = value,
+            fontSize = 22.sp,
+            fontWeight = FontWeight(800),
+            color = Color.White,
         )
     }
 }

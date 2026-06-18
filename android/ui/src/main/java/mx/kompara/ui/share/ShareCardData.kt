@@ -20,6 +20,10 @@ package mx.kompara.ui.share
  *   percentile exists, else null. **Intentionally NOT premium-gated** — it is the card's marketing
  *   hook and is shown even to free-tier drivers (see [ShareCardComposer]).
  * @property streakLine the streak brag ("🔥 4 semanas seguidas"), or null when there is no streak.
+ * @property bestApp the human platform name the driver earned the most net on ("DiDi"), or null when
+ *   no platform can be determined. Backs the "Mejor app" brag-grid cell on the Tu Mes hero.
+ * @property bestDay the localised weekday with the highest net ("Sábado"), or null when there is no
+ *   day breakdown. Backs the "Mejor día" brag-grid cell on the Tu Mes hero.
  * @property hideAmounts whether peso amounts are redacted on this card (mirrors the toggle). Carried
  *   so the renderer/preview can show the "amounts hidden" affordance.
  */
@@ -32,6 +36,8 @@ data class ShareCardData(
     val percentileFlex: String?,
     val streakLine: String?,
     val hideAmounts: Boolean,
+    val bestApp: String? = null,
+    val bestDay: String? = null,
 ) {
     /**
      * True when the card has *something* to brag about beyond the bare trip count — a real
