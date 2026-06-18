@@ -570,10 +570,10 @@
     <!-- ============================================================= -->
     <!-- Pantalla: Comparar (B-047)                                    -->
     <!-- ============================================================= -->
-    <!-- Estado sin datos: invita a activar el lector. -->
+    <!-- Estado sin datos: invita a importar las ganancias (o activar el lector). -->
     <string name="comparar_no_data_title">Aún no hay nada que comparar</string>
-    <string name="comparar_no_data_body">Activa el lector y maneja en varias plataformas — aquí verás cuál te paga mejor.</string>
-    <string name="comparar_no_data_cta">Activar lector</string>
+    <string name="comparar_no_data_body">Trae tus ganancias de Uber y DiDi — o activa el lector — y aquí verás cuál te paga mejor.</string>
+    <string name="comparar_no_data_cta">Traer mis ganancias</string>
     <!-- Estado con una sola plataforma: anima a sumar otra y muestra un ejemplo. -->
     <string name="comparar_single_title">Agrega otra plataforma para comparar</string>
     <!-- %1$s = nombre de la plataforma que ya tiene datos (Uber, DiDi…). -->
