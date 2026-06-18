@@ -49,6 +49,16 @@ val KomparaTypography = Typography(
         // Headings are tracked tight (design tokens: --tracking-tight -0.02em).
         letterSpacing = (-0.02).em,
     ),
+    // The screen-title role. Previously undefined → screen headers (LectorScreen, ThresholdsScreen…)
+    // fell back to the Material default (Roboto 24sp). Defined here in Inter so every screen title
+    // renders in the brand typeface (design token: screenTitle 24/30/700, tracking -0.02em).
+    headlineSmall = TextStyle(
+        fontFamily = Inter,
+        fontWeight = FontWeight.Bold,
+        fontSize = 24.sp,
+        lineHeight = 30.sp,
+        letterSpacing = (-0.02).em,
+    ),
     titleLarge = TextStyle(
         fontFamily = Inter,
         fontWeight = FontWeight.SemiBold,
