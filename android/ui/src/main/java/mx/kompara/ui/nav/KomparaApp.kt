@@ -13,6 +13,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
@@ -68,6 +71,7 @@ fun KomparaApp(
     modifier: Modifier = Modifier,
     navigateToReaderTrial: Boolean = false,
     navigateToShareCard: Boolean = false,
+    navigateToImport: Boolean = false,
     registerExtraDestinations: NavGraphBuilder.(NavController) -> Unit = {},
 ) {
     val navController = rememberNavController()
@@ -88,6 +92,19 @@ fun KomparaApp(
     // Week-close notification deep link (B-055): jump straight to the share-card preview.
     if (navigateToShareCard) {
         LaunchedEffect(Unit) { navController.navigate(KomparaDestination.SHARE_CARD_ROUTE) }
+    }
+
+    // Share-target deep link (PR-D3): jump to the import flow; the shared file is already staged in
+    // SharedImportBuffer, so the import screen opens on the SharedReady confirmation. One-shot: a config
+    // change/recreation re-enters this composition with navigateToImport still true (the intent extra
+    // persists), so a saved "consumed" flag stops it re-pushing import with an already-taken (empty)
+    // buffer (codex review).
+    var importDeepLinkConsumed by rememberSaveable { mutableStateOf(false) }
+    if (navigateToImport && !importDeepLinkConsumed) {
+        LaunchedEffect(Unit) {
+            navController.navigate(KomparaDestination.IMPORT_ROUTE)
+            importDeepLinkConsumed = true
+        }
     }
 
     Scaffold(

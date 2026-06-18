@@ -72,8 +72,11 @@ class ImportViewModelTest {
         dryRun = false,
     )
 
-    private fun viewModel(importer: Importer): ImportViewModel =
-        ImportViewModel(importer).also { it.stepDelayMillis = 0L }
+    private fun viewModel(
+        importer: Importer,
+        buffer: SharedImportBuffer = SharedImportBuffer(),
+    ): ImportViewModel =
+        ImportViewModel(importer, buffer).also { it.stepDelayMillis = 0L }
 
     @Test
     fun `signed-out driver lands on SignedOut`() = runBlocking {
@@ -170,6 +173,42 @@ class ImportViewModelTest {
         val error = vm.settle() as ImportUiState.Error
         assertTrue(error.retryable)
         assertTrue(error.message.contains("conectar"))
+    }
+
+    @Test
+    fun `a staged shared file waits on SharedReady and uploads only after explicit confirm`() = runBlocking {
+        // PR-D3: a file shared into Kompara is pre-picked + pre-classified, but the dry-run must NOT
+        // auto-fire (the share activity is exported) — it waits for the driver's "Continuar" tap.
+        val importer = FakeImporter(preview = previewResponse())
+        val buffer = SharedImportBuffer().apply {
+            set(PendingSharedImport(ImportPlatform.UBER_PDF, listOf(pdf())))
+        }
+        val vm = viewModel(importer, buffer)
+
+        val ready = vm.settle() as ImportUiState.SharedReady
+        assertEquals(ImportPlatform.UBER_PDF, ready.platform)
+        assertEquals(0, importer.previewCalls) // nothing uploaded yet
+        // Consumed exactly once — nothing left to re-fire on a later open.
+        assertEquals(null, buffer.take())
+
+        vm.confirmSharedImport()
+
+        val review = vm.settle() as ImportUiState.Review
+        assertEquals("2025-03-24", review.response.metrics.weekStart)
+        assertEquals(1, importer.previewCalls)
+    }
+
+    @Test
+    fun `a staged share is dropped for a signed-out driver`() = runBlocking {
+        val importer = FakeImporter(signedIn = false)
+        val buffer = SharedImportBuffer().apply {
+            set(PendingSharedImport(ImportPlatform.UBER_PDF, listOf(pdf())))
+        }
+        val vm = viewModel(importer, buffer)
+
+        assertEquals(ImportUiState.SignedOut, vm.settle())
+        assertEquals(0, importer.previewCalls) // never uploaded without an account
+        assertEquals(null, buffer.take()) // and the staged bytes are cleared
     }
 
     @Test

@@ -1,4 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Kompara</string>
+    <!-- PR-D3 share-target: the label shown for Kompara in the OS Share sheet. -->
+    <string name="share_import_label">Kompara — Importar ganancias</string>
+    <!-- Shown when a shared file isn\'t a supported earnings document (wrong type / empty / too large). -->
+    <string name="share_import_unsupported">No pudimos leer ese archivo. Comparte el PDF semanal de Uber o las capturas de DiDi.</string>
+    <!-- Shown when a driver shares a file before creating an account; the import needs a session. -->
+    <string name="share_import_needs_account">Crea tu cuenta Kompara para importar tus ganancias.</string>
 </resources>

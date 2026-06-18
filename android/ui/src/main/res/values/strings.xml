@@ -389,6 +389,12 @@
     <string name="import_pick_another_platform">Elegir otra plataforma</string>
     <string name="import_file_selected">Archivo listo</string>
 
+    <!-- PR-D3 share-target: confirm-before-upload for a file shared into Kompara from another app. -->
+    <string name="import_shared_ready_title">Recibimos tu archivo</string>
+    <!-- %1$s = platform name (e.g. "Uber (PDF semanal)"), %2$d = file count. -->
+    <string name="import_shared_ready_detected">Detectamos: %1$s (%2$d archivo(s)). Continúa para leer tus cifras.</string>
+    <string name="import_shared_ready_confirm">Continuar</string>
+
     <!-- Progreso (4 pasos, portado del web) -->
     <string name="import_step_reading">Leyendo archivos…</string>
     <string name="import_step_extracting">Extrayendo datos con IA…</string>

@@ -35,6 +35,7 @@ import javax.inject.Inject
 @HiltViewModel
 class ImportViewModel @Inject constructor(
     private val repository: Importer,
+    private val sharedImportBuffer: SharedImportBuffer,
 ) : ViewModel() {
 
     /** Visible step cadence for the upload animation. Overridable in tests (set to 0 for instant). */
@@ -52,10 +53,23 @@ class ImportViewModel @Inject constructor(
     /** (Re)check the session and set the entry state. Called on init and from the signed-out retry. */
     fun resolveSession() {
         viewModelScope.launch {
-            _uiState.value = if (repository.isSignedIn()) {
-                ImportUiState.Picking()
+            if (!repository.isSignedIn()) {
+                // No account → can't upload. Drop any staged share (the bytes are in-memory only) so it
+                // can't fire later once they sign in from an unrelated screen.
+                sharedImportBuffer.take()
+                _uiState.value = ImportUiState.SignedOut
+                return@launch
+            }
+            // PR-D3: a file shared into Kompara from Uber/DiDi/Gmail is pre-picked + pre-classified.
+            // Land on the SharedReady confirmation (NO upload yet) — the share activity is exported, so
+            // auto-firing the dry-run would let any app spend the driver's authenticated parse quota.
+            // The driver taps "Continuar" → [confirmSharedImport]. Falls through to the normal picker
+            // when there is no pending share.
+            val shared = sharedImportBuffer.take()
+            _uiState.value = if (shared != null) {
+                ImportUiState.SharedReady(shared.platform, shared.files)
             } else {
-                ImportUiState.SignedOut
+                ImportUiState.Picking()
             }
         }
     }
@@ -63,6 +77,15 @@ class ImportViewModel @Inject constructor(
     /** Choose the platform/upload-type to import. Resets any in-progress pick. */
     fun selectPlatform(platform: ImportPlatform) {
         _uiState.value = ImportUiState.Picking(platform = platform, pickedCount = 0)
+    }
+
+    /**
+     * Confirm a shared file ([ImportUiState.SharedReady], PR-D3): run the dry-run preview now that the
+     * driver has explicitly opted in. No-ops if we're not in SharedReady (defends against a double tap).
+     */
+    fun confirmSharedImport() {
+        val shared = _uiState.value as? ImportUiState.SharedReady ?: return
+        submitForReview(shared.platform, shared.files)
     }
 
     /** Return to platform picking from anywhere (the screen's back / "elegir otra plataforma"). */
@@ -74,7 +97,8 @@ class ImportViewModel @Inject constructor(
     /**
      * Upload [files] for the [platform] as a DRY RUN; on success move to [ImportUiState.Review].
      * Validates the file count via the repository, so a wrong count surfaces as an [ImportUiState.
-     * Error] without a network call. No-ops if the current state isn't [ImportUiState.Picking].
+     * Error] without a network call. Called from the picker (after a file is chosen) and from
+     * [resolveSession] for a pre-picked share (PR-D3), so it does NOT assume a starting state.
      */
     fun submitForReview(platform: ImportPlatform, files: List<ImportFile>) {
         runUpload(confirming = false) {

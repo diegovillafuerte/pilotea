@@ -35,6 +35,7 @@ import mx.kompara.ui.onboarding.RootViewModel
 fun KomparaRoot(
     modifier: Modifier = Modifier,
     navigateToShareCard: Boolean = false,
+    navigateToImport: Boolean = false,
     registerExtraDestinations: NavGraphBuilder.(NavController) -> Unit = {},
     rootViewModel: RootViewModel = hiltViewModel(),
 ) {
@@ -75,6 +76,8 @@ fun KomparaRoot(
                 navigateToReaderTrial = justCompletedOnboarding,
                 // Week-close notification deep link (B-055): only honoured once onboarding is done.
                 navigateToShareCard = navigateToShareCard,
+                // Share-target deep link (PR-D3): jump to the import flow for a shared earnings file.
+                navigateToImport = navigateToImport,
                 registerExtraDestinations = registerExtraDestinations,
             )
         }

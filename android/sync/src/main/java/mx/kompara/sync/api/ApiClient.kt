@@ -276,7 +276,7 @@ class ApiClient @Inject constructor(
                     value = file.bytes,
                     headers = Headers.build {
                         append(HttpHeaders.ContentType, file.mimeType)
-                        append(HttpHeaders.ContentDisposition, "filename=\"${file.fileName}\"")
+                        append(HttpHeaders.ContentDisposition, "filename=\"${sanitizeUploadFilename(file.fileName)}\"")
                     },
                 )
             }
@@ -365,4 +365,23 @@ class ApiClient @Inject constructor(
     private companion object {
         const val HEADER_DEVICE_ID = "X-Device-Id"
     }
+}
+
+/** Cap an untrusted upload filename so it can't bloat the multipart Content-Disposition header. */
+private const val MAX_UPLOAD_FILENAME_LEN = 100
+
+/**
+ * Strip header-breaking characters from an upload filename before it goes into the multipart
+ * `Content-Disposition` (PR-D3 hardening). The filename can originate from an untrusted source — a
+ * shared content provider or a SAF pick — so a quote / backslash / CR-LF / control char could corrupt
+ * the header or inject a second part. We drop those (and path separators), cap the length, and fall
+ * back to a neutral name when nothing safe remains. The backend parses by content, so the filename is
+ * only a label — losing exotic characters is harmless. Top-level + `internal` so it is unit-testable.
+ */
+internal fun sanitizeUploadFilename(name: String): String {
+    val cleaned = name
+        .filter { it.code in 0x20..0x7E && it != '"' && it != '\\' && it != '/' }
+        .trim()
+        .take(MAX_UPLOAD_FILENAME_LEN)
+    return cleaned.ifBlank { "import" }
 }

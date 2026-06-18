@@ -87,6 +87,11 @@ fun ImportScreen(
                 onFilesPicked = { platform, files -> viewModel.submitForReview(platform, files) },
                 context = context,
             )
+            is ImportUiState.SharedReady -> SharedReadyState(
+                state = s,
+                onConfirm = viewModel::confirmSharedImport,
+                onChoosePlatform = viewModel::restart,
+            )
             is ImportUiState.Uploading -> UploadingState(step = s.step)
             is ImportUiState.Review -> ReviewState(
                 state = s,
@@ -137,6 +142,55 @@ private fun SignedOutState(onBack: () -> Unit) {
         )
         Spacer(Modifier.height(24.dp))
         PrimaryButton(text = stringResource(R.string.import_signed_out_back), onClick = onBack)
+    }
+}
+
+/**
+ * PR-D3: a file shared into Kompara from another app lands here pre-classified. We show what we
+ * detected and require an explicit "Continuar" tap before any upload — the exported share entry must
+ * never auto-spend the driver's authenticated parse quota.
+ */
+@Composable
+private fun SharedReadyState(
+    state: ImportUiState.SharedReady,
+    onConfirm: () -> Unit,
+    onChoosePlatform: () -> Unit,
+) {
+    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+        Text(
+            text = stringResource(R.string.import_title),
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+        )
+        Spacer(Modifier.height(12.dp))
+        KomparaCard(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = stringResource(R.string.import_shared_ready_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = stringResource(
+                        R.string.import_shared_ready_detected,
+                        stringResource(platform = state.platform, title = true),
+                        state.files.size,
+                    ),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        Spacer(Modifier.height(20.dp))
+        PrimaryButton(text = stringResource(R.string.import_shared_ready_confirm), onClick = onConfirm)
+        Spacer(Modifier.height(12.dp))
+        KomparaButton(
+            text = stringResource(R.string.import_pick_another_platform),
+            onClick = onChoosePlatform,
+            variant = ButtonVariant.SECONDARY,
+            fullWidth = true,
+        )
     }
 }
 

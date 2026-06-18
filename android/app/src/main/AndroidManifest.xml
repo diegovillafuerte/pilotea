@@ -58,6 +58,34 @@
             </intent-filter>
         </activity>
 
+        <!-- Inbound earnings-file share-target (PR-D3): appears in the OS Share sheet as "Kompara —
+             Importar ganancias" so a driver shares their Uber PDF / DiDi screenshots straight from Uber
+             Driver / DiDi / Gmail / Gallery. Exported (a share target must be) but does nothing
+             privileged — it only reads the bytes the user explicitly shared and bounces into the import
+             flow; it NEVER touches the MediaProjection/OcrConsent path. Translucent + no-history +
+             excludeFromRecents + isolated task so it shows no UI of its own and never lingers in
+             Recents. android:label is what the share sheet displays. -->
+        <activity
+            android:name=".ShareImportActivity"
+            android:exported="true"
+            android:label="@string/share_import_label"
+            android:taskAffinity=""
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/pdf" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+        </activity>
+
         <!-- OCR capture consent entry. Launched ONLY from inside the app — the Lector tab button
              and the reader-stopped notification, both via the package-scoped action below (B-075;
              the literal must match ScreenReaderState.ACTION_START). NOT exported: this is a

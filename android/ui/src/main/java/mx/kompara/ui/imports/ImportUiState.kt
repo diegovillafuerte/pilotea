@@ -32,6 +32,17 @@ sealed interface ImportUiState {
     ) : ImportUiState
 
     /**
+     * A file shared into Kompara from another app (PR-D3) is pre-picked + pre-classified, awaiting the
+     * driver's explicit confirmation before any upload. We do NOT auto-run the dry-run: the share
+     * activity is exported, so auto-firing would let any app spend the driver's authenticated
+     * backend/AI parse quota from an external intent. The driver taps "Continuar" → [confirmSharedImport].
+     */
+    data class SharedReady(
+        val platform: ImportPlatform,
+        val files: List<ImportFile>,
+    ) : ImportUiState
+
+    /**
      * An upload is in flight. [step] drives the ported 4-step animation; [confirming] distinguishes
      * the dry-run preview (false) from the real confirm (true) so the screen can label the wait.
      */
