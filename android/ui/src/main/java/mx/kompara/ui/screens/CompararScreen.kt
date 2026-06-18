@@ -74,7 +74,7 @@ import mx.kompara.ui.theme.VerdictGreen
 fun CompararScreen(
     modifier: Modifier = Modifier,
     onUpgrade: (GateSurface) -> Unit = {},
-    onOpenReader: () -> Unit = {},
+    onImport: () -> Unit = {},
     onShare: () -> Unit = {},
     onOpenInicio: () -> Unit = {},
     viewModel: mx.kompara.ui.stats.CompararViewModel = hiltViewModel(),
@@ -86,7 +86,7 @@ fun CompararScreen(
         gateState = gateState,
         onSelectWeek = viewModel::selectWeek,
         onUpgrade = onUpgrade,
-        onOpenReader = onOpenReader,
+        onImport = onImport,
         onShare = onShare,
         onOpenInicio = onOpenInicio,
         gateFunnel = viewModel.gateFunnel,
@@ -100,7 +100,7 @@ private fun CompararContent(
     gateState: GateState,
     onSelectWeek: (String) -> Unit,
     onUpgrade: (GateSurface) -> Unit,
-    onOpenReader: () -> Unit,
+    onImport: () -> Unit,
     onShare: () -> Unit,
     onOpenInicio: () -> Unit,
     gateFunnel: GateFunnel,
@@ -123,7 +123,7 @@ private fun CompararContent(
                     title = stringResource(R.string.comparar_no_data_title),
                     body = stringResource(R.string.comparar_no_data_body),
                     ctaText = stringResource(R.string.comparar_no_data_cta),
-                    onCtaClick = onOpenReader,
+                    onCtaClick = onImport,
                 )
             } else {
                 val c = data.comparison
@@ -546,7 +546,7 @@ private fun CompararFullPreview() {
         CompararContent(
             state = CompareUiState(false, listOf("2026-06-02", "2026-05-26"), mx.kompara.ui.stats.CompareUiData("2026-06-02", previewComparison())),
             gateState = GateState.UNLOCKED,
-            onSelectWeek = {}, onUpgrade = {}, onOpenReader = {}, onShare = {}, onOpenInicio = {},
+            onSelectWeek = {}, onUpgrade = {}, onImport = {}, onShare = {}, onOpenInicio = {},
             gateFunnel = object : GateFunnel {
                 override suspend fun record(surface: GateSurface, event: mx.kompara.ui.paywall.GateEvent) {}
             },
@@ -561,7 +561,7 @@ private fun CompararEmptyPreview() {
         CompararContent(
             state = CompareUiState(false, emptyList(), null),
             gateState = GateState.UNLOCKED,
-            onSelectWeek = {}, onUpgrade = {}, onOpenReader = {}, onShare = {}, onOpenInicio = {},
+            onSelectWeek = {}, onUpgrade = {}, onImport = {}, onShare = {}, onOpenInicio = {},
             gateFunnel = object : GateFunnel {
                 override suspend fun record(surface: GateSurface, event: mx.kompara.ui.paywall.GateEvent) {}
             },

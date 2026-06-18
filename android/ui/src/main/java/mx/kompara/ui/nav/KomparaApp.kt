@@ -190,13 +190,10 @@ private fun NavGraphBuilder.tabScreens(navController: NavController) {
     composable(KomparaDestination.COMPARAR.route) {
         CompararScreen(
             onUpgrade = { surface -> navController.navigateToPaywall(surface) },
-            onOpenReader = {
-                navController.navigate(KomparaDestination.LECTOR.route) {
-                    popUpTo(KomparaDestination.START.route) { saveState = true }
-                    launchSingleTop = true
-                    restoreState = true
-                }
-            },
+            // Empty Comparar → import the driver's own weekly earnings (the fast way to seed data to
+            // compare). The import flow's onClose popBackStack() returns here. The reader stays reachable
+            // via the Lector tab.
+            onImport = { navController.navigate(KomparaDestination.IMPORT_ROUTE) },
             onShare = { navController.navigate(KomparaDestination.SHARE_CARD_ROUTE) },
             onOpenInicio = {
                 navController.navigate(KomparaDestination.INICIO.route) {
