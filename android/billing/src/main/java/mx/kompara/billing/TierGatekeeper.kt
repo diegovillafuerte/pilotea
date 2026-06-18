@@ -12,7 +12,7 @@ import javax.inject.Singleton
  * The single source of truth for premium gating (B-050). Every gated surface flows through here so the
  * policy can't drift per-screen.
  *
- * It combines three reactive inputs:
+ * It combines four reactive inputs:
  *  1. [EntitlementRepository.capabilities] → whether the driver holds an active premium entitlement
  *     (paid / trial / grace), the real paying signal.
  *  2. [DebugPremiumSource] → the debug-only "unlock premium" override (B-046). **Additive**: it only
@@ -20,6 +20,9 @@ import javax.inject.Singleton
  *  3. [PaywallConfigSource] → the remote kill switch. When the paywall is disabled (launch promo) every
  *     premium surface unlocks for everyone; it defaults to ENABLED so a missing/failed config never
  *     accidentally unlocks premium.
+ *  4. [VerificationSource] → import/data verification, gating ONLY the population-dependent surfaces
+ *     ([GateStates.VERIFICATION_REQUIRED]); promo/debug bypass it. Bound to a constant `true` (inert)
+ *     until the import wizard ships — see [VerificationSource] and GateModule.
  *
  * …into a reactive [GateStates] snapshot ([gateStates]) and per-capability [GateState] flows
  * ([gateFor]). The UI's [PaywallGate] and the gated viewmodels observe these — they never recombine the
@@ -89,9 +92,13 @@ fun interface PaywallConfigSource {
  * `GET /v1/me` `verified` flag once enforcement is turned on. Gates ONLY the population-dependent
  * surfaces ([GateStates.VERIFICATION_REQUIRED]); promo/debug bypass it.
  *
- * MUST fail SAFE-FOR-THE-DRIVER by emitting `true` on a fresh install / offline / fetch failure once a
- * positive result has been seen (sticky-positive), so a transport hiccup never re-locks a verified
- * driver mid-session. Until the import wizard ships, this is bound to a constant `true` (inert).
+ * MUST emit a seed value SYNCHRONOUSLY (a StateFlow / stateIn with an initial value — never
+ * emptyFlow()-then-fetch): the gatekeeper's combine doesn't emit until EVERY source has emitted once,
+ * so a source that does network-then-emit would stall the WHOLE gate — including HISTORY/FISCAL, which
+ * don't depend on verification — and lock a paying driver out of their own data during the fetch. MUST
+ * also fail SAFE-FOR-THE-DRIVER: seed `true` on fresh install / offline / fetch failure once a positive
+ * result has been seen (sticky-positive), so a transport hiccup never re-locks a verified driver
+ * mid-session. Until the import wizard ships, this is bound to a constant `true` (inert).
  */
 fun interface VerificationSource {
     /** Reactive verification flag. true = import/data-verified (or verification not yet enforced). */
