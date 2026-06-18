@@ -1,21 +1,26 @@
 package mx.kompara.ui.screens
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -23,16 +28,25 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import mx.kompara.data.model.City
 import mx.kompara.ui.R
+import mx.kompara.ui.auth.MxPhone
 import mx.kompara.ui.components.ButtonVariant
 import mx.kompara.ui.components.KomparaButton
+import mx.kompara.ui.components.KomparaTextField
 import mx.kompara.ui.components.PrimaryButton
 import mx.kompara.ui.stats.AccountError
 import mx.kompara.ui.stats.AccountUiState
@@ -88,52 +102,34 @@ private fun AccountContent(
             color = MaterialTheme.colorScheme.onSurface,
         )
 
-        OutlinedTextField(
-            value = state.phone,
-            onValueChange = {},
-            readOnly = true,
-            enabled = false,
-            label = { Text(stringResource(R.string.account_phone_label)) },
-            modifier = Modifier.fillMaxWidth(),
-        )
-
-        OutlinedTextField(
-            value = state.nameInput,
-            onValueChange = onNameChange,
-            label = { Text(stringResource(R.string.account_name_label)) },
-            singleLine = true,
-            enabled = !state.busy,
-            modifier = Modifier.fillMaxWidth(),
-        )
-
-        var cityMenuOpen by remember { mutableStateOf(false) }
-        ExposedDropdownMenuBox(
-            expanded = cityMenuOpen,
-            onExpandedChange = { if (!state.busy) cityMenuOpen = it },
-        ) {
-            OutlinedTextField(
-                value = state.city.displayName,
+        // Fields block — design-system label-above filled inputs, 14dp gap (mock .fields).
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            // Read-only WhatsApp number: non-editable by design (PATCH /v1/me never updates it).
+            // "+52" affordance via the prefix slot, with the local digits formatted for legibility
+            // ("55 1234 5678"), mirroring the signup phone field.
+            KomparaTextField(
+                value = localPhoneDisplay(state.phone),
                 onValueChange = {},
+                label = stringResource(R.string.account_phone_label),
+                prefix = stringResource(R.string.auth_phone_prefijo).trim(),
                 readOnly = true,
-                enabled = !state.busy,
-                label = { Text(stringResource(R.string.account_city_label)) },
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = cityMenuOpen) },
-                modifier = Modifier.fillMaxWidth().menuAnchor(),
+                modifier = Modifier.fillMaxWidth(),
             )
-            ExposedDropdownMenu(
-                expanded = cityMenuOpen,
-                onDismissRequest = { cityMenuOpen = false },
-            ) {
-                City.entries.forEach { city ->
-                    DropdownMenuItem(
-                        text = { Text(city.displayName) },
-                        onClick = {
-                            onCityChange(city)
-                            cityMenuOpen = false
-                        },
-                    )
-                }
-            }
+
+            KomparaTextField(
+                value = state.nameInput,
+                onValueChange = onNameChange,
+                label = stringResource(R.string.account_name_label),
+                singleLine = true,
+                enabled = !state.busy,
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            CityPickerField(
+                city = state.city,
+                enabled = !state.busy,
+                onCityChange = onCityChange,
+            )
         }
 
         if (state.saved) {
@@ -145,27 +141,29 @@ private fun AccountContent(
         }
         FeedbackText(state.error)
 
-        Spacer(Modifier.height(8.dp))
-        PrimaryButton(
-            text = stringResource(R.string.account_save_cta),
-            onClick = onSave,
-            enabled = !state.busy,
-        )
-        KomparaButton(
-            text = stringResource(R.string.account_logout_cta),
-            onClick = onLogout,
-            variant = ButtonVariant.SECONDARY,
-            fullWidth = true,
-            enabled = !state.busy,
-        )
-        TextButton(
-            onClick = { confirmDelete = true },
-            enabled = !state.busy,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(
+        // Actions block — 10dp gap (mock .actions).
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            PrimaryButton(
+                text = stringResource(R.string.account_save_cta),
+                onClick = onSave,
+                enabled = !state.busy,
+            )
+            KomparaButton(
+                text = stringResource(R.string.account_logout_cta),
+                onClick = onLogout,
+                variant = ButtonVariant.SECONDARY,
+                fullWidth = true,
+                enabled = !state.busy,
+            )
+            // Delete: the unified TEXT button, full-width, in destructive red (UI-destructive,
+            // distinct from the verdict semáforo) per the mock.
+            KomparaButton(
                 text = stringResource(R.string.account_delete_cta),
-                color = MaterialTheme.colorScheme.error,
+                onClick = { confirmDelete = true },
+                variant = ButtonVariant.TEXT,
+                fullWidth = true,
+                enabled = !state.busy,
+                contentColor = MaterialTheme.colorScheme.error,
             )
         }
     }
@@ -192,6 +190,87 @@ private fun AccountContent(
                 }
             },
         )
+    }
+}
+
+/**
+ * The local-formatted WhatsApp number for display under the "+52" prefix, e.g. "55 1234 5678".
+ * [MxPhone.display] already includes the "+52 " country code, so we drop it here and let the field's
+ * prefix slot carry it.
+ */
+private fun localPhoneDisplay(e164: String): String =
+    MxPhone.display(e164).removePrefix("+52").trim()
+
+/**
+ * The benchmark-city control: a constrained 10-city picker (its key is a backend benchmark slug, so
+ * it can NOT be free text) styled to read as a [KomparaTextField] — a 12sp/Medium muted label above
+ * a 52dp surfaceContainer field with a 1.5dp outline and a trailing dropdown chevron.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CityPickerField(
+    city: City,
+    enabled: Boolean,
+    onCityChange: (City) -> Unit,
+) {
+    var cityMenuOpen by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(
+        expanded = cityMenuOpen,
+        onExpandedChange = { if (enabled) cityMenuOpen = it },
+        modifier = Modifier.alpha(if (enabled) 1f else 0.45f),
+    ) {
+        Column {
+            val cityLabel = stringResource(R.string.account_city_label)
+            Text(
+                text = cityLabel,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+            )
+            Row(
+                modifier = Modifier
+                    .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, enabled = enabled)
+                    .semantics { contentDescription = "$cityLabel: ${city.displayName}" }
+                    .padding(top = 6.dp)
+                    .fillMaxWidth()
+                    .height(52.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surfaceContainer)
+                    .border(
+                        width = 1.5.dp,
+                        color = MaterialTheme.colorScheme.outline,
+                        shape = RoundedCornerShape(12.dp),
+                    )
+                    .padding(horizontal = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    text = city.displayName,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Icon(
+                    imageVector = Icons.Filled.ArrowDropDown,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        ExposedDropdownMenu(
+            expanded = cityMenuOpen,
+            onDismissRequest = { cityMenuOpen = false },
+        ) {
+            City.entries.forEach { entry ->
+                DropdownMenuItem(
+                    text = { Text(entry.displayName) },
+                    onClick = {
+                        onCityChange(entry)
+                        cityMenuOpen = false
+                    },
+                )
+            }
+        }
     }
 }
 

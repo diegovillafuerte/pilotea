@@ -17,6 +17,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
@@ -35,6 +36,10 @@ import mx.kompara.ui.theme.KomparaTheme
  *
  * 52 dp tall for an easy tap with the phone on a mount. Shows [error] (red) over [hint] when both
  * are set.
+ *
+ * [readOnly] makes the field non-editable while keeping it fully visible (e.g. the WhatsApp number
+ * on Tu cuenta, which the backend never updates). [enabled] = false additionally dims the field to
+ * 0.45 alpha and stops it responding (e.g. inputs disabled while a save is in flight).
  */
 @Composable
 fun KomparaTextField(
@@ -47,6 +52,8 @@ fun KomparaTextField(
     hint: String? = null,
     error: String? = null,
     singleLine: Boolean = true,
+    readOnly: Boolean = false,
+    enabled: Boolean = true,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     visualTransformation: VisualTransformation = VisualTransformation.None,
 ) {
@@ -55,7 +62,7 @@ fun KomparaTextField(
     } else {
         MaterialTheme.colorScheme.outline
     }
-    Column(modifier = modifier) {
+    Column(modifier = modifier.alpha(if (enabled) 1f else 0.45f)) {
         Text(
             text = label,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -66,6 +73,8 @@ fun KomparaTextField(
             value = value,
             onValueChange = onValueChange,
             singleLine = singleLine,
+            readOnly = readOnly,
+            enabled = enabled,
             keyboardOptions = keyboardOptions,
             visualTransformation = visualTransformation,
             textStyle = MaterialTheme.typography.bodyLarge.copy(

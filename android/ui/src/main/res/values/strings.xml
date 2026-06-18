@@ -340,7 +340,7 @@
     <string name="day_detail_title">Detalle del día</string>
     <string name="day_shifts_title">Turnos</string>
     <string name="day_shift_open">en curso</string>
-    <string name="day_shift_line">%1$s–%2$s · %3$d viajes · %4$s</string>
+    <string name="day_shift_line">%1$s–%2$s · %3$d viajes</string>
     <string name="day_shift_line_open">%1$s–%2$s · %3$d viajes · %4$s</string>
     <string name="day_offers_title">Ofertas</string>
     <string name="day_offers_funnel">%1$d vistas · %2$d aceptadas · %3$d rechazadas</string>
@@ -429,6 +429,8 @@
     <string name="cost_editor_insurance">Seguro (MXN por día)</string>
     <string name="cost_editor_rent">Renta o financiamiento (MXN por día)</string>
     <string name="cost_editor_preview_per_km">Tu costo por km: %1$s</string>
+    <string name="cost_editor_preview_per_km_label">Tu costo por km</string>
+    <string name="cost_editor_preview_per_km_value">%1$s/km</string>
     <string name="cost_editor_preview_sample">En un viaje de %1$s y %2$s, te quedan %3$s netos</string>
     <string name="cost_editor_save">Guardar costos</string>
     <string name="cost_editor_saved">Costos guardados</string>
