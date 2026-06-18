@@ -16,7 +16,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilterChip
+import mx.kompara.ui.components.KomparaChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -312,10 +312,10 @@ private fun PlatformChips(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         chips.forEach { chip ->
-            FilterChip(
+            KomparaChip(
                 selected = chip == selected,
                 onClick = { onSelect(chip) },
-                label = { Text(stringResource(platformChipLabel(chip))) },
+                label = stringResource(platformChipLabel(chip)),
             )
         }
     }
