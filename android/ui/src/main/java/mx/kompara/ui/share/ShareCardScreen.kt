@@ -13,9 +13,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -29,6 +27,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import mx.kompara.ui.R
+import mx.kompara.ui.components.KomparaChip
+import mx.kompara.ui.components.KomparaSwitch
 import mx.kompara.ui.components.PrimaryButton
 
 /**
@@ -69,7 +69,7 @@ private fun ShareCardContent(
     ) {
         Text(
             text = stringResource(R.string.share_card_title),
-            style = MaterialTheme.typography.titleLarge,
+            style = MaterialTheme.typography.headlineSmall,
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -97,10 +97,11 @@ private fun ShareCardContent(
             ) {
                 Text(
                     text = stringResource(R.string.share_card_hide_amounts),
-                    style = MaterialTheme.typography.bodyLarge,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(end = 12.dp),
                 )
-                Switch(checked = state.hideAmounts, onCheckedChange = onHideAmounts)
+                KomparaSwitch(checked = state.hideAmounts, onCheckedChange = onHideAmounts)
             }
 
             PrimaryButton(text = stringResource(R.string.share_card_share_cta), onClick = onShare)
@@ -117,15 +118,15 @@ private fun VariantToggle(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        FilterChip(
+        KomparaChip(
             selected = selected == ShareCardVariant.STORY,
             onClick = { onVariant(ShareCardVariant.STORY) },
-            label = { Text(stringResource(R.string.share_card_variant_story)) },
+            label = stringResource(R.string.share_card_variant_story),
         )
-        FilterChip(
+        KomparaChip(
             selected = selected == ShareCardVariant.LANDSCAPE,
             onClick = { onVariant(ShareCardVariant.LANDSCAPE) },
-            label = { Text(stringResource(R.string.share_card_variant_landscape)) },
+            label = stringResource(R.string.share_card_variant_landscape),
         )
     }
 }

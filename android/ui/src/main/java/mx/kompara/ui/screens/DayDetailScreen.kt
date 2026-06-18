@@ -19,7 +19,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -36,6 +35,7 @@ import mx.kompara.ui.stats.HourBlock
 import mx.kompara.ui.stats.OfferFunnel
 import mx.kompara.ui.stats.ShiftTimelineItem
 import mx.kompara.ui.theme.KomparaTheme
+import mx.kompara.ui.theme.KomparaType
 
 /**
  * The day-detail screen (B-040 req 2): per-shift timeline, the offer funnel (seen/taken/declined with
@@ -73,7 +73,7 @@ private fun DayDetailContent(detail: DayDetail, modifier: Modifier = Modifier) {
     ) {
         Text(
             text = Formatters.formatDayLabel(detail.dayIso),
-            style = MaterialTheme.typography.titleLarge,
+            style = MaterialTheme.typography.headlineSmall,
             color = MaterialTheme.colorScheme.onSurface,
         )
 
@@ -128,10 +128,11 @@ private fun DayDetailContent(detail: DayDetail, modifier: Modifier = Modifier) {
 private fun Section(title: String, content: @Composable () -> Unit) {
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(
+            // Section label: design Dia .lbl is the small uppercase metricLabel (13/500, muted),
+            // not a titleMedium heading.
             text = title,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface,
+            style = KomparaType.metricLabel,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         content()
     }

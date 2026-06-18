@@ -16,11 +16,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -38,6 +35,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import mx.kompara.sync.api.ImportFile
 import mx.kompara.sync.api.ImportMetrics
 import mx.kompara.ui.R
+import mx.kompara.ui.components.ButtonVariant
+import mx.kompara.ui.components.KomparaButton
+import mx.kompara.ui.components.KomparaCard
 import mx.kompara.ui.components.KomparaProgressBar
 import mx.kompara.ui.components.PrimaryButton
 import mx.kompara.ui.format.Formatters
@@ -176,12 +176,8 @@ private fun PickingState(
 
 @Composable
 private fun PlatformCard(option: ImportPlatform, onClick: () -> Unit) {
-    Card(
+    KomparaCard(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-            contentColor = MaterialTheme.colorScheme.onSurface,
-        ),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
@@ -263,9 +259,12 @@ private fun FilePickStep(
     }
 
     Spacer(Modifier.height(20.dp))
-    OutlinedButton(onClick = onChangePlatform, modifier = Modifier.fillMaxWidth()) {
-        Text(stringResource(R.string.import_pick_another_platform))
-    }
+    KomparaButton(
+        text = stringResource(R.string.import_pick_another_platform),
+        onClick = onChangePlatform,
+        variant = ButtonVariant.SECONDARY,
+        fullWidth = true,
+    )
 }
 
 @Composable
@@ -282,9 +281,12 @@ private fun FilePickRow(label: String, picked: Boolean, onClick: () -> Unit) {
                 )
             }
         }
-        OutlinedButton(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.import_pick_file))
-        }
+        KomparaButton(
+            text = stringResource(R.string.import_pick_file),
+            onClick = onClick,
+            variant = ButtonVariant.SECONDARY,
+            fullWidth = true,
+        )
     }
 }
 
@@ -357,9 +359,12 @@ private fun ReviewState(
         Spacer(Modifier.height(28.dp))
         PrimaryButton(text = stringResource(R.string.import_review_save), onClick = onSave)
         Spacer(Modifier.height(10.dp))
-        OutlinedButton(onClick = onDiscard, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.import_review_discard))
-        }
+        KomparaButton(
+            text = stringResource(R.string.import_review_discard),
+            onClick = onDiscard,
+            variant = ButtonVariant.SECONDARY,
+            fullWidth = true,
+        )
     }
 }
 
@@ -474,9 +479,12 @@ private fun ErrorState(
             PrimaryButton(text = stringResource(R.string.import_error_retry), onClick = onRetry)
             Spacer(Modifier.height(10.dp))
         }
-        OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.import_error_back))
-        }
+        KomparaButton(
+            text = stringResource(R.string.import_error_back),
+            onClick = onBack,
+            variant = ButtonVariant.SECONDARY,
+            fullWidth = true,
+        )
     }
 }
 

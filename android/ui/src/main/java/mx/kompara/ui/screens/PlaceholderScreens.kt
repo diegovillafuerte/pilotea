@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -23,6 +22,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import mx.kompara.ui.BuildConfig
 import mx.kompara.ui.R
 import mx.kompara.ui.components.EmptyState
+import mx.kompara.ui.components.KomparaSwitch
 import mx.kompara.ui.components.PrimaryButton
 import mx.kompara.ui.stats.AjustesViewModel
 import mx.kompara.ui.theme.KomparaTheme
@@ -84,7 +84,7 @@ private fun AjustesContent(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(horizontal = 24.dp, vertical = 24.dp),
+            .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
     ) {
         PrimaryButton(
@@ -136,7 +136,7 @@ private fun SettingToggleRow(label: String, checked: Boolean, onToggled: (Boolea
             style = MaterialTheme.typography.bodyLarge,
             modifier = Modifier.padding(end = 12.dp),
         )
-        Switch(checked = checked, onCheckedChange = onToggled)
+        KomparaSwitch(checked = checked, onCheckedChange = onToggled)
     }
 }
 

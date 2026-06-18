@@ -25,13 +25,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import mx.kompara.data.model.City
 import mx.kompara.ui.R
+import mx.kompara.ui.components.ButtonVariant
+import mx.kompara.ui.components.KomparaButton
 import mx.kompara.ui.components.PrimaryButton
 import mx.kompara.ui.stats.AccountError
 import mx.kompara.ui.stats.AccountUiState
@@ -78,13 +79,12 @@ private fun AccountContent(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Text(
             text = stringResource(R.string.account_title),
             style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface,
         )
 
@@ -151,13 +151,13 @@ private fun AccountContent(
             onClick = onSave,
             enabled = !state.busy,
         )
-        TextButton(
+        KomparaButton(
+            text = stringResource(R.string.account_logout_cta),
             onClick = onLogout,
+            variant = ButtonVariant.SECONDARY,
+            fullWidth = true,
             enabled = !state.busy,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(stringResource(R.string.account_logout_cta))
-        }
+        )
         TextButton(
             onClick = { confirmDelete = true },
             enabled = !state.busy,

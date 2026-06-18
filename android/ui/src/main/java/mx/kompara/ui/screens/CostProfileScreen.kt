@@ -11,11 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -30,6 +26,10 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import mx.kompara.ui.R
+import mx.kompara.ui.components.CardTone
+import mx.kompara.ui.components.KomparaCard
+import mx.kompara.ui.components.KomparaSwitch
+import mx.kompara.ui.components.KomparaTextField
 import mx.kompara.ui.components.PrimaryButton
 import mx.kompara.ui.format.Formatters
 import mx.kompara.ui.stats.CostPreviewResult
@@ -95,7 +95,7 @@ private fun CostProfileContent(
     ) {
         Text(
             text = stringResource(R.string.cost_editor_title),
-            style = MaterialTheme.typography.titleLarge,
+            style = MaterialTheme.typography.headlineSmall,
         )
         Text(
             text = stringResource(R.string.cost_editor_intro),
@@ -111,7 +111,7 @@ private fun CostProfileContent(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(text = stringResource(R.string.cost_editor_ev_toggle), style = MaterialTheme.typography.bodyLarge)
-            Switch(checked = inputs.isEv, onCheckedChange = onEvToggled)
+            KomparaSwitch(checked = inputs.isEv, onCheckedChange = onEvToggled)
         }
 
         if (inputs.isEv) {
@@ -137,12 +137,9 @@ private fun CostProfileContent(
 
 @Composable
 private fun PreviewCard(preview: CostPreviewResult) {
-    Card(
+    KomparaCard(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        ),
+        tone = CardTone.VARIANT,
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
@@ -166,11 +163,10 @@ private fun PreviewCard(preview: CostPreviewResult) {
 
 @Composable
 private fun NumberField(label: String, value: String, onChange: (String) -> Unit) {
-    OutlinedTextField(
+    KomparaTextField(
         value = value,
         onValueChange = onChange,
-        label = { Text(label) },
-        singleLine = true,
+        label = label,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
         modifier = Modifier.fillMaxWidth(),
     )
