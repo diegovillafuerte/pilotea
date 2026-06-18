@@ -11,29 +11,31 @@
  *   4. on success, upsert into weekly_aggregates (source='imported')
  *   5. record the attempt in the `imports` table (status parsed|failed)
  *
- * Conflict rule — "captured beats imported": a weekly_aggregates row whose
- * `source='captured'` (live Android capture) is NEVER overwritten by an import.
- * The upsert's ON CONFLICT … WHERE clause skips the update for captured rows;
- * the import still succeeds and links to the existing row, but its parsed values
- * are not written. Imported-over-imported re-imports DO overwrite (idempotent
- * re-import of the same week).
+ * Conflict rule — field-level coalesce (import-strategy §6.1, PR-A): an import
+ * does NOT blanket-skip a live-captured row anymore. The incoming parsed values
+ * win for the fields they carry (net/gross/trips/commission); fields the import
+ * lacks (e.g. Uber km/hours) keep their prior captured/imported value. Derived
+ * ratios are recomputed from the merged raw fields, and a row that combines a
+ * captured contribution with an imported one is marked `source='mixed'`. A
+ * commission-only/partial import therefore never clobbers good totals to 0, and
+ * a fresh import that carries no core earnings is refused (422) instead of
+ * inserting a junk zero row. See `imports/aggregate-merge.ts`.
  *
- * Dry-run mode (`?dry_run=true`, B-045): validate + store the original + run the
- * full Claude Vision parse, but DO NOT mutate the durable record — no `imports`
- * row is inserted and no weekly_aggregates upsert is performed. The original IS
- * still stored (the storage write is cheap, idempotent on the import id, and a
- * later real import reuses a fresh id anyway), but nothing is recorded against
- * it. The response shape is identical to a real import plus `dry_run: true`, so
- * the Android review screen can preview the parsed week before the driver
- * confirms. A real import (`dry_run` absent/false) returns `dry_run: false` and
- * persists as before. This lets the client show parsed metrics for confirmation
- * without leaving orphaned import rows for every preview.
+ * Dry-run mode (`?dry_run=true`, B-045): validate + run the full Claude Vision
+ * parse, but DO NOT mutate the durable record — and DO NOT store the original
+ * (PR-A privacy fix / TD-018): the upload carries PII, so a preview must never
+ * leave an orphaned file in object storage. The parse runs straight off the
+ * in-memory multipart bytes. No `imports` row is inserted and no
+ * weekly_aggregates upsert is performed. The response shape is identical to a
+ * real import plus `dry_run: true`, so the Android review screen can preview the
+ * parsed week before the driver confirms. A real import (`dry_run` absent/false)
+ * returns `dry_run: false`, stores the original, and persists as before.
  */
 
 import { Hono } from "hono";
-import { and, eq, ne, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
-import { imports, weeklyAggregates } from "../db/schema.js";
+import { imports } from "../db/schema.js";
 import { requireBearer } from "../middleware/auth.js";
 import type { Database } from "../db/client.js";
 import type { VisionClient } from "../imports/claude.js";
@@ -42,6 +44,8 @@ import type { StorageAdapter } from "../imports/storage.js";
 import { storageFromEnv } from "../imports/storage.js";
 import { parseUpload } from "../imports/parsers/index.js";
 import type { Platform, UploadType, ParsedMetrics } from "../imports/types.js";
+import type { AggregateColumns } from "../imports/aggregate-merge.js";
+import { writeMergedAggregate } from "../imports/aggregate-write.js";
 
 // ─── Constants (ported from web /api/uploads) ─────────────────
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
@@ -70,26 +74,46 @@ function toDecimalString(value: number | null): string | null {
 }
 
 /**
- * Map ParsedMetrics → the weekly_aggregates column set. Earnings default to
- * "0" when null (ported from the web upsert) so the NOT NULL columns are
- * satisfied; the rest stay null.
+ * Map ParsedMetrics → the mergeable weekly_aggregates column set, PRESERVING
+ * nulls (PR-A): a metric the document didn't carry stays null so the merge can
+ * tell "not reported" from a real 0 and never clobbers a prior value. Derived
+ * ratios are recomputed downstream from the merged raw fields, so the values
+ * passed here are advisory for a fresh insert only.
  */
-function aggregateValuesFrom(driverId: string, platform: string, metrics: ParsedMetrics) {
+function aggregateValuesFrom(metrics: ParsedMetrics): AggregateColumns {
+  // Unified km rule: measured total_km wins; when it's absent but a native $/km
+  // is reported, back-derive km = net / (net-per-km) so that signal survives the
+  // merge's ratio recompute (which works off raw fields) instead of being dropped
+  // to null. DiDi reports $/km but NOT total km (this branch fires); InDrive and
+  // Uber report total_km directly (or nothing), so they pass through and their
+  // net-based $/km recomputes from the measured km — authoritative, no guess.
+  //
+  // ASSUMPTION (TD-035): this treats DiDi's $/km badge as NET-based, matching how
+  // every ratio in this codebase is computed (net/…). If DiDi's badge is actually
+  // gross-based, the derived km is inflated by ~gross/net and would skew the
+  // cross-platform "all" $/km blend. Must be confirmed against a real DiDi
+  // screenshot on-device before relying on DiDi distance in benchmarks.
+  let totalKm = metrics.total_km;
+  if (
+    totalKm == null &&
+    metrics.earnings_per_km != null &&
+    metrics.earnings_per_km > 0 &&
+    metrics.net_earnings != null
+  ) {
+    totalKm = Math.round((metrics.net_earnings / metrics.earnings_per_km) * 100) / 100;
+  }
   return {
-    driverId,
-    platform,
-    weekStart: metrics.week_start,
-    netEarnings: toDecimalString(metrics.net_earnings) ?? "0",
-    grossEarnings: toDecimalString(metrics.gross_earnings) ?? "0",
-    totalTrips: metrics.total_trips ?? 0,
-    totalKm: toDecimalString(metrics.total_km),
+    netEarnings: toDecimalString(metrics.net_earnings),
+    grossEarnings: toDecimalString(metrics.gross_earnings),
+    totalTrips: metrics.total_trips,
+    totalKm: toDecimalString(totalKm),
     hoursOnline: toDecimalString(metrics.hours_online),
     earningsPerTrip: toDecimalString(metrics.earnings_per_trip),
     earningsPerKm: toDecimalString(metrics.earnings_per_km),
     earningsPerHour: toDecimalString(metrics.earnings_per_hour),
     tripsPerHour: toDecimalString(metrics.trips_per_hour),
     platformCommissionPct: toDecimalString(metrics.platform_commission_pct),
-    source: "imported" as const,
+    source: "imported",
   };
 }
 
@@ -171,29 +195,34 @@ export function importsRoutes(
       mimeType = file.type;
     }
 
-    // 5. Store original(s). Key scheme: single → {driverId}/{importId}.{ext};
-    //    multi (DiDi) → {driverId}/{importId}_{i}.{ext}.
+    // 5. Store original(s) — REAL imports only. Key scheme: single →
+    //    {driverId}/{importId}.{ext}; multi (DiDi) → {driverId}/{importId}_{i}.{ext}.
+    //    Dry-run NEVER writes to storage (PR-A / TD-018): the upload carries PII,
+    //    so a preview must not leave an orphaned file behind. The dry-run parse
+    //    runs straight off the in-memory `fileBuffers` below.
     const importId = randomUUID();
     const ext = MIME_TO_EXT[mimeType] ?? "bin";
     const fileKeys: string[] = [];
-    try {
-      if (fileBuffers.length === 1) {
-        const key = `${driverId}/${importId}.${ext}`;
-        fileKeys.push(key);
-        await storage.uploadFile(key, fileBuffers[0]!, mimeType);
-      } else {
-        await Promise.all(
-          fileBuffers.map((buf, i) => {
-            const key = `${driverId}/${importId}_${i}.${ext}`;
-            fileKeys.push(key);
-            return storage.uploadFile(key, buf, mimeType);
-          }),
-        );
+    if (!dryRun) {
+      try {
+        if (fileBuffers.length === 1) {
+          const key = `${driverId}/${importId}.${ext}`;
+          fileKeys.push(key);
+          await storage.uploadFile(key, fileBuffers[0]!, mimeType);
+        } else {
+          await Promise.all(
+            fileBuffers.map((buf, i) => {
+              const key = `${driverId}/${importId}_${i}.${ext}`;
+              fileKeys.push(key);
+              return storage.uploadFile(key, buf, mimeType);
+            }),
+          );
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Error desconocido";
+        console.error("Storage upload error:", message);
+        return c.json({ error: "Error al subir el archivo. Intentalo de nuevo." }, 500);
       }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Error desconocido";
-      console.error("Storage upload error:", message);
-      return c.json({ error: "Error al subir el archivo. Intentalo de nuevo." }, 500);
     }
     const fileKey = fileKeys.join(",");
 
@@ -248,65 +277,47 @@ export function importsRoutes(
       );
     }
 
-    // 9. Success → upsert weekly_aggregates with captured-beats-imported rule.
-    const values = aggregateValuesFrom(driverId, platform, metrics);
-
-    const [upserted] = await db
-      .insert(weeklyAggregates)
-      .values(values)
-      .onConflictDoUpdate({
-        target: [weeklyAggregates.driverId, weeklyAggregates.platform, weeklyAggregates.weekStart],
-        // Captured beats imported: only overwrite when the existing row is NOT
-        // a live capture. Imported-over-imported updates (idempotent re-import).
-        set: {
-          netEarnings: values.netEarnings,
-          grossEarnings: values.grossEarnings,
-          totalTrips: values.totalTrips,
-          totalKm: values.totalKm,
-          hoursOnline: values.hoursOnline,
-          earningsPerTrip: values.earningsPerTrip,
-          earningsPerKm: values.earningsPerKm,
-          earningsPerHour: values.earningsPerHour,
-          tripsPerHour: values.tripsPerHour,
-          platformCommissionPct: values.platformCommissionPct,
-          source: values.source,
-          updatedAt: sql`now()`,
-        },
-        setWhere: ne(weeklyAggregates.source, "captured"),
-      })
-      .returning();
-
-    // When the conflicting row is source='captured', the WHERE blocks the
-    // update and RETURNING yields nothing — fetch the existing row so we can
-    // still link the import and return its (captured) metrics.
-    let aggregateRow = upserted;
-    if (!aggregateRow) {
-      [aggregateRow] = await db
-        .select()
-        .from(weeklyAggregates)
-        .where(
-          and(
-            eq(weeklyAggregates.driverId, driverId),
-            eq(weeklyAggregates.platform, platform),
-            eq(weeklyAggregates.weekStart, metrics.week_start),
-          ),
-        )
-        .limit(1);
-    }
-
-    // 10. Mark the import parsed + link to the aggregate row. `importRow` is
-    //     guaranteed defined here — the dry-run path returned above, and the
-    //     real path created it in step 6.
+    // `importRow` is guaranteed defined here — dry-run returned above, and the
+    // real path created it in step 6 (with its own guard).
     if (!importRow) {
       return c.json({ error: "Error interno del servidor. Intentalo de nuevo." }, 500);
     }
+
+    // 9. Success → merge into weekly_aggregates (field-level coalesce, PR-A).
+    //    The import wins for the fields it carries (net/gross/trips/commission);
+    //    fields it lacks (e.g. Uber km/hours) keep their prior captured/imported
+    //    value; derived ratios are recomputed from the merged raw fields; a row
+    //    that combines a captured contribution with an imported one becomes
+    //    source='mixed'. See imports/aggregate-merge.ts + aggregate-write.ts.
+    const writeResult = await writeMergedAggregate(
+      db,
+      { driverId, platform, weekStart: metrics.week_start },
+      aggregateValuesFrom(metrics),
+    );
+
+    // A fresh import carrying no core earnings (net/gross/trips all absent) is
+    // not a real week — refuse it and mark the pending import failed rather than
+    // inserting a junk zero row.
+    if (writeResult.kind === "rejected") {
+      const errorMsg =
+        "No pudimos leer las cifras de tu semana. Asegurate de subir la pantalla con tus ganancias totales.";
+      await db
+        .update(imports)
+        .set({ status: "failed", errorMessage: errorMsg, parsedPayload: parseResult.raw_extraction })
+        .where(eq(imports.id, importRow.id));
+      return c.json({ error: errorMsg }, 422);
+    }
+
+    const aggregateRow = writeResult.row;
+
+    // 10. Mark the import parsed + link to the merged aggregate row.
     await db
       .update(imports)
       .set({
         status: "parsed",
         errorMessage: null,
         parsedPayload: parseResult.raw_extraction,
-        weeklyAggregateId: aggregateRow?.id ?? null,
+        weeklyAggregateId: aggregateRow.id,
       })
       .where(eq(imports.id, importRow.id));
 

@@ -113,10 +113,13 @@ export const weeklyAggregates = pgTable(
     platform: varchar("platform", { length: 20 }).notNull(),
     weekStart: date("week_start").notNull(),
 
-    // Core earnings
-    netEarnings: decimal("net_earnings", { precision: 10, scale: 2 }).notNull(),
-    grossEarnings: decimal("gross_earnings", { precision: 10, scale: 2 }).notNull(),
-    totalTrips: integer("total_trips").notNull(),
+    // Core earnings. Nullable so "not reported" is genuinely expressible and a
+    // partial/commission-only import (or a captured sync that lacks a metric)
+    // can coalesce-merge without clobbering a previously-known value to 0. A
+    // null here means "this source did not carry this metric", never "0".
+    netEarnings: decimal("net_earnings", { precision: 10, scale: 2 }),
+    grossEarnings: decimal("gross_earnings", { precision: 10, scale: 2 }),
+    totalTrips: integer("total_trips"),
 
     // Raw inputs behind the efficiency metrics
     totalKm: decimal("total_km", { precision: 10, scale: 2 }),
@@ -129,7 +132,9 @@ export const weeklyAggregates = pgTable(
     tripsPerHour: decimal("trips_per_hour", { precision: 10, scale: 2 }),
     platformCommissionPct: decimal("platform_commission_pct", { precision: 5, scale: 2 }),
 
-    // captured = live by the Android capture engine; imported = upload parsing
+    // captured = live by the Android capture engine; imported = upload parsing;
+    // mixed = a row whose fields were coalesce-merged from both a captured and
+    // an imported source (honestly neither pure 'captured' nor 'imported').
     source: varchar("source", { length: 20 }).notNull().default("captured"),
 
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

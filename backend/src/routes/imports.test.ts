@@ -257,6 +257,15 @@ describe("didi import (2 images)", () => {
     expect(m.trips_per_hour).toBe(3.54); // 85 / 24.0
     expect(m.platform_commission).toBeNull(); // DiDi never reports it
 
+    // The merged aggregate persists DiDi's NATIVE $/km: total km is back-derived
+    // from net / (net-per-km), so the merge's ratio recompute reproduces 8.75
+    // instead of dropping it to null (DiDi reports $/km but not total km).
+    const aggs = await db.select().from(weeklyAggregates).where(eq(weeklyAggregates.driverId, driverId));
+    expect(aggs).toHaveLength(1);
+    expect(Number(aggs[0]!.earningsPerKm)).toBe(8.75);
+    expect(Number(aggs[0]!.totalKm)).toBe(480.06); // 4200.50 / 8.75
+    expect(aggs[0]!.source).toBe("imported");
+
     // both originals stored under the _0/_1 key scheme
     expect(storage.keys()).toContain(`${driverId}/${body.import_id}_0.png`);
     expect(storage.keys()).toContain(`${driverId}/${body.import_id}_1.png`);
@@ -384,10 +393,11 @@ describe("parse failure", () => {
   });
 });
 
-// ─── captured-beats-imported upsert rule ──────────────────────
-describe("captured-beats-imported conflict rule", () => {
-  it("does NOT overwrite a row with source='captured'", async () => {
-    // Seed a live-captured aggregate for the same driver/platform/week.
+// ─── Field-level coalesce merge (PR-A) ────────────────────────
+describe("field-level coalesce merge (import onto captured)", () => {
+  it("merges import onto a captured row: import fields win, captured-only fields preserved, source='mixed'", async () => {
+    // Seed a live-captured aggregate for the same driver/platform/week, WITH a
+    // km value the Uber PDF will not carry (Uber never reports km).
     await db.insert(weeklyAggregates).values({
       driverId,
       platform: "uber",
@@ -395,10 +405,11 @@ describe("captured-beats-imported conflict rule", () => {
       netEarnings: "9999.00",
       grossEarnings: "12000.00",
       totalTrips: 200,
+      totalKm: "1500.00",
       source: "captured",
     });
 
-    vision.setJson(UBER_PDF_EXTRACTION); // would write net=3850.50 if it overwrote
+    vision.setJson(UBER_PDF_EXTRACTION); // net=3850.50, trips=72, hours=45.5, commission=20.19, NO km
 
     const res = await postImport({
       platform: "uber",
@@ -412,15 +423,72 @@ describe("captured-beats-imported conflict rule", () => {
 
     const aggs = await db.select().from(weeklyAggregates).where(eq(weeklyAggregates.driverId, driverId));
     expect(aggs).toHaveLength(1);
-    // Captured values are preserved — the import did not clobber them.
-    expect(aggs[0]!.source).toBe("captured");
-    expect(Number(aggs[0]!.netEarnings)).toBe(9999.0);
-    expect(aggs[0]!.totalTrips).toBe(200);
+    const row = aggs[0]!;
+    // A captured + imported combination is honestly neither — it's 'mixed'.
+    expect(row.source).toBe("mixed");
+    // The import wins for the fields it carries.
+    expect(Number(row.netEarnings)).toBe(3850.5);
+    expect(Number(row.grossEarnings)).toBe(5200.0);
+    expect(row.totalTrips).toBe(72);
+    expect(Number(row.platformCommissionPct)).toBe(20.19);
+    expect(Number(row.hoursOnline)).toBe(45.5);
+    // The captured km is PRESERVED — the Uber import lacked it, so the merge must
+    // not clobber it (the whole point of field-level coalesce).
+    expect(Number(row.totalKm)).toBe(1500.0);
+    // Derived ratios are recomputed from the MERGED raw fields (never stale).
+    expect(Number(row.earningsPerTrip)).toBe(53.48); // 3850.5 / 72
+    expect(Number(row.earningsPerHour)).toBe(84.63); // 3850.5 / 45.5
+    expect(Number(row.earningsPerKm)).toBe(2.57); // 3850.5 / 1500 (preserved captured km)
 
-    // The import still succeeds and links to the existing (captured) row.
+    // The import succeeds and links to the merged row.
     const [imp] = await db.select().from(imports).where(eq(imports.id, body.import_id));
     expect(imp!.status).toBe("parsed");
-    expect(imp!.weeklyAggregateId).toBe(aggs[0]!.id);
+    expect(imp!.weeklyAggregateId).toBe(row.id);
+  });
+});
+
+// ─── Refuse a junk fresh import ───────────────────────────────
+describe("fresh import with no core earnings", () => {
+  it("refuses it (422, import marked failed, no aggregate row)", async () => {
+    // A parse that succeeds but carries no net/gross/trips (all the core
+    // earnings null) must not create a junk zero row.
+    vision.setJson({
+      week_start: "2025-03-24",
+      net_earnings: null,
+      gross_earnings: null,
+      total_trips: null,
+      hours_online: null,
+      platform_commission: null,
+      platform_commission_pct: 15.0,
+      taxes: null,
+      incentives: null,
+      tips: null,
+      surge_earnings: null,
+      wait_time_earnings: null,
+      active_days: null,
+      peak_day_earnings: null,
+      peak_day_name: null,
+      cash_amount: null,
+      card_amount: null,
+      rewards: null,
+    });
+
+    const res = await postImport({
+      platform: "uber",
+      uploadType: "pdf",
+      files: [{ name: "report.pdf", type: "application/pdf" }],
+      auth: token,
+    });
+
+    expect(res.status).toBe(422);
+    expect(await errorOf(res)).toContain("cifras de tu semana");
+
+    // The pending import row is marked failed; no aggregate is created.
+    const imps = await db.select().from(imports).where(eq(imports.driverId, driverId));
+    expect(imps).toHaveLength(1);
+    expect(imps[0]!.status).toBe("failed");
+    const aggs = await db.select().from(weeklyAggregates).where(eq(weeklyAggregates.driverId, driverId));
+    expect(aggs).toHaveLength(0);
   });
 });
 
@@ -464,6 +532,10 @@ describe("dry_run preview", () => {
       .from(weeklyAggregates)
       .where(eq(weeklyAggregates.driverId, driverId));
     expect(aggs).toHaveLength(0);
+
+    // PR-A privacy fix (TD-018): a dry-run preview must NOT store the original
+    // file — the upload carries PII, so a preview leaves nothing in storage.
+    expect(storage.keys()).toHaveLength(0);
   });
 
   it("returns 422 with the Spanish error on a parse failure and still persists nothing", async () => {
