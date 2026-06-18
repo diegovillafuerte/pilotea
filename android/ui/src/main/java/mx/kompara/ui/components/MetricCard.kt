@@ -50,6 +50,8 @@ fun MetricCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                    // Yield width to the trailing badge so a narrow grid tile doesn't wrap "Top X%".
+                    modifier = Modifier.weight(1f),
                 )
                 if (badge != null) {
                     Spacer(modifier = Modifier.width(8.dp))

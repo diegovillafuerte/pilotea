@@ -3,6 +3,7 @@ package mx.kompara.ui.screens
 import android.content.Context
 import android.content.Intent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,11 +11,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
@@ -33,12 +37,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -49,6 +58,7 @@ import mx.kompara.data.service.ServiceStatusProvider
 import mx.kompara.ui.R
 import mx.kompara.ui.components.PrimaryButton
 import mx.kompara.ui.onboarding.AccessibilitySettings
+import mx.kompara.ui.theme.BrandGreen
 import mx.kompara.ui.theme.KomparaTheme
 import mx.kompara.ui.theme.VerdictGreen
 import javax.inject.Inject
@@ -239,6 +249,10 @@ private fun ConnectedLector(
         // every screen lock. The accessibility service is already granted in this (connected) branch.
         ReaderStatusCard(running = ocrRunning)
 
+        // A static preview of the live verdict chip over a mock incoming offer (design system's Lector
+        // host pane) — cosmetic demo only; the real reader overlays the chip on the host app.
+        HostOfferPreview()
+
         // Primary action: start / restart the screen reader (behind the prominent disclosure).
         PrimaryButton(
             text = stringResource(
@@ -265,6 +279,75 @@ private fun ConnectedLector(
             modifier = Modifier.fillMaxWidth(),
         ) {
             Text(stringResource(R.string.lector_semaforo_cta))
+        }
+    }
+}
+
+/**
+ * A static preview of the floating verdict chip over a mock incoming offer — the design system's
+ * Lector ".host" pane. Purely cosmetic: the real reader overlays the chip on the host app (and the
+ * Simulador exercises it live); this just shows a driver what the gesture looks like.
+ */
+@Composable
+private fun HostOfferPreview() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(220.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp))
+            .background(Brush.linearGradient(listOf(Color(0xFF11161F), Color(0xFF0B0F17)))),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "Oferta entrante · Uber",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(text = "\$148", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 30.sp)
+            Spacer(Modifier.height(4.dp))
+            Text(text = "16 km · 22 min · efectivo", color = Color(0xFF94A3B8), fontSize = 13.sp)
+        }
+        MiniVerdictChip(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(14.dp),
+        )
+    }
+}
+
+/**
+ * A static, non-interactive replica of the overlay verdict chip (which lives in :overlay and can't be
+ * imported here): the Kompara brand strip atop a verde body with the net rates. Demo content only.
+ */
+@Composable
+private fun MiniVerdictChip(modifier: Modifier = Modifier) {
+    Column(modifier = modifier.clip(RoundedCornerShape(16.dp)).width(IntrinsicSize.Max)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(BrandGreen)
+                .padding(horizontal = 12.dp, vertical = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_kompara_logomark),
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(14.dp),
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(text = "Kompara", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+        }
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(VerdictGreen)
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+        ) {
+            Text(text = "\$9.20/km", color = Color.White, fontWeight = FontWeight.Black, fontSize = 20.sp)
+            Text(text = "\$165/h", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
         }
     }
 }

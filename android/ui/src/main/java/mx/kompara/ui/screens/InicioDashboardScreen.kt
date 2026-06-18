@@ -37,11 +37,14 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import mx.kompara.billing.GateState
 import mx.kompara.ui.R
+import mx.kompara.metrics.percentile.PercentileResult
 import mx.kompara.metrics.recommendation.Recommendation
 import mx.kompara.metrics.recommendation.RecommendationType
 import mx.kompara.ui.components.EmptyState
 import mx.kompara.ui.components.KomparaProgressBar
+import mx.kompara.ui.components.LockedPercentileBadge
 import mx.kompara.ui.components.MetricCard
+import mx.kompara.ui.components.PercentileBadge
 import mx.kompara.ui.components.RecommendationCard
 import mx.kompara.ui.components.WatchdogBanner
 import mx.kompara.ui.format.Formatters
@@ -53,8 +56,10 @@ import mx.kompara.ui.stats.CompletenessHint
 import mx.kompara.ui.stats.GoalProgress
 import mx.kompara.ui.stats.InicioDashboardViewModel
 import mx.kompara.ui.stats.InicioUiState
+import mx.kompara.ui.stats.MetricCardValue
 import mx.kompara.ui.stats.MetricCardValues
 import mx.kompara.ui.stats.MetricPercentiles
+import mx.kompara.ui.stats.PercentilesUiState
 import mx.kompara.ui.stats.RecommendationsUiState
 import mx.kompara.ui.stats.StreakDisplay
 import mx.kompara.ui.stats.platformChipLabel
@@ -145,14 +150,10 @@ private fun DashboardContent(
             )
         }
 
-        MetricCardValues.of(state.period).forEachIndexed { index, card ->
-            PercentileMetricCard(
-                label = stringResource(card.labelRes),
-                value = card.value,
-                percentile = MetricPercentiles.forCard(index, state.percentiles.byMetric),
-                locked = state.percentiles.locked,
-            )
-        }
+        MetricGrid(
+            cards = MetricCardValues.of(state.period),
+            percentiles = state.percentiles,
+        )
 
         // B-050: when benchmarks are gated, a single tease-then-gate upsell beneath the cards routes the
         // conversion through the shared PaywallGate (the per-card bars already show the dimmed stand-in).
@@ -322,6 +323,59 @@ private fun PlatformChips(
                 selected = chip == selected,
                 onClick = { onSelect(chip) },
                 label = stringResource(platformChipLabel(chip)),
+            )
+        }
+    }
+}
+
+/**
+ * The Inicio metric tiles in a 2-column grid (the design system's Inicio hub): each tile is a
+ * [MetricCard] with an inline "Top X%" pill. The per-card 20-person percentile bars now live on
+ * Comparar (the Inicio = individual / Comparar = comparison split). An odd final tile sits half-width.
+ */
+@Composable
+private fun MetricGrid(cards: List<MetricCardValue>, percentiles: PercentilesUiState) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        cards.chunked(2).forEachIndexed { rowIndex, pair ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                pair.forEachIndexed { colIndex, card ->
+                    val index = rowIndex * 2 + colIndex
+                    MetricCard(
+                        label = stringResource(card.labelRes),
+                        value = card.value,
+                        modifier = Modifier.weight(1f),
+                        badge = metricBadge(
+                            MetricPercentiles.forCard(index, percentiles.byMetric),
+                            percentiles.locked,
+                        ),
+                    )
+                }
+                if (pair.size == 1) Spacer(Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+/** The inline percentile pill for a metric tile: "Top X%", the premium-locked stand-in, or none. */
+private fun metricBadge(
+    percentile: PercentileResult?,
+    locked: Boolean,
+): (@Composable () -> Unit)? = when {
+    percentile == null -> null
+    locked -> {
+        { LockedPercentileBadge() }
+    }
+    else -> {
+        {
+            PercentileBadge(
+                topPercent = percentile.topPercent,
+                contentDescription = stringResource(
+                    R.string.percentile_badge_description,
+                    percentile.displayPercentile,
+                ),
             )
         }
     }
