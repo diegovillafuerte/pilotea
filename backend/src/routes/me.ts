@@ -1,8 +1,8 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { desc, eq, sql } from "drizzle-orm";
-import { drivers, subscriptions } from "../db/schema.js";
+import { and, desc, eq, sql } from "drizzle-orm";
+import { drivers, subscriptions, imports } from "../db/schema.js";
 import { requireBearer } from "../middleware/auth.js";
 import { effectiveTier } from "../subscriptions/status.js";
 import type { SubscriptionStatus } from "../subscriptions/verifier.js";
@@ -79,6 +79,28 @@ async function resolveSubscription(
 }
 
 /**
+ * Import/data verification (derived, revocable). A driver is "verified" once they
+ * have at least one successfully-parsed import — proof they uploaded a real
+ * Uber/DiDi statement. It is DERIVED from the `imports` table (not a frozen
+ * column) so it has a free revocation path: flipping an import's status away from
+ * 'parsed' (e.g. to 'failed'/'revoked' if later found fraudulent) drops the
+ * driver below the threshold automatically. PR-A guarantees a 'parsed' import
+ * carried real core earnings (no-core imports are rejected as 'failed').
+ *
+ * NOTE: v1 bar = "≥1 parsed import". Strengthening it (min data_completeness,
+ * recent-week, per-platform) is deferred — see the account-onboarding design §0.5.
+ */
+async function isVerified(db: Database, driverId: string): Promise<boolean> {
+  // EXISTS-style: stop at the first parsed import rather than counting all.
+  const rows = await db
+    .select({ id: imports.id })
+    .from(imports)
+    .where(and(eq(imports.driverId, driverId), eq(imports.status, "parsed")))
+    .limit(1);
+  return rows.length > 0;
+}
+
+/**
  * Authenticated driver-profile router: read and update the current driver.
  * Mounted under /v1 so the paths are GET /v1/me and PATCH /v1/me.
  */
@@ -95,7 +117,8 @@ export function meRoutes(db: Database) {
       driverId,
       row.premiumUntil,
     );
-    return c.json({ driver: profileOf(row, tier), subscription, premiumUntilMillis }, 200);
+    const verified = await isVerified(db, driverId);
+    return c.json({ driver: profileOf(row, tier), subscription, premiumUntilMillis, verified }, 200);
   });
 
   app.patch("/me", guard, zValidator("json", updateInput), async (c) => {
@@ -118,7 +141,8 @@ export function meRoutes(db: Database) {
       driverId,
       row.premiumUntil,
     );
-    return c.json({ driver: profileOf(row, tier), subscription, premiumUntilMillis }, 200);
+    const verified = await isVerified(db, driverId);
+    return c.json({ driver: profileOf(row, tier), subscription, premiumUntilMillis, verified }, 200);
   });
 
   // DELETE /v1/me — hard-delete the driver account (Play data-safety requirement: B-069).
