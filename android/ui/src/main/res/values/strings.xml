@@ -657,13 +657,23 @@
     <!-- ============================================================= -->
     <!-- Tarjeta para compartir "Tu Semana / Tu Mes" (B-055)           -->
     <!-- ============================================================= -->
-    <string name="share_card_title">Tu Semana</string>
+    <string name="share_card_title">Tu mes en Kompara</string>
     <string name="share_card_preview_desc">Vista previa de tu tarjeta para compartir</string>
     <string name="share_card_open_desc">Compartir tu resumen</string>
     <string name="share_card_share_cta">Compartir</string>
-    <string name="share_card_hide_amounts">Ocultar mis ganancias</string>
+    <string name="share_card_whatsapp_cta">Compartir en WhatsApp</string>
+    <string name="share_card_hide_amounts">Ocultar montos al compartir</string>
     <string name="share_card_variant_story">Historia</string>
     <string name="share_card_variant_landscape">Horizontal</string>
+    <!-- Encabezado de marca sobre el héroe esmeralda y rejilla de logros -->
+    <string name="share_card_brand_row">Kompara · %1$s</string>
+    <string name="share_card_net_label">Ganancia neta del mes</string>
+    <string name="share_card_net_hidden">••••••</string>
+    <string name="share_card_label_place">Tu lugar</string>
+    <string name="share_card_label_best_app">Mejor app</string>
+    <string name="share_card_label_best_day">Mejor día</string>
+    <string name="share_card_label_streak">Racha</string>
+    <string name="share_card_value_dash">—</string>
     <!-- Notificación de cierre de semana (lunes 9am) -->
     <string name="share_channel_name">Resúmenes</string>
     <string name="share_channel_desc">Aviso semanal cuando tu resumen para compartir está listo.</string>

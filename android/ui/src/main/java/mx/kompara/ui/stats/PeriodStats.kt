@@ -58,24 +58,40 @@ data class PeriodStats(
                 rows.map { it.toRow() }.filterByPlatform(platform),
             )
 
-        /** Daily twin of [fromWeekly]. */
+        /** Daily twin of [fromWeekly] for a *single* day bucket (hours replicated per platform-row). */
         fun fromDaily(rows: List<DailyAggregateEntity>, platform: Platform?): PeriodStats =
             foldRows(
                 rows.map { it.toRow() }.filterByPlatform(platform),
             )
 
+        /**
+         * Fold a **month** of daily rows (many day buckets) into one [PeriodStats]. Same totals as
+         * [foldRows] — net/gross/trips/km summed across all selected rows — but the online-hours fold
+         * differs: within one day the platform-rows replicate the same hours (so max-per-day is the
+         * day's true online hours), and the month's hours is the **sum of each day's hours**. Taking a
+         * single max across the whole month (as [fromDaily] does) would undercount to a single day and
+         * inflate $/hora and viajes/hora. Rates are recomputed from these corrected monthly totals.
+         */
+        fun fromDailyMonth(rows: List<DailyAggregateEntity>, platform: Platform?): PeriodStats {
+            val selected = rows.map { it.toRow() }.filterByPlatform(platform)
+            if (selected.isEmpty()) return EMPTY
+            val monthlyHours = selected.groupBy { it.day }.values.sumOf { dayRows -> dayRows.maxOf { it.hours } }
+            return foldRows(selected, hoursOverride = monthlyHours)
+        }
+
         private fun List<AggRow>.filterByPlatform(platform: Platform?): List<AggRow> =
             if (platform == null) this else filter { it.platform == platform.name }
 
-        private fun foldRows(rows: List<AggRow>): PeriodStats {
+        private fun foldRows(rows: List<AggRow>, hoursOverride: Double? = null): PeriodStats {
             if (rows.isEmpty()) return EMPTY
             val net = rows.sumOf { it.net }
             val gross = rows.sumOf { it.gross }
             val trips = rows.sumOf { it.trips }
             val km = rows.sumOf { it.km }
-            // Hours are platform-agnostic and replicated per platform-row in the rollup; the period's
-            // true online hours is the max, not the sum (summing would multiply by platform count).
-            val hours = rows.maxOf { it.hours }
+            // Hours are platform-agnostic and replicated per platform-row in the rollup; within one day
+            // bucket the period's true online hours is the max, not the sum (summing would multiply by
+            // platform count). [hoursOverride] carries the correct cross-day sum for monthly folds.
+            val hours = hoursOverride ?: rows.maxOf { it.hours }
             val acceptances = rows.mapNotNull { it.acceptanceRate }
             return PeriodStats(
                 netEarningsMxn = net,
@@ -93,7 +109,10 @@ data class PeriodStats(
     }
 }
 
-/** The platform-tagged subset of aggregate fields [PeriodStats] folds. Internal glue. */
+/**
+ * The platform-tagged subset of aggregate fields [PeriodStats] folds. Internal glue. [day] is the ISO
+ * date for daily rows (used to group hours per-day in the monthly fold) and null for weekly rows.
+ */
 private data class AggRow(
     val platform: String,
     val net: Double,
@@ -102,6 +121,7 @@ private data class AggRow(
     val km: Double,
     val hours: Double,
     val acceptanceRate: Double?,
+    val day: String? = null,
 )
 
 private fun WeeklyAggregateEntity.toRow() = AggRow(
@@ -122,4 +142,5 @@ private fun DailyAggregateEntity.toRow() = AggRow(
     km = totalKm,
     hours = hoursOnline,
     acceptanceRate = acceptanceRate,
+    day = day,
 )

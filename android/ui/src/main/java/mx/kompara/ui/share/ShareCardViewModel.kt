@@ -70,7 +70,7 @@ class ShareCardViewModel @Inject constructor(
     }
 
     private suspend fun loadAndRender(hideAmounts: Boolean, variant: ShareCardVariant) {
-        val data = provider.currentWeekCard(hideAmountsOverride = hideAmounts)
+        val data = provider.currentMonthCard(hideAmountsOverride = hideAmounts)
         val bitmap = renderOffThread(data, variant)
         _state.value = ShareCardUiState(
             loading = false,
@@ -84,10 +84,10 @@ class ShareCardViewModel @Inject constructor(
     private suspend fun renderOffThread(data: ShareCardData, variant: ShareCardVariant): Bitmap =
         withContext(Dispatchers.Default) { ShareCardRenderer.render(data, variant) }
 
-    /** The text body that rides along with the image share (B-055). */
+    /** The text body that rides along with the image share (B-055). Leads with the month + "Tu mes". */
     private fun shareCaption(data: ShareCardData): String =
         listOfNotNull(
-            data.periodLabel,
+            "${data.periodLabel} · Tu mes en Kompara",
             data.percentileFlex,
             "Hecho con Kompara · descárgala gratis",
         ).joinToString("\n")

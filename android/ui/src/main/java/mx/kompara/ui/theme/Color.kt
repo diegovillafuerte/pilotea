@@ -33,6 +33,7 @@ val OnVerdictRed = Color(0xFFFFFFFF)
 // the Material primary AND the verdict chip's brand strip, so the app and the website read as one.
 val BrandGreen = Color(0xFF059669) // website primary-600 — dark-theme primary + chip brand strip
 val BrandGreenDark = Color(0xFF047857) // website primary-700 — light-theme primary
+val BrandGreenLight = Color(0xFF10B981) // website emerald-500 — the bright end of the share-hero gradient
 val BrandGreenContainerDark = Color(0xFF064E3B) // website primary-900
 val BrandGreenContainerLight = Color(0xFFD1FAE5) // website primary-100
 
