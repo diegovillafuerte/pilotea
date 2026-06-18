@@ -1,0 +1,37 @@
+/* ───────────────────────────────────────────────────────────────────────────
+   Kompara · Base styles
+   A light reset + the brand defaults (Inter, tight headings). Kept minimal —
+   components carry their own styling via the tokens.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--body-size);
+  line-height: var(--body-lh);
+  background: var(--background);
+  color: var(--text-body);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+  letter-spacing: var(--tracking-tight);
+  color: var(--text-strong);
+}
+
+a { color: var(--primary); }
+
+/* Tabular figures everywhere money is shown keeps columns aligned. */
+.km-numeric { font-variant-numeric: tabular-nums; }

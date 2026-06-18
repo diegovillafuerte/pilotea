@@ -1,0 +1,11 @@
+/* ───────────────────────────────────────────────────────────────────────────
+   Kompara Design System · global entry point
+   Consumers link THIS one file. It is a list of @imports only — every token and
+   @font-face lives in tokens/. Order: fonts → colors → type → spacing → base.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+@import "./tokens/fonts.css";
+@import "./tokens/colors.css";
+@import "./tokens/typography.css";
+@import "./tokens/spacing.css";
+@import "./tokens/base.css";

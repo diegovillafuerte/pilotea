@@ -1,0 +1,32 @@
+<!-- @dsCard group="Brand" viewport="760x190" name="Iconography" subtitle="Material Symbols (Rounded), 2px stroke · nav, status, actions" -->
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/>
+<link rel="stylesheet" href="../styles.css"/>
+<style>
+  body{margin:0;padding:22px;background:var(--background);font-family:var(--font-sans)}
+  .grid{display:flex;gap:22px;flex-wrap:wrap}
+  .ic{display:flex;flex-direction:column;align-items:center;gap:8px;width:64px}
+  .ic svg{color:var(--text-body)}
+  .ic span{font-size:10px;color:var(--text-faint)}
+  .cap{font-size:11px;color:var(--text-faint);margin:0 0 16px;text-transform:uppercase;letter-spacing:.08em;font-weight:600}
+  .note{font-size:11px;color:var(--text-muted);margin-top:18px;max-width:62ch;line-height:1.5}
+</style></head>
+<body>
+<p class="cap">Iconography</p>
+<div class="grid" id="g"></div>
+<p class="note">System: <b>Material Symbols (Rounded)</b>, the Android app's icon language — 24px, ~2px stroke, rounded joins. Verdict colour is never the only signal: an icon or word always accompanies it.</p>
+<script>
+  const S='width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
+  const icons={
+    Inicio:`<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.7V21h14V9.7"/>`,
+    Comparar:`<path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>`,
+    Lector:`<path d="M7 4.5v15l13-7.5z"/>`,
+    Fiscal:`<rect x="3.5" y="5" width="17" height="16" rx="2.5"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/>`,
+    Ajustes:`<circle cx="12" cy="12" r="3.2"/><path d="M5 12H3M21 12h-2M12 5V3M12 21v-2"/>`,
+    Compartir:`<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/>`,
+    Bien:`<circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.4 2.4 4.6-5"/>`,
+    Alerta:`<path d="M12 3 2.5 20h19z"/><path d="M12 10v4M12 17.5h.01"/>`,
+    Info:`<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>`,
+  };
+  document.getElementById("g").innerHTML=Object.entries(icons).map(([n,p])=>`<div class="ic"><svg ${S}>${p}</svg><span>${n}</span></div>`).join("");
+</script>
+</body></html>

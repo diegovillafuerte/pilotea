@@ -1,0 +1,59 @@
+<!-- @dsCard group="Components" viewport="700x420" name="Feedback — dialog, progress, status" subtitle="Prominent-disclosure dialog, progress bars, status pills" -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="stylesheet" href="../../styles.css" />
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>
+  body { margin: 0; padding: 24px; background: var(--background); }
+  .lbl { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-faint); margin: 0 0 10px; font-weight: 600; }
+  .grid { display:grid; grid-template-columns: 1.1fr 1fr; gap: 22px; align-items:start; }
+  .stage { position: relative; height: 300px; border-radius: 16px; overflow: hidden; background: var(--surface-card); }
+  .stack { display:flex; flex-direction:column; gap:14px; }
+  .barrow { display:flex; align-items:center; gap:10px; }
+  .barrow span { font-size:12px; color:var(--text-muted); width:70px; }
+  .chips { display:flex; gap:8px; flex-wrap:wrap; }
+</style>
+</head>
+<body class="theme-dark">
+<div id="root"></div>
+<script type="text/babel">
+  const { Dialog, ProgressBar, StatusChip } = window.KomparaDesignSystem_722871;
+  function Demo() {
+    return (
+      <div className="grid">
+        <div>
+          <p className="lbl">Dialog — prominent disclosure</p>
+          <div className="stage">
+            <Dialog open title="Kompara leerá tu pantalla" confirmText="Continuar" cancelText="Ahora no">
+              Para mostrarte el semáforo sobre las ofertas de DiDi, Kompara captura tu pantalla y la analiza únicamente en tu teléfono. Nada se guarda en servidores.
+            </Dialog>
+          </div>
+        </div>
+        <div>
+          <p className="lbl">Progress</p>
+          <div className="stack">
+            <div className="barrow"><span>Meta</span><ProgressBar value={0.69}/></div>
+            <div className="barrow"><span>Uber IMSS</span><ProgressBar value={1} tone="verde"/></div>
+            <div className="barrow"><span>DiDi IMSS</span><ProgressBar value={0.71} tone="amarillo"/></div>
+          </div>
+          <p className="lbl" style={{marginTop:24}}>Status pills</p>
+          <div className="chips">
+            <StatusChip tone="success">Cubierto este mes</StatusChip>
+            <StatusChip tone="warning">En camino</StatusChip>
+            <StatusChip tone="danger">No cubierto</StatusChip>
+            <StatusChip tone="neutral">Importado</StatusChip>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  ReactDOM.createRoot(document.getElementById("root")).render(<Demo />);
+</script>
+</body>
+</html>

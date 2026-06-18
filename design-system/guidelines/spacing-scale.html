@@ -1,0 +1,20 @@
+<!-- @dsCard group="Spacing" viewport="760x170" name="Spacing scale" subtitle="4-based: 4 · 8 · 12 · 16 · 24 — 16 is canonical edge/section/card padding" -->
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/>
+<link rel="stylesheet" href="../styles.css"/>
+<style>
+  body{margin:0;padding:22px;background:var(--background);font-family:var(--font-sans)}
+  .row{display:flex;align-items:flex-end;gap:20px}
+  .item{text-align:center}
+  .bar{background:var(--primary);border-radius:4px;width:40px}
+  .v{font-size:12px;font-weight:700;color:var(--text-strong);margin-top:8px}
+  .t{font-size:10px;color:var(--text-faint)}
+  .cap{font-size:11px;color:var(--text-faint);margin:0 0 16px;text-transform:uppercase;letter-spacing:.08em;font-weight:600}
+</style></head>
+<body>
+<p class="cap">Spacing scale</p>
+<div class="row" id="r"></div>
+<script>
+  const s=[["4",4],["8",8],["12",12],["16",16,"canonical"],["24",24],["32",32],["48",48]];
+  document.getElementById("r").innerHTML=s.map(([n,px,tag])=>`<div class="item"><div class="bar" style="height:${px*2}px;${tag?'background:var(--emerald-600)':''}"></div><div class="v">${n}px</div><div class="t">${tag||'space-'+(px/4)}</div></div>`).join("");
+</script>
+</body></html>

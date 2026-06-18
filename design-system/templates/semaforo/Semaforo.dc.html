@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<!-- @template name="Tu semáforo (thresholds)" description="Interactive threshold editor — pick the deciding metric, set verde/rojo net floors with live sliders" -->
+<helmet>
+  <script src="./ds-base.js"></script>
+  <style>
+    html,body{margin:0;height:100%}
+    body{background:radial-gradient(120% 120% at 50% 0%, #1e293b 0%, #0f172a 55%, #020617 100%);display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;font-family:var(--font-sans)}
+    .frame{width:390px;height:760px;border-radius:40px;overflow:hidden;position:relative;background:var(--background);box-shadow:0 24px 70px rgba(2,6,23,.6),0 0 0 10px #0b1120,0 0 0 11px #1e293b;display:flex;flex-direction:column}
+    .sb{height:30px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;font-size:12px;font-weight:600;color:var(--text-body);flex:none}
+    .body{flex:1;overflow-y:auto;padding:16px}
+    .h1{font-size:24px;font-weight:700;color:var(--text-strong)}
+    .sub{font-size:14px;color:var(--text-muted);margin-top:6px;line-height:1.5}
+    .lbl{font-size:13px;font-weight:500;letter-spacing:.04em;text-transform:uppercase;color:var(--text-muted);margin-top:18px}
+    .seg{display:flex;background:var(--surface-card);border-radius:10px;padding:3px;margin-top:8px}
+    .seg button{flex:1;border:none;background:none;color:var(--text-muted);font-family:var(--font-sans);font-size:13px;font-weight:600;padding:8px;border-radius:8px;cursor:pointer}
+    .seg button.on{background:var(--primary);color:#fff}
+    .card{background:var(--surface-card);border-radius:12px;padding:16px;margin-top:16px}
+    .badges{display:flex;gap:10px;margin-top:16px;justify-content:center}
+  </style>
+</helmet>
+<div class="frame theme-dark">
+  <div class="sb"><span>9:41</span><span>▲ Kompara · 100%</span></div>
+  <div class="body">
+    <div class="h1">Tu semáforo</div>
+    <div class="sub">Define cuándo un viaje se marca verde, amarillo o rojo. Los pisos son netos — después de gasolina y desgaste — y el mismo semáforo aplica a todas tus apps.</div>
+    <div class="lbl">¿Qué decide tu semáforo?</div>
+    <div class="seg">
+      <button class="{{ kmCls }}" onClick="{{ pickKm }}">Por kilómetro</button>
+      <button class="{{ hrCls }}" onClick="{{ pickHr }}">Por hora</button>
+    </div>
+    <div class="card">
+      <x-import component-from-global-scope="KomparaDesignSystem_722871.Slider" label="Verde desde" value-text="{{ greenText }}" value="{{ green }}" min="{{ gMin }}" max="20" step="0.1" on-change="{{ onGreen }}" hint-size="100%,60px"></x-import>
+      <div style="height:14px"></div>
+      <x-import component-from-global-scope="KomparaDesignSystem_722871.Slider" label="Rojo por debajo de" value-text="{{ redText }}" value="{{ red }}" min="2" max="{{ green }}" step="0.1" on-change="{{ onRed }}" hint-size="100%,60px"></x-import>
+    </div>
+    <div class="badges">
+      <x-import component-from-global-scope="KomparaDesignSystem_722871.VerdictBadge" level="green" hint-size="80px,30px"></x-import>
+      <x-import component-from-global-scope="KomparaDesignSystem_722871.VerdictBadge" level="yellow" hint-size="90px,30px"></x-import>
+      <x-import component-from-global-scope="KomparaDesignSystem_722871.VerdictBadge" level="red" hint-size="70px,30px"></x-import>
+    </div>
+    <div class="sub" style="font-size:12px;text-align:center;margin-top:12px">El lector y el simulador usan estos pisos al instante.</div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { metric: "km", green: 9.2, red: 5.5 };
+
+  renderVals() {
+    const s = this.state;
+    const fmt = (v) => (s.metric === "km" ? "$" + v.toFixed(1) + "/km" : "$" + Math.round(v * 18) + "/h");
+    return {
+      kmCls: s.metric === "km" ? "on" : "",
+      hrCls: s.metric === "hr" ? "on" : "",
+      pickKm: () => this.setState({ metric: "km" }),
+      pickHr: () => this.setState({ metric: "hr" }),
+      green: s.green,
+      red: s.red,
+      gMin: 3,
+      greenText: fmt(s.green),
+      redText: fmt(s.red),
+      onGreen: (v) => this.setState({ green: v, red: Math.min(this.state.red, v) }),
+      onRed: (v) => this.setState({ red: v }),
+    };
+  }
+}
+</script>
+</body>
+</html>

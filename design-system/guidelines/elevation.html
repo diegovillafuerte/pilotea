@@ -1,0 +1,36 @@
+<!-- @dsCard group="Spacing" viewport="760x210" name="Elevation — tonal, not shadow" subtitle="In-app: separate surfaces by colour step. Shadow is for web + the floating chip only." -->
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/>
+<link rel="stylesheet" href="../styles.css"/>
+<style>
+  body{margin:0;padding:22px;background:var(--background);font-family:var(--font-sans)}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .panel{border-radius:12px;padding:16px}
+  .tonal{background:var(--surface-card)}
+  .tonal .inner{background:var(--surface-variant);border-radius:10px;padding:14px;margin-top:10px}
+  .shadowdemo{background:var(--background);display:flex;gap:14px;align-items:center}
+  .scard{background:#fff;border:1px solid var(--slate-200);border-radius:12px;padding:14px;font-size:12px;color:var(--slate-600);flex:1}
+  .name{font-size:12px;font-weight:700;color:var(--text-strong)}
+  .role{font-size:10px;color:var(--text-muted);margin-top:2px}
+  .cap{font-size:11px;color:var(--text-faint);margin:0 0 14px;text-transform:uppercase;letter-spacing:.08em;font-weight:600}
+  .h{font-size:11px;color:var(--text-faint);margin:0 0 8px;font-weight:600}
+</style></head>
+<body>
+<p class="cap">Elevation</p>
+<div class="two">
+  <div>
+    <p class="h">In-app — tonal lift (no shadow)</p>
+    <div class="panel tonal">
+      <div class="name">surface-card</div><div class="role">a card on the background</div>
+      <div class="inner"><div class="name">surface-variant</div><div class="role">a tonal group inside the card</div></div>
+    </div>
+  </div>
+  <div>
+    <p class="h">Web + overlay — shadow</p>
+    <div class="shadowdemo">
+      <div class="scard" style="box-shadow:var(--shadow-sm)">shadow-sm</div>
+      <div class="scard" style="box-shadow:var(--shadow-md)">shadow-md</div>
+      <div class="scard" style="box-shadow:var(--shadow-lg)">shadow-lg</div>
+    </div>
+  </div>
+</div>
+</body></html>

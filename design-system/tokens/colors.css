@@ -1,0 +1,113 @@
+/* ───────────────────────────────────────────────────────────────────────────
+   Kompara · Color tokens
+   The product is a traffic-light for ride-hailing drivers. Colours are highly
+   saturated with strong luminance contrast so the verde/amarillo/rojo verdict
+   reads instantly on a phone propped on the dashboard, at night or in sunlight.
+
+   Two layers:
+   1. PRIMITIVES — the raw brand scales (emerald, slate, verdict triple, amber).
+   2. SEMANTIC   — role aliases (--surface, --text-body, --primary…). Light is
+      the :root default (website + specimens). `.theme-dark` flips to the app's
+      dark-first palette — drivers work nights, so the Android app ships dark.
+   Source of truth: web `globals.css` @theme + Android `theme/Color.kt`.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* ── Primitive · Emerald (brand primary) ───────────────────────────────── */
+  --emerald-50:  #ecfdf5;
+  --emerald-100: #d1fae5;
+  --emerald-200: #a7f3d0;
+  --emerald-300: #6ee7b7;
+  --emerald-400: #34d399;
+  --emerald-500: #10b981;
+  --emerald-600: #059669; /* canonical brand green — logomark + dark-theme primary */
+  --emerald-700: #047857; /* light-theme primary */
+  --emerald-800: #065f46;
+  --emerald-900: #064e3b;
+  --emerald-950: #022c22;
+
+  /* ── Primitive · Slate (neutrals) ──────────────────────────────────────── */
+  --slate-50:  #f8fafc;
+  --slate-100: #f1f5f9;
+  --slate-200: #e2e8f0;
+  --slate-300: #cbd5e1;
+  --slate-400: #94a3b8;
+  --slate-500: #64748b;
+  --slate-600: #475569;
+  --slate-700: #334155;
+  --slate-800: #1e293b;
+  --slate-900: #0f172a;
+  --slate-950: #020617;
+
+  /* ── Primitive · Verdict (semáforo) ────────────────────────────────────── */
+  /* The heart of the system. Reserve these three for verdicts ONLY — never
+     decorative. Each pairs with an explicit on-colour for legible text. */
+  --verde:  #1b8a3a; --on-verde:  #ffffff; /* el viaje conviene */
+  --amarillo: #f2b705; --on-amarillo: #1a1300; /* viaje regular / marginal */
+  --rojo:   #d32f2f; --on-rojo:   #ffffff; /* el viaje no conviene */
+
+  /* ── Primitive · Amber accent (CTAs/highlights on web, streak chip) ─────── */
+  --amber-400: #fbbf24;
+  --amber-500: #f59e0b;
+  --amber-600: #d97706;
+
+  /* ── Primitive · Info blue (actionable tips — sits outside the triple) ──── */
+  --info-blue: #2d77e0;
+
+  /* ── Primitive · Semantic status ───────────────────────────────────────── */
+  --success: #059669;
+  --error:   #dc2626;
+  --warning: #d97706;
+  --info:    #0284c7;
+
+  /* ─────────────────────────────────────────────────────────────────────────
+     SEMANTIC ROLES · LIGHT (default — website + specimen surfaces)
+     ───────────────────────────────────────────────────────────────────────── */
+  --primary:            var(--emerald-700);  /* buttons, links, on-brand accents */
+  --primary-strong:     var(--emerald-800);  /* hover/press */
+  --on-primary:         #ffffff;
+  --primary-container:  var(--emerald-100);
+  --on-primary-container: var(--emerald-900);
+
+  --background:         var(--slate-50);      /* screen background */
+  --surface:            var(--slate-50);
+  --surface-card:       #ffffff;             /* the standard card background */
+  --surface-variant:    var(--slate-200);    /* tonal lift: chips, dots-off, track */
+
+  --text-strong:        var(--slate-900);    /* headings, hero numerals */
+  --text-body:          var(--slate-900);    /* primary text */
+  --text-muted:         var(--slate-600);    /* secondary / supporting text */
+  --text-faint:         var(--slate-400);    /* hints, captions, axis labels */
+
+  --border:             var(--slate-300);    /* outlines, dividers, dots-off */
+  --border-strong:      var(--slate-400);
+
+  /* Verdict aliases (theme-stable — the signal never changes by theme) */
+  --secondary:          var(--amarillo);     /* attention/marginal accent */
+  --on-secondary:       var(--on-amarillo);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   SEMANTIC ROLES · DARK (the Android app default — "dark by default")
+   Apply on any ancestor: <div class="theme-dark"> or [data-theme="dark"].
+   ───────────────────────────────────────────────────────────────────────────── */
+.theme-dark {
+  --primary:            var(--emerald-600);  /* brighter green on dark */
+  --primary-strong:     var(--emerald-500);
+  --on-primary:         #ffffff;
+  --primary-container:  var(--emerald-900);
+  --on-primary-container: var(--emerald-100);
+
+  --background:         var(--slate-900);
+  --surface:            var(--slate-900);
+  --surface-card:       var(--slate-800);    /* surfaceContainer */
+  --surface-variant:    var(--slate-700);    /* surfaceVariant tonal lift */
+
+  --text-strong:        var(--slate-50);
+  --text-body:          var(--slate-50);
+  --text-muted:         var(--slate-300);
+  --text-faint:         var(--slate-400);
+
+  --border:             var(--slate-600);
+  --border-strong:      var(--slate-500);
+}

@@ -1,0 +1,44 @@
+/* ───────────────────────────────────────────────────────────────────────────
+   Kompara · Spacing, shape & elevation tokens
+   A strict 4-based scale (4·8·12·16·24…). Don't invent in-between values.
+   Cards are TONAL, not shadowed — surfaces separate by colour step, so shadows
+   are reserved for the website and floating overlay only. Source: Android
+   `design-principles.md` §4–5.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* ── Spacing scale ──────────────────────────────────────────────────────── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;   /* canonical screen edge padding + section rhythm + card pad */
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  --screen-padding:  var(--space-4);  /* 16 — screen edge */
+  --section-gap:     var(--space-4);  /* 16 — between sections */
+  --card-padding:    var(--space-4);  /* 16 — card interior */
+  --stack-gap:       var(--space-2);  /* 8  — inside a card / tight groups */
+
+  /* ── Corner radius ──────────────────────────────────────────────────────── */
+  --radius-button: 14px;  /* PrimaryButton */
+  --radius-card:   12px;  /* cards / containers */
+  --radius-chip:   16px;  /* the floating verdict chip */
+  --radius-tile:   7px;   /* the logomark "K" tile */
+  --radius-pill:   999px; /* badges, pills, progress — fully round */
+  --radius-web:    16px;  /* website cards (rounded-2xl) */
+
+  /* ── Hit targets ────────────────────────────────────────────────────────── */
+  --tap-min:     48px;   /* minimum tappable target */
+  --tap-primary: 52px;   /* primary button height */
+
+  /* ── Elevation ──────────────────────────────────────────────────────────────
+     In-app: NO shadows. Tonal lift only (surface → surface-card → surface-variant).
+     These shadows are for the website surfaces + the floating overlay chip. */
+  --shadow-sm:  0 1px 2px 0 rgb(15 23 42 / 0.05);
+  --shadow-md:  0 4px 12px -2px rgb(15 23 42 / 0.10);
+  --shadow-lg:  0 12px 28px -4px rgb(15 23 42 / 0.14);
+  --shadow-overlay: 0 8px 24px rgb(2 6 23 / 0.45); /* floating verdict chip */
+}

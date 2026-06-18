@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<!-- @template name="Onboarding (full flow)" description="Complete interactive Kompara onboarding: pitch → WhatsApp auth → OTP → perfil → disclosure → accesibilidad → batería → listo" -->
+<helmet>
+  <script src="./ds-base.js"></script>
+  <style>
+    html,body{margin:0;height:100%}
+    body{background:radial-gradient(120% 120% at 50% 0%, #1e293b 0%, #0f172a 55%, #020617 100%);display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;font-family:var(--font-sans)}
+    .frame{width:390px;height:760px;border-radius:40px;overflow:hidden;position:relative;background:var(--background);box-shadow:0 24px 70px rgba(2,6,23,.6),0 0 0 10px #0b1120,0 0 0 11px #1e293b;display:flex;flex-direction:column}
+    .sb{height:30px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;font-size:12px;font-weight:600;color:var(--text-body);flex:none}
+    .topbar{display:flex;align-items:center;gap:12px;padding:6px 16px 12px;flex:none;min-height:20px}
+    .back{background:none;border:none;color:var(--text-muted);font-size:22px;cursor:pointer;padding:0;width:24px;line-height:1}
+    .rebar{flex:1}
+    .steplabel{font-size:11px;color:var(--text-faint)}
+    .acc-on{color:var(--verde)}
+    .acc-off{color:var(--text-muted)}
+    .step{flex:1;display:flex;flex-direction:column;min-height:0}
+    .body{flex:1;overflow-y:auto;padding:8px 20px 16px}
+    .body.mid{display:flex;flex-direction:column;justify-content:center}
+    .footer{flex:none;padding:14px 20px 22px;display:flex;flex-direction:column;gap:10px}
+    .lm{width:64px;height:64px;border-radius:16px;background:var(--emerald-600);display:flex;align-items:center;justify-content:center}
+    .lm.big{width:80px;height:80px;border-radius:20px}
+    .h1{font-size:26px;font-weight:800;line-height:1.1;letter-spacing:-.02em;color:var(--text-strong)}
+    .p{font-size:15px;line-height:1.55;color:var(--text-muted);margin-top:12px}
+    .p.sm{font-size:12px}
+    .dots{display:flex;gap:6px;justify-content:center;margin-bottom:6px}
+    .dot{width:8px;height:8px;border-radius:999px;background:var(--surface-variant)}
+    .dot.on{background:var(--primary);width:22px}
+    .sec{background:var(--surface-card);border-radius:12px;padding:14px;margin-top:12px}
+    .sec h4{margin:0;font-size:14px;font-weight:700;color:var(--text-strong)}
+    .sec p{margin:4px 0 0;font-size:13px;line-height:1.5;color:var(--text-muted)}
+    .stepline{display:flex;gap:10px;align-items:flex-start;margin-top:14px}
+    .stepn{flex:none;width:26px;height:26px;border-radius:999px;background:var(--primary);color:#fff;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center}
+    .stepline p{margin:2px 0 0;font-size:14px;color:var(--text-body);line-height:1.45}
+    .statuscard{background:var(--surface-card);border-radius:12px;padding:14px 16px;margin-top:18px;display:flex;align-items:center;justify-content:space-between}
+    .center{text-align:center}
+    select{width:100%;height:52px;border-radius:12px;border:1.5px solid var(--border);background:var(--surface-card);color:var(--text-body);font-family:var(--font-sans);font-size:16px;padding:0 12px}
+    .selwrap span{display:block;font-size:12px;font-weight:500;color:var(--text-muted);margin-bottom:6px}
+    .link{background:none;border:none;color:var(--primary);font-size:14px;font-weight:600;cursor:pointer;padding:0}
+    .waiting{font-size:12px;color:var(--text-faint);text-align:center}
+  </style>
+</helmet>
+<div class="frame theme-dark">
+  <div class="sb"><span>9:41</span><span>▲ Kompara · 100%</span></div>
+  <div class="topbar">
+    <sc-if value="{{ showBack }}" hint-placeholder-val="{{ true }}"><button class="back" onClick="{{ back }}">‹</button></sc-if>
+    <sc-if value="{{ showProgress }}" hint-placeholder-val="{{ true }}"><div class="rebar"><x-import component-from-global-scope="KomparaDesignSystem_722871.ProgressBar" value="{{ progressFrac }}" height="{{ 4 }}" hint-size="100%,4px"></x-import></div></sc-if>
+    <sc-if value="{{ showProgress }}" hint-placeholder-val="{{ true }}"><span class="steplabel">{{ stepLabel }}</span></sc-if>
+  </div>
+
+  <sc-if value="{{ isPitch }}" hint-placeholder-val="{{ true }}">
+    <div class="step">
+      <div class="body mid">
+        <div class="lm"><svg width="34" height="34" viewBox="0 0 48 48" fill="none"><path d="M14 10L14 38" stroke="#fff" stroke-width="4.5" stroke-linecap="round"></path><path d="M14 24L30 10" stroke="#fff" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"></path><path d="M14 24L34 38" stroke="#fff" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"></path><rect x="30" y="18" width="4" height="10" rx="2" fill="#fff" opacity="0.5"></rect><rect x="36" y="14" width="4" height="14" rx="2" fill="#fff" opacity="0.5"></rect></svg></div>
+        <div class="h1" style="margin-top:28px">{{ pitchTitle }}</div>
+        <div class="p">{{ pitchBody }}</div>
+      </div>
+      <div class="footer">
+        <div class="dots"><span class="{{ dot0 }}"></span><span class="{{ dot1 }}"></span><span class="{{ dot2 }}"></span></div>
+        <x-import component-from-global-scope="KomparaDesignSystem_722871.Button" variant="primary" full-width="{{ true }}" onClick="{{ pitchNext }}" hint-size="100%,52px">{{ pitchCta }}</x-import>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isPhone }}" hint-placeholder-val="{{ true }}">
+    <div class="step">
+      <div class="body">
+        <div class="h1">Crea tu cuenta</div>
+        <div class="p">Tu cuenta guarda tu configuración y tus números de forma segura, para que no pierdas nada si cambias de teléfono. Solo necesitas tu número de WhatsApp.</div>
+        <div style="margin-top:20px">
+          <x-import component-from-global-scope="KomparaDesignSystem_722871.TextField" label="Número de WhatsApp" prefix="+52" input-mode="tel" max-length="12" placeholder="55 1234 5678" value="{{ phone }}" on-change="{{ onPhone }}" hint-size="100%,80px"></x-import>
+        </div>
+        <div class="p sm">Usamos tu número únicamente para tu cuenta. Lo que el lector ve en tu pantalla se queda en tu teléfono.</div>
+      </div>
+      <div class="footer">
+        <x-import component-from-global-scope="KomparaDesignSystem_722871.Button" variant="primary" full-width="{{ true }}" disabled="{{ phoneInvalid }}" onClick="{{ next }}" hint-size="100%,52px">Recibir código por WhatsApp</x-import>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isCode }}" hint-placeholder-val="{{ true }}">
+    <div class="step">
+      <div class="body">
+        <div class="h1">Escribe el código</div>
+        <div class="p">Te enviamos un código de 6 dígitos por WhatsApp.</div>
+        <div style="margin-top:20px">
+          <x-import component-from-global-scope="KomparaDesignSystem_722871.OtpInput" value="{{ code }}" on-change="{{ onCode }}" hint-size="100%,56px"></x-import>
+        </div>
+        <div style="margin-top:16px;display:flex;gap:16px">
+          <button class="link">Reenviar código</button>
+          <button class="link" onClick="{{ toPhone }}">Cambiar número</button>
+        </div>
+      </div>
+      <div class="footer">
+        <x-import component-from-global-scope="KomparaDesignSystem_722871.Button" variant="primary" full-width="{{ true }}" disabled="{{ codeInvalid }}" onClick="{{ next }}" hint-size="100%,52px">Confirmar código</x-import>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isProfile }}" hint-placeholder-val="{{ true }}">
+    <div class="step">
+      <div class="body">
+        <div class="h1">Cuéntanos de ti</div>
+        <div class="p">Con tu ciudad comparamos tus ganancias con las de otros conductores cerca de ti. Puedes cambiarla cuando quieras.</div>
+        <div style="margin-top:20px;display:flex;flex-direction:column;gap:16px">
+          <x-import component-from-global-scope="KomparaDesignSystem_722871.TextField" label="Tu nombre (opcional)" placeholder="Tu nombre" value="{{ name }}" on-change="{{ onName }}" hint-size="100%,80px"></x-import>
+          <label class="selwrap"><span>Tu ciudad</span>
+            <select value="{{ city }}" onChange="{{ onCity }}">
+              <option>Valle de México (CDMX + Edomex)</option><option>Monterrey</option><option>Guadalajara</option><option>Puebla-Tlaxcala</option><option>Toluca</option><option>Tijuana</option><option>León</option><option>Querétaro</option><option>Mérida</option><option>Cancún</option>
+            </select>
+          </label>
+        </div>
+      </div>
+      <div class="footer">
+        <x-import component-from-global-scope="KomparaDesignSystem_722871.Button" variant="primary" full-width="{{ true }}" onClick="{{ next }}" hint-size="100%,52px">Guardar y continuar</x-import>
+        <x-import component-from-global-scope="KomparaDesignSystem_722871.Button" variant="text" full-width="{{ true }}" onClick="{{ next }}" hint-size="100%,40px">Completar después</x-import>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isDisclosure }}" hint-placeholder-val="{{ true }}">
+    <div class="step">
+      <div class="body">
+        <div class="h1">Antes de continuar: qué hace Kompara</div>
+        <div class="p">Para darte el veredicto de cada viaje, Kompara necesita el servicio de accesibilidad de Android. Léelo con calma.</div>
+        <div class="sec"><h4>Qué lee</h4><p>El contenido de pantalla de Uber y DiDi mientras manejas — los textos de la oferta (tarifa, distancia, tiempo y destino).</p></div>
+        <div class="sec"><h4>Para qué</h4><p>Únicamente para calcular las métricas del viaje (ganancia por km y por hora) y mostrarte el semáforo.</p></div>
+        <div class="sec"><h4>Dónde se procesa</h4><p>Solo en tu teléfono. Kompara no vende, no comparte ni sube a internet el contenido de tu pantalla.</p></div>
+        <div class="sec"><h4>Riesgo a tener en cuenta</h4><p>Usar herramientas de terceros puede contravenir los términos de las plataformas. Kompara solo lee y nunca actúa por ti.</p></div>
+      </div>
+      <div class="footer">
+        <x-import component-from-global-scope="KomparaDesignSystem_722871.Button" variant="primary" full-width="{{ true }}" onClick="{{ next }}" hint-size="100%,52px">Aceptar y continuar</x-import>
+        <x-import component-from-global-scope="KomparaDesignSystem_722871.Button" variant="text" full-width="{{ true }}" onClick="{{ next }}" hint-size="100%,40px">No acepto</x-import>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isAccessibility }}" hint-placeholder-val="{{ true }}">
+    <div class="step">
+      <div class="body">
+        <div class="h1">Activa el lector de Kompara</div>
+        <div class="p">Te llevamos a los Ajustes de accesibilidad de Android. Sigue estos pasos:</div>
+        <div class="stepline"><span class="stepn">1</span><p>Busca <b>Kompara</b> en la lista de servicios.</p></div>
+        <div class="stepline"><span class="stepn">2</span><p>Toca Kompara y activa el interruptor.</p></div>
+        <div class="stepline"><span class="stepn">3</span><p>Confirma en el aviso del sistema y regresa aquí.</p></div>
+        <div class="statuscard"><span style="font-weight:700;font-size:15px">Lector de pantalla</span><span class="{{ accCls }}" style="font-size:12px;font-weight:600">{{ accLabel }}</span></div>
+      </div>
+      <div class="footer">
+        <sc-if value="{{ accGranted }}" hint-placeholder-val="{{ true }}">
+          <x-import component-from-global-scope="KomparaDesignSystem_722871.Button" variant="primary" full-width="{{ true }}" onClick="{{ next }}" hint-size="100%,52px">¡Listo! Continuar</x-import>
+        </sc-if>
+        <sc-if value="{{ accNotGranted }}" hint-placeholder-val="{{ true }}">
+          <x-import component-from-global-scope="KomparaDesignSystem_722871.Button" variant="primary" full-width="{{ true }}" onClick="{{ grant }}" hint-size="100%,52px">Abrir ajustes de accesibilidad</x-import>
+        </sc-if>
+        <sc-if value="{{ accNotGranted }}" hint-placeholder-val="{{ true }}"><div class="waiting">Esperando a que actives el lector…</div></sc-if>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isOem }}" hint-placeholder-val="{{ true }}">
+    <div class="step">
+      <div class="body">
+        <div class="h1">Que tu teléfono no apague el lector</div>
+        <div class="p">Tu teléfono puede cerrar Kompara en segundo plano para ahorrar batería. Haz esto para que siga funcionando mientras manejas:</div>
+        <div class="stepline"><span class="stepn">1</span><p>Pon a Kompara en batería <b>Sin restricciones</b>.</p></div>
+        <div class="stepline"><span class="stepn">2</span><p>En Recientes, fija Kompara con el candado para que no se cierre sola.</p></div>
+        <div class="statuscard"><div><div style="font-size:14px;font-weight:700;color:var(--text-strong)">Avísame si el lector se apaga</div><div style="font-size:13px;color:var(--text-muted);margin-top:2px">Activa los avisos.</div></div>
+          <x-import component-from-global-scope="KomparaDesignSystem_722871.Switch" checked="{{ true }}" hint-size="48px,28px"></x-import>
+        </div>
+      </div>
+      <div class="footer">
+        <x-import component-from-global-scope="KomparaDesignSystem_722871.Button" variant="secondary" full-width="{{ true }}" onClick="{{ next }}" hint-size="100%,52px">Abrir ajustes de batería</x-import>
+        <x-import component-from-global-scope="KomparaDesignSystem_722871.Button" variant="primary" full-width="{{ true }}" onClick="{{ next }}" hint-size="100%,52px">Ya lo configuré</x-import>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isDone }}" hint-placeholder-val="{{ true }}">
+    <div class="step">
+      <div class="body mid center" style="align-items:center">
+        <div class="lm big" style="margin:0 auto"><svg width="44" height="44" viewBox="0 0 48 48" fill="none"><path d="M14 10L14 38" stroke="#fff" stroke-width="4.5" stroke-linecap="round"></path><path d="M14 24L30 10" stroke="#fff" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"></path><path d="M14 24L34 38" stroke="#fff" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"></path><rect x="30" y="18" width="4" height="10" rx="2" fill="#fff" opacity="0.5"></rect><rect x="36" y="14" width="4" height="14" rx="2" fill="#fff" opacity="0.5"></rect></svg></div>
+        <div class="h1" style="margin-top:28px">¡Todo listo para manejar!</div>
+        <div class="p">Kompara ya está leyendo tus ofertas. Prueba el lector con un viaje de ejemplo para ver cómo se ve el veredicto.</div>
+      </div>
+      <div class="footer">
+        <x-import component-from-global-scope="KomparaDesignSystem_722871.Button" variant="primary" full-width="{{ true }}" onClick="{{ restart }}" hint-size="100%,52px">Probar el lector</x-import>
+        <x-import component-from-global-scope="KomparaDesignSystem_722871.Button" variant="text" full-width="{{ true }}" onClick="{{ restart }}" hint-size="100%,40px">Reiniciar demo</x-import>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { stage: "pitch", pitch: 0, phone: "", code: "", name: "", city: "Valle de México (CDMX + Edomex)", acc: false };
+
+  STEPS = ["phone", "code", "profile", "disclosure", "accessibility", "oem", "done"];
+  PITCH = [
+    { t: "Entérate si conviene antes de aceptar", b: "Kompara lee la oferta en tu pantalla y te dice al instante, con un semáforo, si ese viaje te deja ganancia de verdad — antes de que toques “Aceptar”." },
+    { t: "Gana hasta 30% más por turno", b: "Rechazar los viajes que no convienen sube tu ganancia por hora. Es el promedio reportado por apps similares; tus resultados dependen de tu zona y horarios." },
+    { t: "Lo que ves en tu pantalla se queda en tu teléfono", b: "Todo el cálculo ocurre en tu celular. Kompara no vende ni comparte lo que aparece en tu pantalla; tu cuenta solo guarda tu configuración y tus totales." },
+  ];
+
+  next = () => {
+    const i = this.STEPS.indexOf(this.state.stage);
+    if (i >= 0 && i < this.STEPS.length - 1) this.setState({ stage: this.STEPS[i + 1] });
+  };
+  back = () => {
+    const s = this.state;
+    if (s.stage === "pitch") { if (s.pitch > 0) this.setState({ pitch: s.pitch - 1 }); return; }
+    const i = this.STEPS.indexOf(s.stage);
+    if (i > 0) this.setState({ stage: this.STEPS[i - 1] });
+    else this.setState({ stage: "pitch" });
+  };
+
+  renderVals() {
+    const s = this.state;
+    const i = this.STEPS.indexOf(s.stage);
+    const p = this.PITCH[s.pitch];
+    const dot = (n) => (s.pitch === n ? "dot on" : "dot");
+    return {
+      isPitch: s.stage === "pitch",
+      isPhone: s.stage === "phone",
+      isCode: s.stage === "code",
+      isProfile: s.stage === "profile",
+      isDisclosure: s.stage === "disclosure",
+      isAccessibility: s.stage === "accessibility",
+      isOem: s.stage === "oem",
+      isDone: s.stage === "done",
+
+      pitchTitle: p.t,
+      pitchBody: p.b,
+      pitchCta: s.pitch < 2 ? "Continuar" : "Empezar",
+      dot0: dot(0), dot1: dot(1), dot2: dot(2),
+      pitchNext: () => (s.pitch < 2 ? this.setState({ pitch: s.pitch + 1 }) : this.setState({ stage: "phone" })),
+
+      phone: s.phone, code: s.code, name: s.name, city: s.city,
+      onPhone: (v) => this.setState({ phone: v }),
+      onCode: (v) => this.setState({ code: v }),
+      onName: (v) => this.setState({ name: v }),
+      onCity: (e) => this.setState({ city: e.target.value }),
+      phoneInvalid: s.phone.replace(/\D/g, "").length < 10,
+      codeInvalid: s.code.length < 6,
+      toPhone: () => this.setState({ stage: "phone" }),
+
+      accGranted: s.acc,
+      accNotGranted: !s.acc,
+      accLabel: s.acc ? "Activo" : "Esperando…",
+      accCls: s.acc ? "acc-on" : "acc-off",
+      grant: () => this.setState({ acc: true }),
+
+      next: this.next,
+      back: this.back,
+      restart: () => this.setState({ stage: "pitch", pitch: 0, phone: "", code: "", acc: false }),
+
+      showBack: !(s.stage === "pitch" && s.pitch === 0) && s.stage !== "done",
+      showProgress: i >= 0 && s.stage !== "done",
+      progressFrac: i >= 0 ? (i + 1) / this.STEPS.length : 0,
+      stepLabel: i >= 0 ? (i + 1) + "/" + this.STEPS.length : "",
+    };
+  }
+}
+</script>
+</body>
+</html>
