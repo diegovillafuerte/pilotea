@@ -287,12 +287,20 @@ export async function foldPopulationStats(
     // would multiply by the number of apps and push the `all` $/hour benchmark too
     // low. Mirrors PeriodStats.fromWeekly's max-hours rule on the Android side.
     let hours = 0;
+    let blended = 0;
     for (const dw of group) {
-      net += dw.raw.net ?? 0;
+      // A net-less partial row (e.g. a gross-only import, now that core columns
+      // are nullable) can't meaningfully blend into a net-based cross-platform
+      // total — skip it so it doesn't drag the "all" benchmark toward an
+      // artificial zero.
+      if (dw.raw.net == null) continue;
+      net += dw.raw.net;
       trips += dw.raw.trips ?? 0;
       km += dw.raw.km ?? 0;
       hours = Math.max(hours, dw.raw.hours ?? 0);
+      blended++;
     }
+    if (blended === 0) continue; // nothing to blend → no "all" row for this group
     const v: Partial<Record<MetricName, number>> = { net_earnings: net };
     if (trips > 0) v.earnings_per_trip = net / trips;
     if (km > 0) v.earnings_per_km = net / km;

@@ -7,12 +7,10 @@
  * is applied identically: read the existing (driver, platform, week) row, run the
  * pure merge, then UPDATE it (or INSERT when none exists).
  *
- * Concurrency note: this is a read-then-write, not an atomic upsert. Two
- * simultaneous writes for the SAME (driver, platform, week) could both miss the
- * existing row and race on INSERT (the unique index would reject the second).
- * In practice writes for one driver/week are sequential (the app's
- * dry-run → confirm flow, periodic captured sync), so this is acceptable for v1;
- * if it ever bites, wrap the body in a transaction with SELECT … FOR UPDATE.
+ * Concurrency: the SELECT → merge → UPDATE/INSERT runs inside a transaction
+ * guarded by a per-key `pg_advisory_xact_lock`, so two simultaneous writes for
+ * the SAME (driver, platform, week) are serialized — neither racing on INSERT
+ * nor erasing each other's merged fields.
  */
 
 import { and, eq, sql } from "drizzle-orm";
@@ -57,33 +55,43 @@ export async function writeMergedAggregate(
 ): Promise<AggregateWriteResult> {
   const { driverId, platform, weekStart } = key;
 
-  const [existing] = await db
-    .select()
-    .from(weeklyAggregates)
-    .where(
-      and(
-        eq(weeklyAggregates.driverId, driverId),
-        eq(weeklyAggregates.platform, platform),
-        eq(weeklyAggregates.weekStart, weekStart),
-      ),
-    )
-    .limit(1);
+  return db.transaction(async (tx) => {
+    // Serialize concurrent writers for the SAME (driver, platform, week): a
+    // transaction-scoped advisory lock (auto-released at COMMIT/ROLLBACK) makes
+    // the SELECT → merge → UPDATE/INSERT atomic per key, so two writers can
+    // neither race on INSERT nor erase each other's merged fields.
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtext(${`${driverId}|${platform}|${weekStart}`}))`,
+    );
 
-  const merge = mergeAggregate(incoming, existing ? toColumns(existing) : null);
-  if (merge.kind === "rejected") return { kind: "rejected" };
+    const [existing] = await tx
+      .select()
+      .from(weeklyAggregates)
+      .where(
+        and(
+          eq(weeklyAggregates.driverId, driverId),
+          eq(weeklyAggregates.platform, platform),
+          eq(weeklyAggregates.weekStart, weekStart),
+        ),
+      )
+      .limit(1);
 
-  if (existing) {
-    const [row] = await db
-      .update(weeklyAggregates)
-      .set({ ...merge.values, updatedAt: sql`now()` })
-      .where(eq(weeklyAggregates.id, existing.id))
+    const merge = mergeAggregate(incoming, existing ? toColumns(existing) : null);
+    if (merge.kind === "rejected") return { kind: "rejected" as const };
+
+    if (existing) {
+      const [row] = await tx
+        .update(weeklyAggregates)
+        .set({ ...merge.values, updatedAt: sql`now()` })
+        .where(eq(weeklyAggregates.id, existing.id))
+        .returning();
+      return { kind: "written" as const, row: row! };
+    }
+
+    const [row] = await tx
+      .insert(weeklyAggregates)
+      .values({ driverId, platform, weekStart, ...merge.values })
       .returning();
-    return { kind: "written", row: row! };
-  }
-
-  const [row] = await db
-    .insert(weeklyAggregates)
-    .values({ driverId, platform, weekStart, ...merge.values })
-    .returning();
-  return { kind: "written", row: row! };
+    return { kind: "written" as const, row: row! };
+  });
 }

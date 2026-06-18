@@ -18,10 +18,10 @@ const aggregateInput = z.object({
   totalTrips: z.number().int().nonnegative(),
   totalKm: decimalString.optional(),
   hoursOnline: decimalString.optional(),
-  earningsPerTrip: decimalString.optional(),
-  earningsPerKm: decimalString.optional(),
-  earningsPerHour: decimalString.optional(),
-  tripsPerHour: decimalString.optional(),
+  // Derived ratios are NOT accepted from the client: the server recomputes them
+  // from the raw fields (writeMergedAggregate) so a stored ratio always agrees
+  // with its numerator/denominator. Any such keys a client still sends are
+  // ignored (zod strips unknown keys).
   platformCommissionPct: decimalString.optional(),
   source: z.enum(["captured", "imported"]).default("captured"),
 });

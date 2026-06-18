@@ -81,11 +81,24 @@ function toDecimalString(value: number | null): string | null {
  * passed here are advisory for a fresh insert only.
  */
 function aggregateValuesFrom(metrics: ParsedMetrics): AggregateColumns {
+  // DiDi reports $/km natively but NOT total km. Back-derive km from
+  // net / (net-per-km) so DiDi's only native distance signal survives the merge's
+  // ratio recompute (which works off raw fields) instead of being dropped to null.
+  // Other platforms pass total_km straight through.
+  let totalKm = metrics.total_km;
+  if (
+    totalKm == null &&
+    metrics.earnings_per_km != null &&
+    metrics.earnings_per_km > 0 &&
+    metrics.net_earnings != null
+  ) {
+    totalKm = Math.round((metrics.net_earnings / metrics.earnings_per_km) * 100) / 100;
+  }
   return {
     netEarnings: toDecimalString(metrics.net_earnings),
     grossEarnings: toDecimalString(metrics.gross_earnings),
     totalTrips: metrics.total_trips,
-    totalKm: toDecimalString(metrics.total_km),
+    totalKm: toDecimalString(totalKm),
     hoursOnline: toDecimalString(metrics.hours_online),
     earningsPerTrip: toDecimalString(metrics.earnings_per_trip),
     earningsPerKm: toDecimalString(metrics.earnings_per_km),

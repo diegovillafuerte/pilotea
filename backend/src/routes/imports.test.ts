@@ -257,6 +257,15 @@ describe("didi import (2 images)", () => {
     expect(m.trips_per_hour).toBe(3.54); // 85 / 24.0
     expect(m.platform_commission).toBeNull(); // DiDi never reports it
 
+    // The merged aggregate persists DiDi's NATIVE $/km: total km is back-derived
+    // from net / (net-per-km), so the merge's ratio recompute reproduces 8.75
+    // instead of dropping it to null (DiDi reports $/km but not total km).
+    const aggs = await db.select().from(weeklyAggregates).where(eq(weeklyAggregates.driverId, driverId));
+    expect(aggs).toHaveLength(1);
+    expect(Number(aggs[0]!.earningsPerKm)).toBe(8.75);
+    expect(Number(aggs[0]!.totalKm)).toBe(480.06); // 4200.50 / 8.75
+    expect(aggs[0]!.source).toBe("imported");
+
     // both originals stored under the _0/_1 key scheme
     expect(storage.keys()).toContain(`${driverId}/${body.import_id}_0.png`);
     expect(storage.keys()).toContain(`${driverId}/${body.import_id}_1.png`);
@@ -435,6 +444,51 @@ describe("field-level coalesce merge (import onto captured)", () => {
     const [imp] = await db.select().from(imports).where(eq(imports.id, body.import_id));
     expect(imp!.status).toBe("parsed");
     expect(imp!.weeklyAggregateId).toBe(row.id);
+  });
+});
+
+// ─── Refuse a junk fresh import ───────────────────────────────
+describe("fresh import with no core earnings", () => {
+  it("refuses it (422, import marked failed, no aggregate row)", async () => {
+    // A parse that succeeds but carries no net/gross/trips (all the core
+    // earnings null) must not create a junk zero row.
+    vision.setJson({
+      week_start: "2025-03-24",
+      net_earnings: null,
+      gross_earnings: null,
+      total_trips: null,
+      hours_online: null,
+      platform_commission: null,
+      platform_commission_pct: 15.0,
+      taxes: null,
+      incentives: null,
+      tips: null,
+      surge_earnings: null,
+      wait_time_earnings: null,
+      active_days: null,
+      peak_day_earnings: null,
+      peak_day_name: null,
+      cash_amount: null,
+      card_amount: null,
+      rewards: null,
+    });
+
+    const res = await postImport({
+      platform: "uber",
+      uploadType: "pdf",
+      files: [{ name: "report.pdf", type: "application/pdf" }],
+      auth: token,
+    });
+
+    expect(res.status).toBe(422);
+    expect(await errorOf(res)).toContain("cifras de tu semana");
+
+    // The pending import row is marked failed; no aggregate is created.
+    const imps = await db.select().from(imports).where(eq(imports.driverId, driverId));
+    expect(imps).toHaveLength(1);
+    expect(imps[0]!.status).toBe("failed");
+    const aggs = await db.select().from(weeklyAggregates).where(eq(weeklyAggregates.driverId, driverId));
+    expect(aggs).toHaveLength(0);
   });
 });
 
