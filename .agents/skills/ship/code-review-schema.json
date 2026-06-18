@@ -1,0 +1,28 @@
+{
+  "type": "object",
+  "properties": {
+    "verdict": {
+      "type": "string",
+      "enum": ["PASS", "REJECT"]
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "severity": { "type": "string", "enum": ["CRITICAL", "ADVISORY"] },
+          "title": { "type": "string" },
+          "location": { "type": "string" },
+          "evidence": { "type": "string" },
+          "why": { "type": "string" },
+          "fix": { "type": "string" }
+        },
+        "required": ["severity", "title", "location", "evidence", "why", "fix"],
+        "additionalProperties": false
+      }
+    },
+    "summary": { "type": "string" }
+  },
+  "required": ["verdict", "findings", "summary"],
+  "additionalProperties": false
+}
