@@ -5,8 +5,11 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,9 +17,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,6 +34,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -41,6 +51,7 @@ import mx.kompara.ui.components.KomparaCard
 import mx.kompara.ui.components.KomparaProgressBar
 import mx.kompara.ui.components.PrimaryButton
 import mx.kompara.ui.format.Formatters
+import mx.kompara.ui.theme.KomparaType
 
 /** MIME filter for the document picker — matches the backend's accepted set. */
 private val IMPORT_MIME_FILTER = arrayOf("application/pdf", "image/png", "image/jpeg", "image/webp")
@@ -292,34 +303,92 @@ private fun FilePickRow(label: String, picked: Boolean, onClick: () -> Unit) {
 
 @Composable
 private fun UploadingState(step: ImportProgressStep) {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        CircularProgressIndicator()
-        Spacer(Modifier.height(28.dp))
-        for (s in ImportProgressStep.entries) {
-            val active = s == step
-            val done = s.ordinal < step.ordinal
-            Text(
-                text = stepLabel(s),
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
-                color = when {
-                    active -> MaterialTheme.colorScheme.onSurface
-                    done -> MaterialTheme.colorScheme.primary
-                    else -> MaterialTheme.colorScheme.onSurfaceVariant
-                },
-                modifier = Modifier.padding(vertical = 6.dp),
-            )
-        }
-        Spacer(Modifier.height(20.dp))
+    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         Text(
-            text = stringResource(R.string.import_progress_wait),
-            style = MaterialTheme.typography.bodySmall,
+            text = stringResource(R.string.import_title),
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = stringResource(R.string.import_intro),
+            style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        Spacer(Modifier.height(20.dp))
+        KomparaCard(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = stringResource(R.string.import_uploading_label).uppercase(),
+                    style = KomparaType.metricLabel,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(12.dp))
+                for (s in ImportProgressStep.entries) {
+                    StepRow(
+                        label = stepLabel(s),
+                        done = s.ordinal < step.ordinal,
+                        active = s == step,
+                    )
+                }
+                Spacer(Modifier.height(10.dp))
+                KomparaProgressBar(
+                    // +1 so the bar shows motion on the first active step (not an empty/stalled
+                    // bar) and reaches full as the last step completes into Review.
+                    progress = (step.ordinal + 1).toFloat() / ImportProgressStep.entries.size,
+                    height = 8.dp,
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = stringResource(R.string.import_progress_wait),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+/** One step row in the upload checklist: a check circle + label, dimmed until reached. */
+@Composable
+private fun StepRow(label: String, done: Boolean, active: Boolean) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 7.dp)
+            .alpha(if (active || done) 1f else 0.35f),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        CheckCircle(done = done)
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+    }
+}
+
+/** 18dp circle: filled BrandGreen with a check when done, else an empty outlined ring. */
+@Composable
+private fun CheckCircle(done: Boolean) {
+    val base = Modifier.size(18.dp).clip(CircleShape)
+    Box(
+        modifier = if (done) {
+            base.background(MaterialTheme.colorScheme.primary)
+        } else {
+            base.border(2.dp, MaterialTheme.colorScheme.outline, CircleShape)
+        },
+        contentAlignment = Alignment.Center,
+    ) {
+        if (done) {
+            Icon(
+                imageVector = Icons.Filled.Check,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier.size(12.dp),
+            )
+        }
     }
 }
 

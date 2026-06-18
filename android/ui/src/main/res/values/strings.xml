@@ -391,6 +391,7 @@
     <string name="import_step_calculating">Calculando tus ganancias…</string>
     <string name="import_step_comparing">Comparando con conductores…</string>
     <string name="import_progress_wait">Esto toma entre 5 y 15 segundos</string>
+    <string name="import_uploading_label">Procesando archivos</string>
 
     <!-- Revisión del resultado (dry-run) -->
     <string name="import_review_title">Revisa tus datos</string>
