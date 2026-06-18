@@ -189,7 +189,6 @@ fun DisclosureScreen(
             DisclosureSection(
                 R.string.onb_disc_riesgo_titulo,
                 R.string.onb_disc_riesgo_cuerpo,
-                emphasize = true,
             )
         }
         Spacer(Modifier.height(16.dp))
@@ -205,18 +204,14 @@ fun DisclosureScreen(
 private fun DisclosureSection(
     @StringRes titleRes: Int,
     @StringRes bodyRes: Int,
-    emphasize: Boolean = false,
 ) {
     Spacer(Modifier.height(20.dp))
     Text(
         text = stringResource(titleRes),
         style = MaterialTheme.typography.titleMedium,
         fontWeight = FontWeight.Bold,
-        color = if (emphasize) {
-            MaterialTheme.colorScheme.secondary
-        } else {
-            MaterialTheme.colorScheme.onSurface
-        },
+        // All disclosure section titles read in text-strong; verdict colours stay reserved for verdicts.
+        color = MaterialTheme.colorScheme.onSurface,
     )
     Spacer(Modifier.height(4.dp))
     Text(
@@ -244,7 +239,7 @@ fun LimitedInfoScreen(
         Icon(
             imageVector = Icons.Filled.Info,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.secondary,
+            tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(72.dp),
         )
         Spacer(Modifier.height(20.dp))

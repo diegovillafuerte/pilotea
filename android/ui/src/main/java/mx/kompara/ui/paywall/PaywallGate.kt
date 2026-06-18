@@ -103,13 +103,13 @@ fun PaywallGate(
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(50))
-                    .background(MaterialTheme.colorScheme.secondaryContainer)
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
                     .padding(8.dp),
             ) {
                 Icon(
                     imageVector = Icons.Filled.Lock,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             Text(

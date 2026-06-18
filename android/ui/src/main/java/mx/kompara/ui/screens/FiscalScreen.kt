@@ -289,8 +289,8 @@ private fun ExplainerCard() {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.secondaryContainer,
-            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            contentColor = MaterialTheme.colorScheme.onSurface,
         ),
         // Cards are tonal (no shadow) — flatten the default Material elevation.
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
@@ -442,8 +442,8 @@ private fun FiscalTotalsCard(totals: mx.kompara.metrics.fiscal.FiscalTotals, ytd
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.secondaryContainer,
-            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            contentColor = MaterialTheme.colorScheme.onSurface,
         ),
         // Cards are tonal (no shadow) — flatten the default Material elevation.
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
@@ -493,8 +493,8 @@ private fun FiscalRegimeExplainerCard() {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.secondaryContainer,
-            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            contentColor = MaterialTheme.colorScheme.onSurface,
         ),
         // Cards are tonal (no shadow) — flatten the default Material elevation.
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
