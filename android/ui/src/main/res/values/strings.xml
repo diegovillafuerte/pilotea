@@ -598,7 +598,7 @@
     <!-- Encabezados de la tabla. -->
     <string name="comparar_col_metric">Métrica</string>
     <string name="comparar_col_tu">Tú</string>
-    <string name="comparar_col_place">Tu lugar</string>
+    <string name="comparar_col_place">Lugar</string>
     <!-- Marca de "menos es mejor" en la fila de comisión. -->
     <string name="comparar_lower_better">↓ menos es mejor</string>
     <!-- Leyenda que decodifica las columnas. -->
@@ -611,11 +611,11 @@
     <!-- Nota de función diferida (por día y por hora). -->
     <string name="comparar_soon_day_hour">Pronto: cómo te comparas por día y por hora</string>
     <!-- Etiquetas de métricas de la tabla. -->
-    <string name="comparar_metric_net">Ganancia neta</string>
-    <string name="comparar_metric_iph">Por hora</string>
-    <string name="comparar_metric_ipk">Por km</string>
-    <string name="comparar_metric_ipt">Por viaje</string>
-    <string name="comparar_metric_tph">Viajes por hora</string>
+    <string name="comparar_metric_net">Neto</string>
+    <string name="comparar_metric_iph">$/hora</string>
+    <string name="comparar_metric_ipk">$/km</string>
+    <string name="comparar_metric_ipt">$/viaje</string>
+    <string name="comparar_metric_tph">Viajes/h</string>
     <string name="comparar_metric_take">Comisión</string>
 
     <!-- ============================================================= -->
