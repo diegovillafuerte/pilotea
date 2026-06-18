@@ -2,7 +2,6 @@ package mx.kompara.ui.nav
 
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,13 +10,11 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -95,7 +92,7 @@ fun KomparaApp(
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        topBar = { if (isTabRoot) KomparaTopBar(current) },
+        topBar = { if (isTabRoot) KomparaTopBar() },
         bottomBar = {
             KomparaBottomBar(
                 current = current,
@@ -133,27 +130,21 @@ fun KomparaApp(
 }
 
 /**
- * The shared brand top bar shown on every tab root (S-024): the Kompara wordmark + the current tab's
- * label, so the whole app reads as one branded surface. Insets below the status bar; tonal like the
- * bottom bar.
+ * The shared brand top bar shown on every tab root (S-024): just the Kompara wordmark, left-aligned,
+ * so the whole app reads as one branded surface. The current tab's name is already in the bottom bar,
+ * so repeating it here was clutter (V1.0). Insets below the status bar; tonal like the bottom bar.
  */
 @Composable
-private fun KomparaTopBar(current: KomparaDestination) {
+private fun KomparaTopBar() {
     Surface(color = MaterialTheme.colorScheme.surfaceContainer, tonalElevation = 3.dp) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .windowInsetsPadding(WindowInsets.statusBars)
                 .padding(horizontal = 16.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
             KomparaWordmark()
-            Text(
-                text = stringResource(current.labelRes),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
     }
 }

@@ -319,11 +319,11 @@
     <string name="platform_chip_desconocida">Otra</string>
 
     <!-- Tarjetas de métricas -->
-    <string name="metric_per_trip">$ POR VIAJE</string>
-    <string name="metric_per_km">$ POR KM</string>
-    <string name="metric_per_hour">$ POR HORA</string>
-    <string name="metric_trips_per_hour">VIAJES/HORA</string>
-    <string name="metric_acceptance_rate">TASA DE ACEPTACIÓN</string>
+    <string name="metric_per_trip">$ por viaje</string>
+    <string name="metric_per_km">$ por km</string>
+    <string name="metric_per_hour">$ por hora</string>
+    <string name="metric_trips_per_hour">Viajes/hora</string>
+    <string name="metric_acceptance_rate">Tasa de aceptación</string>
 
     <!-- Indicador de datos parciales -->
     <string name="completeness_hours_inferred">Horas estimadas por turnos</string>
