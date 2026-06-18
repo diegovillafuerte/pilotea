@@ -18,10 +18,15 @@ const aggregateInput = z.object({
   totalTrips: z.number().int().nonnegative(),
   totalKm: decimalString.optional(),
   hoursOnline: decimalString.optional(),
-  // Derived ratios are NOT accepted from the client: the server recomputes them
-  // from the raw fields (writeMergedAggregate) so a stored ratio always agrees
-  // with its numerator/denominator. Any such keys a client still sends are
-  // ignored (zod strips unknown keys).
+  // Derived ratios are still ACCEPTED for wire compatibility (the Android client
+  // sends them) but are IGNORED: the server recomputes them from the raw fields
+  // in writeMergedAggregate so a stored ratio always agrees with its
+  // numerator/denominator. Kept in the schema to avoid a silent contract break;
+  // the route maps them to null below.
+  earningsPerTrip: decimalString.optional(),
+  earningsPerKm: decimalString.optional(),
+  earningsPerHour: decimalString.optional(),
+  tripsPerHour: decimalString.optional(),
   platformCommissionPct: decimalString.optional(),
   source: z.enum(["captured", "imported"]).default("captured"),
 });

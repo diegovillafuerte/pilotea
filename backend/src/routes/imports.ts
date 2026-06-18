@@ -81,10 +81,18 @@ function toDecimalString(value: number | null): string | null {
  * passed here are advisory for a fresh insert only.
  */
 function aggregateValuesFrom(metrics: ParsedMetrics): AggregateColumns {
-  // DiDi reports $/km natively but NOT total km. Back-derive km from
-  // net / (net-per-km) so DiDi's only native distance signal survives the merge's
-  // ratio recompute (which works off raw fields) instead of being dropped to null.
-  // Other platforms pass total_km straight through.
+  // Unified km rule: measured total_km wins; when it's absent but a native $/km
+  // is reported, back-derive km = net / (net-per-km) so that signal survives the
+  // merge's ratio recompute (which works off raw fields) instead of being dropped
+  // to null. DiDi reports $/km but NOT total km (this branch fires); InDrive and
+  // Uber report total_km directly (or nothing), so they pass through and their
+  // net-based $/km recomputes from the measured km — authoritative, no guess.
+  //
+  // ASSUMPTION (TD-035): this treats DiDi's $/km badge as NET-based, matching how
+  // every ratio in this codebase is computed (net/…). If DiDi's badge is actually
+  // gross-based, the derived km is inflated by ~gross/net and would skew the
+  // cross-platform "all" $/km blend. Must be confirmed against a real DiDi
+  // screenshot on-device before relying on DiDi distance in benchmarks.
   let totalKm = metrics.total_km;
   if (
     totalKm == null &&

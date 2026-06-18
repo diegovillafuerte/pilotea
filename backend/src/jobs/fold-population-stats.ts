@@ -26,13 +26,14 @@
  * city is null/blank or not one of the seeded cities still contribute to
  * `national` (the fallback), they just don't create a per-city cell.
  *
- * ── De-dup rule: one value per driver-week, captured beats imported ─────────
- * A driver can hold two rows for the same (platform, weekStart): a live
- * `captured` row and an `imported` one (upload parsing). They must count **once**
- * — and `captured` wins, mirroring the ingestion conflict rule in imports.ts
- * ("captured beats imported"). We dedupe to a single value per
- * (driverId, platform, weekStart) before the percentile math so a driver who
- * both captures and imports the same week is never double-counted.
+ * ── One value per driver-week (single merged row) ──────────────────────────
+ * PR-A made the ingestion path merge a captured contribution and an imported one
+ * into a SINGLE weekly_aggregates row per (driver, platform, weekStart) at write
+ * time (field-level coalesce; `source` becomes 'captured', 'imported', or
+ * 'mixed'). The unique index on (driver, platform, weekStart) guarantees exactly
+ * one row per key, so the fold reads that row directly — no source-priority
+ * de-dup is needed (the Map keying below is just a defensive guard against
+ * accidental duplicates).
  *
  * ── Methodology: percentile computation ─────────────────────────────────────
  * Breakpoints are computed in TypeScript (not SQL) so the same code path runs
@@ -219,13 +220,13 @@ export async function foldPopulationStats(
     .innerJoin(drivers, eq(weeklyAggregates.driverId, drivers.id))
     .where(gte(weeklyAggregates.weekStart, windowStart));
 
-  // De-dup to one DriverWeek per (driverId, platform, weekStart); captured wins.
+  // One DriverWeek per (driverId, platform, weekStart). The unique index already
+  // guarantees one row per key (captured + imported are merged at write time —
+  // PR-A), so this Map keying is just a defensive guard against accidental
+  // duplicates; there is no source-priority de-dup to do.
   const driverWeeks = new Map<string, { source: string; dw: DriverWeek }>();
   for (const r of rows) {
     const key = `${r.driverId}|${r.platform}|${r.weekStart}`;
-    const existing = driverWeeks.get(key);
-    // captured beats imported: keep an existing captured row over an imported one.
-    if (existing && existing.source === "captured" && r.source !== "captured") continue;
     const values: Partial<Record<MetricName, number>> = {};
     const colVals: Record<MetricName, string | null> = {
       earnings_per_trip: r.earningsPerTrip,
