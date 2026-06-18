@@ -536,12 +536,15 @@
     <string name="paywall_loading">Cargando el plan…</string>
     <string name="paywall_cta_trial">Empezar prueba gratis</string>
     <string name="paywall_cta_subscribe">Suscribirme</string>
-    <!-- %1$s = precio localizado que viene de Google Play en tiempo de ejecución. -->
-    <string name="paywall_price_with_trial">Prueba gratis y luego %1$s al mes. Cancela cuando quieras.</string>
-    <string name="paywall_price_no_trial">%1$s al mes. Cancela cuando quieras.</string>
+    <!-- Sub-línea de la tarjeta de precio: el precio ya se muestra arriba, no se repite. -->
+    <string name="paywall_subline_trial">Incluye prueba gratis. Cancela cuando quieras.</string>
+    <string name="paywall_subline_no_trial">Cancela cuando quieras.</string>
     <string name="paywall_play_unavailable">Google Play no está disponible en este dispositivo, así que no se puede iniciar la compra. Intenta desde un teléfono con Play Store.</string>
     <string name="paywall_restore">Restaurar compras</string>
-    <string name="paywall_maybe_later">Quizá después</string>
+    <!-- Tarjeta de precio (emerald) + cerrar (X). -->
+    <string name="paywall_close">Cerrar</string>
+    <string name="paywall_price_card_label">Premium</string>
+    <string name="paywall_price_per_month">/mes</string>
     <!-- TODO(legal-B038): reemplazar con términos de suscripción revisados por asesoría legal. -->
     <string name="paywall_legal_placeholder">La suscripción se renueva automáticamente hasta que la canceles. Términos y aviso de privacidad pendientes de revisión legal.</string>
     <!-- Mensajes (snackbar). -->
