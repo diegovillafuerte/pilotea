@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -64,13 +65,16 @@ fun EmptyState(
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
+            // Constrain the supporting line (~32ch) so it wraps tighter under the centered title.
+            modifier = Modifier.widthIn(max = 280.dp),
         )
         if (ctaText != null && onCtaClick != null) {
             Spacer(modifier = Modifier.height(28.dp))
             PrimaryButton(
                 text = ctaText,
                 onClick = onCtaClick,
-                modifier = Modifier.fillMaxWidth(),
+                // Full-width up to a 320dp cap so the CTA doesn't stretch edge-to-edge on the empty screen.
+                modifier = Modifier.widthIn(max = 320.dp).fillMaxWidth(),
             )
         }
     }

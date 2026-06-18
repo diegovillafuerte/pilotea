@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -49,6 +50,8 @@ fun KomparaBottomBar(
     // System navigation-bar insets are consumed here (Scaffold doesn't inset custom bottom bars):
     // the tabs sit above the gesture pill and a same-colour strip fills the inset area below.
     Column(modifier = modifier.fillMaxWidth()) {
+        // 1px hairline marking the top of the bar (design tokens: --border slate-600 #475569).
+        HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outline)
         KomparaBottomBarContent(current = current, onSelect = onSelect)
         Surface(
             modifier = Modifier

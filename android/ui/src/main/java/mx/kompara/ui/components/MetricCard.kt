@@ -45,6 +45,8 @@ fun MetricCard(
             containerColor = MaterialTheme.colorScheme.surfaceContainer,
             contentColor = MaterialTheme.colorScheme.onSurface,
         ),
+        // In-app cards are tonal, not shadowed — surfaces separate by colour step (design tokens).
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
