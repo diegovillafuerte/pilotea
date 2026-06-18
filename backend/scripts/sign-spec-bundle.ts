@@ -34,7 +34,6 @@ function genKey(): void {
   mkdirSync(join(here, "..", "keys", "dev"), { recursive: true });
   writeFileSync(DEV_PRIVATE_KEY_PATH, privateKey.export({ type: "pkcs8", format: "pem" }) as string);
   writeFileSync(DEV_PUBLIC_KEY_PATH, publicKey.export({ type: "spki", format: "pem" }) as string);
-  // eslint-disable-next-line no-console
   console.log(
     `Wrote dev keypair to backend/keys/dev/.\n` +
       `Re-embed the PUBLIC key in:\n` +
@@ -78,16 +77,13 @@ async function main(): Promise<void> {
   const outIdx = args.indexOf("--out");
   if (outIdx >= 0 && args[outIdx + 1]) {
     writeFileSync(args[outIdx + 1]!, JSON.stringify(signed, null, 2));
-    // eslint-disable-next-line no-console
     console.log(`Wrote signed bundle v${bundle.bundleVersion} to ${args[outIdx + 1]}`);
   } else {
-    // eslint-disable-next-line no-console
     console.log(JSON.stringify(signed, null, 2));
   }
 }
 
 main().catch((err) => {
-  // eslint-disable-next-line no-console
   console.error(err);
   process.exit(1);
 });

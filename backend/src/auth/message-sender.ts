@@ -32,7 +32,6 @@ function otpBody(code: string): string {
  */
 export class DevLogSender implements MessageSender {
   async sendOtp(phone: string, code: string): Promise<void> {
-    // eslint-disable-next-line no-console
     console.log(`[DevLogSender] WhatsApp OTP for ${phone}: ${code}`);
   }
 }

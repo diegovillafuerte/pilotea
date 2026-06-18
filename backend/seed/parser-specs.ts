@@ -67,14 +67,12 @@ async function main(): Promise<void> {
     `;
   }
   await sql.end();
-  // eslint-disable-next-line no-console
   console.log(`Seeded ${rows.length} parser specs into parser_configs.`);
 }
 
 // Run only when executed directly (not when imported by the test).
 if (import.meta.url === `file://${process.argv[1]}`) {
   main().catch((err) => {
-    // eslint-disable-next-line no-console
     console.error(err);
     process.exit(1);
   });
