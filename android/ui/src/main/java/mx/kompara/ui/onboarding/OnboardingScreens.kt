@@ -17,11 +17,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -33,11 +28,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.annotation.StringRes
 import kotlinx.coroutines.launch
@@ -55,16 +53,39 @@ import mx.kompara.ui.theme.KomparaTheme
 // ---------------------------------------------------------------------------
 
 private data class PitchPage(
-    val icon: ImageVector,
     @param:StringRes val titleRes: Int,
     @param:StringRes val bodyRes: Int,
 )
 
 private val pitchPages = listOf(
-    PitchPage(Icons.Filled.PlayArrow, R.string.onb_pitch_1_titulo, R.string.onb_pitch_1_cuerpo),
-    PitchPage(Icons.Filled.CheckCircle, R.string.onb_pitch_2_titulo, R.string.onb_pitch_2_cuerpo),
-    PitchPage(Icons.Filled.Lock, R.string.onb_pitch_3_titulo, R.string.onb_pitch_3_cuerpo),
+    PitchPage(R.string.onb_pitch_1_titulo, R.string.onb_pitch_1_cuerpo),
+    PitchPage(R.string.onb_pitch_2_titulo, R.string.onb_pitch_2_cuerpo),
+    PitchPage(R.string.onb_pitch_3_titulo, R.string.onb_pitch_3_cuerpo),
 )
+
+/**
+ * The brand "K" logomark hero tile: a rounded-rect filled brand-emerald, holding the white logomark.
+ * Replaces the green-tinted Material vector heroes on the pitch + done screens (design `.lm` / `.lm.big`).
+ * Default 64 dp tile (the done/celebration hero passes 80 dp).
+ */
+@Composable
+private fun LogomarkTile(modifier: Modifier = Modifier, size: Dp = 64.dp) {
+    val cornerRadius = if (size >= 80.dp) 20.dp else 16.dp
+    Box(
+        modifier = modifier
+            .size(size)
+            .clip(RoundedCornerShape(cornerRadius))
+            .background(MaterialTheme.colorScheme.primary),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            painter = painterResource(R.drawable.ic_kompara_logomark),
+            contentDescription = null,
+            tint = Color.White,
+            modifier = Modifier.size(size * 0.53f),
+        )
+    }
+}
 
 @Composable
 fun PitchScreen(
@@ -86,12 +107,7 @@ fun PitchScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {
-                Icon(
-                    imageVector = p.icon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(88.dp),
-                )
+                LogomarkTile()
                 Spacer(Modifier.height(28.dp))
                 Text(
                     text = stringResource(p.titleRes),
@@ -236,12 +252,7 @@ fun LimitedInfoScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Spacer(Modifier.weight(1f))
-        Icon(
-            imageVector = Icons.Filled.Info,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(72.dp),
-        )
+        LogomarkTile()
         Spacer(Modifier.height(20.dp))
         Text(
             text = stringResource(R.string.onb_limit_titulo),
@@ -326,12 +337,7 @@ private fun AccessibilityGrantedContent(onContinue: () -> Unit, modifier: Modifi
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Spacer(Modifier.weight(1f))
-        Icon(
-            imageVector = Icons.Filled.CheckCircle,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(96.dp),
-        )
+        LogomarkTile(size = 80.dp)
         Spacer(Modifier.height(20.dp))
         Text(
             text = stringResource(R.string.onb_acc_listo_titulo),
@@ -432,12 +438,7 @@ fun OnboardingDoneScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Spacer(Modifier.weight(1f))
-        Icon(
-            imageVector = Icons.Filled.CheckCircle,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(96.dp),
-        )
+        LogomarkTile(size = 80.dp)
         Spacer(Modifier.height(20.dp))
         Text(
             text = stringResource(R.string.onb_done_titulo),
