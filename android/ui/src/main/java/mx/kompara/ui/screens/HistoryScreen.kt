@@ -10,19 +10,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.background
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -32,7 +27,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import mx.kompara.billing.GateState
 import mx.kompara.ui.R
 import mx.kompara.ui.components.EmptyState
+import mx.kompara.ui.components.KomparaCard
+import mx.kompara.ui.components.KomparaStatusChip
 import mx.kompara.ui.components.PrimaryButton
+import mx.kompara.ui.components.StatusLevel
 import mx.kompara.ui.format.Formatters
 import mx.kompara.ui.paywall.GateFunnel
 import mx.kompara.ui.paywall.GateSurface
@@ -42,6 +40,7 @@ import mx.kompara.ui.stats.HistoryViewModel
 import mx.kompara.ui.stats.HistoryWeek
 import mx.kompara.ui.stats.WeekSourceBadge
 import mx.kompara.ui.theme.KomparaTheme
+import mx.kompara.ui.theme.KomparaType
 
 /**
  * The History tab (B-040 req 3): the weeks list with a source badge (capturado/importado). Tapping a
@@ -134,12 +133,8 @@ private fun HistoryContent(
 
 @Composable
 private fun WeekRow(week: HistoryWeek, onClick: () -> Unit) {
-    Card(
+    KomparaCard(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-            contentColor = MaterialTheme.colorScheme.onSurface,
-        ),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -157,7 +152,7 @@ private fun WeekRow(week: HistoryWeek, onClick: () -> Unit) {
             Spacer(Modifier.padding(top = 4.dp))
             Text(
                 text = Formatters.formatMxn(week.period.netEarningsMxn),
-                style = MaterialTheme.typography.headlineMedium,
+                style = KomparaType.metricValue,
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
@@ -172,28 +167,13 @@ private fun WeekRow(week: HistoryWeek, onClick: () -> Unit) {
 
 @Composable
 private fun SourceBadge(source: WeekSourceBadge) {
-    val (text, container, content) = when (source) {
-        WeekSourceBadge.CAPTURADO -> Triple(
-            stringResource(R.string.history_badge_capturado),
-            MaterialTheme.colorScheme.tertiaryContainer,
-            MaterialTheme.colorScheme.onTertiaryContainer,
-        )
-        WeekSourceBadge.IMPORTADO -> Triple(
-            stringResource(R.string.history_badge_importado),
-            MaterialTheme.colorScheme.primaryContainer,
-            MaterialTheme.colorScheme.onPrimaryContainer,
-        )
+    val text = when (source) {
+        WeekSourceBadge.CAPTURADO -> stringResource(R.string.history_badge_capturado)
+        WeekSourceBadge.IMPORTADO -> stringResource(R.string.history_badge_importado)
     }
-    Text(
-        text = text,
-        style = MaterialTheme.typography.labelMedium,
-        fontWeight = FontWeight.Bold,
-        color = content,
-        modifier = Modifier
-            .clip(RoundedCornerShape(50))
-            .background(container)
-            .padding(horizontal = 10.dp, vertical = 4.dp),
-    )
+    // Design shows both source labels as a neutral status pill — the label text carries the
+    // capturado/importado distinction, so colour is not the only signal.
+    KomparaStatusChip(label = text, level = StatusLevel.NEUTRAL)
 }
 
 @Preview(showBackground = true, name = "History — con semanas")

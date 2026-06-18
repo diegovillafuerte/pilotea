@@ -5,23 +5,19 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -35,7 +31,12 @@ import mx.kompara.metrics.imss.MonthPhase
 import mx.kompara.metrics.imss.PlatformImssStatus
 import mx.kompara.billing.GateState
 import mx.kompara.ui.R
+import mx.kompara.ui.components.CardTone
+import mx.kompara.ui.components.KomparaCard
+import mx.kompara.ui.components.KomparaChip
 import mx.kompara.ui.components.KomparaProgressBar
+import mx.kompara.ui.components.KomparaStatusChip
+import mx.kompara.ui.components.StatusLevel
 import mx.kompara.ui.format.Formatters
 import mx.kompara.ui.paywall.GateFunnel
 import mx.kompara.ui.paywall.GateSurface
@@ -45,9 +46,6 @@ import mx.kompara.ui.stats.FiscalViewModel
 import mx.kompara.ui.stats.platformChipLabel
 import mx.kompara.ui.theme.KomparaTheme
 import mx.kompara.ui.theme.KomparaType
-import mx.kompara.ui.theme.OnVerdictGreen
-import mx.kompara.ui.theme.OnVerdictRed
-import mx.kompara.ui.theme.OnVerdictYellow
 import mx.kompara.ui.theme.VerdictGreen
 import mx.kompara.ui.theme.VerdictRed
 import mx.kompara.ui.theme.VerdictYellow
@@ -101,8 +99,7 @@ private fun FiscalContent(
     ) {
         Text(
             text = stringResource(R.string.fiscal_title),
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.headlineSmall,
         )
 
         // B-050: the IMSS tracker body is premium. Title stays visible so the driver still sees the tab;
@@ -180,10 +177,10 @@ private fun MonthPicker(state: FiscalUiState, onSelectMonth: (Int) -> Unit) {
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             state.availableMonthOffsets.forEachIndexed { index, offset ->
-                FilterChip(
+                KomparaChip(
                     selected = offset == state.monthOffset,
                     onClick = { onSelectMonth(offset) },
-                    label = { Text(state.monthLabels.getOrElse(index) { "" }) },
+                    label = state.monthLabels.getOrElse(index) { "" },
                 )
             }
         }
@@ -192,11 +189,9 @@ private fun MonthPicker(state: FiscalUiState, onSelectMonth: (Int) -> Unit) {
 
 @Composable
 private fun PlatformImssCard(section: PlatformImssStatus) {
-    Card(
+    KomparaCard(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-        ),
+        tone = CardTone.VARIANT,
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(
@@ -262,23 +257,17 @@ private fun PlatformImssCard(section: PlatformImssStatus) {
 @Composable
 private fun CoverageChip(section: PlatformImssStatus) {
     val labelRes = coverageLabelRes(section.status, section.phase)
-    Text(
-        text = stringResource(labelRes),
-        style = MaterialTheme.typography.labelMedium,
-        fontWeight = FontWeight.Bold,
-        color = section.status.onFillColor,
-        modifier = Modifier
-            .clip(RoundedCornerShape(50))
-            .background(section.status.fillColor)
-            .padding(horizontal = 10.dp, vertical = 4.dp),
+    KomparaStatusChip(
+        label = stringResource(labelRes),
+        level = section.status.statusLevel,
     )
 }
 
 @Composable
 private fun EmptyMonthNote() {
-    Card(
+    KomparaCard(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        tone = CardTone.VARIANT,
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(
@@ -300,9 +289,11 @@ private fun ExplainerCard() {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.secondaryContainer,
-            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            contentColor = MaterialTheme.colorScheme.onSurface,
         ),
+        // Cards are tonal (no shadow) — flatten the default Material elevation.
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             // TODO(legal-B038): explainer copy needs counsel review against current IMSS/SAT
@@ -353,16 +344,16 @@ private fun FiscalSummarySection(
                 fontWeight = FontWeight.Bold,
             )
             // Month / YTD view toggle.
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                FilterChip(
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                KomparaChip(
                     selected = !state.ytdView,
                     onClick = { onToggleYtd(false) },
-                    label = { Text(stringResource(R.string.fiscal_summary_view_month)) },
+                    label = stringResource(R.string.fiscal_summary_view_month),
                 )
-                FilterChip(
+                KomparaChip(
                     selected = state.ytdView,
                     onClick = { onToggleYtd(true) },
-                    label = { Text(stringResource(R.string.fiscal_summary_view_ytd)) },
+                    label = stringResource(R.string.fiscal_summary_view_ytd),
                 )
             }
         }
@@ -416,9 +407,9 @@ private fun FiscalSummarySection(
 
 @Composable
 private fun FiscalPlatformCard(platform: mx.kompara.metrics.fiscal.PlatformFiscalSummary) {
-    Card(
+    KomparaCard(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        tone = CardTone.VARIANT,
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(
@@ -451,9 +442,11 @@ private fun FiscalTotalsCard(totals: mx.kompara.metrics.fiscal.FiscalTotals, ytd
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.secondaryContainer,
-            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            contentColor = MaterialTheme.colorScheme.onSurface,
         ),
+        // Cards are tonal (no shadow) — flatten the default Material elevation.
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(
@@ -500,9 +493,11 @@ private fun FiscalRegimeExplainerCard() {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.secondaryContainer,
-            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            contentColor = MaterialTheme.colorScheme.onSurface,
         ),
+        // Cards are tonal (no shadow) — flatten the default Material elevation.
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             // TODO(legal-B038): regime/CSF/harmonization copy needs counsel review on the same cadence
@@ -535,11 +530,11 @@ private val CoverageStatus.fillColor: Color
         CoverageStatus.UNLIKELY -> VerdictRed
     }
 
-private val CoverageStatus.onFillColor: Color
+private val CoverageStatus.statusLevel: StatusLevel
     get() = when (this) {
-        CoverageStatus.COVERED -> OnVerdictGreen
-        CoverageStatus.ON_TRACK -> OnVerdictYellow
-        CoverageStatus.UNLIKELY -> OnVerdictRed
+        CoverageStatus.COVERED -> StatusLevel.OK
+        CoverageStatus.ON_TRACK -> StatusLevel.WARNING
+        CoverageStatus.UNLIKELY -> StatusLevel.ERROR
     }
 
 private fun coverageLabelRes(status: CoverageStatus, phase: MonthPhase): Int = when {

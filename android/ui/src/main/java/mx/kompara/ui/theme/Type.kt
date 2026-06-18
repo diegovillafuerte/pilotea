@@ -8,6 +8,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import mx.kompara.ui.R
 
@@ -45,6 +46,18 @@ val KomparaTypography = Typography(
         fontWeight = FontWeight.Bold,
         fontSize = 28.sp,
         lineHeight = 34.sp,
+        // Headings are tracked tight (design tokens: --tracking-tight -0.02em).
+        letterSpacing = (-0.02).em,
+    ),
+    // The screen-title role. Previously undefined → screen headers (LectorScreen, ThresholdsScreen…)
+    // fell back to the Material default (Roboto 24sp). Defined here in Inter so every screen title
+    // renders in the brand typeface (design token: screenTitle 24/30/700, tracking -0.02em).
+    headlineSmall = TextStyle(
+        fontFamily = Inter,
+        fontWeight = FontWeight.Bold,
+        fontSize = 24.sp,
+        lineHeight = 30.sp,
+        letterSpacing = (-0.02).em,
     ),
     titleLarge = TextStyle(
         fontFamily = Inter,
@@ -111,6 +124,8 @@ object KomparaType {
         fontSize = 44.sp,
         lineHeight = 48.sp,
         textAlign = TextAlign.Start,
+        // Tabular figures so "$1,234.56" columns stay aligned (design: money = tabular figures).
+        fontFeatureSettings = "tnum",
     )
 
     /** A prominent figure inside a [mx.kompara.ui.components.MetricCard]. */
@@ -119,6 +134,8 @@ object KomparaType {
         fontWeight = FontWeight.Bold,
         fontSize = 30.sp,
         lineHeight = 34.sp,
+        // Tabular figures so "$1,234.56" columns stay aligned (design: money = tabular figures).
+        fontFeatureSettings = "tnum",
     )
 
     /** The small upper-case label that sits above a metric value. */
@@ -127,5 +144,7 @@ object KomparaType {
         fontWeight = FontWeight.Medium,
         fontSize = 13.sp,
         lineHeight = 16.sp,
+        // The uppercase metric label carries slight tracking (design: metricLabel letterSpacing 0.04em).
+        letterSpacing = 0.04.em,
     )
 }

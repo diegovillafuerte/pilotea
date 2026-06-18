@@ -13,6 +13,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import mx.kompara.metrics.VerdictLevel
 import mx.kompara.ui.R
 import mx.kompara.ui.theme.KomparaTheme
@@ -68,6 +69,7 @@ fun VerdictBadge(
         text = stringResource(level.labelRes),
         color = level.onBrandColor,
         fontWeight = FontWeight.Bold,
+        fontSize = 14.sp,
         modifier = modifier
             .clip(RoundedCornerShape(50))
             .background(level.brandColor)

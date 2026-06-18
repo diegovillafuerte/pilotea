@@ -18,7 +18,6 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -28,8 +27,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import mx.kompara.ui.components.KomparaCard
 
 /**
  * Ajustes → "Ayuda" (B-071): the in-app help center — expandable FAQ entries covering the reader,
@@ -42,20 +41,19 @@ fun HelpScreen(modifier: Modifier = Modifier) {
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(
             text = stringResource(mx.kompara.ui.R.string.help_title),
             style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
         )
         Text(
             text = stringResource(mx.kompara.ui.R.string.help_intro),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(8.dp))
         HELP_ITEMS.forEach { item -> HelpItemCard(item) }
     }
 }
@@ -78,9 +76,7 @@ private val HELP_ITEMS = listOf(
 @Composable
 private fun HelpItemCard(item: HelpItem) {
     var expanded by remember { mutableStateOf(false) }
-    Surface(
-        shape = MaterialTheme.shapes.medium,
-        tonalElevation = 1.dp,
+    KomparaCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { expanded = !expanded }
@@ -95,7 +91,6 @@ private fun HelpItemCard(item: HelpItem) {
                 Text(
                     text = stringResource(item.questionRes),
                     style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(end = 8.dp),
                 )
                 Icon(

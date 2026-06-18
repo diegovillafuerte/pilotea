@@ -11,21 +11,19 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import mx.kompara.ui.R
 
 /**
- * The five top-level destinations of the app shell, in bar order. [LECTOR] is the prominent centre
- * action (raised circle) — it's the product's core gesture, mirroring the web MVP's "Subir".
+ * The five top-level destinations of the app shell, in bar order. All five render as uniform flat
+ * tabs (no raised centre button) — see [mx.kompara.ui.nav.KomparaBottomBar].
  *
  * @param route stable navigation route key.
  * @param labelRes Spanish tab label.
  * @param contentDescriptionRes accessibility description for the tab icon.
  * @param icon the bar icon (also reused as the placeholder screen's empty-state icon).
- * @param isCenter whether this is the raised centre action.
  */
 enum class KomparaDestination(
     val route: String,
     @param:StringRes val labelRes: Int,
     @param:StringRes val contentDescriptionRes: Int,
     val icon: ImageVector,
-    val isCenter: Boolean = false,
 ) {
     INICIO(
         route = "inicio",
@@ -44,7 +42,6 @@ enum class KomparaDestination(
         labelRes = R.string.nav_lector,
         contentDescriptionRes = R.string.nav_lector_desc,
         icon = Icons.Filled.PlayArrow,
-        isCenter = true,
     ),
     FISCAL(
         route = "fiscal",

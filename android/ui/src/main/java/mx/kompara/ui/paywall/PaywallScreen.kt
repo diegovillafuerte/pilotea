@@ -20,7 +20,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -30,12 +29,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import mx.kompara.ui.R
+import mx.kompara.ui.components.ButtonVariant
+import mx.kompara.ui.components.KomparaButton
 import mx.kompara.ui.components.PrimaryButton
 import mx.kompara.ui.theme.KomparaTheme
 
@@ -92,13 +92,12 @@ private fun PaywallContent(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(24.dp),
+            .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Text(
             text = stringResource(R.string.paywall_title),
             style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
         )
         Text(
             text = stringResource(R.string.paywall_value_framing),
@@ -144,19 +143,25 @@ private fun PaywallContent(
             }
         }
 
-        TextButton(onClick = onRestore, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.paywall_restore))
-        }
+        KomparaButton(
+            text = stringResource(R.string.paywall_restore),
+            onClick = onRestore,
+            variant = ButtonVariant.TEXT,
+            fullWidth = true,
+        )
 
-        TextButton(onClick = onClose, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.paywall_maybe_later))
-        }
+        KomparaButton(
+            text = stringResource(R.string.paywall_maybe_later),
+            onClick = onClose,
+            variant = ButtonVariant.TEXT,
+            fullWidth = true,
+        )
 
         // TODO(legal-B038): replace with reviewed subscription terms + auto-renewal + cancellation +
         // privacy fine print on the same counsel cadence as the B-036 disclosure copy.
         Text(
             text = stringResource(R.string.paywall_legal_placeholder),
-            style = MaterialTheme.typography.labelSmall,
+            style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
