@@ -37,6 +37,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -313,11 +314,11 @@ private fun TableHeader() {
             .padding(vertical = 6.dp),
         verticalAlignment = Alignment.Bottom,
     ) {
-        HeaderCell(stringResource(R.string.comparar_col_metric), 1.6f, Alignment.Start)
+        HeaderCell(stringResource(R.string.comparar_col_metric), 1.4f, Alignment.Start)
         HeaderCell(stringResource(R.string.comparar_col_tu), 1f, Alignment.CenterHorizontally)
         HeaderCell("Uber", 1f, Alignment.CenterHorizontally)
         HeaderCell("DiDi", 1f, Alignment.CenterHorizontally)
-        HeaderCell(stringResource(R.string.comparar_col_place), 1.3f, Alignment.CenterHorizontally)
+        HeaderCell(stringResource(R.string.comparar_col_place), 1f, Alignment.CenterHorizontally)
     }
 }
 
@@ -345,17 +346,19 @@ private fun TableRow(row: ComparisonRow) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // Métrica
-        Column(modifier = Modifier.weight(1.6f)) {
+        Column(modifier = Modifier.weight(1.4f)) {
             Text(
                 text = metricLabel(row.metric),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
             if (row.lowerIsBetter) {
                 Text(
                     text = stringResource(R.string.comparar_lower_better),
                     style = MaterialTheme.typography.bodySmall,
-                    color = VerdictGreen,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
@@ -365,7 +368,7 @@ private fun TableRow(row: ComparisonRow) {
         ValueCell(formatOrDash(row.unit, row.uberAvg), 1f, MaterialTheme.colorScheme.onSurfaceVariant)
         ValueCell(formatOrDash(row.unit, row.didiAvg), 1f, MaterialTheme.colorScheme.onSurfaceVariant)
         // Tu lugar (percentile vs all drivers).
-        PercentileCell(row.percentile, 1.3f)
+        PercentileCell(row.percentile, 1f)
     }
 }
 
@@ -382,7 +385,7 @@ private fun androidx.compose.foundation.layout.RowScope.ValueCell(
         fontWeight = weight2,
         color = color,
         maxLines = 1,
-        softWrap = false,
+        overflow = TextOverflow.Ellipsis,
         modifier = Modifier.weight(weight),
         textAlign = androidx.compose.ui.text.style.TextAlign.Center,
     )
