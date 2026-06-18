@@ -9,16 +9,17 @@ package mx.kompara.ocr
  * A frame that is not an offer card and does not match any marker is treated as **idle** (home /
  * waiting-for-request) — the same default-to-idle policy the node mapper uses.
  *
- * **PARTIALLY CALIBRATED (B-084).** The DiDi to-pickup / offer-accepted anchors below are confirmed
- * from real on-device captures (2026-06-15); the on-trip (post-pickup) and trip-completion screens
- * are still uncaptured, so the rest stay best-guess (see techdebt TD-030). The phrases are shared
- * across Uber/DiDi/inDrive (all Spanish, MX), so a single list is applied to every OCR-owned
- * platform; split per-package here if further calibration shows the wording diverges.
+ * **PARTIALLY CALIBRATED (B-084).** The DiDi (2026-06-15) and Uber (2026-06-18) to-pickup /
+ * offer-accepted anchors below are confirmed from real on-device captures; the on-trip (post-pickup)
+ * and trip-completion screens are still uncaptured, so the rest stay best-guess (see techdebt TD-030).
+ * The phrases are shared across Uber/DiDi/inDrive (all Spanish, MX), so a single list is applied to
+ * every OCR-owned platform; split per-package here if further calibration shows the wording diverges.
  *
- * The cancel-reason dialog ("¿Por qué cancelaste el viaje?" with options like "Punto de encuentro
- * muy lejano" / "Tenía otro viaje en curso") *mentions* trip words but must NEVER open a trip — on
- * device it falsely manufactured bare zero-value trips (B-084). [excludedMarkers] vetoes any frame
- * matching one of those phrases, regardless of which trip markers it also contains.
+ * The cancel dialogs *mention* trip words but must NEVER open a trip — on device they falsely
+ * manufactured bare zero-value trips (B-084): DiDi's "¿Por qué cancelaste el viaje?" (options like
+ * "Punto de encuentro muy lejano") and Uber's "¿Algo salió mal? … CANCELAR VIAJE" (which hits the
+ * "Iniciar viaje"/"Cancelar viaje" markers). [excludedMarkers] vetoes any frame matching one of those
+ * phrases, regardless of which trip markers it also contains.
  */
 data class OcrTripMarkers(
     val tripMarkers: List<String> = DEFAULT_TRIP_MARKERS,
@@ -42,6 +43,12 @@ data class OcrTripMarkers(
             "Llegué por el pasajero",
             "La grabación iniciará al empezar el viaje",
             "¡Vamos!",
+            // Uber offer-accepted / to-pickup screen, confirmed on-device 2026-06-18 (B-084). The
+            // itinerary header "Agenda de viajes" shows only on the accepted/to-pickup screen — never
+            // on the idle/searching home or an offer card — so it cleanly marks an accepted Uber ride.
+            // (Uber's accepted screen is Uber-specific text the DiDi anchors above never matched, so
+            // accepted Uber rides used to open an orphan bare trip instead of linking the offer.)
+            "Agenda de viajes",
             // Best-guess on-trip / completion phrases — still NEEDS on-device calibration (TD-030).
             "Viaje en curso",
             "Iniciar viaje",
@@ -65,9 +72,16 @@ data class OcrTripMarkers(
          * 2026-06-15 captures.
          */
         val DEFAULT_EXCLUDED_MARKERS: List<String> = listOf(
+            // DiDi cancel-reason dialog, confirmed on-device 2026-06-15.
             "cancelaste el viaje",
             "Por favor dinos por qué",
             "Punto de encuentro muy lejano",
+            // Uber cancel dialog, confirmed on-device 2026-06-18 (B-084). Its "¿Algo salió mal? … No
+            // vale la pena iniciar el viaje … CANCELAR VIAJE" frames hit the "Iniciar viaje" /
+            // "Cancelar viaje" trip markers and manufactured a bare zero-value trip on cancellation.
+            // These two phrases appear only in that cancel flow, never on an active-trip screen.
+            "Acepté el viaje por error",
+            "Quieres cancelar este",
         )
 
         val DEFAULT = OcrTripMarkers()

@@ -181,4 +181,29 @@ class OcrLifecycleClassifierTest {
             "Punto de encuentro muy lejano | Tenía otro viaje en curso"
         assertEquals(false, OcrTripMarkers.DEFAULT.isTripLike(cancelDialog))
     }
+
+    @Test
+    fun `the real Uber offer-accepted to-pickup screen is recognised as a trip (B-084)`() {
+        // The Uber accepted/to-pickup screen captured on-device 2026-06-18 (PII redacted). The DiDi
+        // anchors never matched it, so accepted Uber rides opened an orphan bare trip (offerId null)
+        // instead of linking the pending offer. "Agenda de viajes" now anchors it.
+        val toPickup = "Agenda de viajes | Inicio UberX | [PASSENGER] | Destino UberX | [PASSENGER] | " +
+            "Hoja de ruta"
+        assertTrue(OcrTripMarkers.DEFAULT.isTripLike(toPickup))
+    }
+
+    @Test
+    fun `the Uber cancel dialog does NOT open a trip, even though it hits trip markers (B-084)`() {
+        // Captured on-device 2026-06-18. Both Uber cancel frames hit an existing trip marker — the
+        // reason list via "iniciar el viaje" ("Iniciar viaje") and the confirm dialog via "CANCELAR
+        // VIAJE" ("Cancelar viaje") — and manufactured a bare zero-value trip (trip 83). The veto
+        // ("Acepté el viaje por error" / "Quieres cancelar este") must override both.
+        val cancelReasonList = "¿Algo salió mal? Elige un problema a continuación: | " +
+            "Acepté el viaje por error | Hay un problema con la ruta de inicio de viaje | " +
+            "No vale la pena iniciar el viaje | Punto de partida inseguro | Problema con el vehículo"
+        val cancelConfirm = "Acepté el viaje por error | ¿Quieres cancelar este viaje? | " +
+            "CANCELAR VIAJE | CONTINUAR CON EL VIAJE"
+        assertEquals(false, OcrTripMarkers.DEFAULT.isTripLike(cancelReasonList))
+        assertEquals(false, OcrTripMarkers.DEFAULT.isTripLike(cancelConfirm))
+    }
 }
