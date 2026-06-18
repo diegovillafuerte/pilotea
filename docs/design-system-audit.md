@@ -8,6 +8,27 @@ The full Claude Design handoff (`~/Downloads/Kompara Design System-handoff.zip`,
 
 Everything compiles, unit tests pass, the full app builds, and it runs on-device (Samsung `RFCY30MW06E`). Onboarding screens are compile-verified only (can't reach them on-device without wiping data).
 
+## ✅ V1.0 SHIPPED — 2026-06-18 (the "🔴 not recreated" gaps below are now CLOSED)
+
+The full design-vs-Compose drift audit was completed and **all redesigns merged to `main`** as 9 focused PRs (#26–#34) + a design-bundle sync (#35), each Codex-reviewed (Gemini joined until its license 403'd mid-run), built, and on-device verified where reachable. Tagged `v1.0`.
+
+| Area | PR | On-device |
+|---|---|---|
+| Comparar — value-cell clip fix + compact labels + verdict-leak | #26 | ✅ before/after (real data) |
+| Importar — card + step-checklist + linear bar | #27 | ⚠️ transient upload state (build+review; reuses verified components) |
+| Paywall — emerald price card + fixed footer + close ✕ | #28 | ⚠️ gate+debug-toggle trigger blocked by DiDi overlay (build+review) |
+| Cluster A — Día listrows / Costos preview / Cuenta KomparaTextField / Historial slim rows | #29 | ✅ Historial; others build+review |
+| Simulador — 3-way segmented verdict picker (:overlay) | #30 | build+review (chip room pre-mitigated) |
+| Cluster B — Lector verdict-leak→BrandGreen / Fiscal clip fixes / Semáforo·Ajustes nits | #31 | ✅ Fiscal + Semáforo; Lector OFF state (Activo is a11y-gated) |
+| Onboarding — tonal cards / numbered pill badges / status cards / a11y | #32 | not device-reachable w/o data wipe (build + a11y semantics) |
+| Tu Mes — inline emerald Wrapped hero + real-data brag grid | #33 | ✅ hero verified ($0 month + real Mejor app/Racha + graceful "—") |
+| Sentence-case metric tiles + slim app-shell top bar | #34 | ✅ Inicio |
+| Design bundle sync (Importar label, Inicio casing; Lector via #31) | #35 | n/a (design) |
+
+**Adversarial review caught real bugs** unit tests missed — Gemini flagged Importar's empty progress bar + Comparar metric-label clip; Codex caught Tu Mes's monthly-hours undercount (inflated $/h + corrupted percentile), the "Mejor app" enabled-filter bug, and several a11y label gaps — all fixed before merge.
+
+**Documented deferrals / not-fully-verified:** Día "Mejor día"/best-hours has no verdict field → kept net + a `// QUESTION` (no fabricated verdict); Paywall / Importar / Onboarding / Lector-connected states are build+review verified (not reliably adb-triggerable — the **DiDi floating overlay** intercepts right-edge taps during on-device runs).
+
 ## How to continue (env / build / verify)
 
 ```bash
