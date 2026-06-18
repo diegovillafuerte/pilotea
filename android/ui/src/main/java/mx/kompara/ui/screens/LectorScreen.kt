@@ -23,11 +23,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -56,6 +53,10 @@ import kotlinx.coroutines.flow.StateFlow
 import mx.kompara.data.service.ScreenReaderState
 import mx.kompara.data.service.ServiceStatusProvider
 import mx.kompara.ui.R
+import mx.kompara.ui.components.ButtonVariant
+import mx.kompara.ui.components.CardTone
+import mx.kompara.ui.components.KomparaButton
+import mx.kompara.ui.components.KomparaCard
 import mx.kompara.ui.components.PrimaryButton
 import mx.kompara.ui.onboarding.AccessibilitySettings
 import mx.kompara.ui.theme.BrandGreen
@@ -261,25 +262,25 @@ private fun ConnectedLector(
             onClick = onStartScreenReader,
         )
         // Secondary action: manage the accessibility permission that powers the reader.
-        OutlinedButton(
+        KomparaButton(
+            text = stringResource(R.string.lector_settings_cta),
             onClick = onOpenAccessibilitySettings,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(stringResource(R.string.lector_settings_cta))
-        }
+            variant = ButtonVariant.SECONDARY,
+            fullWidth = true,
+        )
 
-        OutlinedButton(
+        KomparaButton(
+            text = stringResource(R.string.lector_on_cta),
             onClick = onOpenSimulator,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(stringResource(R.string.lector_on_cta))
-        }
-        OutlinedButton(
+            variant = ButtonVariant.SECONDARY,
+            fullWidth = true,
+        )
+        KomparaButton(
+            text = stringResource(R.string.lector_semaforo_cta),
             onClick = onOpenThresholds,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(stringResource(R.string.lector_semaforo_cta))
-        }
+            variant = ButtonVariant.SECONDARY,
+            fullWidth = true,
+        )
     }
 }
 
@@ -359,12 +360,9 @@ private fun MiniVerdictChip(modifier: Modifier = Modifier) {
  */
 @Composable
 private fun ReaderStatusCard(running: Boolean) {
-    Card(
+    KomparaCard(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-            contentColor = MaterialTheme.colorScheme.onSurface,
-        ),
+        tone = CardTone.DEFAULT,
     ) {
         Row(
             modifier = Modifier
@@ -378,7 +376,9 @@ private fun ReaderStatusCard(running: Boolean) {
                     modifier = Modifier
                         .size(8.dp)
                         .background(
-                            color = if (running) VerdictGreen else MaterialTheme.colorScheme.outline,
+                            // "Activo" is a connection status, not a verdict — emerald BrandGreen,
+                            // never the verde verdict colour (verdict colours are verdict-only).
+                            color = if (running) BrandGreen else MaterialTheme.colorScheme.outline,
                             shape = CircleShape,
                         ),
                 )
@@ -394,7 +394,7 @@ private fun ReaderStatusCard(running: Boolean) {
                     if (running) R.string.lector_status_on else R.string.lector_ocr_status_off,
                 ),
                 style = MaterialTheme.typography.labelMedium,
-                color = if (running) VerdictGreen else MaterialTheme.colorScheme.onSurfaceVariant,
+                color = if (running) BrandGreen else MaterialTheme.colorScheme.onSurfaceVariant,
                 fontWeight = FontWeight.Medium,
             )
         }

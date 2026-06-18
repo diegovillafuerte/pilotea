@@ -9,10 +9,9 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,7 +30,9 @@ import mx.kompara.metrics.imss.MonthPhase
 import mx.kompara.metrics.imss.PlatformImssStatus
 import mx.kompara.billing.GateState
 import mx.kompara.ui.R
+import mx.kompara.ui.components.ButtonVariant
 import mx.kompara.ui.components.CardTone
+import mx.kompara.ui.components.KomparaButton
 import mx.kompara.ui.components.KomparaCard
 import mx.kompara.ui.components.KomparaChip
 import mx.kompara.ui.components.KomparaProgressBar
@@ -191,18 +192,22 @@ private fun MonthPicker(state: FiscalUiState, onSelectMonth: (Int) -> Unit) {
 private fun PlatformImssCard(section: PlatformImssStatus) {
     KomparaCard(
         modifier = Modifier.fillMaxWidth(),
-        tone = CardTone.VARIANT,
+        tone = CardTone.DEFAULT,
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
             ) {
                 Text(
                     text = stringResource(platformChipLabel(platformOf(section.platform))),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
+                    // Let the chip win the space so the longest coverage label can't clip the name.
+                    modifier = Modifier.weight(1f, fill = false),
                 )
+                Spacer(Modifier.width(8.dp))
                 CoverageChip(section)
             }
 
@@ -286,14 +291,9 @@ private fun EmptyMonthNote() {
 
 @Composable
 private fun ExplainerCard() {
-    Card(
+    KomparaCard(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-            contentColor = MaterialTheme.colorScheme.onSurface,
-        ),
-        // Cards are tonal (no shadow) — flatten the default Material elevation.
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        tone = CardTone.VARIANT,
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             // TODO(legal-B038): explainer copy needs counsel review against current IMSS/SAT
@@ -333,11 +333,9 @@ private fun FiscalSummarySection(
 ) {
     val summary = state.fiscalSummary ?: return
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-        ) {
+        // Stack the title above the toggle so a title + two-chip toggle never collide on a narrow
+        // (390px) frame.
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
                 text = stringResource(R.string.fiscal_summary_title),
                 style = MaterialTheme.typography.titleMedium,
@@ -381,21 +379,30 @@ private fun FiscalSummarySection(
             )
         }
 
-        androidx.compose.material3.FilledTonalButton(
-            onClick = onExportPdf,
-            enabled = state.canExport && !state.exporting,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            if (state.exporting) {
+        if (state.exporting) {
+            // Transient export-in-progress state (not in the mock): KomparaButton has no spinner
+            // slot, so keep a disabled full-width control showing the progress indicator.
+            androidx.compose.material3.FilledTonalButton(
+                onClick = {},
+                enabled = false,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
                 androidx.compose.material3.CircularProgressIndicator(
                     modifier = Modifier.height(18.dp),
                     strokeWidth = 2.dp,
                 )
-                Spacer(Modifier.height(0.dp))
-                Text("  " + stringResource(R.string.fiscal_export_in_progress))
-            } else {
-                Text(stringResource(R.string.fiscal_export_pdf))
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.fiscal_export_in_progress))
             }
+        } else {
+            // Mock's full-width 52dp secondary (outlined) "Exportar PDF" CTA.
+            KomparaButton(
+                text = stringResource(R.string.fiscal_export_pdf),
+                onClick = onExportPdf,
+                variant = ButtonVariant.SECONDARY,
+                fullWidth = true,
+                enabled = state.canExport,
+            )
         }
         Text(
             text = stringResource(R.string.fiscal_export_hint),
@@ -409,7 +416,7 @@ private fun FiscalSummarySection(
 private fun FiscalPlatformCard(platform: mx.kompara.metrics.fiscal.PlatformFiscalSummary) {
     KomparaCard(
         modifier = Modifier.fillMaxWidth(),
-        tone = CardTone.VARIANT,
+        tone = CardTone.DEFAULT,
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(
@@ -439,14 +446,9 @@ private fun FiscalPlatformCard(platform: mx.kompara.metrics.fiscal.PlatformFisca
 
 @Composable
 private fun FiscalTotalsCard(totals: mx.kompara.metrics.fiscal.FiscalTotals, ytd: Boolean) {
-    Card(
+    KomparaCard(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-            contentColor = MaterialTheme.colorScheme.onSurface,
-        ),
-        // Cards are tonal (no shadow) — flatten the default Material elevation.
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        tone = CardTone.DEFAULT,
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(
@@ -490,14 +492,9 @@ private fun FiscalRow(label: String, value: String, emphasize: Boolean = false) 
 
 @Composable
 private fun FiscalRegimeExplainerCard() {
-    Card(
+    KomparaCard(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-            contentColor = MaterialTheme.colorScheme.onSurface,
-        ),
-        // Cards are tonal (no shadow) — flatten the default Material elevation.
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        tone = CardTone.VARIANT,
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             // TODO(legal-B038): regime/CSF/harmonization copy needs counsel review on the same cadence

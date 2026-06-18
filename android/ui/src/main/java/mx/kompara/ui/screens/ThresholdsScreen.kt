@@ -79,7 +79,10 @@ fun ThresholdsScreen(
 
         Spacer(Modifier.height(18.dp))
         Text(
-            text = stringResource(R.string.thresholds_metric_title),
+            // Match the mock's .lbl text-transform:uppercase at this call site only; do not change
+            // KomparaType.metricLabel itself (5 other screens consume it — defer to the casing pass).
+            text = stringResource(R.string.thresholds_metric_title)
+                .uppercase(Locale.forLanguageTag("es-MX")),
             style = KomparaType.metricLabel,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -230,7 +233,11 @@ private fun FloorSliderRow(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(text = label, style = MaterialTheme.typography.bodyMedium)
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         Text(text = valueText, fontWeight = FontWeight.Bold, fontSize = 18.sp)
     }
     KomparaSlider(
