@@ -27,10 +27,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import mx.kompara.data.model.City
@@ -167,18 +170,31 @@ private fun ProfileStep(
             )
             Spacer(Modifier.height(16.dp))
 
+            // Label-above (not a floating Material label, which the design system rejects): a static
+            // 12sp label sits above the dropdown anchor, mirroring KomparaTextField. The City.entries
+            // enum dropdown is preserved — only the label placement changes.
+            val cityLabel = stringResource(R.string.auth_profile_ciudad_label)
+            Text(
+                text = cityLabel,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+            )
             var cityMenuOpen by remember { mutableStateOf(false) }
             ExposedDropdownMenuBox(
                 expanded = cityMenuOpen,
                 onExpandedChange = { cityMenuOpen = it },
+                modifier = Modifier.padding(top = 6.dp),
             ) {
                 OutlinedTextField(
                     value = state.city.displayName,
                     onValueChange = {},
                     readOnly = true,
-                    label = { Text(stringResource(R.string.auth_profile_ciudad_label)) },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = cityMenuOpen) },
-                    modifier = Modifier.fillMaxWidth().menuAnchor(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor()
+                        .semantics { contentDescription = "$cityLabel: ${state.city.displayName}" },
                 )
                 ExposedDropdownMenu(
                     expanded = cityMenuOpen,

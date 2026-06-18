@@ -245,11 +245,14 @@
     <!-- Concesión de accesibilidad -->
     <string name="onb_acc_titulo">Activa el lector de Kompara</string>
     <string name="onb_acc_intro">Te llevamos a los Ajustes de accesibilidad de Android. Sigue estos pasos:</string>
-    <string name="onb_acc_paso_1">1. Busca \"Kompara\" en la lista de servicios.</string>
-    <string name="onb_acc_paso_2">2. Toca Kompara y activa el interruptor.</string>
-    <string name="onb_acc_paso_3">3. Confirma en el aviso del sistema y regresa aquí.</string>
+    <string name="onb_acc_paso_1">Busca \"Kompara\" en la lista de servicios.</string>
+    <string name="onb_acc_paso_2">Toca Kompara y activa el interruptor.</string>
+    <string name="onb_acc_paso_3">Confirma en el aviso del sistema y regresa aquí.</string>
     <string name="onb_acc_boton">Abrir ajustes de accesibilidad</string>
     <string name="onb_acc_esperando">Esperando a que actives el lector…</string>
+    <string name="onb_acc_estado_label">Lector de pantalla</string>
+    <string name="onb_acc_estado_esperando">Esperando…</string>
+    <string name="onb_acc_estado_activo">Activo</string>
     <string name="onb_acc_listo_titulo">¡Listo! El lector está activo</string>
     <string name="onb_acc_listo_cuerpo">Kompara ya puede leer tus ofertas y darte el veredicto al instante.</string>
 
@@ -257,7 +260,8 @@
     <string name="onb_oem_titulo">Que tu teléfono no apague el lector</string>
     <string name="onb_oem_intro">Tu teléfono puede cerrar Kompara en segundo plano para ahorrar batería. Sigue estos pasos para que siga funcionando mientras manejas:</string>
     <string name="onb_oem_bateria_boton">Abrir ajustes de batería</string>
-    <string name="onb_oem_recientes_tip">Tip: en la pantalla de apps recientes, mantén presionada la tarjeta de Kompara y elige el candado para fijarla y que no se cierre sola.</string>
+    <string name="onb_oem_notif_titulo">Avísame si el lector se apaga</string>
+    <string name="onb_oem_notif_cuerpo">Activa los avisos.</string>
     <string name="onb_oem_boton_continuar">Ya lo configuré</string>
 
     <!-- Pasos por fabricante (dontkillmyapp). -->
