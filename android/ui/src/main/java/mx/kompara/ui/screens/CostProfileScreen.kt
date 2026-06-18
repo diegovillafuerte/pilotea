@@ -19,7 +19,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -36,6 +35,7 @@ import mx.kompara.ui.stats.CostPreviewResult
 import mx.kompara.ui.stats.CostProfileInputs
 import mx.kompara.ui.stats.CostProfileViewModel
 import mx.kompara.ui.theme.KomparaTheme
+import mx.kompara.ui.theme.KomparaType
 
 /**
  * The cost-profile editor (B-040 req 4): rendimiento + gas price (or EV kWh fields), maintenance,
@@ -103,15 +103,19 @@ private fun CostProfileContent(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
-        PreviewCard(preview)
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(text = stringResource(R.string.cost_editor_ev_toggle), style = MaterialTheme.typography.bodyLarge)
-            KomparaSwitch(checked = inputs.isEv, onCheckedChange = onEvToggled)
+        // EV toggle as a tonal list-row card (mock .listrow: surfaceContainer, radius 12, 14×16),
+        // not a bare row on the background.
+        KomparaCard(tone = CardTone.DEFAULT, modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(text = stringResource(R.string.cost_editor_ev_toggle), style = MaterialTheme.typography.bodyLarge)
+                KomparaSwitch(checked = inputs.isEv, onCheckedChange = onEvToggled)
+            }
         }
 
         if (inputs.isEv) {
@@ -125,6 +129,10 @@ private fun CostProfileContent(
         NumberField(stringResource(R.string.cost_editor_maintenance), inputs.maintenancePerKmMxn, onMaintenanceChanged)
         NumberField(stringResource(R.string.cost_editor_insurance), inputs.insurancePerDayMxn, onInsuranceChanged)
         NumberField(stringResource(R.string.cost_editor_rent), inputs.rentPerDayMxn, onRentChanged)
+
+        // The live cost preview is the payoff: it sits just above the Save CTA (mock order:
+        // fields → preview → save), not above the inputs.
+        PreviewCard(preview)
 
         Spacer(Modifier.height(8.dp))
         PrimaryButton(
@@ -142,12 +150,23 @@ private fun PreviewCard(preview: CostPreviewResult) {
         tone = CardTone.VARIANT,
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
+            // Mock .preview: a 13px muted label above a 22px/800 hero number. metricValue is the
+            // system's tabular metric-figure token, so the $/km payoff is glanceable.
             Text(
-                text = stringResource(R.string.cost_editor_preview_per_km, Formatters.formatMxn(preview.marginalCostPerKmMxn)),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
+                text = stringResource(R.string.cost_editor_preview_per_km_label),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = stringResource(
+                    R.string.cost_editor_preview_per_km_value,
+                    Formatters.formatMxn(preview.marginalCostPerKmMxn),
+                ),
+                style = KomparaType.metricValue,
+                color = MaterialTheme.colorScheme.onSurface,
             )
             Spacer(Modifier.height(4.dp))
+            // PRESERVED richer-than-mock state: the sample-trip net explanation.
             Text(
                 text = stringResource(
                     R.string.cost_editor_preview_sample,

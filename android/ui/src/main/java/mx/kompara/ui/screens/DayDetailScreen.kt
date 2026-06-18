@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -19,12 +18,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import mx.kompara.ui.R
+import mx.kompara.ui.components.CardTone
 import mx.kompara.ui.components.EmptyState
+import mx.kompara.ui.components.KomparaCard
 import mx.kompara.ui.components.VerdictBadge
 import mx.kompara.ui.format.Formatters
 import mx.kompara.ui.stats.CompletenessHint
@@ -100,19 +102,19 @@ private fun DayDetailContent(detail: DayDetail, modifier: Modifier = Modifier) {
 
         Section(title = stringResource(R.string.day_offers_title)) {
             OffersFunnelLine(detail.offers)
-            Spacer(Modifier.height(8.dp))
+            // PRESERVED richer-than-mock state: per-offer detail rows. The mock shows only the
+            // aggregate funnel line, but we keep each offer (clock · fare + its verdict badge),
+            // given the same DayListRow card chrome for consistency.
             detail.offers.rows.forEach { row ->
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = "${Formatters.formatClock(row.seenAt)} · ${Formatters.formatMxn(row.fareMxn)}",
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                    row.verdict?.let { VerdictBadge(level = it) }
-                }
+                DayListRow(
+                    leading = {
+                        Text(
+                            text = "${Formatters.formatClock(row.seenAt)} · ${Formatters.formatMxn(row.fareMxn)}",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    },
+                    trailing = { row.verdict?.let { VerdictBadge(level = it) } },
+                )
             }
         }
 
@@ -126,7 +128,9 @@ private fun DayDetailContent(detail: DayDetail, modifier: Modifier = Modifier) {
 
 @Composable
 private fun Section(title: String, content: @Composable () -> Unit) {
-    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    // 8dp gap (was 4dp): label-to-card and card-to-card spacing matches the mock's .listrow
+    // margin-top:8px now that content rows are tonal cards rather than bare text.
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
             // Section label: design Dia .lbl is the small uppercase metricLabel (13/500, muted),
             // not a titleMedium heading.
@@ -138,43 +142,86 @@ private fun Section(title: String, content: @Composable () -> Unit) {
     }
 }
 
+/**
+ * The Compose form of the mock's `.listrow`: a tonal [KomparaCard] (radius 12, no shadow,
+ * surfaceContainer fill = mock `--surface-card`) wrapping a SpaceBetween row with 14×16 padding.
+ * [leading] is the row's primary content; [trailing] is the optional right-aligned slot.
+ */
+@Composable
+private fun DayListRow(
+    leading: @Composable () -> Unit,
+    trailing: (@Composable () -> Unit)? = null,
+) {
+    KomparaCard(tone = CardTone.DEFAULT, modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            leading()
+            trailing?.invoke()
+        }
+    }
+}
+
 @Composable
 private fun ShiftLine(item: ShiftTimelineItem) {
     val end = item.endedAt?.let { Formatters.formatClock(it) } ?: stringResource(R.string.day_shift_open)
-    Text(
-        text = stringResource(
-            R.string.day_shift_line,
-            Formatters.formatClock(item.startedAt),
-            end,
-            item.tripCount,
-            Formatters.formatMxn(item.netMxn),
-        ),
-        style = MaterialTheme.typography.bodyMedium,
-        modifier = Modifier.padding(vertical = 2.dp),
+    DayListRow(
+        leading = {
+            Text(
+                text = stringResource(
+                    R.string.day_shift_line,
+                    Formatters.formatClock(item.startedAt),
+                    end,
+                    item.tripCount,
+                ),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        },
+        trailing = {
+            // Shift net: emerald (brand primary, NOT a verdict) + bold + right-aligned per the mock.
+            Text(
+                text = Formatters.formatMxn(item.netMxn),
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.primary,
+            )
+        },
     )
 }
 
 @Composable
 private fun OffersFunnelLine(funnel: OfferFunnel) {
-    Text(
-        text = stringResource(R.string.day_offers_funnel, funnel.seen, funnel.taken, funnel.declined),
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    DayListRow(
+        leading = {
+            Text(
+                text = stringResource(R.string.day_offers_funnel, funnel.seen, funnel.taken, funnel.declined),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        },
     )
 }
 
 @Composable
 private fun BestHourLine(block: HourBlock) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Text(
-            text = stringResource(R.string.day_best_hour_line, Formatters.formatHourRange(block.hour), block.trips),
-            style = MaterialTheme.typography.bodyMedium,
-        )
-        Text(text = Formatters.formatMxn(block.netMxn), style = MaterialTheme.typography.bodyMedium)
-    }
+    // QUESTION: the mock's best-hours trailing element is a VerdictBadge (green/yellow), but
+    // HourBlock has no verdict field. Inventing one would break the "verdict colours = verdicts
+    // only" rule, so we keep the net money figure as the trailing element instead. If product
+    // wants the verdict pill here, HourBlock needs a real verdict level.
+    DayListRow(
+        leading = {
+            Text(
+                text = stringResource(R.string.day_best_hour_line, Formatters.formatHourRange(block.hour), block.trips),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        },
+        trailing = {
+            Text(text = Formatters.formatMxn(block.netMxn), style = MaterialTheme.typography.bodyMedium)
+        },
+    )
 }
 
 @Preview(showBackground = true, name = "Day detail — vacío")

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -19,14 +20,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import mx.kompara.billing.GateState
 import mx.kompara.ui.R
+import mx.kompara.ui.components.ButtonSize
+import mx.kompara.ui.components.ButtonVariant
 import mx.kompara.ui.components.EmptyState
+import mx.kompara.ui.components.KomparaButton
 import mx.kompara.ui.components.KomparaCard
 import mx.kompara.ui.components.KomparaStatusChip
 import mx.kompara.ui.components.PrimaryButton
@@ -40,7 +43,6 @@ import mx.kompara.ui.stats.HistoryViewModel
 import mx.kompara.ui.stats.HistoryWeek
 import mx.kompara.ui.stats.WeekSourceBadge
 import mx.kompara.ui.theme.KomparaTheme
-import mx.kompara.ui.theme.KomparaType
 
 /**
  * The History tab (B-040 req 3): the weeks list with a source badge (capturado/importado). Tapping a
@@ -99,11 +101,29 @@ private fun HistoryContent(
             modifier = modifier.fillMaxSize().padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            item(key = "import-cta") {
-                PrimaryButton(
-                    text = stringResource(R.string.history_import_cta),
-                    onClick = onImportWeek,
-                )
+            // Header row: screen title on the left + a small tonal "Importar semana" inline action
+            // on the right (import is a secondary action, so it demotes from a full-width PRIMARY).
+            // weight(1f, fill=false) + the 8dp spacer keep the title from ever clipping the button.
+            item(key = "header") {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource(R.string.history_title),
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    KomparaButton(
+                        text = stringResource(R.string.history_import_cta),
+                        onClick = onImportWeek,
+                        variant = ButtonVariant.TONAL,
+                        size = ButtonSize.SM,
+                    )
+                }
             }
             items(state.weeks, key = { it.weekStart + it.source.name }) { week ->
                 WeekRow(week = week, onClick = { onOpenWeek(week.weekStart) })
@@ -133,34 +153,34 @@ private fun HistoryContent(
 
 @Composable
 private fun WeekRow(week: HistoryWeek, onClick: () -> Unit) {
+    // Slim list row (mock .listrow): leads with the net peso figure a driver scans for, with a muted
+    // date range below and a single neutral chip on the right. The full per-week metrics
+    // (trips · hours) live one tap deeper in the week summary. weight(1f) + the 8dp spacer keep the
+    // chip from ever being clipped by a long money string.
     KomparaCard(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = Formatters.formatWeekLabel(week.weekStart),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
+                    text = Formatters.formatMxn(week.period.netEarningsMxn),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
-                SourceBadge(week.source)
+                Text(
+                    text = Formatters.formatWeekRangeLabel(week.weekStart),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
-            Spacer(Modifier.padding(top = 4.dp))
-            Text(
-                text = Formatters.formatMxn(week.period.netEarningsMxn),
-                style = KomparaType.metricValue,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Text(
-                text = "${week.period.totalTrips} ${stringResource(R.string.summary_trips).lowercase()} · " +
-                    Formatters.formatHours(week.period.hoursOnline),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Spacer(Modifier.width(8.dp))
+            SourceBadge(week.source)
         }
     }
 }

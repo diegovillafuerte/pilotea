@@ -60,6 +60,8 @@ private val BorderStrong = Color(0xFF64748B)
  * @param fullWidth stretch to the parent width.
  * @param enabled when false the whole button dims to 0.45 alpha and stops responding.
  * @param leadingIcon optional glyph shown 8 dp before the label, tinted the content colour.
+ * @param contentColor optional override for the label/icon colour, e.g. destructive red on a TEXT
+ *   delete action. When null the tier's default content colour is used.
  */
 @Composable
 fun KomparaButton(
@@ -71,11 +73,12 @@ fun KomparaButton(
     fullWidth: Boolean = false,
     enabled: Boolean = true,
     leadingIcon: ImageVector? = null,
+    contentColor: Color? = null,
 ) {
     val height = if (size == ButtonSize.SM) 40.dp else 52.dp
     val hPadding = if (size == ButtonSize.SM) 14.dp else 20.dp
     val fontSize = if (size == ButtonSize.SM) 14.sp else 16.sp
-    val contentColor = when (variant) {
+    val contentColor = contentColor ?: when (variant) {
         ButtonVariant.PRIMARY -> MaterialTheme.colorScheme.onPrimary
         ButtonVariant.SECONDARY, ButtonVariant.TONAL, ButtonVariant.TEXT -> MaterialTheme.colorScheme.primary
     }
