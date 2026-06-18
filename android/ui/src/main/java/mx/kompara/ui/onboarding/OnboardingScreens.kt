@@ -1,6 +1,8 @@
 package mx.kompara.ui.onboarding
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,7 +19,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -25,11 +26,16 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -40,7 +46,11 @@ import androidx.compose.ui.unit.dp
 import androidx.annotation.StringRes
 import kotlinx.coroutines.launch
 import mx.kompara.ui.R
+import mx.kompara.ui.components.KomparaCard
+import mx.kompara.ui.components.KomparaStatusChip
+import mx.kompara.ui.components.KomparaSwitch
 import mx.kompara.ui.components.PrimaryButton
+import mx.kompara.ui.components.StatusLevel
 import mx.kompara.ui.theme.KomparaTheme
 
 /**
@@ -221,20 +231,25 @@ private fun DisclosureSection(
     @StringRes titleRes: Int,
     @StringRes bodyRes: Int,
 ) {
-    Spacer(Modifier.height(20.dp))
-    Text(
-        text = stringResource(titleRes),
-        style = MaterialTheme.typography.titleMedium,
-        fontWeight = FontWeight.Bold,
-        // All disclosure section titles read in text-strong; verdict colours stay reserved for verdicts.
-        color = MaterialTheme.colorScheme.onSurface,
-    )
-    Spacer(Modifier.height(4.dp))
-    Text(
-        text = stringResource(bodyRes),
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
+    // Mock `.sec`: a tonal no-shadow card (radius 12, pad 14, top margin 12). KomparaCard gives the
+    // tonal container; the top padding spaces the four sections, so no leading Spacer is needed.
+    KomparaCard(modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Text(
+                text = stringResource(titleRes),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                // Section titles read in text-strong; verdict colours stay reserved for verdicts.
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = stringResource(bodyRes),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -306,27 +321,87 @@ fun AccessibilityGrantScreen(
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Spacer(Modifier.height(20.dp))
-            StepLine(R.string.onb_acc_paso_1)
-            StepLine(R.string.onb_acc_paso_2)
-            StepLine(R.string.onb_acc_paso_3)
-            Spacer(Modifier.height(24.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(18.dp),
-                    strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-                Spacer(Modifier.size(12.dp))
-                Text(
-                    text = stringResource(R.string.onb_acc_esperando),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            Spacer(Modifier.height(6.dp))
+            StepLine(1, R.string.onb_acc_paso_1)
+            StepLine(2, R.string.onb_acc_paso_2)
+            StepLine(3, R.string.onb_acc_paso_3)
+            ReaderStatusCard(active = false, modifier = Modifier.padding(top = 18.dp))
         }
         Spacer(Modifier.height(16.dp))
         PrimaryButton(text = stringResource(R.string.onb_acc_boton), onClick = onOpenSettings)
+        Spacer(Modifier.height(10.dp))
+        Text(
+            text = stringResource(R.string.onb_acc_esperando),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+/**
+ * The mock `.statuscard`: a tonal row reporting the reader (accessibility) state — "Lector de
+ * pantalla" with a status chip. Waiting uses a NEUTRAL chip; active uses a brand-emerald chip
+ * (NOT VerdictGreen — "Activo" is a brand status, not a semáforo verdict), so it never reuses
+ * StatusLevel.OK.
+ */
+@Composable
+private fun ReaderStatusCard(active: Boolean, modifier: Modifier = Modifier) {
+    KomparaCard(modifier = modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = stringResource(R.string.onb_acc_estado_label),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            if (active) {
+                BrandStatusChip(label = stringResource(R.string.onb_acc_estado_activo))
+            } else {
+                KomparaStatusChip(
+                    label = stringResource(R.string.onb_acc_estado_esperando),
+                    level = StatusLevel.NEUTRAL,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * A brand-emerald status pill for non-verdict "Activo" states. Mirrors [KomparaStatusChip]'s shape
+ * but tints from colorScheme.primary (brand) instead of a verdict colour, honoring the standing rule
+ * that verde/amarillo/rojo are verdicts only.
+ */
+@Composable
+private fun BrandStatusChip(label: String, modifier: Modifier = Modifier) {
+    val brand = MaterialTheme.colorScheme.primary
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+            .clip(RoundedCornerShape(50))
+            .background(brand.copy(alpha = 0.12f))
+            .border(BorderStroke(1.dp, brand.copy(alpha = 0.35f)), RoundedCornerShape(50))
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .clip(CircleShape)
+                .background(brand),
+        )
+        Spacer(Modifier.size(6.dp))
+        Text(
+            text = label,
+            color = brand,
+            style = MaterialTheme.typography.labelMedium,
+        )
     }
 }
 
@@ -353,19 +428,50 @@ private fun AccessibilityGrantedContent(onContinue: () -> Unit, modifier: Modifi
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
         )
+        Spacer(Modifier.height(20.dp))
+        ReaderStatusCard(active = true)
         Spacer(Modifier.weight(1f))
         PrimaryButton(text = stringResource(R.string.onb_continuar), onClick = onContinue)
     }
 }
 
+/**
+ * A numbered walkthrough step (mock `.stepline` / `.stepn`): a 26 dp round brand-emerald pill holding
+ * the white step [number] and the body copy beside it. The number lives in the badge, not the string,
+ * so step copy never bakes in its own "N." prefix. The pill is decorative-on-brand (colorScheme.primary)
+ * — NOT a verdict colour.
+ */
 @Composable
-private fun StepLine(@StringRes textRes: Int) {
-    Text(
-        text = stringResource(textRes),
-        style = MaterialTheme.typography.bodyLarge,
-        color = MaterialTheme.colorScheme.onSurface,
-        modifier = Modifier.padding(vertical = 6.dp),
-    )
+private fun StepLine(number: Int, @StringRes textRes: Int) {
+    val stepText = stringResource(textRes)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 14.dp)
+            .semantics(mergeDescendants = true) { contentDescription = "Paso $number. $stepText" },
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(26.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primary),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = number.toString(),
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+            )
+        }
+        Text(
+            text = stringResource(textRes),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -394,23 +500,41 @@ fun OemSurvivalScreen(
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Spacer(Modifier.height(20.dp))
-            steps.forEach { StepLine(it) }
-            Spacer(Modifier.height(20.dp))
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        shape = RoundedCornerShape(12.dp),
+            Spacer(Modifier.height(6.dp))
+            steps.forEachIndexed { i, res -> StepLine(i + 1, res) }
+            // Mock `.isOem` `.statuscard`: a tonal row with a title + subtitle and an inline brand
+            // switch for the "reader went down" notifications. Default ON, mirroring the mock.
+            var notifyOnDown by remember { mutableStateOf(true) }
+            val notifLabel = stringResource(R.string.onb_oem_notif_titulo)
+            KomparaCard(modifier = Modifier.fillMaxWidth().padding(top = 18.dp)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = notifLabel,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            text = stringResource(R.string.onb_oem_notif_cuerpo),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Spacer(Modifier.size(12.dp))
+                    KomparaSwitch(
+                        checked = notifyOnDown,
+                        onCheckedChange = { notifyOnDown = it },
+                        modifier = Modifier.semantics { contentDescription = notifLabel },
                     )
-                    .padding(16.dp),
-            ) {
-                Text(
-                    text = stringResource(R.string.onb_oem_recientes_tip),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                }
             }
         }
         Spacer(Modifier.height(16.dp))
