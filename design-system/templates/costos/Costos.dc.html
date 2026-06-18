@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<!-- @template name="Editor de costos" description="Cost profile editor — fuel/maintenance inputs that compute true net $/km" -->
+<helmet>
+  <script src="./ds-base.js"></script>
+  <style>
+    html,body{margin:0;height:100%}
+    body{background:radial-gradient(120% 120% at 50% 0%, #1e293b 0%, #0f172a 55%, #020617 100%);display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;font-family:var(--font-sans)}
+    .frame{width:390px;height:760px;border-radius:40px;overflow:hidden;position:relative;background:var(--background);box-shadow:0 24px 70px rgba(2,6,23,.6),0 0 0 10px #0b1120,0 0 0 11px #1e293b;display:flex;flex-direction:column}
+    .sb{height:30px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;font-size:12px;font-weight:600;color:var(--text-body);flex:none}
+    .body{flex:1;overflow-y:auto;padding:16px}
+    .h1{font-size:24px;font-weight:700;color:var(--text-strong)}
+    .sub{font-size:14px;color:var(--text-muted);margin-top:6px;line-height:1.5}
+    .listrow{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--surface-card);border-radius:12px;margin-top:16px}
+    .fields{margin-top:12px;display:flex;flex-direction:column;gap:12px}
+    .preview{background:var(--surface-variant);border-radius:12px;padding:16px;margin-top:14px}
+  </style>
+</helmet>
+<div class="frame theme-dark">
+  <div class="sb"><span>9:41</span><span>▲ Kompara · 100%</span></div>
+  <div class="body">
+    <div class="h1">Tus costos</div>
+    <div class="sub">Con esto calculamos tu ganancia neta de verdad: lo que ganas menos lo que te cuesta manejar.</div>
+    <div class="listrow"><span style="font-size: 15px; color: #F8FAFC">Vehículo eléctrico</span><x-import component-from-global-scope="KomparaDesignSystem_722871.Switch" hint-size="48px,28px"></x-import></div>
+    <div class="fields">
+      <x-import component-from-global-scope="KomparaDesignSystem_722871.TextField" label="Rendimiento (km por litro)" value="14" hint-size="100%,80px"></x-import>
+      <x-import component-from-global-scope="KomparaDesignSystem_722871.TextField" label="Precio de gasolina (MXN por litro)" value="24.50" hint-size="100%,80px"></x-import>
+      <x-import component-from-global-scope="KomparaDesignSystem_722871.TextField" label="Mantenimiento (MXN por km)" value="0.80" hint-size="100%,80px"></x-import>
+    </div>
+    <div class="preview"><div style="font-size:13px;color:var(--text-muted)">Tu costo por km</div><div style="font-size:22px;font-weight:800;color:var(--text-strong)">$2.55/km</div></div>
+    <div style="margin-top:14px"><x-import component-from-global-scope="KomparaDesignSystem_722871.Button" variant="primary" full-width="{{ true }}" hint-size="100%,52px">Guardar costos</x-import></div>
+  </div>
+</div>
+<p style="margin: 0; font-size: 16px; line-height: 1; font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; position: absolute; left: -181px; top: 460px">Your text here</p></x-dc>
+</body>
+</html>

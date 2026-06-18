@@ -20,28 +20,28 @@
     <string name="overlay_missing_fare">Sin tarifa</string>
     <string name="overlay_missing_generic">Datos incompletos</string>
 
-    <!-- "¿Por qué?" — una línea que explica qué piso pasó o falló (detalle expandido) -->
-    <string name="overlay_explain_both_strong">Rinde bien por km y por hora.</string>
-    <string name="overlay_explain_km_weak">Rinde por hora, pero deja poco por km.</string>
-    <string name="overlay_explain_hour_weak">Paga bien el km, pero es lento: rinde poco por hora.</string>
-    <string name="overlay_explain_both_weak">Por debajo de tus pisos por km y por hora.</string>
+    <!-- "¿Por qué?" — una línea que explica qué mínimo pasó o falló (detalle expandido) -->
+    <string name="overlay_explain_both_strong">Bien por km y por hora.</string>
+    <string name="overlay_explain_km_weak">Bien por hora, pero poco por km.</string>
+    <string name="overlay_explain_hour_weak">Bien por km, pero lento: poco por hora.</string>
+    <string name="overlay_explain_both_weak">Paga poco por km y por hora.</string>
 
     <!-- Quick threshold sheet (long-press) — edits the floors of the metric that decides (B-079) -->
-    <string name="overlay_threshold_title">Tu semáforo por km</string>
-    <string name="overlay_threshold_title_hour">Tu semáforo por hora</string>
+    <string name="overlay_threshold_title">Tu mínimo por km</string>
+    <string name="overlay_threshold_title_hour">Tu mínimo por hora</string>
     <string name="overlay_threshold_green_label">Verde desde</string>
     <string name="overlay_threshold_red_label">Rojo por debajo de</string>
     <string name="overlay_threshold_value">$%1$s/km</string>
     <string name="overlay_threshold_value_hour">$%1$s/h</string>
-    <string name="overlay_threshold_hint">Entre los dos pisos, el viaje se marca en amarillo.</string>
+    <string name="overlay_threshold_hint">Si queda entre los dos, el viaje sale amarillo.</string>
     <string name="overlay_threshold_close">Listo</string>
 
     <!-- Content descriptions (accessibility / TalkBack) -->
-    <string name="overlay_chip_content_description">Veredicto del viaje: %1$s. Mantén presionado para ajustar el piso.</string>
+    <string name="overlay_chip_content_description">Veredicto del viaje: %1$s. Mantén presionado para ajustar tu mínimo.</string>
 
     <!-- Reader-down banner (B-078): shown over DiDi/inDrive while the screen reader is off.
          "toca y confirma" — the tap leads to the system capture dialog, not an instant restart. -->
-    <string name="overlay_reader_down">Kompara: lector apagado — toca y confirma para reactivar</string>
+    <string name="overlay_reader_down">Kompara: lector apagado. Toca y confirma para reactivar.</string>
 
     <!-- ============================================================= -->
     <!-- Simulador de viajes (B-037)                                   -->
@@ -67,8 +67,8 @@
 
     <!-- Guided script: why. Spanish explanations referencing cost profile + pickup leg. -->
     <string name="sim_why_good">La tarifa es buena para la distancia y el punto de recogida está cerca, así que casi todo lo que ves se queda en tu bolsillo después de gasolina y desgaste.</string>
-    <string name="sim_why_marginal">Apenas pasa uno de tus pisos. El viaje rinde por hora, pero los kilómetros — sumando el trayecto para recoger — dejan poca ganancia por km una vez que descuentas tus costos.</string>
-    <string name="sim_why_bad">El punto de recogida está lejos: esos kilómetros muertos gastan gasolina sin pagarte. Al restar tus costos, lo que queda por km y por hora cae por debajo de tus pisos.</string>
+    <string name="sim_why_marginal">Apenas pasa uno de tus mínimos. Deja bien por hora, pero poco por km, porque también cuentan los kilómetros que manejas para llegar a recogerlo.</string>
+    <string name="sim_why_bad">El punto de recogida está lejos. Gastas gasolina en esos kilómetros y no te los pagan, así que por km y por hora queda por debajo de tus mínimos.</string>
 
     <!-- Step navigation -->
     <string name="sim_next">Siguiente</string>
@@ -77,11 +77,11 @@
     <string name="sim_step_dot_desc">Ir al viaje %1$d</string>
 
     <!-- Threshold playground -->
-    <string name="sim_playground_title">Tu piso por km</string>
-    <string name="sim_playground_title_hour">Tu piso por hora</string>
+    <string name="sim_playground_title">Tu mínimo por km</string>
+    <string name="sim_playground_title_hour">Tu mínimo por hora</string>
     <string name="sim_playground_value">$%1$s/km</string>
     <string name="sim_playground_value_hour">$%1$s/h</string>
-    <string name="sim_playground_hint">Mueve el piso y mira cómo el semáforo recalifica los tres viajes al instante. Se guarda y es el mismo piso que usa el lector.</string>
+    <string name="sim_playground_hint">Mueve tu mínimo y mira cómo cambian los colores de los tres viajes al instante. Se guarda y es el mismo que usa el lector.</string>
 
     <!-- Net detail line under the chip -->
     <string name="sim_net_per_km_label">neto por km</string>

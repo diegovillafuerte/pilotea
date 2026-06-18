@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<!-- @template name="Comparar" description="Weekly benchmarking — shareable percentile hero (20-person bar) + cross-platform benchmark table" -->
+<helmet>
+  <script src="./ds-base.js"></script>
+  <style>
+    html,body{margin:0;height:100%}
+    body{background:radial-gradient(120% 120% at 50% 0%, #1e293b 0%, #0f172a 55%, #020617 100%);display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;font-family:var(--font-sans)}
+    .frame{width:390px;height:760px;border-radius:40px;overflow:hidden;position:relative;background:var(--background);box-shadow:0 24px 70px rgba(2,6,23,.6),0 0 0 10px #0b1120,0 0 0 11px #1e293b;display:flex;flex-direction:column}
+    .sb{height:30px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;font-size:12px;font-weight:600;color:var(--text-body);flex:none}
+    .body{flex:1;overflow-y:auto;padding:16px}
+    .pill{display:inline-flex;align-items:center;gap:6px;background:var(--surface-card);border-radius:999px;padding:8px 14px;font-size:14px;font-weight:600;color:var(--text-body)}
+    .card{background:var(--surface-card);border-radius:12px;padding:16px;margin-top:14px}
+    .brand{display:flex;align-items:center;justify-content:space-between}
+    .bk{display:flex;align-items:center;gap:7px}
+    .ktile{width:24px;height:24px;border-radius:7px;background:var(--emerald-600);display:flex;align-items:center;justify-content:center}
+    .standing{margin-top:12px;font-size:22px;font-weight:600;color:var(--text-strong)}
+    .row{display:flex;align-items:center;justify-content:space-between}
+    .tbl{background:var(--surface-card);border-radius:12px;padding:12px;margin-top:14px}
+    .tr{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr 1fr;gap:4px;align-items:center;font-size:12px}
+    .th{color:var(--text-muted);font-weight:500;padding:6px 0}
+    .td{padding:8px 0;border-top:1px solid var(--border)}
+    .tu{color:var(--primary);font-weight:600;text-align:center}
+    .avg{color:var(--text-muted);text-align:center}
+    .top{color:var(--verde);font-weight:600;text-align:center}
+  </style>
+</helmet>
+<div class="frame theme-dark">
+  <div class="sb"><span>9:41</span><span>▲ Kompara · 100%</span></div>
+  <div class="body">
+    <span class="pill">2 – 8 jun ▾</span>
+    <div class="card">
+      <div class="brand">
+        <div class="bk"><span class="ktile"><svg width="15" height="15" viewBox="0 0 48 48" fill="none"><path d="M14 10L14 38" stroke="#fff" stroke-width="4.5" stroke-linecap="round"></path><path d="M14 24L30 10" stroke="#fff" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"></path><path d="M14 24L34 38" stroke="#fff" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"></path></svg></span><span style="font-weight:600;font-size:16px">Kompara</span></div>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--verde)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"></path></svg>
+      </div>
+      <div class="standing">Le ganas al 78% de tu ciudad</div>
+      <div style="margin-top:10px"><x-import component-from-global-scope="KomparaDesignSystem_722871.PercentileBar" display-percentile="78" hint-size="100%,28px"></x-import></div>
+      <div class="row" style="margin-top:10px"><span style="font-size:12px;color:var(--text-muted)">Tu lugar esta semana</span><x-import component-from-global-scope="KomparaDesignSystem_722871.PercentileBadge" top-percent="22" hint-size="70px,24px"></x-import></div>
+    </div>
+
+    <div class="tbl">
+      <div class="tr"><span class="th">Métrica</span><span class="th" style="text-align:center">Tú</span><span class="th" style="text-align:center">Uber</span><span class="th" style="text-align:center">DiDi</span><span class="th" style="text-align:center">Lugar</span></div>
+      <div class="tr td"><span style="color:var(--text-body);font-weight:500">Neto</span><span class="tu">$3,200</span><span class="avg">$2,900</span><span class="avg">$2,750</span><span class="top">Top 22%</span></div>
+      <div class="tr td"><span style="color:var(--text-body);font-weight:500">$/hora</span><span class="tu">$160</span><span class="avg">$150</span><span class="avg">$145</span><span class="top">Top 22%</span></div>
+      <div class="tr td"><span style="color:var(--text-body);font-weight:500">$/km</span><span class="tu">$9.2</span><span class="avg">—</span><span class="avg">$9.5</span><span class="top">Top 35%</span></div>
+      <div class="tr td"><span style="color:var(--text-body);font-weight:500">$/viaje</span><span class="tu">$54</span><span class="avg">$52</span><span class="avg">$58</span><span class="top">Top 40%</span></div>
+    </div>
+
+    <div style="margin-top:14px"><x-import component-from-global-scope="KomparaDesignSystem_722871.RecommendationCard" type="info" title="DiDi te paga mejor por hora" body="DiDi te deja $160/h vs $150 en Uber. Priorízala en horas pico." hint-size="100%,84px"></x-import></div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

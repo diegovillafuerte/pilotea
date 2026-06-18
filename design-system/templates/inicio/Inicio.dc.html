@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<!-- @template name="Inicio (dashboard)" description="Kompara app home — weekly net hero, goal, platform chips, metric cards, consejos, bottom nav" -->
+<helmet>
+  <script src="./ds-base.js"></script>
+  <style>
+    html,body{margin:0;height:100%}
+    body{background:radial-gradient(120% 120% at 50% 0%, #1e293b 0%, #0f172a 55%, #020617 100%);display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;font-family:var(--font-sans)}
+    .frame{width:390px;height:760px;border-radius:40px;overflow:hidden;position:relative;background:var(--background);box-shadow:0 24px 70px rgba(2,6,23,.6),0 0 0 10px #0b1120,0 0 0 11px #1e293b;display:flex;flex-direction:column}
+    .sb{height:30px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;font-size:12px;font-weight:600;color:var(--text-body);flex:none}
+    .scroll{flex:1;overflow-y:auto;padding:16px}
+    .lbl{font-size:13px;font-weight:500;letter-spacing:.04em;color:var(--text-muted)}
+    .hero{font-size:44px;font-weight:900;line-height:1;color:var(--text-strong);font-variant-numeric:tabular-nums}
+    .row{display:flex;align-items:center;justify-content:space-between}
+    .tile{background:var(--surface-card);border-radius:12px;padding:16px}
+    .tile .row{gap:8px}
+    .tlabel{font-size:12px;font-weight:500;letter-spacing:.03em;color:var(--text-muted);text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+    .tval{margin-top:4px;font-size:30px;font-weight:700;color:var(--text-strong);font-variant-numeric:tabular-nums}
+    .pill{flex:none;display:inline-flex;align-items:center;padding:4px 9px;border-radius:999px;background:var(--primary);color:var(--on-primary);font-size:11px;font-weight:700;white-space:nowrap}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+    .chips{display:flex;gap:8px;margin-top:14px}
+    .chip{height:32px;padding:0 14px;border-radius:999px;display:inline-flex;align-items:center;font-size:12px;font-weight:500;border:1px solid var(--border);color:var(--text-muted)}
+    .chip.on{background:color-mix(in srgb,var(--primary) 16%,transparent);border-color:color-mix(in srgb,var(--primary) 40%,transparent);color:var(--primary)}
+    .sec{margin-top:18px;font-size:16px;font-weight:600;color:var(--text-strong)}
+    .stack{display:flex;flex-direction:column;gap:10px;margin-top:8px}
+    .navwrap{position:absolute;bottom:0;left:0;right:0}
+  </style>
+</helmet>
+<div class="frame theme-dark">
+  <div class="sb"><span>9:41</span><span>▲ Kompara · 100%</span></div>
+  <div class="scroll">
+    <div class="lbl">GANANCIA NETA ESTA SEMANA</div>
+    <div class="row" style="margin-top:4px">
+      <div class="hero">$3,450.00</div>
+      <span style="font-size:12px;font-weight:700;color:var(--primary)">🔥 4 semanas</span>
+    </div>
+
+    <div style="margin-top:14px">
+      <div class="lbl" style="color:var(--text-muted);margin-bottom:6px">$3,450 de $5,000</div>
+      <x-import component-from-global-scope="KomparaDesignSystem_722871.ProgressBar" value="0.69" hint-size="100%,8px"></x-import>
+      <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Te faltan $1,550.00 para tu meta</div>
+    </div>
+
+    <div class="chips">
+      <span class="chip on">Todas</span>
+      <span class="chip">Uber</span>
+      <span class="chip">DiDi</span>
+    </div>
+
+    <div class="grid">
+      <div class="tile"><div class="row"><span class="tlabel">$ por hora</span><span class="pill">Top 22%</span></div><div class="tval">$165.00</div></div>
+      <div class="tile"><div class="row"><span class="tlabel">$ por km</span><span class="pill">Top 31%</span></div><div class="tval">$8.40</div></div>
+      <div class="tile"><div class="row"><span class="tlabel">$ por viaje</span></div><div class="tval">$90.80</div></div>
+      <div class="tile"><div class="row"><span class="tlabel">Viajes/hora</span></div><div class="tval">1.7</div></div>
+    </div>
+
+    <div class="sec">Consejos</div>
+    <div class="stack">
+      <x-import component-from-global-scope="KomparaDesignSystem_722871.RecommendationCard" type="warning" title="Dejaste ir buenos viajes" body="Rechazaste 3 ofertas que sí te convenían — $420 que se te fueron." hint-size="100%,84px"></x-import>
+      <x-import component-from-global-scope="KomparaDesignSystem_722871.RecommendationCard" type="info" title="Tus mejores horas" body="Tu mejor bloque fue el viernes de 19:00 a 20:00: $340 netos." hint-size="100%,84px"></x-import>
+    </div>
+    <div style="height:8px"></div>
+  </div>
+  <div class="navwrap">
+    <x-import component-from-global-scope="KomparaDesignSystem_722871.BottomNav" current="inicio" hint-size="390px,64px"></x-import>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

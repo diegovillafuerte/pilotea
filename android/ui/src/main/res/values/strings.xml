@@ -12,7 +12,7 @@
     <!-- Descripciones de accesibilidad para los iconos de navegación. -->
     <string name="nav_inicio_desc">Pantalla de inicio con tus estadísticas</string>
     <string name="nav_comparar_desc">Compara tus ganancias entre plataformas</string>
-    <string name="nav_lector_desc">Activa el lector de pantalla</string>
+    <string name="nav_lector_desc">Activa el lector de Kompara</string>
     <string name="nav_fiscal_desc">Resumen fiscal de tus ingresos</string>
     <string name="nav_ajustes_desc">Ajustes de la aplicación</string>
 
@@ -20,7 +20,7 @@
     <!-- Pantalla: Inicio                                              -->
     <!-- ============================================================= -->
     <string name="inicio_empty_title">Sin datos todavía</string>
-    <string name="inicio_empty_body">Activa el lector y maneja — tus números aparecen solos.</string>
+    <string name="inicio_empty_body">Activa el lector y maneja. Tus números aparecen solos.</string>
     <string name="inicio_empty_cta">Activar lector</string>
 
     <!-- ============================================================= -->
@@ -36,19 +36,19 @@
     <string name="lector_empty_title">El lector está apagado</string>
     <string name="lector_empty_body">Enciéndelo y Kompara te dirá al instante cuánto ganas de verdad con cada viaje.</string>
     <string name="lector_empty_cta">Encender lector</string>
-    <string name="lector_empty_hint">Después de encenderlo, aquí también activas el lector de pantalla para DiDi.</string>
+    <string name="lector_empty_hint">Después de encenderlo, aquí también activas el lector para DiDi.</string>
     <string name="lector_header">Lector</string>
-    <string name="lector_intro">Kompara lee las ofertas en tu pantalla y les pone el semáforo encima. Todo se queda en tu teléfono.</string>
+    <string name="lector_intro">Kompara lee las ofertas en tu pantalla y muestra el semáforo encima. Todo se queda en tu teléfono.</string>
     <string name="lector_status_on">Activo</string>
     <string name="lector_ocr_status_off">Detenido</string>
-    <string name="lector_screen_reader_label">Lector de pantalla</string>
+    <string name="lector_screen_reader_label">Lector para DiDi</string>
     <string name="lector_on_cta">Probar en el simulador</string>
     <string name="lector_settings_cta">Configuración de accesibilidad</string>
     <string name="lector_semaforo_cta">Ajustar mi semáforo</string>
 
     <!-- B-075: screen-capture (OCR) reader controls — DiDi has no accessibility text. -->
-    <string name="lector_ocr_start_cta">Iniciar lector de pantalla</string>
-    <string name="lector_ocr_restart_cta">Reiniciar lector de pantalla</string>
+    <string name="lector_ocr_start_cta">Iniciar lector para DiDi</string>
+    <string name="lector_ocr_restart_cta">Reiniciar lector para DiDi</string>
     <!-- Prominent disclosure (Play policy) shown BEFORE the system capture consent.
          TODO(legal-B038): counsel review of this copy before Play submission. -->
     <string name="lector_ocr_disclosure_title">Kompara leerá tu pantalla</string>
@@ -67,7 +67,7 @@
     <!-- Pantalla: Ajustes                                            -->
     <!-- ============================================================= -->
     <string name="ajustes_empty_title">Ajustes en construcción</string>
-    <string name="ajustes_empty_body">Aquí podrás configurar tus plataformas, costos y umbrales de ganancia.</string>
+    <string name="ajustes_empty_body">Aquí podrás configurar tus plataformas, tus costos y tu semáforo.</string>
     <string name="ajustes_empty_cta">Entendido</string>
     <string name="ajustes_open_simulator">Ver el simulador</string>
     <!-- Switch solo-debug para probar el paywall sin Google Play (se oculta en release). -->
@@ -77,9 +77,9 @@
     <!-- Umbrales del semáforo (B-070): editor completo en Ajustes     -->
     <!-- ============================================================= -->
     <string name="thresholds_title">Tu semáforo</string>
-    <string name="thresholds_intro">Define cuándo un viaje se marca en verde, amarillo o rojo: verde si gana al menos el piso verde, rojo si gana menos que el piso rojo, y amarillo entre los dos. Los pisos son netos — después de gasolina y desgaste — y el mismo semáforo aplica a todas tus apps.</string>
+    <string name="thresholds_intro">Define cuándo un viaje sale verde, amarillo o rojo: verde si gana al menos tu mínimo verde, rojo si gana menos que tu mínimo rojo, y amarillo entre los dos. Tus mínimos ya descuentan gasolina y desgaste, y el mismo semáforo aplica a todas tus apps.</string>
     <string name="thresholds_metric_title">¿Qué decide tu semáforo?</string>
-    <string name="thresholds_metric_hint">La métrica elegida pinta el color y aparece en grande en el chip; la otra queda de referencia.</string>
+    <string name="thresholds_metric_hint">El número que elijas pinta el color y aparece en grande en el chip; el otro queda de referencia.</string>
     <string name="thresholds_metric_ipk">Por kilómetro</string>
     <string name="thresholds_metric_iph">Por hora</string>
     <string name="thresholds_section_km">Por kilómetro (neto)</string>
@@ -89,8 +89,8 @@
     <string name="thresholds_value_km">$%1$s/km</string>
     <string name="thresholds_value_hour">$%1$s/h</string>
     <!-- %1$s = ciudad de comparación, p. ej. "Monterrey". -->
-    <string name="thresholds_reset">Volver a la mediana de %1$s</string>
-    <string name="thresholds_hint">El lector y el simulador usan estos pisos al instante; no hay que guardar nada.</string>
+    <string name="thresholds_reset">Volver al valor típico de %1$s</string>
+    <string name="thresholds_hint">El lector y el simulador usan estos mínimos al instante; no hay que guardar nada.</string>
 
     <!-- ============================================================= -->
     <!-- Ayuda (B-071): centro de ayuda dentro de la app               -->
@@ -102,7 +102,7 @@
     <string name="help_a_reader">Ve a la pestaña Lector y toca \"Encender lector\". Te llevamos a los Ajustes de accesibilidad de Android: busca Kompara, activa el interruptor y regresa a la app. Para DiDi, el lector usa además la captura de pantalla del sistema — acepta el aviso de Android cuando aparezca. Puedes probar todo sin viajes reales en el simulador (Ajustes → Ver el simulador).</string>
 
     <string name="help_q_verdict">¿Qué significa el semáforo?</string>
-    <string name="help_a_verdict">Cada oferta se mide en dos números netos — lo que te queda después de gasolina y desgaste: ganancia por km y ganancia por hora. Tú eliges cuál de los dos decide el color en Ajustes → Tu semáforo: ese aparece en grande en el chip y el otro queda de referencia. Verde: llega a tu piso verde. Rojo: gana menos que tu piso rojo. Amarillo: está entre los dos. Toca el chip para ver el detalle y por qué salió ese color; mantenlo presionado para ajustar los pisos de tu métrica sin salir de la otra app, o edita los cuatro pisos en Ajustes → Tu semáforo.</string>
+    <string name="help_a_verdict">Cada oferta se mide en dos números netos — lo que te queda después de gasolina y desgaste: ganancia por km y ganancia por hora. Tú eliges cuál de los dos decide el color en Ajustes → Tu semáforo: ese aparece en grande en el chip y el otro queda de referencia. Verde: llega a tu mínimo verde. Rojo: gana menos que tu mínimo rojo. Amarillo: está entre los dos. Toca el chip para ver el detalle y por qué salió ese color; mantenlo presionado para ajustar tus mínimos sin salir de la otra app, o edita los cuatro mínimos en Ajustes → Tu semáforo.</string>
 
     <string name="help_q_battery">Mi teléfono apaga el lector, ¿qué hago?</string>
     <string name="help_a_battery">Casi siempre es el ahorrador de batería. En Ajustes → Batería pon a Kompara \"Sin restricciones\" (en Xiaomi/Oppo/Vivo activa también el inicio automático). En la pantalla de apps recientes, mantén presionada la tarjeta de Kompara y fíjala con el candado. Activa las notificaciones de Kompara para que te avisemos si el lector se apaga mientras manejas.</string>
@@ -331,7 +331,7 @@
 
     <!-- Estado vacío del tablero (conductor nuevo) -->
     <string name="dashboard_empty_title">Aún no hay números</string>
-    <string name="dashboard_empty_body">Activa el lector y maneja — tus números aparecen solos.</string>
+    <string name="dashboard_empty_body">Activa el lector y maneja. Tus números aparecen solos.</string>
     <string name="dashboard_empty_cta">Probar el lector</string>
 
     <!-- Sección "Hoy" / detalle del día -->
@@ -370,11 +370,11 @@
     <!-- Selector de plataforma -->
     <string name="import_pick_platform">¿De qué plataforma?</string>
     <string name="import_platform_uber_pdf">Uber — PDF semanal</string>
-    <string name="import_platform_uber_pdf_hint">Recomendado: el PDF semanal que Uber te envía por correo extrae ~95% de los datos.</string>
+    <string name="import_platform_uber_pdf_hint">Recomendado: con el PDF semanal que Uber te envía por correo obtenemos casi todos tus datos.</string>
     <string name="import_platform_uber_screenshot">Uber — captura de pantalla</string>
-    <string name="import_platform_uber_screenshot_hint">La captura del desglose de tarifa extrae datos limitados (~40%). Para mejores resultados usa el PDF.</string>
+    <string name="import_platform_uber_screenshot_hint">Con la captura del desglose de tarifa obtenemos solo una parte de tus datos. Para mejores resultados usa el PDF.</string>
     <string name="import_platform_didi">DiDi — 2 capturas</string>
-    <string name="import_platform_didi_hint">Necesitamos 2 capturas: tu pantalla de ganancias y el tablero. Así extraemos casi todo (~85%).</string>
+    <string name="import_platform_didi_hint">Necesitamos 2 capturas: tu pantalla de ganancias y el tablero. Así sacamos casi todos tus datos.</string>
     <string name="import_platform_indrive">inDrive — captura de pantalla</string>
     <string name="import_platform_indrive_hint">Sube una captura de tu resumen de ganancias en inDrive.</string>
 
@@ -388,7 +388,7 @@
     <!-- Progreso (4 pasos, portado del web) -->
     <string name="import_step_reading">Leyendo archivos…</string>
     <string name="import_step_extracting">Extrayendo datos con IA…</string>
-    <string name="import_step_calculating">Calculando métricas…</string>
+    <string name="import_step_calculating">Calculando tus ganancias…</string>
     <string name="import_step_comparing">Comparando con conductores…</string>
     <string name="import_progress_wait">Esto toma entre 5 y 15 segundos</string>
 
@@ -436,14 +436,14 @@
     <string name="fiscal_title">Cobertura IMSS</string>
     <string name="fiscal_month_picker_label">Mes</string>
     <string name="fiscal_threshold_label">Umbral por plataforma este mes: %1$s</string>
-    <string name="fiscal_using_default_config">Usando valores de referencia (sin conexión reciente al servidor).</string>
+    <string name="fiscal_using_default_config">Usamos valores de referencia; no pudimos conectarnos para actualizar.</string>
     <string name="fiscal_empty_month_title">Sin ingresos registrados este mes</string>
     <string name="fiscal_empty_month_body">Cuando captures o importes viajes, verás aquí tu avance hacia el umbral del IMSS por cada plataforma.</string>
     <!-- Por plataforma -->
     <string name="fiscal_platform_net">%1$s de %2$s</string>
     <string name="fiscal_pacing">Te faltan %1$s y quedan %2$d días</string>
     <string name="fiscal_pacing_singular">Te faltan %1$s y queda 1 día</string>
-    <string name="fiscal_projection">Proyección a fin de mes: %1$s</string>
+    <string name="fiscal_projection">Estimado a fin de mes: %1$s</string>
     <string name="fiscal_covered_amount">Llevas %1$s — ya superaste el umbral</string>
     <!-- Estado de cobertura (chips) -->
     <string name="fiscal_status_covered">Cubierto este mes</string>
@@ -478,7 +478,7 @@
     <string name="fiscal_summary_isr">ISR retenido (est.)</string>
     <string name="fiscal_summary_iva">IVA retenido (est.)</string>
     <string name="fiscal_summary_total_withheld">Total retenido (est.)</string>
-    <string name="fiscal_summary_approx_note">DiDi no reporta su comisión, así que el neto es una aproximación (igual al bruto). Las retenciones se calculan sobre el bruto y no se ven afectadas.</string>
+    <string name="fiscal_summary_approx_note">DiDi no muestra su comisión, así que no podemos descontarla y tu neto aparecerá igual al bruto. Las retenciones se calculan sobre el bruto y no cambian.</string>
 
     <!-- Botón y estados de exportación. -->
     <string name="fiscal_export_pdf">Exportar PDF</string>
@@ -527,7 +527,7 @@
 
     <!-- Pantalla del paywall. -->
     <string name="paywall_title">Kompara Premium</string>
-    <string name="paywall_value_framing">Si te ayuda a ganar $200 más a la semana, se paga solo. Premium te muestra dónde estás dejando dinero en la mesa.</string>
+    <string name="paywall_value_framing">Si te ayuda a ganar $200 más a la semana, se paga solo. Premium te muestra dónde estás dejando de ganar.</string>
     <string name="paywall_feature_percentiles">Percentiles: cómo te comparas con tu ciudad</string>
     <string name="paywall_feature_compare">Comparativa Uber vs. DiDi</string>
     <string name="paywall_feature_history">Historial completo de todas tus semanas</string>
@@ -602,7 +602,7 @@
     <!-- Marca de "menos es mejor" en la fila de comisión. -->
     <string name="comparar_lower_better">↓ menos es mejor</string>
     <!-- Leyenda que decodifica las columnas. -->
-    <string name="comparar_legend">Tú = tu mezcla de apps · promedio = el conductor típico de tu ciudad · tu lugar = tu percentil. «—» = la app no reporta.</string>
+    <string name="comparar_legend">Tú = tu mezcla de apps · promedio = el conductor típico de tu ciudad · tu lugar = qué tan arriba estás. «—» = la app no reporta.</string>
     <!-- Sección de oportunidades. -->
     <string name="comparar_opps_title">Dónde puedes ganar más</string>
     <!-- Enlace cruzado hacia Inicio (datos individuales). -->

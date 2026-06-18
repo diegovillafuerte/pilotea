@@ -68,3 +68,4 @@ pming/.telemetry.jsonl
 
 # Scratch/working captures (may contain raw OCR with PII — never commit; see codex review)
 .session-captures/
+design-system/**/.thumbnail

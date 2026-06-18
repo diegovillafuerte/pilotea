@@ -17,6 +17,13 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+
+    // Ship the exported Room schemas (room.schemaLocation below) into the androidTest APK's assets so
+    // MigrationTestHelper can load KomparaDatabase/<v>.json on-device. Without this the instrumented
+    // KomparaDatabaseMigrationTest fails at setup with "Cannot find the schema file in the assets folder".
+    sourceSets {
+        getByName("androidTest").assets.srcDir("$projectDir/schemas")
+    }
 }
 
 ksp {

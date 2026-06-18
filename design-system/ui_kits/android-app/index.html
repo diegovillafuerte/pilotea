@@ -1,0 +1,272 @@
+<!-- @dsCard group="Android app" viewport="430x800" name="Kompara app — interactive" subtitle="Inicio · Comparar · Lector (with live overlay chip) · Fiscal" -->
+<!-- @startingPoint section="Android app" subtitle="Full Kompara Android app — dark, 5 tabs, live verdict overlay" viewport="430x880" -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Kompara — app</title>
+<link rel="stylesheet" href="../../styles.css" />
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: radial-gradient(120% 120% at 50% 0%, #1e293b 0%, #0f172a 55%, #020617 100%);
+    display: flex; align-items: center; justify-content: center; padding: 24px; box-sizing: border-box;
+    font-family: var(--font-sans);
+  }
+  .phone {
+    width: 390px; height: 760px; border-radius: 40px; overflow: hidden; position: relative;
+    background: var(--background); box-shadow: 0 24px 70px rgba(2,6,23,.6), 0 0 0 10px #0b1120, 0 0 0 11px #1e293b;
+  }
+  .statusbar { height: 30px; display:flex; align-items:center; justify-content:space-between; padding: 0 22px; font-size:12px; font-weight:600; color: var(--text-body); }
+  .scroll { position:absolute; top:30px; bottom:65px; left:0; right:0; overflow-y:auto; }
+  .scroll::-webkit-scrollbar { width: 0; }
+  .screen { padding: 16px; display:flex; flexDirection:column; }
+  .navwrap { position:absolute; bottom:0; left:0; right:0; }
+  .appbar { display:flex; align-items:center; justify-content:space-between; padding: 6px 4px 10px; }
+</style>
+</head>
+<body class="theme-dark">
+<div id="root"></div>
+<script type="text/babel">
+const { Button, Card, Chip, EmptyState, MetricCard, PercentileBadge, PercentileBar, RecommendationCard, VerdictChip, BottomNav } = window.KomparaDesignSystem_722871;
+
+const fmt = (n) => "$" + n.toLocaleString("es-MX", {minimumFractionDigits:2, maximumFractionDigits:2});
+
+function ShareIcon(){return <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>;}
+
+/* ─── Inicio ─────────────────────────────────────────────── */
+function Inicio() {
+  const [plat, setPlat] = React.useState("all");
+  const metrics = [
+    {label:"$ POR HORA", value:"$165.00", top:22},
+    {label:"$ POR KM", value:"$8.40", top:31},
+    {label:"$ POR VIAJE", value:"$90.80", top:45},
+    {label:"VIAJES POR HORA", value:"1.7", locked:true},
+  ];
+  return (
+    <div className="screen">
+      <div style={{fontSize:13, fontWeight:500, letterSpacing:".04em", color:"var(--text-muted)"}}>GANANCIA NETA ESTA SEMANA</div>
+      <div style={{display:"flex", alignItems:"center", justifyContent:"space-between", marginTop:4}}>
+        <div style={{fontSize:44, fontWeight:900, lineHeight:1, color:"var(--text-strong)", fontVariantNumeric:"tabular-nums"}}>{fmt(3450)}</div>
+        <div style={{display:"flex", alignItems:"center", gap:8}}>
+          <span style={{fontSize:12, fontWeight:700, color:"var(--primary)"}}>🔥 4 semanas</span>
+          <ShareIcon/>
+        </div>
+      </div>
+
+      <div style={{marginTop:14}}>
+        <div style={{fontSize:14, color:"var(--text-muted)"}}>{fmt(3450)} de {fmt(5000)}</div>
+        <div style={{height:8, borderRadius:999, background:"var(--surface-variant)", marginTop:6, overflow:"hidden"}}>
+          <div style={{width:"69%", height:"100%", background:"var(--primary)", borderRadius:999}}></div>
+        </div>
+        <div style={{fontSize:12, color:"var(--text-muted)", marginTop:4}}>Te faltan {fmt(1550)} para tu meta</div>
+      </div>
+
+      <div style={{marginTop:14}}>
+        <Card tone="accent" interactive>
+          <div style={{fontSize:16, fontWeight:700}}>Configura tus costos para ver ganancias netas</div>
+          <div style={{marginTop:6, fontSize:12, fontWeight:700, color:"var(--primary)"}}>Configurar costos →</div>
+        </Card>
+      </div>
+
+      <div style={{display:"flex", gap:8, marginTop:14}}>
+        {[["all","Todas"],["uber","Uber"],["didi","DiDi"]].map(([k,l])=>(
+          <Chip key={k} selected={plat===k} onClick={()=>setPlat(k)}>{l}</Chip>
+        ))}
+      </div>
+
+      <div style={{display:"flex", flexDirection:"column", gap:12, marginTop:14}}>
+        {metrics.map((m)=>(
+          <MetricCard key={m.label} label={m.label} value={m.value}
+            badge={m.locked ? <PercentileBadge locked/> : <PercentileBadge topPercent={m.top}/>} />
+        ))}
+      </div>
+
+      <div style={{marginTop:18, fontSize:16, fontWeight:600, color:"var(--text-strong)"}}>Consejos</div>
+      <div style={{display:"flex", flexDirection:"column", gap:10, marginTop:8}}>
+        <RecommendationCard type="warning" title="Dejaste ir buenos viajes" body="Rechazaste 3 ofertas que sí te convenían — $420 que se te fueron." />
+        <RecommendationCard type="info" title="Tus mejores horas" body="Tu mejor bloque fue el viernes de 19:00 a 20:00: $340 netos." />
+      </div>
+      <div style={{height:8}}></div>
+    </div>
+  );
+}
+
+/* ─── Comparar ───────────────────────────────────────────── */
+function Comparar() {
+  const rows = [
+    {m:"Neto", tu:"$3,200", uber:"$2,900", didi:"$2,750", top:22},
+    {m:"$/hora", tu:"$160", uber:"$150", didi:"$145", top:22},
+    {m:"$/km", tu:"$9.2", uber:"—", didi:"$9.5", top:35},
+    {m:"$/viaje", tu:"$54", uber:"$52", didi:"$58", top:40},
+  ];
+  return (
+    <div className="screen">
+      <div style={{display:"inline-flex", alignSelf:"flex-start", alignItems:"center", gap:6, background:"var(--surface-card)", borderRadius:999, padding:"8px 14px", fontSize:14, fontWeight:600}}>2 – 8 jun ▾</div>
+      <div style={{marginTop:14}}>
+        <Card>
+          <div style={{display:"flex", alignItems:"center", justifyContent:"space-between"}}>
+            <div style={{display:"flex", alignItems:"center", gap:7}}>
+              <span style={{width:24,height:24,borderRadius:7,background:"var(--emerald-600)",display:"inline-flex",alignItems:"center",justifyContent:"center"}}>
+                <svg width="15" height="15" viewBox="0 0 48 48" fill="none"><path d="M14 10L14 38" stroke="#fff" strokeWidth="4.5" strokeLinecap="round"/><path d="M14 24L30 10" stroke="#fff" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M14 24L34 38" stroke="#fff" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              </span>
+              <span style={{fontWeight:600, fontSize:16}}>Kompara</span>
+            </div>
+            <ShareIcon/>
+          </div>
+          <div style={{marginTop:12, fontSize:22, fontWeight:600, color:"var(--text-strong)"}}>Le ganas al 78% de tu ciudad</div>
+          <div style={{marginTop:10}}><PercentileBar displayPercentile={78}/></div>
+          <div style={{display:"flex", alignItems:"center", justifyContent:"space-between", marginTop:10}}>
+            <span style={{fontSize:12, color:"var(--text-muted)"}}>Tu lugar esta semana</span>
+            <PercentileBadge topPercent={22}/>
+          </div>
+        </Card>
+      </div>
+
+      <div style={{marginTop:14}}>
+        <Card padding="12px">
+          <div style={{display:"grid", gridTemplateColumns:"1.4fr 1fr 1fr 1fr 1fr", gap:4, fontSize:11, color:"var(--text-muted)", padding:"6px 0", fontWeight:500}}>
+            <span>Métrica</span><span style={{textAlign:"center"}}>Tú</span><span style={{textAlign:"center"}}>Uber</span><span style={{textAlign:"center"}}>DiDi</span><span style={{textAlign:"center"}}>Lugar</span>
+          </div>
+          {rows.map((r)=>(
+            <div key={r.m} style={{display:"grid", gridTemplateColumns:"1.4fr 1fr 1fr 1fr 1fr", gap:4, alignItems:"center", padding:"8px 0", borderTop:"1px solid var(--border)", fontSize:12}}>
+              <span style={{color:"var(--text-body)", fontWeight:500}}>{r.m}</span>
+              <span style={{textAlign:"center", color:"var(--primary)", fontWeight:600}}>{r.tu}</span>
+              <span style={{textAlign:"center", color:"var(--text-muted)"}}>{r.uber}</span>
+              <span style={{textAlign:"center", color:"var(--text-muted)"}}>{r.didi}</span>
+              <span style={{textAlign:"center", color:"var(--verde)", fontWeight:600}}>Top {r.top}%</span>
+            </div>
+          ))}
+        </Card>
+      </div>
+
+      <div style={{marginTop:14}}>
+        <RecommendationCard type="info" title="DiDi te paga mejor por hora" body="DiDi te deja $160/h vs $150 en Uber. Priorízala en horas pico." />
+      </div>
+      <div style={{height:8}}></div>
+    </div>
+  );
+}
+
+/* ─── Lector (with live overlay chip) ────────────────────── */
+function Lector() {
+  const [running, setRunning] = React.useState(true);
+  const [idx, setIdx] = React.useState(0);
+  const offers = [
+    {level:"green", hero:"$9.20/km", sec:"$165/h", fare:"$148", dist:"16 km", time:"22 min"},
+    {level:"yellow", hero:"$6.10/km", sec:"$118/h", fare:"$95", dist:"15 km", time:"24 min"},
+    {level:"red", hero:"$3.10/km", sec:"$78/h", fare:"$62", dist:"20 km", time:"31 min"},
+  ];
+  React.useEffect(()=>{
+    if(!running) return;
+    const t = setInterval(()=>setIdx(i=>(i+1)%offers.length), 2600);
+    return ()=>clearInterval(t);
+  },[running]);
+  const o = offers[idx];
+  return (
+    <div className="screen">
+      <div style={{fontSize:24, fontWeight:700, color:"var(--text-strong)"}}>Lector</div>
+      <div style={{fontSize:14, color:"var(--text-muted)", marginTop:6}}>Kompara lee las ofertas en tu pantalla y les pone el semáforo encima. Todo se queda en tu teléfono.</div>
+
+      <div style={{marginTop:16}}>
+        <Card>
+          <div style={{display:"flex", alignItems:"center", justifyContent:"space-between"}}>
+            <div style={{display:"flex", alignItems:"center", gap:8}}>
+              <span style={{width:9, height:9, borderRadius:999, background: running ? "var(--verde)" : "var(--border)"}}></span>
+              <span style={{fontSize:16, fontWeight:700}}>Lector de pantalla</span>
+            </div>
+            <span style={{fontSize:12, fontWeight:500, color: running ? "var(--verde)":"var(--text-muted)"}}>{running ? "Activo":"Detenido"}</span>
+          </div>
+        </Card>
+      </div>
+
+      {/* Simulated host app with floating chip */}
+      <div style={{marginTop:16, borderRadius:16, overflow:"hidden", border:"1px solid var(--border)", position:"relative", height:220, background:"linear-gradient(160deg,#11161f,#0b0f17)"}}>
+        <div style={{padding:16}}>
+          <div style={{fontSize:12, color:"var(--text-faint)"}}>Oferta entrante · {idx===0?"Uber":idx===1?"DiDi":"Uber"}</div>
+          <div style={{fontSize:30, fontWeight:800, color:"#fff", marginTop:6}}>{o.fare}</div>
+          <div style={{fontSize:13, color:"#94a3b8", marginTop:4}}>{o.dist} · {o.time} · efectivo</div>
+        </div>
+        {running && (
+          <div style={{position:"absolute", right:14, bottom:14}}>
+            <VerdictChip level={o.level} heroRate={o.hero} secondaryRate={o.sec}/>
+          </div>
+        )}
+      </div>
+
+      <div style={{marginTop:16, display:"flex", flexDirection:"column", gap:10}}>
+        <Button variant="primary" fullWidth onClick={()=>setRunning(r=>!r)}>{running ? "Detener lector de pantalla":"Iniciar lector de pantalla"}</Button>
+        <Button variant="secondary" fullWidth>Ajustar mi semáforo</Button>
+      </div>
+      <div style={{height:8}}></div>
+    </div>
+  );
+}
+
+/* ─── Fiscal ─────────────────────────────────────────────── */
+function Fiscal() {
+  return (
+    <div className="screen">
+      <div style={{fontSize:24, fontWeight:700, color:"var(--text-strong)"}}>Cobertura IMSS</div>
+      <div style={{fontSize:14, color:"var(--text-muted)", marginTop:6}}>Junio · umbral por plataforma: {fmt(8364)}</div>
+
+      <div style={{marginTop:16, display:"flex", flexDirection:"column", gap:12}}>
+        <Card>
+          <div style={{display:"flex", justifyContent:"space-between", alignItems:"center"}}>
+            <span style={{fontWeight:700}}>Uber</span>
+            <span style={{fontSize:12, fontWeight:600, color:"var(--verde)", background:"color-mix(in srgb, var(--verde) 16%, transparent)", padding:"4px 10px", borderRadius:999}}>Cubierto este mes</span>
+          </div>
+          <div style={{fontSize:14, color:"var(--text-muted)", marginTop:8}}>{fmt(9120)} de {fmt(8364)}</div>
+          <div style={{height:8, borderRadius:999, background:"var(--surface-variant)", marginTop:6, overflow:"hidden"}}><div style={{width:"100%", height:"100%", background:"var(--verde)"}}></div></div>
+        </Card>
+        <Card>
+          <div style={{display:"flex", justifyContent:"space-between", alignItems:"center"}}>
+            <span style={{fontWeight:700}}>DiDi</span>
+            <span style={{fontSize:12, fontWeight:600, color:"var(--amber-600)", background:"color-mix(in srgb, var(--amarillo) 18%, transparent)", padding:"4px 10px", borderRadius:999}}>En camino</span>
+          </div>
+          <div style={{fontSize:14, color:"var(--text-muted)", marginTop:8}}>{fmt(5980)} de {fmt(8364)}</div>
+          <div style={{height:8, borderRadius:999, background:"var(--surface-variant)", marginTop:6, overflow:"hidden"}}><div style={{width:"71%", height:"100%", background:"var(--amarillo)"}}></div></div>
+          <div style={{fontSize:12, color:"var(--text-muted)", marginTop:6}}>Te faltan {fmt(2384)} y quedan 12 días</div>
+        </Card>
+      </div>
+
+      <div style={{marginTop:16}}>
+        <Card tone="variant">
+          <div style={{fontSize:14, fontWeight:700, marginBottom:4}}>¿Qué es la cobertura del IMSS?</div>
+          <div style={{fontSize:13, color:"var(--text-muted)", lineHeight:1.5}}>Si en un mes ganas al menos un salario mínimo mensual en UNA plataforma, esa plataforma debe inscribirte al IMSS ese mes.</div>
+        </Card>
+      </div>
+      <div style={{marginTop:14}}>
+        <Button variant="secondary" fullWidth>Exportar PDF</Button>
+      </div>
+      <div style={{height:8}}></div>
+    </div>
+  );
+}
+
+function Ajustes(){
+  return <EmptyState icon={<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M5 12h-2M21 12h-2M12 5V3M12 21v-2"/></svg>}
+    title="Ajustes en construcción" body="Aquí podrás configurar tus plataformas, costos y umbrales de ganancia." />;
+}
+
+function App(){
+  const [tab, setTab] = React.useState("lector");
+  const screens = { inicio:<Inicio/>, comparar:<Comparar/>, lector:<Lector/>, fiscal:<Fiscal/>, ajustes:<Ajustes/> };
+  const titles = { inicio:"9:41", comparar:"9:41", lector:"9:41", fiscal:"9:41", ajustes:"9:41" };
+  return (
+    <div className="phone theme-dark">
+      <div className="statusbar"><span>{titles[tab]}</span><span>▲ Kompara · 100%</span></div>
+      <div className="scroll" key={tab}>{screens[tab]}</div>
+      <div className="navwrap"><BottomNav current={tab} onSelect={setTab}/></div>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>

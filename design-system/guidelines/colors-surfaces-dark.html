@@ -1,0 +1,32 @@
+<!-- @dsCard group="Colors" viewport="760x200" name="Surfaces — dark (app default)" subtitle="Semantic roles on the dark palette · cards separate by colour step, not shadow" -->
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/>
+<link rel="stylesheet" href="../styles.css"/>
+<style>
+  body{margin:0;padding:20px;font-family:var(--font-sans);background:var(--background)}
+  .stage{border-radius:12px;padding:18px;background:var(--background)}
+  .layers{display:flex;gap:0;align-items:stretch;border-radius:10px;overflow:hidden}
+  .layer{flex:1;padding:14px;min-height:80px}
+  .b{background:var(--background)} .c{background:var(--surface-card)} .v{background:var(--surface-variant)}
+  .name{font-size:12px;font-weight:700;color:var(--text-strong)}
+  .role{font-size:10px;color:var(--text-muted);margin-top:2px}
+  .txtrow{display:flex;gap:16px;margin-top:14px;flex-wrap:wrap}
+  .txtrow span{font-size:13px}
+  .cap{font-size:11px;color:var(--text-faint);margin:0 0 10px;text-transform:uppercase;letter-spacing:.08em;font-weight:600}
+</style></head>
+<body class="theme-dark">
+<p class="cap">Dark surfaces — tonal lift</p>
+<div class="stage">
+  <div class="layers">
+    <div class="layer b"><div class="name">background</div><div class="role">slate-900</div></div>
+    <div class="layer c"><div class="name">surface-card</div><div class="role">slate-800</div></div>
+    <div class="layer v"><div class="name">surface-variant</div><div class="role">slate-700</div></div>
+  </div>
+  <div class="txtrow">
+    <span style="color:var(--text-strong);font-weight:700">text-strong</span>
+    <span style="color:var(--text-body)">text-body</span>
+    <span style="color:var(--text-muted)">text-muted</span>
+    <span style="color:var(--text-faint)">text-faint</span>
+    <span style="color:var(--primary);font-weight:700">primary</span>
+  </div>
+</div>
+</body></html>

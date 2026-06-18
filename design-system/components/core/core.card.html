@@ -1,0 +1,60 @@
+<!-- @dsCard group="Components" viewport="700x440" name="Core — buttons, cards, chips" subtitle="Button tiers, tonal cards, platform chips, empty state" -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="stylesheet" href="../../styles.css" />
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>
+  body { margin: 0; padding: 24px; background: var(--background); }
+  .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 18px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .lbl { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-faint); margin: 0 0 8px; font-weight: 600; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+  const { Button, Card, Chip, EmptyState } = window.KomparaDesignSystem_722871;
+  const HomeIcon = () => (
+    <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>
+  );
+  function Demo() {
+    const [plat, setPlat] = React.useState("uber");
+    return (
+      <div>
+        <p className="lbl">Buttons — emphasis tiers</p>
+        <div className="row">
+          <Button variant="primary">Encender lector</Button>
+          <Button variant="secondary">Ver el simulador</Button>
+          <Button variant="tonal">Configurar costos</Button>
+          <Button variant="text">Ahora no</Button>
+          <Button variant="primary" disabled>Encender lector</Button>
+        </div>
+        <p className="lbl">Platform chips</p>
+        <div className="row">
+          {[["all","Todas"],["uber","Uber"],["didi","DiDi"],["indrive","inDrive"]].map(([k,l]) => (
+            <Chip key={k} selected={plat===k} onClick={() => setPlat(k)}>{l}</Chip>
+          ))}
+        </div>
+        <div className="grid2">
+          <Card>
+            <div style={{fontSize:13,fontWeight:500,letterSpacing:".04em",textTransform:"uppercase",color:"var(--text-muted)"}}>Ganancia neta</div>
+            <div style={{marginTop:4,fontSize:30,fontWeight:900,color:"var(--text-strong)"}}>$3,450.00</div>
+          </Card>
+          <Card tone="accent" interactive>
+            <div style={{fontSize:16,fontWeight:700}}>Configura tus costos</div>
+            <div style={{marginTop:6,fontSize:13,fontWeight:700,color:"var(--primary)"}}>Configurar costos →</div>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+  ReactDOM.createRoot(document.getElementById("root")).render(<Demo />);
+</script>
+</body>
+</html>

@@ -64,9 +64,12 @@ describe("magic-link", () => {
       expect(result).toBe(false);
     });
 
-    it("should return true when 3 or more recent links exist", async () => {
+    it("should return true when the rate limit (50) is reached", async () => {
       const { isRateLimited } = await import("@/lib/auth/magic-link");
-      mockSelectResult.push({ id: "1" }, { id: "2" }, { id: "3" });
+      // RATE_LIMIT_MAX is 50; reaching it trips the limit.
+      for (let i = 0; i < 50; i++) {
+        mockSelectResult.push({ id: String(i) });
+      }
       mockWhere.where.mockReturnValueOnce(Promise.resolve(mockSelectResult));
       const result = await isRateLimited("+5215512345678");
       expect(result).toBe(true);

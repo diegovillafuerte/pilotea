@@ -1,0 +1,20 @@
+<!-- @dsCard group="Brand" viewport="760x210" name="Logo & wordmark" subtitle="The 'K' monogram with bar-chart bars · full lockup, monogram, on-dark" -->
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/>
+<link rel="stylesheet" href="../styles.css"/>
+<style>
+  body{margin:0;padding:22px;background:var(--background);font-family:var(--font-sans)}
+  .row{display:flex;gap:18px;align-items:stretch}
+  .tile{border:1px solid var(--border);border-radius:12px;padding:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:var(--surface-card)}
+  .tile.dark{background:#0f172a;border-color:#1e293b}
+  .t{font-size:10px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.06em}
+  .tile.dark .t{color:#64748b}
+  .cap{font-size:11px;color:var(--text-faint);margin:0 0 14px;text-transform:uppercase;letter-spacing:.08em;font-weight:600}
+</style></head>
+<body>
+<p class="cap">Logo</p>
+<div class="row">
+  <div class="tile" style="flex:1.6"><img src="../assets/logo-full.svg" height="40"/><span class="t">Full lockup</span></div>
+  <div class="tile"><img src="../assets/logo-monogram.svg" height="48"/><span class="t">Monogram</span></div>
+  <div class="tile dark"><img src="../assets/logo-full-white.svg" height="40"/><span class="t">On dark</span></div>
+</div>
+</body></html>

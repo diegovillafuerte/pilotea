@@ -1,0 +1,28 @@
+<!-- @dsCard group="Colors" viewport="760x170" name="Accent & semantic" subtitle="Amber accent, info blue, and status colors" -->
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/>
+<link rel="stylesheet" href="../styles.css"/>
+<style>
+  body{margin:0;padding:20px;background:var(--background);font-family:var(--font-sans)}
+  .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  .sw{border-radius:10px;padding:12px;min-height:64px;display:flex;flex-direction:column;justify-content:space-between;color:#fff}
+  .l{font-size:12px;font-weight:700}
+  .h{font-size:10px;opacity:.9;font-variant:tabular-nums}
+  .cap{font-size:11px;color:var(--text-faint);margin:0 0 10px;text-transform:uppercase;letter-spacing:.08em;font-weight:600}
+  .sub{font-size:11px;color:var(--text-faint);margin:14px 0 8px;font-weight:600}
+</style></head>
+<body>
+<p class="cap">Accent — amber (CTAs, streak)</p>
+<div class="grid">
+  <div class="sw" style="background:#fbbf24;color:#1a1300"><span class="l">amber-400</span><span class="h">#FBBF24</span></div>
+  <div class="sw" style="background:#f59e0b;color:#1a1300"><span class="l">amber-500</span><span class="h">#F59E0B</span></div>
+  <div class="sw" style="background:#d97706"><span class="l">amber-600</span><span class="h">#D97706</span></div>
+  <div class="sw" style="background:#2d77e0"><span class="l">info-blue</span><span class="h">#2D77E0</span></div>
+</div>
+<p class="sub">Semantic status</p>
+<div class="grid">
+  <div class="sw" style="background:#059669"><span class="l">success</span><span class="h">#059669</span></div>
+  <div class="sw" style="background:#dc2626"><span class="l">error</span><span class="h">#DC2626</span></div>
+  <div class="sw" style="background:#d97706"><span class="l">warning</span><span class="h">#D97706</span></div>
+  <div class="sw" style="background:#0284c7"><span class="l">info</span><span class="h">#0284C7</span></div>
+</div>
+</body></html>

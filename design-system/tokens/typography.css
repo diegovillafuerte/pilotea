@@ -1,0 +1,46 @@
+/* ───────────────────────────────────────────────────────────────────────────
+   Kompara · Type tokens
+   One typeface: Inter (variable), shared by the Android app and the website.
+   The numbers ARE the product, so the scale is tuned for glanceability — the
+   money/metric figures get bold, oversized, tabular styles a chofer reads from
+   arm's length. Source: Android `theme/Type.kt` (sp → px, 1:1).
+   ─────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* Families */
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* Tabular figures keep "$1,234.56" columns aligned on metric cards. */
+  --font-numeric: "Inter", system-ui, sans-serif;
+
+  /* Weights */
+  --weight-regular:  400;
+  --weight-medium:   500;
+  --weight-semibold: 600;
+  --weight-bold:     700;
+  --weight-black:    900;
+
+  /* ── Type scale (size / line-height / weight) ──────────────────────────────
+     Role names mirror the app's Material roles + the custom metric styles. */
+
+  /* Hero metric — the one number that matters (weekly net). */
+  --metric-value-lg-size:   44px;  --metric-value-lg-lh:   48px;  --metric-value-lg-weight: var(--weight-black);
+  /* Prominent figure inside a card; overlay chip hero rate. */
+  --metric-value-size:      30px;  --metric-value-lh:      34px;  --metric-value-weight:    var(--weight-bold);
+  /* Small uppercase label above a metric value. */
+  --metric-label-size:      13px;  --metric-label-lh:      16px;  --metric-label-weight:    var(--weight-medium);
+
+  --headline-lg-size:       28px;  --headline-lg-lh:       34px;  --headline-lg-weight:     var(--weight-bold);
+  --headline-size:          24px;  --headline-lh:          30px;  --headline-weight:        var(--weight-bold);  /* screen title */
+  --title-lg-size:          22px;  --title-lg-lh:          28px;  --title-lg-weight:        var(--weight-semibold); /* button label */
+  --title-size:             16px;  --title-lh:             22px;  --title-weight:           var(--weight-bold);  /* card / section title */
+  --title-sm-size:          14px;  --title-sm-lh:          20px;  --title-sm-weight:        var(--weight-semibold);
+
+  --body-lg-size:           16px;  --body-lg-lh:           24px;  --body-lg-weight:         var(--weight-regular);
+  --body-size:              14px;  --body-lh:              20px;  --body-weight:            var(--weight-regular); /* default body */
+  --body-sm-size:           12px;  --body-sm-lh:           16px;  --body-sm-weight:         var(--weight-regular); /* hints, captions */
+
+  --label-size:             12px;  --label-lh:             16px;  --label-weight:           var(--weight-medium); /* chips, status, steps */
+
+  /* Headings are tracked tight. */
+  --tracking-tight: -0.02em;
+}

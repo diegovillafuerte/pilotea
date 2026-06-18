@@ -388,8 +388,8 @@ class OcrCaptureService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val notification = Notification.Builder(this, STOPPED_CHANNEL_ID)
-            .setContentTitle("Kompara: se detuvo el lector de pantalla")
-            .setContentText("Tócame para reiniciarlo y volver a ver el semáforo en DiDi.")
+            .setContentTitle("Kompara: se detuvo el lector para DiDi")
+            .setContentText("Toca para reiniciar la captura y ver el semáforo en DiDi.")
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
             .setContentIntent(restart)
             .setAutoCancel(true)

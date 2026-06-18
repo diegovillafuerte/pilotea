@@ -13,7 +13,9 @@ describe("POST /api/cron/update-stats", () => {
   const originalEnv = process.env;
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    // resetAllMocks (not clearAllMocks) so a prior test's persistent
+    // mockImplementation can't leak in and mask a later mockRejectedValueOnce.
+    vi.resetAllMocks();
     process.env = { ...originalEnv, CRON_SECRET: "test-secret-123" };
   });
 

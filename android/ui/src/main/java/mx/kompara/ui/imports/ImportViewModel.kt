@@ -25,7 +25,7 @@ import javax.inject.Inject
  * real import and backfills local history, ending on [ImportUiState.Saved]. Every upload failure maps
  * to [ImportUiState.Error] carrying the backend's exact Spanish string.
  *
- * The 4-step progress animation (Leyendo archivos → Extrayendo datos con IA → Calculando métricas →
+ * The 4-step progress animation (Leyendo archivos → Extrayendo datos con IA → Calculando tus ganancias →
  * Comparando) is driven by [animateProgress], a cosmetic timer that advances the visible step while
  * the real network call runs; the call completing flips state regardless of where the animation is.
  *
