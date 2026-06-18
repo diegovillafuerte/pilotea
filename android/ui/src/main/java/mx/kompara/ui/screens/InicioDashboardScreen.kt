@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -31,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -42,8 +45,8 @@ import mx.kompara.metrics.recommendation.Recommendation
 import mx.kompara.metrics.recommendation.RecommendationType
 import mx.kompara.ui.components.EmptyState
 import mx.kompara.ui.components.KomparaProgressBar
+import mx.kompara.ui.components.KomparaCard
 import mx.kompara.ui.components.LockedPercentileBadge
-import mx.kompara.ui.components.MetricCard
 import mx.kompara.ui.components.PercentileBadge
 import mx.kompara.ui.components.RecommendationCard
 import mx.kompara.ui.components.WatchdogBanner
@@ -150,8 +153,10 @@ private fun DashboardContent(
             )
         }
 
+        // The four headline tiles, 2-up like the design's Inicio hub. Acceptance rate (the 5th
+        // metric) stays on Día/Tu mes; Inicio shows the four money/efficiency tiles only.
         MetricGrid(
-            cards = MetricCardValues.of(state.period),
+            cards = MetricCardValues.of(state.period).take(4),
             percentiles = state.percentiles,
         )
 
@@ -338,15 +343,15 @@ private fun MetricGrid(cards: List<MetricCardValue>, percentiles: PercentilesUiS
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         cards.chunked(2).forEachIndexed { rowIndex, pair ->
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 pair.forEachIndexed { colIndex, card ->
                     val index = rowIndex * 2 + colIndex
-                    MetricCard(
+                    InicioMetricTile(
                         label = stringResource(card.labelRes),
                         value = card.value,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
                         badge = metricBadge(
                             MetricPercentiles.forCard(index, percentiles.byMetric),
                             percentiles.locked,
@@ -354,6 +359,43 @@ private fun MetricGrid(cards: List<MetricCardValue>, percentiles: PercentilesUiS
                     )
                 }
                 if (pair.size == 1) Spacer(Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+/**
+ * One Inicio metric tile: the label on its OWN full-width line (so it stays fully readable in a
+ * narrow 2-up grid cell — no competing with the badge), then the big value with an optional
+ * "Top X%" / locked pill beside it.
+ */
+@Composable
+private fun InicioMetricTile(
+    label: String,
+    value: String,
+    badge: (@Composable () -> Unit)?,
+    modifier: Modifier = Modifier,
+) {
+    KomparaCard(modifier = modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = label,
+                style = KomparaType.metricLabel,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = value,
+                style = KomparaType.metricValue,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (badge != null) {
+                Spacer(Modifier.height(8.dp))
+                badge()
             }
         }
     }
