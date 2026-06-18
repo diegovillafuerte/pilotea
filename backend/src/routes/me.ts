@@ -91,11 +91,13 @@ async function resolveSubscription(
  * recent-week, per-platform) is deferred — see the account-onboarding design §0.5.
  */
 async function isVerified(db: Database, driverId: string): Promise<boolean> {
-  const [row] = await db
-    .select({ n: sql<number>`count(*)::int` })
+  // EXISTS-style: stop at the first parsed import rather than counting all.
+  const rows = await db
+    .select({ id: imports.id })
     .from(imports)
-    .where(and(eq(imports.driverId, driverId), eq(imports.status, "parsed")));
-  return (row?.n ?? 0) > 0;
+    .where(and(eq(imports.driverId, driverId), eq(imports.status, "parsed")))
+    .limit(1);
+  return rows.length > 0;
 }
 
 /**
