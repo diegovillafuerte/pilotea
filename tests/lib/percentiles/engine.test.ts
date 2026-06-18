@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import type { ParsedMetrics, PercentileResult } from "@/lib/percentiles/engine";
+import type { ParsedMetrics } from "@/lib/percentiles/engine";
 
 // Mock getDirectClient before importing the module
 const mockSql = vi.fn();

@@ -52,11 +52,6 @@ interface PercentileBreakpoints {
   mean: number;
 }
 
-interface CityPlatformProfile {
-  sample_size: number;
-  metrics: Record<MetricName, PercentileBreakpoints>;
-}
-
 // ─── Sample sizes by city tier ────────────────────────────────
 
 function sampleSize(city: CityKey, platform: PlatformKey): number {
@@ -257,7 +252,11 @@ async function seed() {
   await sql.end();
 }
 
-seed().catch((err) => {
-  console.error("Seed failed:", err);
-  process.exit(1);
-});
+// Run only when executed directly (e.g. `pnpm db:seed`), not when imported
+// (e.g. under vitest) — importing must not open a DB connection or exit the process.
+if (process.argv[1] !== undefined && import.meta.url === `file://${process.argv[1]}`) {
+  seed().catch((err) => {
+    console.error("Seed failed:", err);
+    process.exit(1);
+  });
+}

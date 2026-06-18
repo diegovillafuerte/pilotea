@@ -15,6 +15,13 @@ const eslintConfig = defineConfig([
     // Agent/task worktrees checked out inside the repo — not part of this checkout.
     ".claude/worktrees/**",
     ".worktrees/**",
+    // Native Android project (Kotlin/Gradle) and its generated build artifacts —
+    // not JS source, must not be linted by the web eslint.
+    "android/**",
+    // claude.ai/design bundle synced by the design-sync skill — generated reference
+    // templates/ui-kits, not imported by the app. It ships its own oxlint adherence
+    // config (design-system/_adherence.oxlintrc.json) and must not be linted by the web eslint.
+    "design-system/**",
   ]),
 ]);
 
