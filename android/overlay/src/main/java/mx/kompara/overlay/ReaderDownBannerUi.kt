@@ -19,6 +19,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import mx.kompara.ui.theme.VerdictRed
 
 /**
  * The reader-down banner (B-078): a tappable pill the accessibility service overlays on DiDi/
@@ -42,7 +43,7 @@ fun ReaderDownBannerUi(onTap: () -> Unit) {
             androidx.compose.foundation.layout.Box(
                 modifier = Modifier
                     .size(10.dp)
-                    .background(color = VerdictColors.Bad, shape = CircleShape),
+                    .background(color = VerdictRed, shape = CircleShape),
             )
             Spacer(modifier = Modifier.width(10.dp))
             Text(
