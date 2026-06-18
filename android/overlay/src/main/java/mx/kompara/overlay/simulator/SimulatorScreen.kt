@@ -1,7 +1,7 @@
 package mx.kompara.overlay.simulator
 
 import androidx.annotation.StringRes
-import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -9,16 +9,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -26,12 +24,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -68,8 +66,6 @@ fun SimulatorScreen(
     SimulatorContent(
         state = state,
         onSelectPlatform = viewModel::selectPlatform,
-        onNext = viewModel::next,
-        onPrevious = viewModel::previous,
         onStep = viewModel::goToStep,
         onGreenFloor = viewModel::setGreenFloor,
         modifier = modifier,
@@ -81,8 +77,6 @@ fun SimulatorScreen(
 internal fun SimulatorContent(
     state: SimulatorUiState,
     onSelectPlatform: (Platform) -> Unit,
-    onNext: () -> Unit,
-    onPrevious: () -> Unit,
     onStep: (Int) -> Unit,
     onGreenFloor: (Double) -> Unit,
     modifier: Modifier = Modifier,
@@ -109,16 +103,11 @@ internal fun SimulatorContent(
         val current = state.current
         if (current != null) {
             MockOfferCardWithChip(platform = state.platform, step = current)
+            // Tap an outcome to preview that sample offer. The demo deck is ordered
+            // good → marginal → bad, so segment index 0/1/2 maps straight onto the step index;
+            // onStep re-grades the real chip through the live pipeline (not a hardcoded swatch).
+            VerdictSegmentedControl(selectedIndex = state.stepIndex, onSelect = onStep)
             VerdictHeadline(step = current)
-            StepNavigation(
-                stepIndex = state.stepIndex,
-                stepCount = state.stepCount,
-                isFirst = state.isFirstStep,
-                isLast = state.isLastStep,
-                onPrevious = onPrevious,
-                onNext = onNext,
-                onStep = onStep,
-            )
         }
 
         ThresholdPlayground(
@@ -137,22 +126,48 @@ private fun PlatformToggle(selected: Platform, onSelect: (Platform) -> Unit) {
             contentDescription = "platform-toggle"
         },
     ) {
-        FilterChip(
+        BrandFilterChip(
             selected = selected == Platform.UBER,
             onClick = { onSelect(Platform.UBER) },
-            label = { Text(stringResource(R.string.sim_platform_uber)) },
+            label = stringResource(R.string.sim_platform_uber),
         )
-        FilterChip(
+        BrandFilterChip(
             selected = selected == Platform.DIDI,
             onClick = { onSelect(Platform.DIDI) },
-            label = { Text(stringResource(R.string.sim_platform_didi)) },
+            label = stringResource(R.string.sim_platform_didi),
         )
     }
 }
 
 /**
+ * A brand-emerald pill mirroring `:ui`'s KomparaChip selected look (16% emerald fill, emerald label,
+ * 40% emerald hairline) but built from local Material3 primitives so `:overlay` adds no new `:ui`
+ * dependency. A bare [FilterChip] would fall back to a non-brand selected container.
+ */
+@Composable
+private fun BrandFilterChip(selected: Boolean, onClick: () -> Unit, label: String) {
+    val primary = MaterialTheme.colorScheme.primary
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = { Text(label, style = MaterialTheme.typography.labelMedium) },
+        shape = RoundedCornerShape(percent = 50),
+        colors = FilterChipDefaults.filterChipColors(
+            containerColor = Color.Transparent,
+            labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            selectedContainerColor = primary.copy(alpha = 0.16f),
+            selectedLabelColor = primary,
+        ),
+        border = BorderStroke(
+            width = 1.dp,
+            color = if (selected) primary.copy(alpha = 0.40f) else MaterialTheme.colorScheme.outline,
+        ),
+    )
+}
+
+/**
  * A simple Compose mock of a host-app offer card (the fixture's visible text) with the real
- * [VerdictChipUi] overlaid in the top-right — exactly where the floating chip sits over the live
+ * [VerdictChipUi] overlaid in the bottom-right — exactly where the floating chip rests over the live
  * app, but embedded in this screen (no WindowManager).
  */
 @Composable
@@ -166,14 +181,27 @@ private fun MockOfferCardWithChip(platform: Platform, step: SimulatorStep) {
             .semantics { contentDescription = cardDesc },
     ) {
         Surface(
-            shape = RoundedCornerShape(20.dp),
-            color = Color(0xFF1B1B1F),
-            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                    shape = RoundedCornerShape(12.dp),
+                ),
         ) {
-            Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            // min height keeps room for the bottom-right chip's hint/secondary-rate panel
+            // (matches the mock's 200px host).
+            Column(
+                modifier = Modifier
+                    .heightIn(min = 200.dp)
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
                 Text(
                     text = stringResource(headerRes),
-                    color = Color(0xFFB0B0B8),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium,
                 )
@@ -181,7 +209,7 @@ private fun MockOfferCardWithChip(platform: Platform, step: SimulatorStep) {
                 step.visibleText.forEachIndexed { i, line ->
                     Text(
                         text = line,
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontSize = if (i == fareLineIndex(step)) 30.sp else 15.sp,
                         fontWeight = if (i == fareLineIndex(step)) FontWeight.Black else FontWeight.Normal,
                     )
@@ -193,7 +221,7 @@ private fun MockOfferCardWithChip(platform: Platform, step: SimulatorStep) {
             state = step.chipState,
             threshold = mx.kompara.data.settings.PlatformThreshold.DEFAULT,
             modifier = Modifier
-                .align(Alignment.TopEnd)
+                .align(Alignment.BottomEnd)
                 .padding(12.dp),
         )
     }
@@ -254,42 +282,50 @@ private fun VerdictHeadline(step: SimulatorStep) {
     }
 }
 
+/**
+ * The 3-way verdict picker (mock's `.seg`): a self-explanatory selector that swaps the sample offer
+ * so the driver taps the outcome they want to preview instead of paging. The active segment uses the
+ * brand primary fill — it is a SELECTOR, not a verdict, so it never uses verde/amarillo/rojo (those
+ * stay exclusive to the chip's real verdict). Indices 0/1/2 map to good/marginal/bad via [onSelect].
+ */
 @Composable
-private fun StepNavigation(
-    stepIndex: Int,
-    stepCount: Int,
-    isFirst: Boolean,
-    isLast: Boolean,
-    onPrevious: () -> Unit,
-    onNext: () -> Unit,
-    onStep: (Int) -> Unit,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            text = stringResource(R.string.sim_step_label, stepIndex + 1, stepCount),
-            style = MaterialTheme.typography.labelMedium,
-        )
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            for (i in 0 until stepCount) {
-                val dotDesc = stringResource(R.string.sim_step_dot_desc, i + 1)
-                Box(
-                    modifier = Modifier
-                        .size(if (i == stepIndex) 12.dp else 9.dp)
-                        .clip(CircleShape)
-                        .background(
-                            if (i == stepIndex) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.outlineVariant,
-                        )
-                        .semantics { contentDescription = dotDesc },
-                )
-            }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedButton(onClick = onPrevious, enabled = !isFirst) {
-                Text(stringResource(R.string.sim_previous))
-            }
-            Button(onClick = onNext, enabled = !isLast) {
-                Text(stringResource(R.string.sim_next))
+private fun VerdictSegmentedControl(selectedIndex: Int, onSelect: (Int) -> Unit) {
+    val labels = listOf(
+        stringResource(R.string.sim_seg_good),
+        stringResource(R.string.sim_seg_marginal),
+        stringResource(R.string.sim_seg_bad),
+    )
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics { contentDescription = "verdict-segmented-control" },
+    ) {
+        Row(
+            modifier = Modifier.padding(3.dp),
+            horizontalArrangement = Arrangement.spacedBy(3.dp),
+        ) {
+            labels.forEachIndexed { index, label ->
+                val active = index == selectedIndex
+                Surface(
+                    onClick = { onSelect(index) },
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (active) MaterialTheme.colorScheme.primary else Color.Transparent,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(
+                        text = label,
+                        textAlign = TextAlign.Center,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (active) MaterialTheme.colorScheme.onPrimary
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
+                    )
+                }
             }
         }
     }
@@ -408,7 +444,7 @@ private fun SimulatorGoodPreview() {
                 ),
                 threshold = mx.kompara.data.settings.PlatformThreshold.DEFAULT,
             ),
-            onSelectPlatform = {}, onNext = {}, onPrevious = {}, onStep = {}, onGreenFloor = {},
+            onSelectPlatform = {}, onStep = {}, onGreenFloor = {},
         )
     }
 }

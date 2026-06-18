@@ -70,11 +70,10 @@
     <string name="sim_why_marginal">Apenas pasa uno de tus mínimos. Deja bien por hora, pero poco por km, porque también cuentan los kilómetros que manejas para llegar a recogerlo.</string>
     <string name="sim_why_bad">El punto de recogida está lejos. Gastas gasolina en esos kilómetros y no te los pagan, así que por km y por hora queda por debajo de tus mínimos.</string>
 
-    <!-- Step navigation -->
-    <string name="sim_next">Siguiente</string>
-    <string name="sim_previous">Anterior</string>
-    <string name="sim_step_label">Viaje %1$d de %2$d</string>
-    <string name="sim_step_dot_desc">Ir al viaje %1$d</string>
+    <!-- Verdict segmented picker (tap an outcome to preview that sample offer) -->
+    <string name="sim_seg_good">Conviene</string>
+    <string name="sim_seg_marginal">Regular</string>
+    <string name="sim_seg_bad">No conviene</string>
 
     <!-- Threshold playground -->
     <string name="sim_playground_title">Tu mínimo por km</string>
