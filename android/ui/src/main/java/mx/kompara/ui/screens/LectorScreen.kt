@@ -57,7 +57,7 @@ import javax.inject.Inject
  * The Lector tab. OFF → one tap to the system Accessibility settings (we never toggle it ourselves
  * — read-only legal/Play posture, the driver flips the switch). ON → a clean two-action layout: the
  * live screen-reader status plus the two controls the driver actually uses —
- *  - "Iniciar/Reiniciar lector de pantalla" — the screen-capture (OCR) reader (B-075) that Android
+ *  - "Iniciar/Reiniciar lector para DiDi" — the screen-capture (OCR) reader (B-075) that Android
  *    kills on every screen lock; the primary action, behind the prominent-disclosure dialog.
  *  - "Configuración de accesibilidad" — manage the permission that powers the reader.
  * Uber and DiDi offers are read the same way (screen capture), so there is no per-app split. Below

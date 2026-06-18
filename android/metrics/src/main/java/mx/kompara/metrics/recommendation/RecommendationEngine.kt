@@ -92,7 +92,7 @@ class RecommendationEngine {
             type = RecommendationType.POSITIVE,
             title = "Estás en el top ${pct.topPercent}%",
             body = "Tu ingreso por hora está en el top ${pct.topPercent}% de los conductores en $cityLabel." +
-                " Vas muy bien — sigue manejando en tus mejores bloques.",
+                " Vas muy bien — sigue manejando en tus mejores horarios.",
             premium = true,
         )
     }
@@ -192,7 +192,7 @@ class RecommendationEngine {
             id = "best_hours",
             type = RecommendationType.INFO,
             title = "Tus mejores horas",
-            body = "Tu mejor bloque fue el $day de ${formatHour(block.hour)} a ${formatHour(endHour)}:" +
+            body = "Tu mejor horario fue el $day de ${formatHour(block.hour)} a ${formatHour(endHour)}:" +
                 " ${formatMxn(block.netMxn)} netos. Maneja más en ese horario.",
             premium = false,
         )
