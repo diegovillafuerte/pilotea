@@ -21,6 +21,7 @@ import mx.kompara.sync.aggregate.AggregateSyncScheduler
 import mx.kompara.sync.config.PaywallConfigRepository
 import mx.kompara.sync.spec.SpecConfigRefreshWorker
 import mx.kompara.sync.spec.SpecConfigRepository
+import mx.kompara.sync.verification.VerificationStatusRepository
 import mx.kompara.sync.telemetry.TelemetryScheduler
 import mx.kompara.ui.fiscal.FiscalMonthEndScheduler
 import mx.kompara.ui.onboarding.ServiceWatchdog
@@ -74,6 +75,9 @@ class KomparaApplication : Application(), Configuration.Provider {
 
     // B-050 remote paywall kill switch: refresh the cached flag on app open (TTL-gated, best-effort).
     @Inject lateinit var paywallConfigRepository: PaywallConfigRepository
+
+    // PR-E import/data verification: refresh the cached /v1/me `verified` flag on app open (TTL-gated).
+    @Inject lateinit var verificationStatusRepository: VerificationStatusRepository
 
     // B-055 Monday week-close share reminder: weekly Monday-09:00 check + a run on this app open.
     @Inject lateinit var weekCloseScheduler: WeekCloseScheduler
@@ -142,6 +146,11 @@ class KomparaApplication : Application(), Configuration.Provider {
         // and best-effort — a failed fetch keeps the last-known flag (or the gating-ON default), so a
         // network hiccup never accidentally unlocks premium.
         appScope.launch { paywallConfigRepository.refresh() }
+
+        // PR-E: refresh the cached import/data-verification flag (GET /v1/me) so a fresh verify/revoke
+        // applies this session. TTL-gated + best-effort — a failed fetch keeps the last-known flag
+        // (sticky-positive), so a transient blip never re-locks a verified driver's benchmarks/compare.
+        appScope.launch { verificationStatusRepository.refresh() }
 
         // B-051: keep the daily month-end IMSS check enqueued, and run one now (the "next app open"
         // path) so a just-ended month's summary fires promptly. Both are idempotent via the per-month

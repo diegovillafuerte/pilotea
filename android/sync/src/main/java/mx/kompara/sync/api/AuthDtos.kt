@@ -51,6 +51,13 @@ data class MeResponse(
      * grant unlocks premium without a Play purchase.
      */
     val premiumUntilMillis: Long? = null,
+    /**
+     * Import/data verification (derived server-side from the driver's imports; account-onboarding
+     * design §3). Gates the population-dependent paid surfaces (benchmarks/compare). Defaults to false
+     * so an older/missing field fails closed (unverified). Cached client-side by
+     * [mx.kompara.sync.verification.VerificationStatusRepository].
+     */
+    val verified: Boolean = false,
 )
 
 /** Body for PATCH /v1/me. Null fields are omitted server-side as no-ops. */

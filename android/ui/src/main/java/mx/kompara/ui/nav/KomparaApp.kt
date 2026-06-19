@@ -201,6 +201,8 @@ private fun NavGraphBuilder.tabScreens(navController: NavController) {
             onOpenToday = { navController.navigate(KomparaDestination.DAY_DETAIL_ROUTE) },
             onOpenReaderTrial = { navController.navigate(KomparaDestination.SIMULATOR_ROUTE) },
             onUpgrade = { surface -> navController.navigateToPaywall(surface) },
+            // PR-E: a premium-but-unverified driver's benchmark gate routes here to verify by importing.
+            onImport = { navController.navigate(KomparaDestination.IMPORT_ROUTE) },
             onOpenShareCard = { navController.navigate(KomparaDestination.SHARE_CARD_ROUTE) },
         )
     }

@@ -104,15 +104,14 @@ class InicioDashboardViewModel @Inject constructor(
     ) { inputs, city, gate ->
         Triple(inputs, city, gate)
     }.flatMapLatest { (inputs, city, gate) ->
-        val locked = gate.isLocked
         val platform = inputs.platform
         if (platform == null || platform == Platform.UNKNOWN) {
             // No concrete platform (e.g. "Todas") -> no percentiles.
-            flowOf(PercentilesUiState(byMetric = emptyMap(), locked = locked))
+            flowOf(PercentilesUiState(byMetric = emptyMap(), gateState = gate))
         } else {
             percentileRepository
                 .observe(city, platform.name.lowercase(), MetricPercentiles.metricValues(inputs.period))
-                .map { results -> PercentilesUiState(MetricPercentiles.byMetric(results), locked) }
+                .map { results -> PercentilesUiState(MetricPercentiles.byMetric(results), gateState = gate) }
         }
     }.stateIn(
         scope = viewModelScope,
@@ -156,9 +155,11 @@ class InicioDashboardViewModel @Inject constructor(
         val bestHour = BestHourFinder(weekClock.zone, marginalCostPerKm).best(trips)
         val recs = RecommendationsBuilder.build(
             period = base.period,
-            // Percentile-dependent rules are premium; only feed real percentiles when unlocked so a
-            // gated driver's premium tips guard themselves out and we never leak the standing.
-            percentiles = if (rec.gate.isUnlocked) pct.byMetric.values.toList() else emptyList(),
+            // Percentile-dependent rules use POPULATION data, so they gate on the BENCHMARKS gate, NOT
+            // the (own-data) RECOMMENDATIONS gate — otherwise a premium-but-unverified driver, whose
+            // RECOMMENDATIONS stays unlocked but whose BENCHMARKS is NEEDS_VERIFICATION, would leak the
+            // standing through Consejos, outside the PaywallGate tease (PR-E, codex review).
+            percentiles = if (pct.gateState.isUnlocked) pct.byMetric.values.toList() else emptyList(),
             cityLabel = rec.city.displayName,
             streakWeeks = base.streak.weeks,
             weeklyNetGoalMxn = if (base.goal.hasGoal) base.goal.goalMxn else null,

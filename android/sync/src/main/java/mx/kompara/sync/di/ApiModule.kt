@@ -22,6 +22,8 @@ import mx.kompara.sync.api.ApiClient
 import mx.kompara.sync.api.DeviceIdProvider
 import mx.kompara.sync.api.SessionInvalidator
 import mx.kompara.sync.api.TokenProvider
+import mx.kompara.sync.verification.VerificationDataStore
+import mx.kompara.sync.verification.VerificationStatusRepository
 import java.util.UUID
 import javax.inject.Qualifier
 import javax.inject.Singleton
@@ -115,11 +117,18 @@ object ApiModule {
     @Singleton
     fun provideSessionInvalidator(
         @AuthDataStore dataStore: DataStore<Preferences>,
+        @VerificationDataStore verificationDataStore: DataStore<Preferences>,
     ): SessionInvalidator = SessionInvalidator {
         dataStore.edit { prefs ->
             prefs.remove(stringPreferencesKey(KEY_SESSION_TOKEN))
             prefs.remove(stringPreferencesKey(KEY_DRIVER_JSON))
         }
+        // PR-E: also drop cached import/data verification, so account A's verified=true can't leak into
+        // account B after a 401-driven re-auth on the same device. Cleared DIRECTLY (not via the repo)
+        // to keep the graph acyclic — ApiClient depends on this invalidator and the repo depends on
+        // ApiClient. The shared helper bumps the same generation the repo's refresh checks, so an
+        // in-flight fetch racing this clear is discarded too.
+        VerificationStatusRepository.clearVerification(verificationDataStore)
     }
 
     /**

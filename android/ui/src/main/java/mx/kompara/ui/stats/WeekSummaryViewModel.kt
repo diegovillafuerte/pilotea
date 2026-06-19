@@ -67,14 +67,13 @@ class WeekSummaryViewModel @Inject constructor(
     ) { inputs, city, gate ->
         Triple(inputs, city, gate)
     }.flatMapLatest { (inputs, city, gate) ->
-        val locked = gate.isLocked
         val platform = inputs.platform
         if (platform == null || platform == Platform.UNKNOWN) {
-            flowOf(PercentilesUiState(byMetric = emptyMap(), locked = locked))
+            flowOf(PercentilesUiState(byMetric = emptyMap(), gateState = gate))
         } else {
             percentileRepository
                 .observe(city, platform.name.lowercase(), MetricPercentiles.metricValues(inputs.period))
-                .map { results -> PercentilesUiState(MetricPercentiles.byMetric(results), locked) }
+                .map { results -> PercentilesUiState(MetricPercentiles.byMetric(results), gateState = gate) }
         }
     }.stateIn(
         scope = viewModelScope,

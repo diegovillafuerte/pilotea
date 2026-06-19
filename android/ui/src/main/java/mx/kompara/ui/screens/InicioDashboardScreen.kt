@@ -86,6 +86,7 @@ fun InicioDashboardScreen(
     onOpenToday: () -> Unit = {},
     onOpenReaderTrial: () -> Unit = {},
     onUpgrade: (GateSurface) -> Unit = {},
+    onImport: () -> Unit = {},
     onOpenShareCard: () -> Unit = {},
     dashboardViewModel: InicioDashboardViewModel = hiltViewModel(),
 ) {
@@ -112,6 +113,7 @@ fun InicioDashboardScreen(
                 onOpenToday = onOpenToday,
                 gateFunnel = dashboardViewModel.gateFunnel,
                 onUpgrade = onUpgrade,
+                onImport = onImport,
                 onOpenShareCard = onOpenShareCard,
             )
         }
@@ -126,6 +128,7 @@ private fun DashboardContent(
     onOpenToday: () -> Unit,
     gateFunnel: GateFunnel? = null,
     onUpgrade: (GateSurface) -> Unit = {},
+    onImport: () -> Unit = {},
     onOpenShareCard: () -> Unit = {},
 ) {
     Column(
@@ -165,11 +168,13 @@ private fun DashboardContent(
         if (state.percentiles.locked && gateFunnel != null) {
             PaywallGate(
                 surface = GateSurface.BENCHMARKS,
-                state = GateState.LOCKED,
+                state = state.percentiles.gateState,
                 valueHint = stringResource(R.string.gate_hint_benchmarks),
                 funnel = gateFunnel,
                 onUpgrade = onUpgrade,
                 ctaText = stringResource(R.string.paywall_cta),
+                // Premium-but-unverified (PR-E): the CTA imports a week to verify, not the paywall.
+                onVerify = { onImport() },
             ) {
                 // Teaser preview content (blurred by the gate): a neutral comparison strip.
                 Card(

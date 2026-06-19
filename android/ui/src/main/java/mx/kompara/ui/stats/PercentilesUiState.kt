@@ -1,26 +1,30 @@
 package mx.kompara.ui.stats
 
+import mx.kompara.billing.GateState
 import mx.kompara.metrics.percentile.PercentileResult
 
 /**
  * The percentile overlay for a stats surface (B-046): the per-metric standings to paint onto the
- * metric cards, plus the premium [locked] gate.
+ * metric cards, plus the premium [gateState] that decides whether to show them.
  *
  * @property byMetric backend metric key → the driver's [PercentileResult] for it; empty when no
  *   benchmarks are cached yet or no concrete platform is selected (so the cards just render bare).
- * @property locked true to render the premium-locked stand-in instead of the real standing. Set from
- *   `!(canSeeBenchmarks || debugPremium)` — see the viewmodels.
+ * @property gateState the resolved BENCHMARKS [GateState]. Carried (not just a `locked` boolean) so the
+ *   surface can distinguish LOCKED (pay) from NEEDS_VERIFICATION (import to verify) — PR-E.
  */
 data class PercentilesUiState(
     val byMetric: Map<String, PercentileResult>,
-    val locked: Boolean,
+    val gateState: GateState,
 ) {
-    /** True when there is at least one standing to show (and we're not locked). */
+    /** True to render the premium-locked stand-in instead of the real standing (any non-unlocked state). */
+    val locked: Boolean get() = !gateState.isUnlocked
+
+    /** True when there is at least one standing to show. */
     val hasAny: Boolean get() = byMetric.isNotEmpty()
 
     companion object {
-        /** No percentiles, not locked — the default before benchmarks arrive. */
-        val EMPTY = PercentilesUiState(byMetric = emptyMap(), locked = false)
+        /** No percentiles, unlocked — the default before benchmarks arrive. */
+        val EMPTY = PercentilesUiState(byMetric = emptyMap(), gateState = GateState.UNLOCKED)
     }
 }
 

@@ -21,8 +21,8 @@ import javax.inject.Singleton
  *     premium surface unlocks for everyone; it defaults to ENABLED so a missing/failed config never
  *     accidentally unlocks premium.
  *  4. [VerificationSource] → import/data verification, gating ONLY the population-dependent surfaces
- *     ([GateStates.VERIFICATION_REQUIRED]); promo/debug bypass it. Bound to a constant `true` (inert)
- *     until the import wizard ships — see [VerificationSource] and GateModule.
+ *     ([GateStates.VERIFICATION_REQUIRED]); promo/debug bypass it. LIVE (PR-E): bound in `:app`'s
+ *     GateModule to the cached `GET /v1/me` `verified` flag — see [VerificationSource] and GateModule.
  *
  * …into a reactive [GateStates] snapshot ([gateStates]) and per-capability [GateState] flows
  * ([gateFor]). The UI's [PaywallGate] and the gated viewmodels observe these — they never recombine the
@@ -36,8 +36,9 @@ class TierGatekeeper @Inject constructor(
     private val entitlementRepository: EntitlementRepository,
     private val debugPremiumSource: DebugPremiumSource,
     private val paywallConfigSource: PaywallConfigSource,
-    // Defaulted to "always verified" so test construction and any not-yet-bound path stay inert; the
-    // real /v1/me-backed source is bound in GateModule (and only flipped on once the import wizard ships).
+    // Defaulted to a constant `true` ONLY so manual test construction and any unbound path stay inert
+    // (behave as before). The REAL source bound in `:app`'s GateModule fails CLOSED (false) when nothing
+    // is cached — do NOT mistake this `true` default for the production contract.
     private val verificationSource: VerificationSource = VerificationSource { flowOf(true) },
 ) {
 
@@ -87,18 +88,23 @@ fun interface PaywallConfigSource {
 }
 
 /**
- * Supplies the driver's import/data-verification status (account-onboarding design §0.5). Declared in
- * `:billing` so the gatekeeper has no HTTP dependency; `:sync`/`:app` bind it to the cached
- * `GET /v1/me` `verified` flag once enforcement is turned on. Gates ONLY the population-dependent
- * surfaces ([GateStates.VERIFICATION_REQUIRED]); promo/debug bypass it.
+ * Supplies the driver's import/data-verification status (account-onboarding design §3). Declared in
+ * `:billing` so the gatekeeper has no HTTP dependency; `:app`'s GateModule binds it (PR-E) to the
+ * cached `GET /v1/me` `verified` flag ([mx.kompara.sync.verification.VerificationStatusRepository]).
+ * Gates ONLY the population-dependent surfaces ([GateStates.VERIFICATION_REQUIRED]); promo/debug bypass.
  *
- * MUST emit a seed value SYNCHRONOUSLY (a StateFlow / stateIn with an initial value — never
- * emptyFlow()-then-fetch): the gatekeeper's combine doesn't emit until EVERY source has emitted once,
- * so a source that does network-then-emit would stall the WHOLE gate — including HISTORY/FISCAL, which
- * don't depend on verification — and lock a paying driver out of their own data during the fetch. MUST
- * also fail SAFE-FOR-THE-DRIVER: seed `true` on fresh install / offline / fetch failure once a positive
- * result has been seen (sticky-positive), so a transport hiccup never re-locks a verified driver
- * mid-session. Until the import wizard ships, this is bound to a constant `true` (inert).
+ * Contract the live impl satisfies:
+ *  - **Seed fast, never stall the combine.** Emit from a value-backed flow (a DataStore `data.map{}`, a
+ *    fast local read — like [PaywallConfigSource]), never `emptyFlow()`-then-network: the combine
+ *    doesn't emit until EVERY source has emitted once, so a network-then-emit source would stall the
+ *    WHOLE gate (incl. HISTORY/FISCAL, which don't depend on verification).
+ *  - **Fail CLOSED when nothing is cached.** A fresh install / never-fetched cache seeds `false`
+ *    (unverified) — a premium driver then gets the NEEDS_VERIFICATION import CTA, not a free unlock.
+ *    (Do NOT "fix" this to `true`; that would silently unlock benchmarks/compare for every unverified
+ *    premium driver and defeat the resale deterrent.)
+ *  - **Sticky-positive AFTER a positive is observed.** Once `verified=true` is cached, a transient
+ *    `/v1/me` failure must NOT re-lock the driver mid-session (the cache is kept on failure). Only a
+ *    *successful* server `false` (a revocation) downgrades it; logout / 401 invalidation clears it.
  */
 fun interface VerificationSource {
     /** Reactive verification flag. true = import/data-verified (or verification not yet enforced). */

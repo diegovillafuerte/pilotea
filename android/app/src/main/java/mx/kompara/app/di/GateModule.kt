@@ -4,13 +4,13 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import mx.kompara.billing.DebugPremiumSource
 import mx.kompara.billing.PaywallConfigSource
 import mx.kompara.billing.VerificationSource
 import mx.kompara.data.settings.SettingsRepository
 import mx.kompara.sync.config.PaywallConfigRepository
+import mx.kompara.sync.verification.VerificationStatusRepository
 import javax.inject.Singleton
 
 /**
@@ -39,14 +39,17 @@ object GateModule {
         PaywallConfigSource { repo.paywallEnabled }
 
     /**
-     * INERT until the import wizard ships (PR-D) and enforcement is flipped on (PR-E): the verification
-     * gate is wired through [TierGatekeeper] but its source emits a constant `true`, so no driver is ever
-     * locked out of BENCHMARKS/COMPARE for being unverified yet — which would be a chicken-and-egg trap
-     * (they couldn't verify without the wizard). PR-E swaps this for the cached `GET /v1/me` `verified`
-     * source (sticky-positive, fails safe-for-the-driver).
+     * The real import/data-verification source (PR-E — the gate is now LIVE): the cached `GET /v1/me`
+     * `verified` flag from [VerificationStatusRepository]. Backed by a DataStore flow (a fast local
+     * read, not a network round-trip) so it seeds the gatekeeper's `combine` immediately without
+     * stalling the unrelated surfaces; it fails closed (unverified) only when nothing is cached, and is
+     * sticky-positive against transient `/v1/me` failures. Now that the import wizard + Comparar entry +
+     * share-target are reachable, an unverified premium driver gets a NEEDS_VERIFICATION CTA into the
+     * import flow rather than a chicken-and-egg trap. During launch promo (`!paywallEnabled`) the gate
+     * bypasses verification entirely, so this only bites once paid enforcement is on.
      */
     @Provides
     @Singleton
-    fun provideVerificationSource(): VerificationSource =
-        VerificationSource { flowOf(true) }
+    fun provideVerificationSource(repository: VerificationStatusRepository): VerificationSource =
+        VerificationSource { repository.verified }
 }

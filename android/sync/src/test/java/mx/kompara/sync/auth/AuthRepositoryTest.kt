@@ -22,6 +22,7 @@ import kotlinx.serialization.json.Json
 import mx.kompara.sync.api.ApiClient
 import mx.kompara.sync.api.ApiException
 import mx.kompara.sync.api.TokenProvider
+import mx.kompara.sync.verification.VerificationSignals
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -275,6 +276,59 @@ class AuthRepositoryTest {
         // The logout request carried the bearer token.
         val logoutReq = recorded.last { it.url.encodedPath.endsWith("/v1/auth/logout") }
         assertEquals("Bearer tok", logoutReq.headers[HttpHeaders.Authorization])
+    }
+
+    @Test
+    fun `verifyOtp rehydrates verification for the new session (PR-E)`() = runTest {
+        dataStore = newDataStore()
+        val api = buildApi({ null }) { req ->
+            when {
+                req.url.encodedPath.endsWith("/v1/auth/otp/verify") -> jsonResponse(
+                    """{"token":"tok","driver":{"id":"d-1","phone":"+521","tier":"free"}}""",
+                )
+                else -> jsonResponse("""{"ok":true}""")
+            }
+        }
+        val verification = RecordingVerification()
+        val repo = AuthRepository(dataStore, api, json, verification = verification)
+
+        repo.verifyOtp("+521", "123456")
+
+        // A verified driver logging back in must re-pull /v1/me, not stay stuck at the post-reset false.
+        assertEquals(1, verification.synced)
+    }
+
+    @Test
+    fun `logout resets cached verification (resale guard, PR-E)`() = runTest {
+        dataStore = newDataStore()
+        val tokenProvider = TokenProvider { dataStore.data.first()[
+            androidx.datastore.preferences.core.stringPreferencesKey("session_token")
+        ] }
+        val api = buildApi(tokenProvider) { req ->
+            when {
+                req.url.encodedPath.endsWith("/v1/auth/otp/verify") -> jsonResponse(
+                    """{"token":"tok","driver":{"id":"d-1","phone":"+521","tier":"free"}}""",
+                )
+                else -> jsonResponse("""{"ok":true}""")
+            }
+        }
+        val verification = RecordingVerification()
+        val repo = AuthRepository(dataStore, api, json, verification = verification)
+        repo.verifyOtp("+521", "123456")
+
+        repo.logout()
+
+        assertTrue(verification.resetCount >= 1)
+    }
+
+    /** Records the verification side-effects the auth lifecycle fires (PR-E). */
+    private class RecordingVerification : VerificationSignals {
+        var resetCount = 0
+        var synced = 0
+        override suspend fun sessionGeneration() = 0
+        override suspend fun markVerified(generation: Int) = Unit
+        override suspend fun reset() { resetCount++ }
+        override suspend fun syncFromServer() { synced++ }
     }
 
     @Test

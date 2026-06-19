@@ -41,10 +41,19 @@ enum class GateState {
      * never the real data. Reached for a free driver while the paywall is enabled.
      */
     LOCKED,
+
+    /**
+     * Premium-but-unverified on a population-dependent surface ([GateStates.VERIFICATION_REQUIRED]):
+     * the driver already pays, but benchmarks/compare also require import/data verification. Render the
+     * tease, but with a VERIFY CTA ("importa una semana real") routing to the import flow — NOT the
+     * paywall (paying again can't satisfy it). See account-onboarding design §3.2 / TD-037.
+     */
+    NEEDS_VERIFICATION,
     ;
 
     val isUnlocked: Boolean get() = this == UNLOCKED
     val isLocked: Boolean get() = this == LOCKED
+    val isNeedsVerification: Boolean get() = this == NEEDS_VERIFICATION
 }
 
 /**
@@ -86,9 +95,9 @@ data class GateStates(
          * which additionally require [driverVerified]. Reader/today-stats are not capabilities here, so
          * they can't be locked.
          *
-         * `driverVerified` defaults to `true` so the verification term is INERT until the real
-         * verification source is wired in (the import wizard must ship first — see GateModule); a
-         * default of true means existing call sites behave exactly as before.
+         * `driverVerified` defaults to `true` so the verification term stays INERT for any call site
+         * that doesn't pass it (and for tests). The real, possibly-`false` source is bound in `:app`'s
+         * GateModule (PR-E); a default of true means a non-passing call site behaves exactly as before.
          */
         fun derive(
             premium: Boolean,
@@ -98,13 +107,12 @@ data class GateStates(
         ): GateStates {
             val bypass = !paywallEnabled || debugOverride // launch promo / demo: unlock all, no verification
             val states = Capability.entries.associateWith { cap ->
-                val unlocked = when {
-                    bypass -> true
-                    !premium -> false
-                    cap in VERIFICATION_REQUIRED -> driverVerified
-                    else -> true
+                when {
+                    bypass -> GateState.UNLOCKED
+                    !premium -> GateState.LOCKED // not paying → the paywall, regardless of verification
+                    cap in VERIFICATION_REQUIRED && !driverVerified -> GateState.NEEDS_VERIFICATION
+                    else -> GateState.UNLOCKED // premium and (not population-dependent, or verified)
                 }
-                if (unlocked) GateState.UNLOCKED else GateState.LOCKED
             }
             return GateStates(
                 premium = premium,

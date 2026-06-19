@@ -75,14 +75,28 @@ class TierGatekeeperTest {
             paywallEnabled = true,
             driverVerified = false,
         )
-        // Population-dependent surfaces require verification.
-        assertEquals(GateState.LOCKED, states.stateFor(Capability.BENCHMARKS))
-        assertEquals(GateState.LOCKED, states.stateFor(Capability.COMPARE))
+        // Population-dependent surfaces require verification → the distinct NEEDS_VERIFICATION state
+        // (a paid driver can't satisfy it by paying again; the CTA routes to import, not the paywall).
+        assertEquals(GateState.NEEDS_VERIFICATION, states.stateFor(Capability.BENCHMARKS))
+        assertEquals(GateState.NEEDS_VERIFICATION, states.stateFor(Capability.COMPARE))
         // The driver's OWN paid data stays unlocked — they paid for it.
         assertEquals(GateState.UNLOCKED, states.stateFor(Capability.HISTORY))
         assertEquals(GateState.UNLOCKED, states.stateFor(Capability.FISCAL))
         assertEquals(GateState.UNLOCKED, states.stateFor(Capability.RECOMMENDATIONS))
         assertFalse(states.driverVerified)
+    }
+
+    @Test
+    fun `a free unverified driver sees LOCKED not NEEDS_VERIFICATION (pay first)`() {
+        // Verification only becomes the gate AFTER the driver pays — a free driver hits the paywall.
+        val states = GateStates.derive(
+            premium = false,
+            debugOverride = false,
+            paywallEnabled = true,
+            driverVerified = false,
+        )
+        assertEquals(GateState.LOCKED, states.stateFor(Capability.BENCHMARKS))
+        assertEquals(GateState.LOCKED, states.stateFor(Capability.COMPARE))
     }
 
     @Test
@@ -234,10 +248,10 @@ class TierGatekeeperTest {
         repo.start(TestScope(StandardTestDispatcher(testScheduler)))
         advanceUntilIdle()
 
-        // Premium but unverified: COMPARE locked, but the driver's own HISTORY stays unlocked.
+        // Premium but unverified: COMPARE needs verification, but the driver's own HISTORY stays unlocked.
         billing.emit(listOf(premiumPurchase()))
         advanceUntilIdle()
-        assertEquals(GateState.LOCKED, gk.gateFor(Capability.COMPARE).first())
+        assertEquals(GateState.NEEDS_VERIFICATION, gk.gateFor(Capability.COMPARE).first())
         assertEquals(GateState.UNLOCKED, gk.gateFor(Capability.HISTORY).first())
 
         // Verifying (e.g. a successful import) flips COMPARE open with no new purchase.

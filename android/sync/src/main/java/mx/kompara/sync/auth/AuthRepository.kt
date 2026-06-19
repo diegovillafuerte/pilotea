@@ -14,6 +14,7 @@ import mx.kompara.sync.api.DriverDto
 import mx.kompara.sync.api.UpdateProfileBody
 import mx.kompara.sync.di.AuthDataStore
 import mx.kompara.sync.di.DevAuthBypass
+import mx.kompara.sync.verification.VerificationSignals
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -47,6 +48,7 @@ class AuthRepository @Inject constructor(
     private val api: ApiClient,
     private val json: Json,
     @DevAuthBypass private val devBypassEnabled: Boolean = BuildConfig.DEBUG,
+    private val verification: VerificationSignals = VerificationSignals.NONE,
 ) {
     private val deviceIdKey = stringPreferencesKey(KEY_DEVICE_ID)
     private val tokenKey = stringPreferencesKey(KEY_SESSION_TOKEN)
@@ -125,6 +127,10 @@ class AuthRepository @Inject constructor(
         val device = deviceId()
         val res = api.verifyOtp(phone = phone, code = code, deviceId = device)
         persistSession(res.token, res.driver)
+        // Rehydrate verification for the now-signed-in account so a verified driver who logs back in
+        // (or switches to an already-verified account in this process) isn't stuck at the post-reset
+        // `false` until the next app restart. Best-effort — the seam swallows a failed /v1/me.
+        verification.syncFromServer()
         return res.driver
     }
 
@@ -171,6 +177,9 @@ class AuthRepository @Inject constructor(
             prefs.remove(tokenKey)
             prefs.remove(driverKey)
         }
+        // Reset cached import/data verification so it can't survive into another account's session on
+        // this device (a resale vector; account-onboarding design §0.5). Re-proven on the next import.
+        verification.reset()
     }
 
     private suspend fun persistSession(token: String, driver: DriverDto) {

@@ -22,6 +22,7 @@ import mx.kompara.sync.aggregate.SessionGate
 import mx.kompara.sync.api.ApiClient
 import mx.kompara.sync.api.ApiException
 import mx.kompara.sync.api.ImportFile
+import mx.kompara.sync.verification.VerificationSignals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
@@ -86,12 +87,24 @@ class ImportRepositoryTest {
         dao: AggregateDao = FakeImportDao(),
         signedIn: Boolean = true,
         clockMillis: Long = 1_000L,
+        verification: VerificationSignals = VerificationSignals.NONE,
     ) = ImportRepository(
         api = api,
         aggregateDao = dao,
         session = SessionGate { signedIn },
         clock = fixedClock(clockMillis),
+        verification = verification,
     )
+
+    /** Records [VerificationSignals.markVerified] calls so a test can assert import-as-proof. */
+    private class RecordingVerification : VerificationSignals {
+        var marked = 0
+        var markedGeneration: Int? = null
+        override suspend fun sessionGeneration() = 7 // a distinct value to assert it's threaded through
+        override suspend fun markVerified(generation: Int) { marked++; markedGeneration = generation }
+        override suspend fun reset() = Unit
+        override suspend fun syncFromServer() = Unit
+    }
 
     private val previewBody = """
         {
@@ -178,6 +191,27 @@ class ImportRepositoryTest {
         assertEquals(7_000L, row.computedAt)
         assertNull(row.acceptanceRate)
         assertNull(row.lastSyncedAt)
+    }
+
+    @Test
+    fun `confirm marks the driver verified (import-as-proof)`() = runTest {
+        val verification = RecordingVerification()
+        val repository = repo(api { okJson(confirmBody) }, verification = verification)
+
+        repository.confirm("uber", "pdf", listOf(pdf()))
+
+        assertEquals(1, verification.marked) // a successful non-dry-run import IS the verification event
+        assertEquals(7, verification.markedGeneration) // the pre-upload generation snapshot is threaded through
+    }
+
+    @Test
+    fun `preview (dry-run) does NOT mark the driver verified`() = runTest {
+        val verification = RecordingVerification()
+        val repository = repo(api { okJson(previewBody) }, verification = verification)
+
+        repository.preview("uber", "pdf", listOf(pdf()))
+
+        assertEquals(0, verification.marked) // a dry-run proves nothing
     }
 
     @Test

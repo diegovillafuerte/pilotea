@@ -10,6 +10,7 @@ import mx.kompara.sync.api.ApiException
 import mx.kompara.sync.api.ImportFile
 import mx.kompara.sync.api.ImportMetrics
 import mx.kompara.sync.api.ImportResponse
+import mx.kompara.sync.verification.VerificationSignals
 import java.time.Clock
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -58,6 +59,7 @@ class ImportRepository @Inject constructor(
     private val aggregateDao: AggregateDao,
     private val session: SessionGate,
     private val clock: Clock = Clock.systemUTC(),
+    private val verification: VerificationSignals = VerificationSignals.NONE,
 ) : Importer {
 
     /** True when a session token is held — uploads require an account. */
@@ -86,8 +88,14 @@ class ImportRepository @Inject constructor(
         files: List<ImportFile>,
     ): ImportResponse {
         validateFileCount(platform, files)
+        // Snapshot the verification session BEFORE the upload: if a logout/account-switch lands while
+        // the import is in flight, the mark below is discarded (it would belong to a session that's gone).
+        val generation = verification.sessionGeneration()
         val response = api.importWeek(platform, uploadType, files, dryRun = false)
         upsertLocal(platform, response.metrics)
+        // A successful non-dry-run import IS the verification event (account-onboarding design §3):
+        // mark verified now so the benchmarks/compare gate unlocks immediately, no extra round-trip.
+        verification.markVerified(generation)
         return response
     }
 

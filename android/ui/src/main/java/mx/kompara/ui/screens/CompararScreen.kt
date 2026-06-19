@@ -137,10 +137,13 @@ private fun CompararContent(
                     funnel = gateFunnel,
                     onUpgrade = onUpgrade,
                     ctaText = stringResource(R.string.paywall_cta),
+                    // Premium-but-unverified (PR-E): the CTA imports a week to verify, not the paywall.
+                    onVerify = { onImport() },
                 ) {
                     // Never hand real premium values to the (only alpha-dimmed on API 26–30) tease:
-                    // when locked, render the table shape with masked values + no opportunities.
-                    val gated = if (gateState.isLocked) c.maskedForLock() else c
+                    // any non-unlocked state (LOCKED or NEEDS_VERIFICATION) renders the table shape with
+                    // masked values + no opportunities (TD-033).
+                    val gated = if (gateState.isUnlocked) c else c.maskedForLock()
                     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                         BenchmarkTable(gated)
                         OpportunitiesSection(gated.opportunities)

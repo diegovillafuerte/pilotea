@@ -60,12 +60,20 @@ fun PaywallGate(
     onUpgrade: (GateSurface) -> Unit,
     modifier: Modifier = Modifier,
     ctaText: String = "Probar Kompara Premium",
+    onVerify: (GateSurface) -> Unit = onUpgrade,
+    verifyCtaText: String = "Importa una semana para desbloquear",
     content: @Composable () -> Unit,
 ) {
     if (state.isUnlocked) {
         Box(modifier) { content() }
         return
     }
+
+    // A premium-but-unverified driver (PR-E): same tease, but the CTA imports a week to verify rather
+    // than re-opening the paywall (paying again can't unlock it).
+    val needsVerification = state.isNeedsVerification
+    val cta = if (needsVerification) verifyCtaText else ctaText
+    val onCta: () -> Unit = if (needsVerification) ({ onVerify(surface) }) else ({ onUpgrade(surface) })
 
     // Record the gate impression once per (re)entry into the locked state for this surface.
     LaunchedEffect(surface, state) {
@@ -95,7 +103,7 @@ fun PaywallGate(
                 .fillMaxWidth()
                 .padding(16.dp)
                 .clearAndSetSemantics {
-                    contentDescription = "$valueHint. $ctaText"
+                    contentDescription = "$valueHint. $cta"
                 },
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -118,8 +126,8 @@ fun PaywallGate(
                 color = MaterialTheme.colorScheme.onSurface,
             )
             PrimaryButton(
-                text = ctaText,
-                onClick = { onUpgrade(surface) },
+                text = cta,
+                onClick = onCta,
             )
         }
     }
