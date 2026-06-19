@@ -96,9 +96,10 @@ class ApiClient @Inject constructor(
 
     /** POST /v1/auth/logout — revoke the current session (bearer). */
     suspend fun logout() {
+        val sent = tokenProvider.currentToken()
         ensureOk(
             http.post("$baseUrl/v1/auth/logout") {
-                bearer()
+                bearer(sent)
             },
         )
     }
@@ -106,7 +107,7 @@ class ApiClient @Inject constructor(
     /** GET /v1/me — fetch the authenticated driver profile (bearer). */
     suspend fun getMe(): DriverDto {
         val sent = tokenProvider.currentToken()
-        val res = http.get("$baseUrl/v1/me") { bearer() }
+        val res = http.get("$baseUrl/v1/me") { bearer(sent) }
         ensureOkAuthed(res, sent)
         return res.body<MeResponse>().driver
     }
@@ -120,7 +121,7 @@ class ApiClient @Inject constructor(
      */
     suspend fun getMeFull(): MeResponse {
         val sent = tokenProvider.currentToken()
-        val res = http.get("$baseUrl/v1/me") { bearer() }
+        val res = http.get("$baseUrl/v1/me") { bearer(sent) }
         ensureOkAuthed(res, sent)
         return res.body()
     }
@@ -131,7 +132,7 @@ class ApiClient @Inject constructor(
      */
     suspend fun getReferralMine(): ReferralMineResponse {
         val sent = tokenProvider.currentToken()
-        val res = http.get("$baseUrl/v1/referrals/mine") { bearer() }
+        val res = http.get("$baseUrl/v1/referrals/mine") { bearer(sent) }
         ensureOkAuthed(res, sent)
         return res.body()
     }
@@ -144,7 +145,7 @@ class ApiClient @Inject constructor(
     suspend fun redeemReferral(body: ReferralRedeemBody): ReferralRedeemResponse {
         val sent = tokenProvider.currentToken()
         val res = http.post("$baseUrl/v1/referrals/redeem") {
-            bearer()
+            bearer(sent)
             contentType(ContentType.Application.Json)
             setBody(body)
         }
@@ -166,8 +167,9 @@ class ApiClient @Inject constructor(
         packageName: String? = null,
         versionCode: Long? = null,
     ): SignedSpecBundle {
+        val sent = tokenProvider.currentToken()
         val res = http.get("$baseUrl/v1/parser-configs/bundle") {
-            bearer()
+            bearer(sent)
             packageName?.let { parameter("package", it) }
             versionCode?.let { parameter("versionCode", it.toString()) }
         }
@@ -179,7 +181,7 @@ class ApiClient @Inject constructor(
     suspend fun updateMe(body: UpdateProfileBody): DriverDto {
         val sent = tokenProvider.currentToken()
         val res = http.patch("$baseUrl/v1/me") {
-            bearer()
+            bearer(sent)
             contentType(ContentType.Application.Json)
             setBody(body)
         }
@@ -190,7 +192,7 @@ class ApiClient @Inject constructor(
     /** DELETE /v1/me — permanently delete the driver account (bearer). Play data-safety (B-069). */
     suspend fun deleteMe() {
         val sent = tokenProvider.currentToken()
-        ensureOkAuthed(http.delete("$baseUrl/v1/me") { bearer() }, sent)
+        ensureOkAuthed(http.delete("$baseUrl/v1/me") { bearer(sent) }, sent)
     }
 
     /**
@@ -202,7 +204,7 @@ class ApiClient @Inject constructor(
     suspend fun syncSubscription(body: SubscriptionSyncBody): SubscriptionDto {
         val sent = tokenProvider.currentToken()
         val res = http.post("$baseUrl/v1/subscriptions/sync") {
-            bearer()
+            bearer(sent)
             contentType(ContentType.Application.Json)
             setBody(body)
         }
@@ -249,7 +251,7 @@ class ApiClient @Inject constructor(
         val sent = tokenProvider.currentToken()
         ensureOkAuthed(
             http.post("$baseUrl/v1/aggregates") {
-                bearer()
+                bearer(sent)
                 contentType(ContentType.Application.Json)
                 setBody(body)
             },
@@ -294,7 +296,7 @@ class ApiClient @Inject constructor(
         }
         val sent = tokenProvider.currentToken()
         val res = http.post("$baseUrl/v1/imports") {
-            bearer()
+            bearer(sent)
             if (dryRun) parameter("dry_run", "true")
             setBody(MultiPartFormDataContent(parts))
         }
@@ -312,8 +314,9 @@ class ApiClient @Inject constructor(
         platform: String,
         period: String = "current",
     ): BenchmarksResponse {
+        val sent = tokenProvider.currentToken()
         val res = http.get("$baseUrl/v1/benchmarks") {
-            bearer()
+            bearer(sent)
             parameter("city", city)
             parameter("platform", platform)
             parameter("period", period)
@@ -329,7 +332,8 @@ class ApiClient @Inject constructor(
      * treats as "use the bundled default".
      */
     suspend fun getFiscalConfig(): FiscalConfigResponse {
-        val res = http.get("$baseUrl/v1/config/fiscal") { bearer() }
+        val sent = tokenProvider.currentToken()
+        val res = http.get("$baseUrl/v1/config/fiscal") { bearer(sent) }
         ensureOk(res)
         return res.body()
     }
@@ -342,13 +346,19 @@ class ApiClient @Inject constructor(
      * premium.
      */
     suspend fun getAppConfig(): AppConfigResponse {
-        val res = http.get("$baseUrl/v1/config/app") { bearer() }
+        val sent = tokenProvider.currentToken()
+        val res = http.get("$baseUrl/v1/config/app") { bearer(sent) }
         ensureOk(res)
         return res.body()
     }
 
-    private suspend fun io.ktor.client.request.HttpRequestBuilder.bearer() {
-        tokenProvider.currentToken()?.let { header(HttpHeaders.Authorization, "Bearer $it") }
+    /**
+     * Attach the bearer header for [token]. Takes the token as a parameter (rather than re-reading
+     * [tokenProvider]) so the caller can bind the SAME token it captured for the token-scoped
+     * [ensureOkAuthed] check — otherwise the wire token and the compared token could diverge (TOCTOU).
+     */
+    private fun io.ktor.client.request.HttpRequestBuilder.bearer(token: String?) {
+        token?.let { header(HttpHeaders.Authorization, "Bearer $it") }
     }
 
     private suspend fun ensureOk(res: HttpResponse) {
