@@ -34,6 +34,7 @@ import mx.kompara.ui.stats.WeekSummaryViewModel
 fun WeekSummaryScreen(
     modifier: Modifier = Modifier,
     onOpenShareCard: () -> Unit = {},
+    onImport: () -> Unit = {},
     viewModel: WeekSummaryViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -41,6 +42,7 @@ fun WeekSummaryScreen(
         state = state,
         onSelectPlatform = viewModel::selectPlatform,
         onOpenShareCard = onOpenShareCard,
+        onImport = onImport,
         modifier = modifier,
     )
 }
@@ -50,6 +52,7 @@ private fun WeekSummaryContent(
     state: WeekSummaryUiState,
     onSelectPlatform: (mx.kompara.data.model.Platform?) -> Unit,
     onOpenShareCard: () -> Unit = {},
+    onImport: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     if (!state.loading && !state.hasData) {
@@ -90,6 +93,16 @@ private fun WeekSummaryContent(
 
         Spacer(Modifier.padding(top = 0.dp))
         MetricCardsBlock(state.period, percentiles = state.percentiles)
+
+        // PR-E: a premium-but-unverified driver's locked benchmark stand-in here would otherwise be a
+        // dead-end ("disponible con Premium" with no action they can take — paying can't satisfy
+        // verification). Offer the same import-to-verify CTA the Inicio/Comparar gates route to.
+        if (state.percentiles.gateState.isNeedsVerification) {
+            PrimaryButton(
+                text = stringResource(R.string.gate_verify_cta),
+                onClick = onImport,
+            )
+        }
 
         // B-055: share this week as a "Tu Semana" card.
         PrimaryButton(

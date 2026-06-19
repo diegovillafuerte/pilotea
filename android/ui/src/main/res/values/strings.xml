@@ -534,6 +534,8 @@
     <!-- Pistas de valor de una línea sobre el contenido difuminado por superficie. -->
     <string name="gate_hint_benchmarks">Mira cómo te comparas con otros conductores de tu ciudad</string>
     <string name="gate_hint_compare">Compara tus ganancias entre Uber y DiDi</string>
+    <!-- PR-E: CTA shown to a premium-but-unverified driver on a benchmark surface (must match PaywallGate's verifyCtaText). -->
+    <string name="gate_verify_cta">Importa una semana para desbloquear</string>
     <string name="gate_hint_history">Revisa todo tu historial, semana por semana</string>
     <string name="gate_hint_fiscal">Sigue tu avance hacia la cobertura del IMSS</string>
     <string name="gate_hint_recommendations">Recibe consejos personalizados para ganar más</string>

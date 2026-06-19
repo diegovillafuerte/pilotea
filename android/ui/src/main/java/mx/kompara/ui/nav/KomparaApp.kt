@@ -298,6 +298,8 @@ private fun NavGraphBuilder.statsScreens(navController: NavController) {
     ) {
         WeekSummaryScreen(
             onOpenShareCard = { navController.navigate(KomparaDestination.SHARE_CARD_ROUTE) },
+            // PR-E: a premium-but-unverified driver's benchmark gate here routes to import-to-verify.
+            onImport = { navController.navigate(KomparaDestination.IMPORT_ROUTE) },
         )
     }
     // B-055 share-card preview, reachable from the Inicio header icon, the week-summary CTA, and the

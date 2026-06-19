@@ -105,19 +105,23 @@ class ApiClient @Inject constructor(
 
     /** GET /v1/me — fetch the authenticated driver profile (bearer). */
     suspend fun getMe(): DriverDto {
+        val sent = tokenProvider.currentToken()
         val res = http.get("$baseUrl/v1/me") { bearer() }
-        ensureOkAuthed(res)
+        ensureOkAuthed(res, sent)
         return res.body<MeResponse>().driver
     }
 
     /**
-     * GET /v1/me — the full profile envelope incl. the grant-based `premiumUntilMillis` (B-056).
-     * Used by the billing layer to merge a referral/partner grant into the entitlement (premium with
-     * no Play purchase). Bearer-authed; a signed-out call yields a 401 [ApiException].
+     * GET /v1/me — the full profile envelope incl. the grant-based `premiumUntilMillis` (B-056) AND the
+     * import/data-`verified` flag (PR-E). Used by the billing layer to merge a referral/partner grant
+     * into the entitlement, and by [mx.kompara.sync.verification.VerificationStatusRepository] for the
+     * verification gate — so callers must NOT narrow this to a billing-only projection or drop
+     * `verified`. Bearer-authed; a signed-out call yields a 401 [ApiException].
      */
     suspend fun getMeFull(): MeResponse {
+        val sent = tokenProvider.currentToken()
         val res = http.get("$baseUrl/v1/me") { bearer() }
-        ensureOkAuthed(res)
+        ensureOkAuthed(res, sent)
         return res.body()
     }
 
@@ -126,8 +130,9 @@ class ApiClient @Inject constructor(
      * the code on first call. Bearer-authed; a signed-out call yields a 401 [ApiException].
      */
     suspend fun getReferralMine(): ReferralMineResponse {
+        val sent = tokenProvider.currentToken()
         val res = http.get("$baseUrl/v1/referrals/mine") { bearer() }
-        ensureOkAuthed(res)
+        ensureOkAuthed(res, sent)
         return res.body()
     }
 
@@ -137,12 +142,13 @@ class ApiClient @Inject constructor(
      * as an [ApiException] carrying the backend's exact Spanish error string.
      */
     suspend fun redeemReferral(body: ReferralRedeemBody): ReferralRedeemResponse {
+        val sent = tokenProvider.currentToken()
         val res = http.post("$baseUrl/v1/referrals/redeem") {
             bearer()
             contentType(ContentType.Application.Json)
             setBody(body)
         }
-        ensureOkAuthed(res)
+        ensureOkAuthed(res, sent)
         return res.body()
     }
 
@@ -171,18 +177,20 @@ class ApiClient @Inject constructor(
 
     /** PATCH /v1/me — update profile fields (bearer). */
     suspend fun updateMe(body: UpdateProfileBody): DriverDto {
+        val sent = tokenProvider.currentToken()
         val res = http.patch("$baseUrl/v1/me") {
             bearer()
             contentType(ContentType.Application.Json)
             setBody(body)
         }
-        ensureOkAuthed(res)
+        ensureOkAuthed(res, sent)
         return res.body<MeResponse>().driver
     }
 
     /** DELETE /v1/me — permanently delete the driver account (bearer). Play data-safety (B-069). */
     suspend fun deleteMe() {
-        ensureOkAuthed(http.delete("$baseUrl/v1/me") { bearer() })
+        val sent = tokenProvider.currentToken()
+        ensureOkAuthed(http.delete("$baseUrl/v1/me") { bearer() }, sent)
     }
 
     /**
@@ -192,12 +200,13 @@ class ApiClient @Inject constructor(
      * tracked in techdebt (B-053); today the server trusts the client token.
      */
     suspend fun syncSubscription(body: SubscriptionSyncBody): SubscriptionDto {
+        val sent = tokenProvider.currentToken()
         val res = http.post("$baseUrl/v1/subscriptions/sync") {
             bearer()
             contentType(ContentType.Application.Json)
             setBody(body)
         }
-        ensureOkAuthed(res)
+        ensureOkAuthed(res, sent)
         return res.body<SubscriptionSyncResponse>().subscription
     }
 
@@ -237,12 +246,14 @@ class ApiClient @Inject constructor(
      * without one yields a 401 [ApiException] the caller treats as a permanent failure.
      */
     suspend fun pushAggregate(body: AggregateUploadBody) {
+        val sent = tokenProvider.currentToken()
         ensureOkAuthed(
             http.post("$baseUrl/v1/aggregates") {
                 bearer()
                 contentType(ContentType.Application.Json)
                 setBody(body)
             },
+            sent,
         )
     }
 
@@ -281,12 +292,13 @@ class ApiClient @Inject constructor(
                 )
             }
         }
+        val sent = tokenProvider.currentToken()
         val res = http.post("$baseUrl/v1/imports") {
             bearer()
             if (dryRun) parameter("dry_run", "true")
             setBody(MultiPartFormDataContent(parts))
         }
-        ensureOkAuthed(res)
+        ensureOkAuthed(res, sent)
         return res.body()
     }
 
@@ -349,12 +361,21 @@ class ApiClient @Inject constructor(
     /**
      * Like [ensureOk], but a 401 on a strictly bearer-required call means the session expired or was
      * revoked (B-069): clear the local auth via [sessionInvalidator] before raising, so the root gate
-     * re-auths instead of every authed call silently failing. Used only by endpoints that REQUIRE a
-     * session — never by anonymous-allowed ones (benchmarks, configs…) where a signed-out 401 is
-     * expected and must not wipe a still-valid session.
+     * re-auths instead of every authed call silently failing.
+     *
+     * **Token-scoped (PR-E safety):** invalidate ONLY when this request actually carried a token
+     * ([sentToken] non-null) AND that token is still the current one. Two races this closes — both made
+     * reachable by unconditional startup `/v1/me` calls (the B-056 grant merge and PR-E's verification
+     * refresh), which fire before login:
+     *  - a **no-token** (signed-out) 401 must not wipe anything; and
+     *  - a **stale** 401 for a token that has since been REPLACED (a racing sign-in / account switch
+     *    wrote a new session while this request was in flight) must not wipe the new session.
+     * A genuine expiry (the current token is the one rejected) still invalidates.
      */
-    private suspend fun ensureOkAuthed(res: HttpResponse) {
-        if (res.status.value == HttpStatusCode.Unauthorized.value) {
+    private suspend fun ensureOkAuthed(res: HttpResponse, sentToken: String?) {
+        if (res.status.value == HttpStatusCode.Unauthorized.value &&
+            sentToken != null && sentToken == tokenProvider.currentToken()
+        ) {
             runCatching { sessionInvalidator.onSessionExpired() }
         }
         ensureOk(res)
