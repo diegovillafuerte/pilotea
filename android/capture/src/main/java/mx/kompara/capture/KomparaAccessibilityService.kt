@@ -37,6 +37,8 @@ class KomparaAccessibilityService : AccessibilityService() {
 
     @Inject lateinit var overlayPresenter: OverlayPresenter
 
+    @Inject lateinit var screenReaderLane: ScreenReaderLane
+
     private val scope = pipelineScope(kotlinx.coroutines.Dispatchers.Default)
 
     /**
@@ -85,6 +87,10 @@ class KomparaAccessibilityService : AccessibilityService() {
         // attach the TYPE_ACCESSIBILITY_OVERLAY window; the presenter (an :overlay OverlayController,
         // injected as an interface to avoid a :capture -> :overlay cycle) does the window plumbing.
         overlayPresenter.start(scope, OfferEventBus.events, this, foregroundOcrOwnedApp)
+        // Primary capture lane on API 30+ (B-091): silent AccessibilityService.takeScreenshot → OCR,
+        // no MediaProjection consent/indicator, survives screen lock. Returns false below API 30,
+        // where the MediaProjection OcrCaptureService stays the only lane (started from the Lector tab).
+        screenReaderLane.start(scope, this)
         pollToClearForeground()
         serviceState.setConnected(true)
     }
@@ -184,6 +190,7 @@ class KomparaAccessibilityService : AccessibilityService() {
         serviceState.setConnected(false)
         snapshotSource.detach()
         overlayPresenter.stop()
+        screenReaderLane.stop()
         scope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
         super.onDestroy()
     }

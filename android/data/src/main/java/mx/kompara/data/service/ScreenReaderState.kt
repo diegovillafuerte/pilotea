@@ -39,6 +39,22 @@ object ScreenReaderState {
         if (running) _hasRunThisSession.value = true
     }
 
+    private val _silentLaneActive = MutableStateFlow(false)
+
+    /**
+     * True while the silent-screenshot capture lane (AccessibilityService.takeScreenshot, API 30+,
+     * B-091) owns capture. On 30+ the reader runs with no MediaProjection consent and no cast
+     * indicator, so the MediaProjection consent flow ([OcrConsentActivity]) must no-op while this is
+     * true — otherwise tapping "Iniciar lector" would start a redundant second capture of the same
+     * screen. False on API <30 (MediaProjection is the only lane) or if the lane self-disabled after
+     * repeated on-device takeScreenshot failures (then the MediaProjection path is the fallback).
+     */
+    val silentLaneActive: StateFlow<Boolean> = _silentLaneActive.asStateFlow()
+
+    fun setSilentLaneActive(active: Boolean) {
+        _silentLaneActive.value = active
+    }
+
     // Which target host app (Uber/DiDi/inDrive) the accessibility service last observed foreground,
     // and the elapsedRealtime it was seen. The OCR ledger path (B-039) reads these to GATE its
     // trip/idle signals: MediaProjection captures the WHOLE screen, so without this a non-host app

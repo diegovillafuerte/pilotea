@@ -50,7 +50,11 @@ OfferEventBus; the accessibility service hosts the one overlay.
 - Data-safety form: screen content processed on-device, never sold/shared.
 - **OEM survival kit**: Xiaomi/Oppo/Vivo task killers dominate Mexican driver handsets — per-OEM onboarding for autostart whitelisting + lock-in-recents (dontkillmyapp patterns), plus a service-health watchdog with re-enable prompts.
 - **Offer simulator** in onboarding: replay fixture cards so the driver sees the overlay work before driving (also the Play-review demo).
-- v1 adds **no automation** of the host app — keeps us in the read-only policy/legal class.
+- v1 adds **no automation** of the host app — keeps us in the read-only policy/legal class. This is now a **build invariant**, not just a convention: `./gradlew verifyReadOnlyCapture` (in CI) fails on any accessibility-automation API (`performAction`/`dispatchGesture`/`performGlobalAction`/`GLOBAL_ACTION_`) in production source, or if the a11y config loses `isAccessibilityTool="false"` / gains a gesture-or-key capability. See [play-compliance.md](play-compliance.md) — the canonical statement of the #1 launch risk and posture.
+
+### 2.1 Capture lane (B-091): silent takeScreenshot primary on API 30+
+
+The primary lane on **API 30+** is the accessibility service's own silent `AccessibilityService.takeScreenshot()` (`SilentScreenshotLane`) → on-device OCR → `TYPE_ACCESSIBILITY_OVERLAY` chip: **no MediaProjection consent prompt, no persistent screen-cast indicator, survives screen lock**, and it drops the FGS-`mediaProjection` declaration burden. It captures **only while a target host app is foreground** (gated by the service's own foreground-host freshness signal), so it never screenshots an unrelated app. Precedent: StopClub/GigU read DiDi's SurfaceView via screenshot + OCR the same way. On **API <30** — and as an automatic fallback if an OEM breaks `takeScreenshot` — the app uses the existing MediaProjection lane (`OcrCaptureService`, per-session consent + prominent disclosure + FGS notification). Both lanes feed the **same** `OfferFramePipeline`, so verdict/ledger behavior can't drift. On 30+, `OcrConsentActivity` no-ops so the driver never grants a redundant second capture. On-device validation of the takeScreenshot path is owed (TD-040).
 
 ## 3. App architecture
 
