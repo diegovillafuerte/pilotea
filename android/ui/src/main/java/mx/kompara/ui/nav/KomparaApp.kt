@@ -1,5 +1,6 @@
 package mx.kompara.ui.nav
 
+import android.annotation.SuppressLint
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
@@ -66,6 +67,11 @@ import mx.kompara.ui.theme.KomparaTheme
  *   (registered via [registerExtraDestinations]), otherwise to the Lector tab. Checked at runtime so
  *   this file does not have to know whether the simulator has been registered.
  */
+// currentBackStack is @RestrictTo(LIBRARY_GROUP) but is the only way to read the FULL back stack as
+// a state (needed for the B-074 tab-highlight + re-tap-to-pop behavior); the public
+// currentBackStackEntryAsState exposes only the top entry. It is de-facto stable and widely used;
+// a deliberate, reviewed use rather than a public-API alternative that would change tab behavior.
+@SuppressLint("RestrictedApi")
 @Composable
 fun KomparaApp(
     modifier: Modifier = Modifier,

@@ -1,6 +1,7 @@
 package mx.kompara.ui.share
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -32,6 +33,8 @@ class WeekCloseNotifier @Inject constructor(
 ) {
 
     /** Post the "tu resumen está listo" reminder, guarded by the runtime notification permission. */
+    // Guarded below with checkSelfPermission; lint can't follow the guard into the runCatching lambda.
+    @SuppressLint("MissingPermission")
     fun post() {
         ensureChannel()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&

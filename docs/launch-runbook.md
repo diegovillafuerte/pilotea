@@ -74,12 +74,16 @@ Deliverables: (a) sign-off/edits on every `TODO(legal-B038)` string (disclosure,
 1. Play Console account ($25 one-time).
 2. Generate **release** signing key (debug key can't publish; use Play App Signing).
 3. Create app + Spanish listing + screenshots.
-4. **AccessibilityService declaration form** — frame as driver decision-support; attach **demo video** (screen-record the Simulator).
-5. **Data-safety form** — on-device processing, never sold/shared.
-6. **FGS `mediaProjection` declaration + screen-capture data-safety (B-065)** — drafts below, paste into Play Console.
+4. **AccessibilityService declaration form** — frame as driver decision-support; attach **demo video** (screen-record the Simulator). Posture + risk rationale: [play-compliance.md](play-compliance.md).
+5. **Data-safety form** — on-device processing, never sold/shared. **No data collected** from the screen (frames processed in memory and discarded). Must match [privacy-policy.md](privacy-policy.md).
+6. **FGS `mediaProjection` declaration + screen-capture data-safety (B-065)** — drafts below, paste into Play Console. Required on **API <30 devices and the fallback lane only**; on API 30+ the primary lane is the silent `takeScreenshot` (B-091, §5a) with **no** MediaProjection and **no** FGS-mediaProjection.
 7. Upload signed release AAB → **internal testing** track.
 
-### B-065 drafts: screen-capture (MediaProjection) declarations
+### 5a. B-091: silent takeScreenshot lane (primary on API 30+)
+
+The primary capture lane on API 30+ is the accessibility service's own `AccessibilityService.takeScreenshot()` → on-device OCR — **no MediaProjection, no screen-cast indicator, no FGS-`mediaProjection`**. The Play declaration for it rides entirely on the **AccessibilityService API declaration** (step 4) + the read-only, on-device, nothing-stored posture; there is no separate screen-capture permission to justify. The prominent disclosure that gates the accessibility grant (onboarding `DisclosureScreen`, a hard Accept-gate) is the consent surface. Data Safety: **no data collected** from the screen. The MediaProjection drafts below apply only to the API <30 / fallback path.
+
+### B-065 drafts: screen-capture (MediaProjection) declarations — API <30 / fallback only
 
 **FGS `mediaProjection` justification (declaration form):**
 > Kompara is a decision-support tool for ride-hailing drivers. Some driver apps (DiDi Conductor,

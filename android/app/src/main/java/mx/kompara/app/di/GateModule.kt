@@ -4,7 +4,9 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import mx.kompara.app.BuildConfig
 import mx.kompara.billing.DebugPremiumSource
 import mx.kompara.billing.PaywallConfigSource
 import mx.kompara.billing.VerificationSource
@@ -31,7 +33,16 @@ object GateModule {
     @Provides
     @Singleton
     fun provideDebugPremiumSource(settings: SettingsRepository): DebugPremiumSource =
-        DebugPremiumSource { settings.settings.map { it.debugPremium } }
+        // The "debugPremium" override is a full gate bypass (GateStates.derive). Its "OFF in release"
+        // guarantee must be STRUCTURAL, not merely UI-hidden: a persisted true flag surviving into a
+        // release install (or a future unguarded writer) would otherwise silently unlock every premium
+        // surface with no purchase. Enforce it here — the same place API_BASE_URL / DevAuthBypass are
+        // BuildConfig-gated — so release never reads the flag.
+        if (BuildConfig.DEBUG) {
+            DebugPremiumSource { settings.settings.map { it.debugPremium } }
+        } else {
+            DebugPremiumSource { flowOf(false) }
+        }
 
     @Provides
     @Singleton

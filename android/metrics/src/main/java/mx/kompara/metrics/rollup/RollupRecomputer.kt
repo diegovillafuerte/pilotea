@@ -1,5 +1,7 @@
 package mx.kompara.metrics.rollup
 
+import androidx.room.withTransaction
+import mx.kompara.data.db.KomparaDatabase
 import mx.kompara.data.db.dao.AggregateDao
 import mx.kompara.data.db.dao.OfferDao
 import mx.kompara.data.db.dao.ShiftDao
@@ -28,6 +30,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class RollupRecomputer @Inject constructor(
+    private val database: KomparaDatabase,
     private val offerDao: OfferDao,
     private val tripDao: TripDao,
     private val shiftDao: ShiftDao,
@@ -71,11 +74,17 @@ class RollupRecomputer @Inject constructor(
         val result = calc.rollup(trips = trips, shifts = shifts, offers = offers, computedAt = now)
 
         // Clear the captured rows in every recomputed bucket, then write the fresh ones, so a bucket
-        // that went to zero (all trips deleted) doesn't leave a stale row behind.
-        result.daily.map { it.day }.toSet().forEach { aggregateDao.deleteCapturedDay(it) }
-        result.weekly.map { it.weekStart }.toSet().forEach { aggregateDao.deleteCapturedWeek(it) }
-        aggregateDao.upsertDaily(result.daily)
-        aggregateDao.upsertWeekly(result.weekly)
+        // that went to zero (all trips deleted) doesn't leave a stale row behind. ATOMIC (review
+        // finding): the delete+upsert commit as ONE transaction, so an observeWeekly/observeDaily
+        // reader never sees the mid-delete gap (a transient $0 week on Home) and two overlapping
+        // recomputes (the daily periodic racing the on-trip-close one-off) can't interleave
+        // delete/upsert into a bucket that reflects neither run.
+        database.withTransaction {
+            result.daily.map { it.day }.toSet().forEach { aggregateDao.deleteCapturedDay(it) }
+            result.weekly.map { it.weekStart }.toSet().forEach { aggregateDao.deleteCapturedWeek(it) }
+            aggregateDao.upsertDaily(result.daily)
+            aggregateDao.upsertWeekly(result.weekly)
+        }
     }
 
     companion object {

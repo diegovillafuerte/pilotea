@@ -6,9 +6,26 @@ import type { Database } from "../db/client.js";
 import { writeMergedAggregate } from "../imports/aggregate-write.js";
 import type { AggregateColumns } from "../imports/aggregate-merge.js";
 
-const decimalString = z
-  .union([z.number(), z.string()])
-  .transform((v) => String(v));
+// A weekly-aggregate money/metric value. Accepts a number or a numeric string but VALIDATES it:
+//  - must be a well-formed decimal (no "abc"/"1e5"/"'; DROP" reaching the DECIMAL column → a 500),
+//  - must fit the target column's precision, so a client can't POST a value that Zod passes but the
+//    DECIMAL column overflows (still a 500) or that skews the paid population percentiles once folded
+//    (fold-population-stats does Number(v) on it).
+// The magnitude check is applied AFTER rounding to 2 dp, matching the column's scale, so a value like
+// 99999999.999 (which rounds UP to 1e8 and overflows DECIMAL(10,2)) is also caught.
+function boundedDecimal(maxExclusive: number) {
+  return z
+    .union([z.number(), z.string()])
+    .transform((v) => String(v).trim())
+    .refine((s) => /^-?\d+(\.\d+)?$/.test(s), { message: "must be a decimal number" })
+    .refine((s) => Math.abs(Math.round(Number(s) * 100) / 100) < maxExclusive, {
+      message: "value out of range",
+    });
+}
+// net/gross/km/hours + the (ignored) ratio fields all target DECIMAL(10,2) → max 99,999,999.99.
+const decimalString = boundedDecimal(100_000_000);
+// platform_commission_pct is DECIMAL(5,2) → max 999.99; a looser bound would overflow the column.
+const pctString = boundedDecimal(1_000);
 
 const aggregateInput = z.object({
   platform: z.string().min(1).max(20),
@@ -27,7 +44,7 @@ const aggregateInput = z.object({
   earningsPerKm: decimalString.optional(),
   earningsPerHour: decimalString.optional(),
   tripsPerHour: decimalString.optional(),
-  platformCommissionPct: decimalString.optional(),
+  platformCommissionPct: pctString.optional(),
   source: z.enum(["captured", "imported"]).default("captured"),
 });
 

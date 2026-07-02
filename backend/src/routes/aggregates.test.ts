@@ -105,4 +105,67 @@ describe("POST /v1/aggregates", () => {
     expect(Number(row.earningsPerKm)).toBe(6.67); // 4000 / 600
     expect(Number(row.earningsPerHour)).toBe(80); // 4000 / 50
   });
+
+  it("rejects a non-numeric earnings value with 400 (no 500 from the DECIMAL column)", async () => {
+    const res = await postAggregate({
+      platform: "uber",
+      weekStart: "2025-03-24",
+      netEarnings: "'; DROP TABLE",
+      grossEarnings: "1400.00",
+      totalTrips: 40,
+    });
+    expect(res.status).toBe(400);
+    const rows = await db.select().from(weeklyAggregates).where(eq(weeklyAggregates.driverId, driverId));
+    expect(rows).toHaveLength(0);
+  });
+
+  it("rejects an out-of-range earnings value that would poison the population benchmarks", async () => {
+    const res = await postAggregate({
+      platform: "uber",
+      weekStart: "2025-03-24",
+      netEarnings: "999999999", // ~1e9 MXN — no real driver week; would skew folded percentiles
+      grossEarnings: "1400.00",
+      totalTrips: 40,
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects a value that Zod would pass but the DECIMAL(10,2) column would overflow", async () => {
+    // 100000000 is under a naive 1e8 cap but DECIMAL(10,2) maxes at 99,999,999.99 → would be a 500.
+    const res = await postAggregate({
+      platform: "uber",
+      weekStart: "2025-03-24",
+      netEarnings: "100000000",
+      grossEarnings: "1400.00",
+      totalTrips: 40,
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects a platform_commission_pct that would overflow DECIMAL(5,2)", async () => {
+    // The pct column is DECIMAL(5,2) (max 999.99); 5000 overflows it → must 400, not 500.
+    const res = await postAggregate({
+      platform: "uber",
+      weekStart: "2025-03-24",
+      netEarnings: "1000.00",
+      grossEarnings: "1400.00",
+      totalTrips: 40,
+      platformCommissionPct: "5000",
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("still accepts a legitimate max-ish weekly aggregate", async () => {
+    const res = await postAggregate({
+      platform: "uber",
+      weekStart: "2025-03-24",
+      netEarnings: "42000.50",
+      grossEarnings: "58000.00",
+      totalTrips: 180,
+      totalKm: "2400.00",
+      hoursOnline: "60.00",
+      platformCommissionPct: "27.55",
+    });
+    expect(res.status).toBe(200);
+  });
 });

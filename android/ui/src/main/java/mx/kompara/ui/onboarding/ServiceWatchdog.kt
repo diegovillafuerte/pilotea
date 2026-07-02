@@ -1,6 +1,7 @@
 package mx.kompara.ui.onboarding
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
@@ -82,6 +83,8 @@ class ServiceWatchdog @Inject constructor(
         manager.createNotificationChannel(channel)
     }
 
+    // Guarded below with checkSelfPermission; lint can't follow the guard into the runCatching lambda.
+    @SuppressLint("MissingPermission")
     private fun postReaderDownNotification() {
         // On 33+ posting requires the runtime POST_NOTIFICATIONS permission (requested contextually
         // on the onboarding done screen). If it isn't granted we silently skip — the in-app banner
