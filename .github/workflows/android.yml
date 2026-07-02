@@ -35,6 +35,9 @@ jobs:
       - name: Run unit tests
         run: ./gradlew testDebugUnitTest
 
+      - name: Lint
+        run: ./gradlew lintDebug
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:

@@ -21,6 +21,8 @@ android {
 dependencies {
     implementation(project(":data"))
     implementation(libs.kotlinx.coroutines.core)
+    // RoomDatabase.withTransaction — the rollup replace (delete+upsert) must commit atomically.
+    implementation(libs.androidx.room.ktx)
 
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)

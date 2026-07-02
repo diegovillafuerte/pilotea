@@ -55,34 +55,37 @@ object ScreenReaderState {
         _silentLaneActive.value = active
     }
 
-    // Which target host app (Uber/DiDi/inDrive) the accessibility service last observed foreground,
-    // and the elapsedRealtime it was seen. The OCR ledger path (B-039) reads these to GATE its
-    // trip/idle signals: MediaProjection captures the WHOLE screen, so without this a non-host app
-    // (WhatsApp, the notification shade) would feed bogus state changes into the trip ledger and
-    // close trips / resolve offers from unrelated screens. The accessibility service only receives
-    // events for target packages, so a fresh timestamp ≈ "a target app is foreground"; staleness
-    // means the driver switched away (or the host screen went static).
-    @Volatile
-    var foregroundHostPackage: String? = null
-        private set
+    /** An immutable (package, seen-at) pair, published atomically — see [foregroundHost]. */
+    private data class ForegroundHost(val packageName: String, val seenAtMs: Long)
 
+    // Which target host app (Uber/DiDi/inDrive) the accessibility service last observed foreground,
+    // and the elapsedRealtime it was seen. The OCR ledger path (B-039) reads this to GATE its
+    // trip/idle signals: capture sees the WHOLE screen, so without this a non-host app (WhatsApp, the
+    // notification shade) would feed bogus state changes into the trip ledger and close trips /
+    // resolve offers from unrelated screens. The accessibility service only receives events for
+    // target packages, so a fresh timestamp ≈ "a target app is foreground"; staleness means the
+    // driver switched away (or the host screen went static).
+    //
+    // Published as ONE @Volatile immutable snapshot (not two separate @Volatile fields): the writer
+    // (a11y service thread) and reader (OCR capture thread) are different threads, and two separate
+    // volatiles could be torn — a reader seeing a new package paired with the previous timestamp for
+    // one frame. A single reference store makes the pair atomic.
     @Volatile
-    var foregroundHostSeenAtMs: Long = 0L
-        private set
+    private var foregroundHost: ForegroundHost? = null
 
     /** Called by the accessibility service on every target-app event. */
     fun setForegroundHost(packageName: String, seenAtMs: Long) {
-        foregroundHostPackage = packageName
-        foregroundHostSeenAtMs = seenAtMs
+        foregroundHost = ForegroundHost(packageName, seenAtMs)
     }
 
     /**
      * The foreground host package if a target app was seen within [freshnessMs] of [nowMs], else null
      * (driver switched away / screen went static — OCR frames must NOT be attributed to the ledger).
-     * Pure so the OCR gate is unit-testable.
+     * Reads the snapshot ONCE so the package and its timestamp are always consistent. Pure so the OCR
+     * gate is unit-testable.
      */
     fun freshForegroundHost(nowMs: Long, freshnessMs: Long): String? =
-        foregroundHostPackage?.takeIf { nowMs - foregroundHostSeenAtMs < freshnessMs }
+        foregroundHost?.takeIf { nowMs - it.seenAtMs < freshnessMs }?.packageName
 
     // The overlay verdict chip's current on-screen rect in display pixels (top-left origin), or null
     // when the chip is hidden. :overlay's OverlayController publishes it on attach/drag; :ocr's

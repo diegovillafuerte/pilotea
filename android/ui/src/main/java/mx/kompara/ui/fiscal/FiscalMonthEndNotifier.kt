@@ -1,6 +1,7 @@
 package mx.kompara.ui.fiscal
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
@@ -47,6 +48,9 @@ class FiscalMonthEndNotifier @Inject constructor(
         decisions.forEach { decision -> postOne(decision) }
     }
 
+    // POST_NOTIFICATIONS is guarded in post() before any postOne() call; lint can't follow the guard
+    // across the method boundary + runCatching lambda, so suppress the false positive here.
+    @SuppressLint("MissingPermission")
     private fun postOne(decision: MonthEndDecision) {
         val platformLabel = context.getString(platformChipLabel(platformOf(decision.platform)))
         val title = if (decision.covered) {

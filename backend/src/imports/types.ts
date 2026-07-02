@@ -58,7 +58,13 @@ export type UploadType = "pdf" | "screenshot";
 // ─── Zod schema for Claude Vision extraction response ─────────
 // This validates the raw JSON that Claude returns from the PDF
 export const uberPdfExtractionSchema = z.object({
-  week_start: z.string().nullable(),
+  // Same ISO-date guard as the other three parser schemas: an unvalidated week_start from Claude
+  // (e.g. "March 24") would mis-bucket the week or throw at the weeklyAggregates DATE insert after
+  // the file was already stored. Matches uberScreenshot/didi/indrive below.
+  week_start: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "week_start must be a valid ISO date (YYYY-MM-DD)")
+    .nullable(),
   net_earnings: z.number().nullable(),
   gross_earnings: z.number().nullable(),
   total_trips: z.number().int().nullable(),

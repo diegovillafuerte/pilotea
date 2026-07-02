@@ -31,9 +31,17 @@
         </intent>
     </queries>
 
+    <!--
+      allowBackup="false": the privacy posture is "nothing about your screen/offers leaves the
+      device" (docs/play-compliance.md). Auto cloud/adb backup would ship the local Room ledger AND
+      the session token (stored in DataStore, plaintext — TD-009) off-device to Google's backup,
+      both contradicting that promise and creating a token-in-backup account-takeover vector. The
+      cost is that a device migration re-onboards (WhatsApp OTP re-auth + re-enter cost profile),
+      acceptable for a privacy-first tool. Revisit with a scoped dataExtractionRules Xml only if a
+      selective backup that excludes the token + ledger is ever wanted. -->
     <application
         android:name=".KomparaApplication"
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"

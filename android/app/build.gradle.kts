@@ -34,6 +34,8 @@ android {
 
     buildFeatures {
         compose = true
+        // BuildConfig.DEBUG gates the debug-premium override out of release (GateModule).
+        buildConfig = true
     }
 }
 
