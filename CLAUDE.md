@@ -120,6 +120,13 @@ pnpm test             # run all tests
 pnpm lint             # eslint
 ```
 
+**Android (native, forward) — a build env IS present on this machine; don't assume otherwise.** The Gradle project lives in `android/` (not the repo root). The JDK is **not on `PATH`** — it's Android Studio's bundled JBR (OpenJDK 21); the SDK is at `~/Library/Android/sdk`. Claude sessions in this repo get `JAVA_HOME`/`ANDROID_HOME` auto-set via `.claude/settings.local.json` (gitignored). If building from a context that lacks them:
+
+```bash
+export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
+cd android && ./gradlew :ocr:testDebugUnitTest :capture:testDebugUnitTest   # unit tests
+```
+
 ## Tech stack
 
 - **Framework:** Next.js 15 (App Router), React 19, TypeScript (strict)
