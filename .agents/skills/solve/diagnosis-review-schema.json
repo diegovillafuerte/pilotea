@@ -1,0 +1,29 @@
+{
+  "type": "object",
+  "properties": {
+    "verdict": {
+      "type": "string",
+      "enum": ["needs_changes", "lgtm"]
+    },
+    "diagnosis_valid": {
+      "type": "boolean"
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "severity": { "type": "string", "enum": ["critical", "suggestion"] },
+          "area": { "type": "string", "enum": ["diagnosis", "fix_approach"] },
+          "issue": { "type": "string" },
+          "suggestion": { "type": "string" }
+        },
+        "required": ["severity", "area", "issue", "suggestion"],
+        "additionalProperties": false
+      }
+    },
+    "summary": { "type": "string" }
+  },
+  "required": ["verdict", "diagnosis_valid", "findings", "summary"],
+  "additionalProperties": false
+}
