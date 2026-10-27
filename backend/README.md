@@ -3,8 +3,8 @@
 Thin, boring, managed backend for the Kompara Android app. Greenfield service
 (per the pivot decision) that ports proven logic from the legacy web app:
 consented weekly-aggregate sync, city benchmarks/percentiles, remote
-parser-config hosting, and parser-health telemetry. Auth (WhatsApp magic links)
-lands in B-042.
+parser-config hosting, and parser-health telemetry. Auth is WhatsApp OTP
+(B-042).
 
 ## Stack
 
@@ -28,14 +28,22 @@ backend/
       schema.ts         # Drizzle schema v1
       client.ts         # runtime Postgres client (lazy)
       percentile.test.ts# percentile parity test (acceptance criterion)
+    auth/               # WhatsApp OTP, sessions, token hashing, Twilio sender
     middleware/auth.ts  # real bearer-session auth (B-042)
     routes/             # health, auth, me, devices, aggregates, benchmarks,
-                        # parser-configs, telemetry, imports
+                        # parser-configs, telemetry, fixture-reports, imports,
+                        # subscriptions, admin, fiscal-config, app-config,
+                        # referrals
     imports/            # Claude Vision import pipeline (ported from web MVP):
                         #   parsers/ (uber-pdf, uber/didi/indrive screenshot,
                         #   router), claude.ts (Vision client), utils.ts (sharp
                         #   normalization + completeness), storage.ts
                         #   (StorageAdapter: R2Storage | MemoryStorage), types.ts
+    jobs/               # population_stats fold-in from real aggregates (B-043)
+    referrals/          # referral-code generation + premium-day grants (B-056)
+    spec/               # signed OTA parser-config bundle + signing key (B-033)
+    subscriptions/      # Play verification seam (stub, B-049), effectiveTier
+    telemetry/          # parser-breakage alerts from telemetry counters (B-034)
     test/db.ts          # pglite test harness: migrate + seed
   migrations/           # drizzle-kit SQL + raw get_percentile() function
   seed/population-stats.ts  # synthetic seed (10 cities + national)
