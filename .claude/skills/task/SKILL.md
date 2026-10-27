@@ -17,7 +17,7 @@ Read the user's input from $ARGUMENTS. Determine:
 
 ## Step 2: Scan existing structure
 
-Read existing epics (`pming/epics/E-*.md`) and stories (`pming/stories/S-*.md`) frontmatter to understand current organization. Use Glob to find files, then Read just the frontmatter of each.
+Read existing epics (`pming/epics/pending/E-*.md`) and stories (`pming/stories/pending/S-*.md`) frontmatter to understand current organization. Use Glob to find files, then Read just the frontmatter of each. Finished items are in `done/` and retired ones in `superseded/`; new work doesn't go under them.
 
 ## Step 3: Classify the item
 
@@ -51,14 +51,26 @@ Be opinionated. Suggest a placement and let the user correct you rather than ask
 ## Step 6: Create the item
 
 ### Auto-increment ID
-- For tasks/bugs: Glob `pming/tasks/B-*.md`, extract highest number, add 1. Pad to 3 digits.
-- For stories: Glob `pming/stories/S-*.md`, extract highest number, add 1. Pad to 3 digits.
-- For epics: Glob `pming/epics/E-*.md`, extract highest number, add 1. Pad to 3 digits.
-- Bugs use B-XXX numbering (same sequence as tasks) with `type: bug` in frontmatter.
+The new ID must be unused anywhere in the repo, not only in this checkout. Items sit in `pending/`, `done/` and `superseded/`, and a branch cut from an old commit lacks the newest ones: that is how B-024 came to name two tasks. So fetch, then take the highest number in every folder of every worktree on this machine and of every local and fetched branch, and add 1. Set `kind` and `prefix` to `tasks` and `B` for a task or bug, `stories` and `S` for a story, or `epics` and `E` for an epic:
+
+```bash
+kind=tasks prefix=B
+git fetch --quiet origin || echo "fetch failed: using the branches as last fetched"
+{
+  git worktree list --porcelain | sed -n 's/^worktree //p' | while IFS= read -r wt; do
+    find "$wt/pming/$kind" -name "$prefix-*.md" 2>/dev/null
+  done
+  git for-each-ref --format='%(refname)' refs/heads refs/remotes | while IFS= read -r ref; do
+    git ls-tree -r --name-only "$ref" -- "pming/$kind"
+  done
+} | sed -n "s|.*/$prefix-\([0-9][0-9]*\)\.md\$|\1|p" | awk -v p="$prefix" '$1 + 0 > max { max = $1 + 0 } END { printf "%s-%03d\n", p, max + 1 }'
+```
+
+It prints the new ID, padded to 3 digits. If the fetch failed, another machine may have pushed an item with that ID since the last fetch: tell the user, and create the item only once they confirm. Bugs use B-XXX numbering (same sequence as tasks) with `type: bug` in frontmatter.
 
 ### File formats
 
-**Epic** (`pming/epics/E-XXX.md`):
+**Epic** (`pming/epics/pending/E-XXX.md`):
 ```yaml
 ---
 id: E-XXX
@@ -71,7 +83,7 @@ created: YYYY-MM-DD
 Description of the initiative and its goals.
 ```
 
-**Story** (`pming/stories/S-XXX.md`):
+**Story** (`pming/stories/pending/S-XXX.md`):
 ```yaml
 ---
 id: S-XXX
@@ -86,7 +98,7 @@ created: YYYY-MM-DD
 What this story delivers and why it matters.
 ```
 
-**Task** (`pming/tasks/B-XXX.md`):
+**Task** (`pming/tasks/pending/B-XXX.md`):
 ```yaml
 ---
 id: B-XXX
@@ -103,7 +115,7 @@ created: YYYY-MM-DD
 What needs to be done. 1-3 sentences.
 ```
 
-**Bug** (`pming/tasks/B-XXX.md`):
+**Bug** (`pming/tasks/pending/B-XXX.md`):
 ```yaml
 ---
 id: B-XXX

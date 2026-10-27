@@ -132,6 +132,30 @@ persist_uuid() {
   fi
 }
 
+# Delete a UUID marker file only if it holds this UUID; one holding another
+# UUID belongs to another claim.
+remove_marker() {
+  local marker="$1" uuid="$2"
+  if [ "$(cat "$marker" 2>/dev/null)" = "$uuid" ]; then
+    rm -f "$marker"
+  fi
+}
+
+# --- File Replacement ---
+
+# Move the new content in $1 over $2 only if the bytes differ, so a no-op
+# rewrite leaves the git-tracked file and its mtime alone. mktemp creates
+# 0600 files, so give the new file $2's mode first.
+replace_if_changed() {
+  local new="$1" target="$2"
+  if cmp -s "$new" "$target"; then
+    rm -f "$new"
+  else
+    chmod "$(stat -f %Lp "$target")" "$new"
+    mv "$new" "$target"
+  fi
+}
+
 # --- Stale Cleanup (runs inside claim) ---
 
 cleanup_stale() {
@@ -141,7 +165,8 @@ cleanup_stale() {
   local now
   now=$(date +%s)
 
-  while IFS= read -r line; do
+  # "|| [ -n ... ]" also reads a last line that has no trailing newline
+  while IFS= read -r line || [ -n "$line" ]; do
     # Preserve comments
     if [[ "$line" =~ ^# ]] || [[ -z "$line" ]]; then
       echo "$line" >> "$tmp_file"
@@ -176,7 +201,7 @@ cleanup_stale() {
     # Remove stale pending entries (>5 min old)
     if [ "$entry_status" = "pending" ] && [ -n "$entry_started" ]; then
       local entry_epoch
-      entry_epoch=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$entry_started" +%s 2>/dev/null || echo "0")
+      entry_epoch=$(date -j -u -f "%Y-%m-%dT%H:%M:%SZ" "$entry_started" +%s 2>/dev/null || echo "0")
       local age=$(( now - entry_epoch ))
       if [ "$age" -gt 300 ]; then
         removed=$((removed + 1))
@@ -187,7 +212,7 @@ cleanup_stale() {
     echo "$line" >> "$tmp_file"
   done < "$WORKERS_FILE"
 
-  mv "$tmp_file" "$WORKERS_FILE"
+  replace_if_changed "$tmp_file" "$WORKERS_FILE"
   echo "$removed"
 }
 
@@ -253,7 +278,7 @@ cmd_activate() {
   local tmp_file
   tmp_file=$(mktemp)
   local found=0
-  while IFS= read -r line; do
+  while IFS= read -r line || [ -n "$line" ]; do
     if [[ "$line" =~ ^# ]] || [[ -z "$line" ]]; then
       echo "$line" >> "$tmp_file"
       continue
@@ -267,7 +292,7 @@ cmd_activate() {
       echo "$line" >> "$tmp_file"
     fi
   done < "$WORKERS_FILE"
-  mv "$tmp_file" "$WORKERS_FILE"
+  replace_if_changed "$tmp_file" "$WORKERS_FILE"
 
   release_lock
   [ "$found" -eq 1 ] && echo "OK" || echo "OK (no entry found)"
@@ -283,7 +308,7 @@ cmd_release() {
   local tmp_file
   tmp_file=$(mktemp)
   local removed_task="" removed_branch=""
-  while IFS= read -r line; do
+  while IFS= read -r line || [ -n "$line" ]; do
     if [[ "$line" =~ ^# ]] || [[ -z "$line" ]]; then
       echo "$line" >> "$tmp_file"
       continue
@@ -297,7 +322,7 @@ cmd_release() {
     fi
     echo "$line" >> "$tmp_file"
   done < "$WORKERS_FILE"
-  mv "$tmp_file" "$WORKERS_FILE"
+  replace_if_changed "$tmp_file" "$WORKERS_FILE"
 
   release_lock
 
@@ -307,9 +332,10 @@ cmd_release() {
     git branch -d "$removed_branch" 2>/dev/null || true
   fi
 
-  # Clean up UUID files
-  rm -f "$WORKTREES_DIR/${removed_task:-.nonexistent}/.worker-uuid" 2>/dev/null || true
-  rm -f "/tmp/kompara-worker-$SESSION_PID.uuid" 2>/dev/null || true
+  # Clean up UUID files that still name this UUID (with --uuid, the /tmp one
+  # can hold the caller's own claim)
+  remove_marker "$WORKTREES_DIR/${removed_task:-.nonexistent}/.worker-uuid" "$uuid"
+  remove_marker "/tmp/kompara-worker-$SESSION_PID.uuid" "$uuid"
 
   echo "OK"
 }
@@ -324,7 +350,7 @@ cmd_update_task() {
   local tmp_file
   tmp_file=$(mktemp)
   local old_task=""
-  while IFS= read -r line; do
+  while IFS= read -r line || [ -n "$line" ]; do
     if [[ "$line" =~ ^# ]] || [[ -z "$line" ]]; then
       echo "$line" >> "$tmp_file"
       continue
@@ -338,14 +364,14 @@ cmd_update_task() {
       echo "$line" >> "$tmp_file"
     fi
   done < "$WORKERS_FILE"
-  mv "$tmp_file" "$WORKERS_FILE"
+  replace_if_changed "$tmp_file" "$WORKERS_FILE"
 
   release_lock
 
   # Migrate UUID file to new task's worktree
   if [ -n "$old_task" ] && [ -d "$WORKTREES_DIR/$new_task" ]; then
     persist_uuid "$uuid" "$new_task"
-    rm -f "$WORKTREES_DIR/$old_task/.worker-uuid" 2>/dev/null || true
+    [ "$old_task" = "$new_task" ] || remove_marker "$WORKTREES_DIR/$old_task/.worker-uuid" "$uuid"
   fi
 
   echo "OK"
@@ -392,7 +418,7 @@ cmd_cleanup() {
       local tmp_file
       tmp_file=$(mktemp)
       tail -50 "$ACTIVITY_LOG" > "$tmp_file"
-      mv "$tmp_file" "$ACTIVITY_LOG"
+      replace_if_changed "$tmp_file" "$ACTIVITY_LOG"
     fi
   fi
 
@@ -533,7 +559,7 @@ cmd_log_activity() {
     local tmp_file
     tmp_file=$(mktemp)
     tail -50 "$ACTIVITY_LOG" > "$tmp_file"
-    mv "$tmp_file" "$ACTIVITY_LOG"
+    replace_if_changed "$tmp_file" "$ACTIVITY_LOG"
   fi
 
   release_lock

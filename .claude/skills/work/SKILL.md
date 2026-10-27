@@ -64,8 +64,11 @@ $MAIN_PATH/pming/worker.sh cleanup
 ### Resume (no args)
 1. Check for an existing worker entry: `$MAIN_PATH/pming/worker.sh info`
    - If exit code 0 (entry found): parse the JSON output to get `task` and `branch`
-   - Check if a worktree already exists for this task (`.worktrees/<task-id>/`)
-   - If worktree exists, `cd` into it
+   - If a worktree exists for this task, `cd` into it (if the `cd` fails, there is none yet). Run this as one command, since shell variables don't carry over to the next one:
+     ```bash
+     MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+     cd "$MAIN_PATH/.worktrees/<task-id>"
+     ```
    - If the task's status field shows `pending` (two-phase claim not yet activated): run `$MAIN_PATH/pming/worker.sh activate`
    - If the task is still `in_progress`, resume working on it (skip to Step 4 if worktree exists, Step 3 if not)
    - If the task is `done`, find next `todo` task in the group (respecting mode/target) and start it
@@ -92,19 +95,16 @@ When no specific task/story/epic is given and no active session exists:
 Create an isolated branch and worktree for this work session:
 
 1. Derive branch name: `work/<task-id>` (e.g., `work/B-042`)
-2. Check if worktree already exists: `git worktree list | grep <task-id>`
-3. If it exists, `cd` into it and skip to Step 4
-4. If not:
+2. Create the worktree, or move into it if it already exists. Run this as one command, since shell variables don't carry over to the next one. The worktree goes in `$MAIN_PATH/.worktrees/`, where `worker.sh` looks for it, even when this session runs in another worktree (a relative `.worktrees/` would nest it there). Put the UUID from the claim output (`OK <uuid>`) in place of `<uuid>`; the block writes it to the worktree only when it creates the worktree:
    ```bash
-   git worktree add .worktrees/<task-id> -b work/<task-id>
+   MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+   WT="$MAIN_PATH/.worktrees/<task-id>"
+   if ! git worktree list --porcelain | grep -Fxq "worktree $WT"; then
+     git worktree add "$WT" -b work/<task-id> && echo "<uuid>" > "$WT/.worker-uuid"
+   fi
+   cd "$WT"
    ```
-5. `cd` into `.worktrees/<task-id>`
-6. Write UUID to worktree: after creating the worktree, persist the UUID from the claim step:
-   ```bash
-   # The UUID was captured from the claim output: "OK <uuid>"
-   echo "<uuid>" > .worktrees/<task-id>/.worker-uuid
-   ```
-7. Confirm to user: "Worktree ready on branch `work/<task-id>`"
+3. Confirm to user: "Worktree ready on branch `work/<task-id>`"
 
 ## Step 4: Plan
 
@@ -208,6 +208,6 @@ After implementation passes lint and tests, run a quick Codex review to catch is
 - When starting a group, also update the parent story/epic status to `active`
 - If a task is already `in_progress`, confirm whether to resume it or switch
 - If a task is already `done`, skip it and find the next one
-- Worktrees live under `.worktrees/` — ensure this directory is in `.gitignore`
+- Worktrees live under `$MAIN_PATH/.worktrees/` — ensure `.worktrees/` is in `.gitignore`
 - On `/ship`, the ship skill handles merging the worktree's feature branch back to main
 - **All `worker.sh` calls use `$MAIN_PATH/pming/worker.sh`** — works from any worktree
