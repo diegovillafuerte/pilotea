@@ -1,0 +1,62 @@
+<style>
+.g-yellow, .g-yellow * { box-sizing: border-box; }
+.g-yellow {
+  position: absolute; top: 120px; left: 16px; right: 16px;
+  z-index: 20; pointer-events: none;
+  padding: 14px 16px 12px;
+  background: #fff; color: #292319;
+  border: 1px solid #e9dfc9; border-left: 4px solid #d49a23;
+  border-radius: 18px;
+  box-shadow: 0 6px 24px rgba(20, 38, 29, .15);
+  font-family: Roboto, "Segoe UI", Arial, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+.g-yellow .g-state {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 4px 9px; border-radius: 7px;
+  background: #fff3d6; color: #805309;
+  font-size: 13px; font-weight: 700; line-height: 18px;
+}
+.g-yellow .g-symbol { font-size: 15px; }
+.g-yellow .g-values {
+  display: flex; align-items: center; gap: 16px; margin-top: 12px;
+}
+.g-yellow .g-primary { flex: 1; min-width: 0; }
+.g-yellow .g-amount {
+  color: #805309; font-size: 44px; font-weight: 800;
+  line-height: 1; letter-spacing: -1.8px; white-space: nowrap;
+}
+.g-yellow .g-unit {
+  margin-top: 4px; font-size: 13px; font-weight: 600; line-height: 18px;
+}
+.g-yellow .g-secondary {
+  min-width: 94px; padding-left: 16px; border-left: 1px solid #e8e2d6;
+}
+.g-yellow .g-hour {
+  font-size: 25px; font-weight: 700; line-height: 30px;
+  letter-spacing: -.6px; white-space: nowrap;
+}
+.g-yellow .g-secondary .g-unit { color: #696154; font-weight: 400; }
+.g-yellow .g-costs {
+  margin: 10px 0 0; color: #696154; font-size: 12px; line-height: 17px;
+}
+.g-yellow .g-limit {
+  margin: 10px 0 0; padding-top: 9px; border-top: 1px solid #eeebe4;
+  color: #5e5546; font-size: 12px; line-height: 17px;
+}
+</style>
+<section class="g-yellow" lang="es-MX" role="status" aria-live="polite" aria-atomic="true">
+  <div class="g-state"><span class="g-symbol" aria-hidden="true">•</span> Entre tus límites</div>
+  <div class="g-values">
+    <div class="g-primary">
+      <div class="g-amount">$7.16</div>
+      <div class="g-unit">netos / km</div>
+    </div>
+    <div class="g-secondary">
+      <div class="g-hour">$191</div>
+      <div class="g-unit">por hora</div>
+    </div>
+  </div>
+  <p class="g-costs">Después de gasolina y desgaste</p>
+  <p class="g-limit">Tu rango · <strong>$6.00 a menos de $8.00</strong> netos/km</p>
+</section>

@@ -1,0 +1,62 @@
+<style>
+.g-red, .g-red * { box-sizing: border-box; }
+.g-red {
+  position: absolute; top: 120px; left: 16px; right: 16px;
+  z-index: 20; pointer-events: none;
+  padding: 14px 16px 12px;
+  background: #fff; color: #2d2020;
+  border: 1px solid #ecd9d7; border-left: 4px solid #bb4039;
+  border-radius: 18px;
+  box-shadow: 0 6px 24px rgba(20, 38, 29, .15);
+  font-family: Roboto, "Segoe UI", Arial, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+.g-red .g-state {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 4px 9px; border-radius: 7px;
+  background: #ffefec; color: #a5322c;
+  font-size: 13px; font-weight: 700; line-height: 18px;
+}
+.g-red .g-symbol { font-size: 15px; }
+.g-red .g-values {
+  display: flex; align-items: center; gap: 16px; margin-top: 12px;
+}
+.g-red .g-primary { flex: 1; min-width: 0; }
+.g-red .g-amount {
+  color: #a5322c; font-size: 44px; font-weight: 800;
+  line-height: 1; letter-spacing: -1.8px; white-space: nowrap;
+}
+.g-red .g-unit {
+  margin-top: 4px; font-size: 13px; font-weight: 600; line-height: 18px;
+}
+.g-red .g-secondary {
+  min-width: 94px; padding-left: 16px; border-left: 1px solid #eadfdd;
+}
+.g-red .g-hour {
+  font-size: 25px; font-weight: 700; line-height: 30px;
+  letter-spacing: -.6px; white-space: nowrap;
+}
+.g-red .g-secondary .g-unit { color: #6c5e5c; font-weight: 400; }
+.g-red .g-costs {
+  margin: 10px 0 0; color: #6c5e5c; font-size: 12px; line-height: 17px;
+}
+.g-red .g-limit {
+  margin: 10px 0 0; padding-top: 9px; border-top: 1px solid #efe7e6;
+  color: #60504e; font-size: 12px; line-height: 17px;
+}
+</style>
+<section class="g-red" lang="es-MX" role="status" aria-live="polite" aria-atomic="true">
+  <div class="g-state"><span class="g-symbol" aria-hidden="true">!</span> Bajo tu mínimo</div>
+  <div class="g-values">
+    <div class="g-primary">
+      <div class="g-amount">$2.20</div>
+      <div class="g-unit">netos / km</div>
+    </div>
+    <div class="g-secondary">
+      <div class="g-hour">$54</div>
+      <div class="g-unit">por hora</div>
+    </div>
+  </div>
+  <p class="g-costs">Después de gasolina y desgaste</p>
+  <p class="g-limit">Tu mínimo · <strong>$6.00 netos/km</strong></p>
+</section>

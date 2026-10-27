@@ -1,0 +1,45 @@
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&display=swap');
+.g-ok-ov,.g-ok-ov *{box-sizing:border-box;margin:0;padding:0}
+.g-ok-ov{--c:#34D97B;--t:#5CE69C;--ink:#04200E;position:absolute;top:114px;left:16px;right:16px;height:116px;z-index:30;display:flex;overflow:hidden;border-radius:20px;background:rgba(14,18,24,.96);box-shadow:0 0 0 1px rgba(255,255,255,.12),0 14px 34px rgba(0,0,0,.40),0 3px 8px rgba(0,0,0,.28);font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;color:#fff;-webkit-font-smoothing:antialiased;pointer-events:none}
+.g-ok-hero{flex:0 0 140px;display:flex;flex-direction:column;justify-content:center;padding:0 8px 0 16px;background:linear-gradient(160deg,#46E486 0%,#1FBF5B 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.38);color:var(--ink)}
+.g-ok-num{display:flex;align-items:flex-start;font-size:40px;font-weight:800;line-height:1;letter-spacing:-.035em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.g-ok-cur{margin:3px 2px 0 0;font-size:20px;font-weight:700;letter-spacing:0;opacity:.78}
+.g-ok-unit{margin-top:7px;font-size:13px;font-weight:700;letter-spacing:.01em;opacity:.82;white-space:nowrap}
+.g-ok-side{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;padding:12px 14px 11px 16px}
+.g-ok-verdict{display:flex;align-items:center;gap:8px;height:20px;color:var(--t)}
+.g-ok-glyph{flex:none;width:18px;height:16px;fill:currentColor}
+.g-ok-off{opacity:.28}
+.g-ok-word{font-size:16px;font-weight:800;line-height:20px;letter-spacing:-.005em;white-space:nowrap}
+.g-ok-hr{display:flex;align-items:baseline;gap:6px;margin-top:5px;line-height:26px;white-space:nowrap}
+.g-ok-hv{font-size:23px;font-weight:800;letter-spacing:-.03em;font-variant-numeric:tabular-nums;color:#fff}
+.g-ok-hl{font-size:13px;font-weight:600;color:#9AA5B5}
+.g-ok-gauge{position:relative;height:8px;margin-top:13px}
+.g-ok-seg{position:absolute;top:0;bottom:0;display:block;border-radius:4px;opacity:.26}
+.g-ok-s1{left:0;width:calc(33.333% - 1.5px);background:#FF6A5C}
+.g-ok-s2{left:calc(33.333% + 1.5px);width:calc(33.333% - 3px);background:#FFC93C}
+.g-ok-s3{left:calc(66.667% + 1.5px);right:0;background:#34D97B}
+.g-ok-on{opacity:1}
+.g-ok-pin{position:absolute;top:-4px;left:79.1%;width:16px;height:16px;margin-left:-8px;border-radius:50%;background:#fff;box-shadow:0 0 0 3px #0E1218,0 2px 8px rgba(0,0,0,.55)}
+.g-ok-pin::after{content:"";position:absolute;top:4px;left:4px;width:8px;height:8px;border-radius:50%;background:var(--c)}
+.g-ok-ticks{position:relative;height:12px;margin-top:7px}
+.g-ok-tk{position:absolute;top:0;transform:translateX(-50%);font-size:11px;font-weight:600;line-height:12px;color:#8893A3;font-variant-numeric:tabular-nums;white-space:nowrap}
+</style>
+<div class="g-ok-ov" role="status" aria-live="polite" aria-label="Vale la pena. 9.49 pesos por kilómetro neto, 285 pesos por hora.">
+  <div class="g-ok-hero">
+    <div class="g-ok-num"><span class="g-ok-cur">$</span>9.49</div>
+    <div class="g-ok-unit">/km neto</div>
+  </div>
+  <div class="g-ok-side">
+    <div class="g-ok-verdict">
+      <svg class="g-ok-glyph" viewBox="0 0 18 16" aria-hidden="true"><rect x="0" y="9" width="4.5" height="7" rx="1.6"/><rect x="6.75" y="4.5" width="4.5" height="11.5" rx="1.6"/><rect x="13.5" y="0" width="4.5" height="16" rx="1.6"/></svg>
+      <span class="g-ok-word">Vale la pena</span>
+    </div>
+    <div class="g-ok-hr"><span class="g-ok-hv">$285</span><span class="g-ok-hl">por hora</span></div>
+    <div class="g-ok-gauge">
+      <i class="g-ok-seg g-ok-s1"></i><i class="g-ok-seg g-ok-s2"></i><i class="g-ok-seg g-ok-s3 g-ok-on"></i>
+      <i class="g-ok-pin"></i>
+    </div>
+    <div class="g-ok-ticks"><span class="g-ok-tk" style="left:33.333%">$6 mín</span><span class="g-ok-tk" style="left:66.667%">$8 meta</span></div>
+  </div>
+</div>

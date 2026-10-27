@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kompara v2 — screens</title>
+<meta name="description" content="Kompara v2 product and UX elevation: every screen of the redesigned Android app, as static mockups built on the real design tokens and one golden data fixture.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap">
+<link rel="stylesheet" href="base.css">
+<style>
+.legend{display:flex;gap:16px;flex-wrap:wrap;margin:-12px 0 24px;font-size:13px;color:var(--slate-400)}
+.legend span b{color:var(--slate-200)}
+.fixture{background:var(--slate-800);border-radius:12px;padding:14px 16px;font-size:13px;color:var(--slate-300);line-height:1.55;max-width:980px;margin:0 0 8px}
+.fixture b{color:var(--slate-100)}
+.k-ov{position:absolute;right:10px;top:8px;width:16px;height:16px;border-radius:5px;background:rgba(255,255,255,.25);font-size:10px;font-weight:900;display:flex;align-items:center;justify-content:center}
+.g{display:inline-flex;width:22px;height:22px;border-radius:50%;align-items:center;justify-content:center;font-weight:900;font-size:14px;background:rgba(255,255,255,.25);margin-right:8px;vertical-align:middle}
+.chip.yellow .g{background:rgba(0,0,0,.14)}
+.chip.gray .body{background:#475569;color:#fff}
+.vd{display:inline-flex;width:28px;height:28px;border-radius:50%;align-items:center;justify-content:center;font-weight:900;font-size:14px;color:#fff;flex:0 0 28px}
+.vd.v{background:var(--verde)} .vd.y{background:var(--amarillo);color:#1a1300} .vd.r{background:var(--rojo)} .vd.n{background:#475569}
+.demo-offer{background:var(--surface-card);border-radius:16px;padding:16px;position:relative;min-height:150px}
+.demo-offer .f{font-size:30px;font-weight:800}
+.demo-offer .l{font-size:14px;color:var(--text-muted);margin-top:4px}
+.rowsteps{display:flex;flex-direction:column;gap:10px}
+.rowsteps div{display:flex;gap:12px;align-items:center;font-size:15px}
+.rowsteps i{width:28px;height:28px;border-radius:50%;background:var(--surface-variant);display:inline-flex;align-items:center;justify-content:center;font-style:normal;font-weight:700;font-size:13px;flex:0 0 28px}
+.disc{display:flex;gap:12px;align-items:flex-start}
+.disc .ic{width:36px;height:36px;border-radius:10px;background:var(--surface-card);display:flex;align-items:center;justify-content:center;flex:0 0 36px;color:var(--primary-strong)}
+.disc .t{font-size:15px;line-height:1.4}
+.disc .t b{font-weight:700}
+.otp{display:flex;gap:8px}
+.otp i{flex:1;height:56px;border-radius:12px;background:var(--surface-card);border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-style:normal;font-size:24px;font-weight:700}
+.otp i.on{border-color:var(--primary)}
+.field{background:var(--surface-card);border-radius:12px;padding:10px 14px;display:flex;flex-direction:column;gap:2px;border:1.5px solid transparent;min-height:56px;justify-content:center}
+.field.on{border-color:var(--primary)}
+.field .fl{font-size:13px;color:var(--text-muted);font-weight:600}
+.field .fv{font-size:18px;font-weight:600;display:flex;gap:6px;align-items:baseline}
+.field .fv .pre{color:var(--text-muted)}
+.stepper{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.stepper b{font-size:34px;font-weight:900;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.stepper b small{font-size:16px;font-weight:600;color:var(--text-muted)}
+.stepper i{width:56px;height:56px;border-radius:16px;background:var(--surface-variant);display:flex;align-items:center;justify-content:center;font-style:normal;font-size:26px;font-weight:700}
+.insight{border-radius:12px;padding:14px 16px;display:flex;gap:12px;align-items:center;background:rgba(45,119,224,.14);border:1px solid rgba(45,119,224,.45)}
+.insight .t{font-size:15px;font-weight:700}
+.insight .s{font-size:13px;color:var(--text-muted)}
+.redcard{border:1.5px solid var(--rojo);background:rgba(211,47,47,.10);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:6px}
+.redcard .t{font-size:20px;font-weight:800}
+.redcard .s{font-size:14px;color:var(--text-muted)}
+.amb{border:1.5px solid var(--amber-500);background:rgba(245,158,11,.10)}
+</style>
+</head>
+<body>
+<svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+<symbol id="i-home" viewBox="0 0 24 24"><path d="M12 3 2 12h3v8h5v-6h4v6h5v-8h3z"/></symbol>
+<symbol id="i-bar" viewBox="0 0 24 24"><path d="M4 20h3v-8H4zm6.5 0h3V4h-3zM17 20h3v-5h-3z"/></symbol>
+<symbol id="i-cmp" viewBox="0 0 24 24"><path d="M9 3 4 8l5 5V10h6V6H9zm6 18 5-5-5-5v3H9v4h6z"/></symbol>
+<symbol id="i-person" viewBox="0 0 24 24"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 2c-4 0-8 2-8 5v1h16v-1c0-3-4-5-8-5z"/></symbol>
+<symbol id="i-eye" viewBox="0 0 24 24"><path d="M12 5C7 5 3 8.5 1.5 12 3 15.5 7 19 12 19s9-3.5 10.5-7C21 8.5 17 5 12 5zm0 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm0-6a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></symbol>
+<symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 3v18h2v-7h9l-1.5-3L16 7H7V3z"/></symbol>
+<symbol id="i-phone" viewBox="0 0 24 24"><path d="M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm0 3v13h10V5z"/></symbol>
+<symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 2 1 21h22zm1 14h-2v2h2zm0-6h-2v5h2z"/></symbol>
+<symbol id="i-light" viewBox="0 0 24 24"><path d="M9 2h6a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm3 3a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm0 5a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm0 5a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></symbol>
+<symbol id="i-gas" viewBox="0 0 24 24"><path d="M4 3h9a1 1 0 0 1 1 1v6h1a2 2 0 0 1 2 2v5a1 1 0 0 0 2 0V9.4l-2-2V5h2l3 3v9a3 3 0 0 1-6 0v-5h-2v9H4zm2 2v5h5V5z"/></symbol>
+<symbol id="i-car" viewBox="0 0 24 24"><path d="M5 11l1.5-4.5A2 2 0 0 1 8.4 5h7.2a2 2 0 0 1 1.9 1.5L19 11a2 2 0 0 1 2 2v5h-2v2h-3v-2H8v2H5v-2H3v-5a2 2 0 0 1 2-2zm2.1 0h9.8l-1-3H8.1zM7 16a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm10 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z"/></symbol>
+<symbol id="i-bell" viewBox="0 0 24 24"><path d="M12 22a2 2 0 0 0 2-2h-4a2 2 0 0 0 2 2zm6-6V11a6 6 0 0 0-5-5.9V4a1 1 0 0 0-2 0v1.1A6 6 0 0 0 6 11v5l-2 2v1h16v-1z"/></symbol>
+<symbol id="i-gift" viewBox="0 0 24 24"><path d="M20 7h-2.2A3 3 0 0 0 12 4.4 3 3 0 0 0 6.2 7H4v4h1v9h14v-9h1zM9 5a1 1 0 0 1 2 0v2H9zm4 0a1 1 0 1 1 2 2h-2zm-2 6h2v9h-2z"/></symbol>
+<symbol id="i-help" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 17h-2v-2h2zm2.1-7.7-.9.9c-.7.7-1.2 1.3-1.2 2.8h-2v-.5c0-1.1.5-2.1 1.2-2.8l1.2-1.2a2 2 0 1 0-3.4-1.4h-2a4 4 0 1 1 7.1 2.2z"/></symbol>
+<symbol id="i-lock" viewBox="0 0 24 24"><path d="M17 9h-1V7a4 4 0 0 0-8 0v2H7a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2zm-7-2a2 2 0 0 1 4 0v2h-4z"/></symbol>
+<symbol id="i-doc" viewBox="0 0 24 24"><path d="M6 2h8l6 6v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm7 1.5V9h5.5zM8 13h8v2H8zm0 4h8v2H8z"/></symbol>
+<symbol id="i-img" viewBox="0 0 24 24"><path d="M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm0 2v14h14V5zm3 10 2.5-3 2 2.5L15 11l3 4z"/></symbol>
+<symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></symbol>
+<symbol id="i-scale" viewBox="0 0 24 24"><path d="M11 3h2v2h5l3 7h-6l3-7h-5v12h4v2H7v-2h4V5H6l3 7H3l3-7h5zm-5 9h2l-1-2.3zm11 0h2l-1-2.3z"/></symbol>
+<symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 2 4 5v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V5z"/></symbol>
+<symbol id="i-share" viewBox="0 0 24 24"><path d="M18 16a3 3 0 0 0-2.1.9l-7-4.1a3 3 0 0 0 0-1.6l7-4.1A3 3 0 1 0 15 5l.1.7-7 4.1a3 3 0 1 0 0 4.4l7 4.1L15 19a3 3 0 1 0 3-3z"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 10.6 3.5 2-1 1.7L11 13.5V7h2z"/></symbol>
+<symbol id="i-info" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-6h2zm0-8h-2V7h2z"/></symbol>
+</svg>
+<h1 class="page">Kompara v2 — every screen</h1>
+<p class="lede">Product and UX elevation, design only. Static mockups on the real tokens (emerald · slate · verdict triple · Inter, dark by default). The bar: comparable in use and feel to the Uber Driver app. Three tabs, one hero per screen, one primary action, every state designed. Caption under each frame says what it answers and what was removed.</p>
+<div class="fixture"><b>Golden fixture v3 — dated records; every number on this page comes from it (full precision inside, rounding only at display).</b><br>
+<b>Costs:</b> gasolina $24.50/L (referencia) ÷ 12 km/L + desgaste $0.80/km = $2.8417/km (shown "$2.84"). <b>Semáforo:</b> verde desde $8.00/km · rojo abajo de $6.00/km. <b>Lo del coche:</b> $1,500/semana, se resta desde lunes 28 sep; in a month view it is allocated by day ($214.29/día).<br>
+<b>Calendar 2026:</b> today = <b>lunes 19 oct</b>, 14:40 on Hoy. Turnos: 08:00–12:30 (5 viajes, te pagó $831, 64.3 km → $648) · en pausa 12:40–14:20 (driver-initiated; no offers read) · 14:20–18:00 (4 viajes, $759, 58.9 km → $592). 23 offers seen on 19 oct: 9 tomadas, 12 se fueron sin tomar (2 of them verde), 2 sin lectura; shown ones: 11:48 sin lectura · 12:10 rojo $62/12.3 km/30 min → $2.20/km · 14:32 verde $148/12.0 km/24 min → $113.90 → $9.49/km, tomada · 14:50 amarillo $120/12.0 km/27 min → $85.90 → $7.16/km, tomada. Best hour 9–10 (3 viajes). Day: 9 viajes tomados · aprox., 123.2 km, te pagó $1,590 → <b>$1,240</b>; at 14:40: 6 viajes, $762 ($648 + the 14:32 estimate $114). Every figure is a reader <b>estimate</b> until a statement confirms it.<br>
+<b>Week 12 – 18 oct (closed):</b> te pagó la app $8,400 (reader estimate) · 675.8 km → −$1,920 → $6,480 → lo del coche −$1,500 → <b>$4,980</b>; 62 viajes · 41 h en turno (both apps; the reader cannot split hours per app). Uber: 34 viajes, 420 km, $5,028 aprox. → $9.13/km neto; DiDi: 28 viajes, 255.8 km, $3,372 aprox. → $10.34/km neto; Uber best day viernes 16. <b>Statement:</b> the driver imported Uber's PDF for this week: $5,062 · 34 viajes · 24 h en línea (según Uber) → <b>$149/viaje antes de gastos, source = statement</b>. Standings use statement figures only. <b>Week 5 – 11 oct:</b> 60 viajes $8,100 (Uber 31/$5,000 aprox., DiDi 29/$3,100 aprox.). <b>E2 (5 – 11 oct as seen on lunes 2 nov, the first Monday it leaves the this-week-plus-three window):</b> same week, $4,747 · 60 viajes, breakdown locked.<br>
+<b>October (reader-only, dated):</b> 1–4 oct 27 viajes $2,950 → $2,274 after running costs; 5–11 oct 60 viajes $8,100 → $6,247; 12–18 oct $6,480; 19 oct (hoy) $1,240. Σ after running costs $16,241; lo del coche 19 días × $214.29 = $4,071 → <b>$12,169 (the unrounded sum, rounded once; the individually rounded rows add to $12,170)</b>; 158 viajes · 106 h en turno. Rows in that scope: $1,417 (4 de 7 días) · $4,747 · $4,980 · $1,026 (hoy). Paid per app in October: Uber $12,608 · DiDi $8,432.<br>
+<b>City cohort (CDMX · Uber · 12 – 18 oct · 1,240 conductores, statement data, before expenses, per trip only — Uber statements carry no km):</b> promedio (media) $131/viaje · mediana $126; the cohort's per-trip distribution is stored with the fixture and the driver's statement $149/viaje falls at its 78th percentile (illustrative distribution; the CI check reads the stored one). A standing is computed only from a statement-confirmed week, for free and paid drivers alike. Uber by day that week: viernes 16 was the best ($1,020 aprox.). <b>Costs:</b> typical until the driver confirmed them on lunes 19 oct 7:30 (B4 shows the moment before tapping "Sí, así es") and chose to apply them to earlier weeks (unchanged values, so no figure moved); from then on every cost label reads "confirmado". <b>Alternate days:</b> B4 is lunes 19 oct 7:30 (yesterday, domingo 18: 4 viajes, $499 before the car cost, last read 20:10); B2 is martes 20 oct 8:05 ("ayer" = lunes 19, $1,240); B6 is the fixture's partial-support day (10:20 · 3 viajes · $380 · 2 h 20 min). <b>E5 (post-legal-gate) numbers are marked Ejemplo:</b> the factor (0.94) and the tip treatment are placeholders until B-038 defines the rule; reader estimates contain no tips. <b>IMSS reference 2026:</b> $9,582/mes (STPS/CONASAMI), served from config; the legal income basis is gated (B-038), so the launch state shows payments only.</div>
+<div class="legend"><span><b>Verde / Amarillo / Rojo</b> colours only on verdicts</span><span><b>Gris</b> = faltan datos para el semáforo (never red)</span><span><b>Emerald</b> = brand, status, progress</span><span>393×852 frames · 16dp edges · targets ≥ 48dp</span></div>
+
+<!-- ===================================== A. ONBOARDING ===================================== -->
+<h2 class="flow">A · Onboarding — one ask per screen, value first, permission before anything else, account last and optional</h2>
+<div class="grid">
+
+<!-- A1 Demo -->
+<div class="frame"><div class="phone"><div class="statusbar"><span>9:41</span><span>▲ 100%</span></div>
+<div class="screen">
+<div class="content" style="padding-top:28px">
+  <div class="prog"><i style="width:14%"></i></div>
+  <div class="h2" style="margin-top:12px">Antes de aceptar, ve si te deja.</div>
+  <div class="p">Kompara lee la oferta que ya ves en tu app y te pone un semáforo con lo que te queda, ya sin gasolina ni desgaste.</div>
+  <div class="demo-offer">
+    <div class="pill outline" style="position:absolute;right:12px;top:12px">Ejemplo</div>
+    <div class="f">$148</div>
+    <div class="l">12 km en total (2 para recoger) · 24 min</div>
+    <div class="chip green" style="right:12px;bottom:-26px;min-width:168px"><div class="body"><div class="rate"><span class="g">✓</span>$9.49<small>/km</small></div><div class="rate2">neto aprox. · $285/h</div></div><div class="k-ov">K</div></div>
+  </div>
+  <div style="height:12px"></div>
+  <div class="p small" style="text-align:center">Verde: llega a tu mínimo. Amarillo: entre tu mínimo y tu rojo. Rojo: abajo de tu rojo. Gris: todavía no hay datos para el semáforo.</div>
+  <a class="btn tonal" style="height:48px;font-size:15px">Ver otra oferta</a>
+</div>
+<div class="footer"><a class="btn primary">Empezar</a><a class="btn text">Ya tengo cuenta</a></div>
+</div></div><div class="cap"><b>A1 · Demo.</b> The aha on screen 1 (~5 s after install): a neutral sample offer (no countdown, no accept button, no rating) with the <i>real</i> chip, and the verdict is true under the initial rule ($9.49 ≥ $8.00). Replaces the 3-page text pitch and the "30 % más" claim. The colour legend names all four states in the app's own words (mínimo, rojo, gris).</div></div>
+
+<!-- A2 Aviso -->
+<div class="frame"><div class="phone"><div class="statusbar"><span>9:41</span><span>▲ 100%</span></div>
+<div class="screen">
+<div class="topbar"><div class="back">‹</div><div></div></div>
+<div class="content">
+  <div class="prog"><i style="width:28%"></i></div>
+  <div class="h2" style="margin-top:4px">Lo que hace Kompara en tu teléfono</div>
+  <div class="disc"><div class="ic"><svg class="ic16"><use href="#i-eye"/></svg></div><div class="t"><b>Qué lee.</b> Mientras hay una oferta en Uber o DiDi, toma una imagen de toda la pantalla, lee de ella la tarifa, la distancia y el tiempo, y la borra al momento.</div></div>
+  <div class="disc"><div class="ic"><svg class="ic16"><use href="#i-flag"/></svg></div><div class="t"><b>Qué guarda.</b> Solo las cifras de tus viajes, en este teléfono. Nunca tu pantalla ni datos del pasajero.</div></div>
+  <div class="disc"><div class="ic"><svg class="ic16"><use href="#i-phone"/></svg></div><div class="t"><b>Qué sale.</b> Conteos anónimos de lectura (se apagan en Tus datos). Solo si tú lo eliges: tus totales con tu cuenta, tu aporte al promedio de tu ciudad, un archivo que subas, un reporte de lectura.</div></div>
+  <div class="disc"><div class="ic"><svg class="ic16"><use href="#i-warn"/></svg></div><div class="t"><b>Ojo.</b> Las apps de viajes podrían no permitir lectores como Kompara. Kompara solo lee: nunca acepta ni rechaza por ti. Tú decides.</div></div>
+  <div class="p small">Usa el servicio de accesibilidad de Android. Funciona con Uber y DiDi.</div>
+</div>
+<div class="footer"><a class="btn primary">Acepto</a><a class="btn text">No acepto</a></div>
+</div></div><div class="cap"><b>A2 · Aviso (prominent disclosure).</b> Comes right before the permission, while motivation is fresh. Now covers screen images, what is retained on the phone, everything that can leave it (anonymous parse counters; and only by choice: account totals, the city-average contribution — a separate opt-in, default off —, an uploaded file, a read report), and the supported apps. Scrolls at large fonts. Legal review B-038. The second "Kompara leerá tu pantalla" dialog is gone where the silent lane applies.</div></div>
+
+<!-- A3 Activar -->
+<div class="frame"><div class="phone"><div class="statusbar"><span>9:41</span><span>▲ 100%</span></div>
+<div class="screen">
+<div class="topbar"><div class="back">‹</div><div></div></div>
+<div class="content">
+  <div class="prog"><i style="width:42%"></i></div>
+  <div class="h2" style="margin-top:4px">Enciende Kompara en Accesibilidad</div>
+  <div class="p">Te llevamos a los ajustes de accesibilidad. Al terminar, regresa aquí.</div>
+  <div class="card"><div class="rowsteps">
+    <div><i>1</i><span>Si ves una lista, busca <b>Kompara</b></span></div>
+    <div><i>2</i><span>Activa el interruptor</span></div>
+    <div><i>3</i><span>Toca <b>Permitir</b> y regresa</span></div>
+  </div></div>
+  <div class="card flat" style="gap:8px"><div class="small" style="color:var(--text-body)">Android te va a preguntar si Kompara puede tener <b>«control total»</b>. Es el aviso estándar de accesibilidad: Kompara solo lee, nunca toca nada.</div><div style="border:1px solid var(--slate-600);border-radius:10px;padding:10px 12px;background:var(--slate-900)"><div class="small" style="font-weight:600">¿Permitir que Kompara tenga control total de tu dispositivo?</div><div style="display:flex;justify-content:flex-end;gap:16px;margin-top:8px" class="small"><span class="muted">Rechazar</span><span style="color:var(--primary-strong);font-weight:700">Permitir</span></div></div></div>
+  <div class="status"><span class="dot idle"></span><div class="t">Lector apagado<span class="s">Esperando a que lo actives…</span></div></div>
+  <a class="btn text">¿No encuentras Kompara?</a>
+</div>
+<div class="footer"><a class="btn primary">Abrir ajustes</a><a class="btn text">Ahora no</a></div>
+</div></div><div class="cap"><b>A3 · Activar.</b> The app tries the direct route to Kompara's own toggle and falls back to the accessibility list; the steps cover both, and no route is promised from the Android version alone (capability-tested per device). On return: 800 ms ✓ → auto-advance to "Lector preparado" (no "¡Listo!" screen). "Ahora no" is allowed; Hoy then shows the off state.</div></div>
+
+<!-- A4 Batería (conditional) -->
+<div class="frame"><div class="phone"><div class="statusbar"><span>9:41</span><span>▲ 100%</span></div>
+<div class="screen">
+<div class="topbar"><div class="back">‹</div><div></div></div>
+<div class="content">
+  <div class="prog"><i style="width:56%"></i></div>
+  <div class="h2" style="margin-top:4px">Que tu teléfono no apague Kompara</div>
+  <div class="p">Tu teléfono está limitando a Kompara en segundo plano. Quita la restricción de batería para que siga leyendo.</div>
+  <div class="card accent"><div class="ct">Batería: sin restricciones</div><div class="cb">Ajustes → Apps → Kompara → Batería → Sin restricciones</div></div>
+  <div class="status"><span class="dot"></span><div class="t">Lector preparado<span class="s">La primera oferta confirmará la lectura</span></div></div>
+</div>
+<div class="footer"><a class="btn primary">Abrir ajustes</a><a class="btn text">Saltar</a></div>
+</div></div><div class="cap"><b>A4 · Batería (only when a restriction is detected).</b> Shown when the OS reports a background restriction for Kompara, and it routes to <i>that</i> setting (not to a different OEM control); the OEM autostart guidance is a second, optional step under Lector › Batería. Re-checked on return; "y listo" is never claimed.</div></div>
+
+<!-- A5 Costos -->
+<div class="frame"><div class="phone"><div class="statusbar"><span>9:41</span><span>▲ 100%</span></div>
+<div class="screen">
+<div class="topbar"><div class="back">‹</div><div></div></div>
+<div class="content">
+  <div class="prog"><i style="width:70%"></i></div>
+  <div class="h2" style="margin-top:4px">¿Cuánto rinde tu coche?</div>
+  <div class="p">Con esto restamos la gasolina y el desgaste de cada viaje. Si no lo sabes, deja el valor típico y ajústalo después.</div>
+  <div class="card" style="gap:12px"><div class="small muted">Kilómetros por litro</div><div class="stepper"><i>−</i><b>12<small> km/L</small></b><i>+</i></div><div class="small muted">Típico de un sedán · Gasolina a $24.50 el litro (referencia) · Desgaste $0.80 por km</div></div>
+  <div class="card accent"><div class="cb">Manejar te cuesta <b style="color:var(--text-body)">$2.84 por km</b> · En un viaje de 12 km son unos $34.</div></div>
+  <a class="btn text">Ya sé mi costo por km</a>
+</div>
+<div class="footer"><a class="btn primary">Usar 12 km/L (típico)</a></div>
+</div></div><div class="cap"><b>A5 · Una pregunta de costos, after the permission cliff.</b> One ask, one stepper, one primary whose label says what it does with the untouched value. Costs stay visibly "típicos" in every scope line until the driver confirms them (B4). Rent/insurance come later as "Lo del coche". Arithmetic runs through the real formula.</div></div>
+
+<!-- A6 Tu número -->
+<div class="frame"><div class="phone"><div class="statusbar"><span>9:41</span><span>▲ 100%</span></div>
+<div class="screen">
+<div class="topbar"><div class="back">‹</div><div></div></div>
+<div class="content">
+  <div class="prog"><i style="width:84%"></i></div>
+  <div class="h2" style="margin-top:4px">Guarda tu semáforo con tu WhatsApp</div>
+  <div class="p">Con tu número guardamos tu configuración y tus totales por semana, y podrás probar Premium 14 días gratis, sin tarjeta, cuando tú quieras.</div>
+  <div class="field on"><div class="fl">Número de WhatsApp</div><div class="fv"><span class="pre">+52</span><span>55 1234 5678</span></div></div>
+  <div class="p small">Tu número es tu cuenta: con él te mandamos el código, guardamos tus totales y tu prueba, y te proponemos tu ciudad. No lo mostramos a otros conductores.</div>
+</div>
+<div class="footer"><a class="btn primary">Mandar código</a><a class="btn text">Ahora no</a></div>
+</div></div><div class="cap"><b>A6 · Tu número (optional).</b> Asked last, with a concrete reason and no automatic trial promise. "Ahora no" keeps the free reader working for good; the account is required only for the trial, import and backup (backup promised only where the server really restores). City is never taken from the number silently: it is proposed, visibly, when a comparison needs it.</div></div>
+
+<!-- A7 Código -->
+<div class="frame"><div class="phone"><div class="statusbar"><span>9:41</span><span>▲ 100%</span></div>
+<div class="screen">
+<div class="topbar"><div class="back">‹</div><div></div></div>
+<div class="content">
+  <div class="prog"><i style="width:98%"></i></div>
+  <div class="h2" style="margin-top:4px">Escribe el código</div>
+  <div class="p">Te lo mandamos por WhatsApp al +52 55 1234 5678.</div>
+  <div class="otp"><i>4</i><i>8</i><i>2</i><i class="on">_</i><i></i><i></i></div>
+  <div style="display:flex;justify-content:space-between;align-items:center" class="small"><a class="btn text" style="width:auto;padding:0 8px;color:var(--primary-strong)">Cambiar número</a><span class="muted">Reenviar en 30 s</span></div>
+</div>
+<div class="footer"></div>
+</div></div><div class="cap"><b>A7 · Código.</b> Six cells, auto-submit on the 6th digit. Success lands on Hoy (first run), never on a simulator. The thin bar is continuous and computed from the device's actual step count.</div></div>
+
+</div>
+
+<!-- ===================================== B. HOY ===================================== -->
+<h2 class="flow">B · Hoy — is Kompara reading, and how much have I kept today</h2>
+<div class="grid">
+
+<!-- B1 Hoy healthy, lunes 19 oct 14:40 -->
+<div class="frame"><div class="phone"><div class="statusbar"><span>14:40</span><span>▲ 82%</span></div>
+<div class="screen">
+<div class="topbar"><div class="title">Hoy</div><div class="pills-right"><span class="pill brand" style="padding:6px 12px;font-size:13px">● Lector funcionando</span><span class="icon-btn" title="Tu cuenta"><svg class="ic24"><use href="#i-person"/></svg></span></div></div>
+<div class="content">
+  <div class="card" style="gap:2px">
+    <div class="hero"><div class="label">Te quedan hoy · aprox.</div><div class="value">$762</div><div class="sub"><b>6 viajes tomados</b></div></div>
+    <div class="small scopeline" style="margin-top:6px;display:flex;justify-content:space-between"><span class="muted">Viajes tomados según la oferta, después de gasolina y desgaste · aprox.</span><span style="color:var(--primary-strong);font-weight:600">Cómo se calculó</span></div>
+  </div>
+  <div class="list"><div class="row" style="min-height:48px"><div class="ic"><svg><use href="#i-clock"/></svg></div><div class="m"><div class="t" style="font-weight:500">Tu mejor hora hoy: 9 a 10 h</div></div><div class="chev">›</div></div></div>
+  <div class="section row-h"><span>Últimas ofertas</span><a class="btn text" style="width:auto;display:inline-flex;min-height:48px;padding:0 8px;color:var(--primary-strong)">Ver tu día ›</a></div>
+  <div class="list">
+    <div class="row"><div class="vd v">✓</div><div class="m"><div class="t">Verde · la tomaste</div><div class="s">14:32 · aprox.</div></div><div class="chev">›</div></div>
+    <div class="row"><div class="vd r">✕</div><div class="m"><div class="t">Rojo · se fue sin tomar</div><div class="s">12:10</div></div><div class="chev">›</div></div>
+    <div class="row"><div class="vd n">?</div><div class="m"><div class="t">Sin lectura</div><div class="s">11:48 · faltó la tarifa</div></div><div class="chev">›</div></div>
+  </div>
+</div>
+<div class="nav"><div class="tab on"><svg class="svg"><use href="#i-home"/></svg><span>Hoy</span></div><div class="tab"><svg class="svg"><use href="#i-bar"/></svg><span>Ganancias</span></div><div class="tab"><svg class="svg"><use href="#i-cmp"/></svg><span>Comparar</span></div></div>
+</div></div><div class="cap"><b>B1 · Hoy, mid-shift (lunes 19 oct, 14:40).</b> One status (preparado / funcionando / apagado / en pausa), one number with its scope line (which opens "Cómo se calculó"), one word-only factual observation as a plain row (the converged F9 decision: a reason to open the app, never advice or blame, no money figure), and the last three offers (colour, outcome and time, no rate — the rates live in Tu día; none inside the 12:40–14:20 pause) — the best proof the reader actually read them. Numbers law: one hero plus at most one number per row. The hero is explicitly an estimate of trips <i>taken</i>: the reader cannot see payment, so "La tomaste · aprox." never claims the trip is completed or paid; an import confirms. Cuenta lives behind the avatar. Removed: weekly hero, week row, streak, platform chips, 2×2 grid, paywall tease, three consejos, completeness note.</div></div>
+
+<!-- B2 Hoy reader off -->
+<div class="frame"><div class="phone"><div class="statusbar"><span>8:05</span><span>▲ 100%</span></div>
+<div class="screen">
+<div class="topbar"><div class="title">Hoy</div><div class="pills-right"><span class="pill soft" style="padding:6px 12px;font-size:13px;color:#f87171">● Apagado</span><span class="icon-btn" title="Tu cuenta"><svg class="ic24"><use href="#i-person"/></svg></span></div></div>
+<div class="content">
+  <div class="redcard"><div class="t">Lector apagado</div><div class="s">Tu teléfono quitó el permiso de accesibilidad. Sin él no ves el semáforo en tus ofertas.</div></div>
+  <div class="card" style="opacity:.55;gap:2px"><div class="hero"><div class="label">Te quedan hoy</div><div class="value" style="font-size:28px;line-height:1.2">Aún no registramos viajes</div><div class="sub">Ayer te quedaron $1,240 aprox. · lector apagado desde las 7:50</div></div></div>
+</div>
+<div class="footer"><a class="btn primary big">Encender lector</a></div>
+<div class="nav"><div class="tab on"><svg class="svg"><use href="#i-home"/></svg><span>Hoy</span></div><div class="tab"><svg class="svg"><use href="#i-bar"/></svg><span>Ganancias</span></div><div class="tab"><svg class="svg"><use href="#i-cmp"/></svg><span>Comparar</span></div></div>
+</div></div><div class="cap"><b>B2 · Hoy, reader off (martes 20 oct, 8:05).</b> The whole screen becomes one red card and one big button: Kompara's "GO". The card names the actual cause and the button is the matching fix (permission → Accessibility; capture stopped → the consent prompt). An unsupported app version is <i>not</i> an off state: it is a partial state on Hoy ("Uber sigue disponible") with no permission toggle. Goes through Aviso first if consent was never given.</div></div>
+
+<!-- B3 Hoy first run (preparado) -->
+<div class="frame"><div class="phone"><div class="statusbar"><span>9:44</span><span>▲ 100%</span></div>
+<div class="screen">
+<div class="topbar"><div class="title">Hoy</div><div class="pills-right"><span class="pill soft" style="padding:6px 12px;font-size:13px;color:var(--primary-strong)">● Lector preparado</span><span class="icon-btn" title="Tu cuenta"><svg class="ic24"><use href="#i-person"/></svg></span></div></div>
+<div class="content center" style="gap:14px">
+  <div class="h2">Listo. Abre tu app de viajes.</div>
+  <div class="p">Cuando llegue una oferta, tu semáforo aparece encima, así:</div>
+  <div style="position:relative;height:110px;width:100%"><div class="chip green" style="left:50%;transform:translateX(-50%);top:8px;min-width:168px"><div class="body"><div class="rate"><span class="g">✓</span>$9.49<small>/km</small></div><div class="rate2">neto aprox. · $285/h</div></div><div class="k-ov">K</div></div><div class="pill outline" style="position:absolute;right:60px;top:-6px">Ejemplo</div></div>
+  <div class="p small">La primera oferta confirmará la lectura.<br>Semáforo con el valor inicial ($8.00/km) · Costos típicos · <a class="btn text" style="width:auto;display:inline-flex;min-height:48px;padding:0 8px;color:var(--primary-strong)">Elegir mi ciudad</a></div>
+</div>
+<div class="footer"><a class="btn primary">Avísame si se apaga</a><a class="btn text">Ver ejemplo</a></div>
+<div class="nav"><div class="tab on"><svg class="svg"><use href="#i-home"/></svg><span>Hoy</span></div><div class="tab"><svg class="svg"><use href="#i-bar"/></svg><span>Ganancias</span></div><div class="tab"><svg class="svg"><use href="#i-cmp"/></svg><span>Comparar</span></div></div>
+</div></div><div class="cap"><b>B3 · Hoy, first run.</b> "Preparado" (permission granted, nothing read yet) is distinct from "funcionando" (a real offer was read since the service last bound, today): no "ya está leyendo" claim before anything was read. The initial rule is a labelled national value until the driver picks a city. Notification permission is asked here, once, in context (API 33+).</div></div>
+
+<!-- B4 Hoy no trips yet, costs typical -->
+<div class="frame"><div class="phone"><div class="statusbar"><span>7:30</span><span>▲ 100%</span></div>
+<div class="screen">
+<div class="topbar"><div class="title">Hoy</div><div class="pills-right"><span class="pill soft" style="padding:6px 12px;font-size:13px;color:var(--primary-strong)">● Lector preparado</span><span class="icon-btn" title="Tu cuenta"><svg class="ic24"><use href="#i-person"/></svg></span></div></div>
+<div class="content">
+  <div class="card" style="gap:2px"><div class="hero"><div class="label">Te quedan hoy</div><div class="value" style="font-size:28px;line-height:1.2">Aún no registramos viajes</div><div class="sub">Ayer te quedaron $499 aprox. · última lectura ayer 20:10</div></div></div>
+  <div class="insight" style="background:rgba(5,150,105,.12);border-color:rgba(5,150,105,.45)"><svg class="ic16" style="color:var(--primary-strong)"><use href="#i-gas"/></svg><div><div class="t">Tus números usan costos típicos</div><div class="s">12 km/L · $24.50 el litro · desgaste $0.80/km. ¿Es tu caso?</div></div></div>
+  <div style="display:flex;gap:8px"><a class="btn tonal" style="height:48px;font-size:15px">Sí, así es</a><a class="btn secondary" style="height:48px;font-size:15px">Ajustar</a></div>
+</div>
+<div class="nav"><div class="tab on"><svg class="svg"><use href="#i-home"/></svg><span>Hoy</span></div><div class="tab"><svg class="svg"><use href="#i-bar"/></svg><span>Ganancias</span></div><div class="tab"><svg class="svg"><use href="#i-cmp"/></svg><span>Comparar</span></div></div>
+</div></div><div class="cap"><b>B4 · Hoy, lunes 19 oct 7:30, the moment before confirming costs.</b> "Funcionando" expires: nothing has been read today, so the status is back to "preparado" with the last read as proof of life. Costs stay labelled typical until the one-tap confirmation that follows this frame. Replaces the 7-field "Tus costos" nudge.</div></div>
+
+<!-- B5 Hoy en pausa -->
+<div class="frame"><div class="phone"><div class="statusbar"><span>13:10</span><span>▲ 70%</span></div>
+<div class="screen">
+<div class="topbar"><div class="title">Hoy</div><div class="pills-right"><span class="pill soft" style="padding:6px 12px;font-size:13px;color:var(--amber-500)">● En pausa</span><span class="icon-btn" title="Tu cuenta"><svg class="ic24"><use href="#i-person"/></svg></span></div></div>
+<div class="content">
+  <div class="card amb" style="gap:6px"><div class="ct">Lector en pausa</div><div class="cb">Lo pausaste a las 12:40. No leemos ofertas ni te avisamos hasta que lo reanudes. Se reanuda solo mañana.</div></div>
+  <div class="card" style="gap:2px"><div class="hero"><div class="label">Te quedan hoy · aprox.</div><div class="value">$648</div><div class="sub"><b>5 viajes tomados</b> · 4 h 30 min en turno</div></div><div class="small scopeline" style="margin-top:6px;display:flex;justify-content:space-between"><span class="muted">Viajes tomados según la oferta, después de gasolina y desgaste · aprox.</span><span style="color:var(--primary-strong);font-weight:600">Cómo se calculó</span></div></div>
+</div>
+<div class="footer"><a class="btn primary">Reanudar lector</a></div>
+<div class="nav"><div class="tab on"><svg class="svg"><use href="#i-home"/></svg><span>Hoy</span></div><div class="tab"><svg class="svg"><use href="#i-bar"/></svg><span>Ganancias</span></div><div class="tab"><svg class="svg"><use href="#i-cmp"/></svg><span>Comparar</span></div></div>
+</div></div><div class="cap"><b>B5 · Hoy, en pausa.</b> A deliberate pause is its own state: amber, not red; no "needs attention" notifications while paused; auto-resumes the next day. Primary "Reanudar lector".</div></div>
+
+<!-- B6 Hoy partial support -->
+<div class="frame"><div class="phone"><div class="statusbar"><span>10:20</span><span>▲ 90%</span></div>
+<div class="screen">
+<div class="topbar"><div class="title">Hoy</div><div class="pills-right"><span class="pill brand" style="padding:6px 12px;font-size:13px">● Lector funcionando</span><span class="icon-btn" title="Tu cuenta"><svg class="ic24"><use href="#i-person"/></svg></span></div></div>
+<div class="content">
+  <div class="card amb" style="gap:4px;flex-direction:row;align-items:center"><div style="flex:1"><div class="ct" style="font-size:15px">Por ahora no podemos leer DiDi</div><div class="cb">Esta versión de DiDi aún no es compatible. Uber sigue disponible.</div></div><span class="chev" style="color:var(--text-muted)">›</span></div>
+  <div class="card" style="gap:2px"><div class="hero"><div class="label">Te quedan hoy · aprox.</div><div class="value">$380</div><div class="sub"><b>3 viajes tomados</b> · 2 h 20 min en turno</div></div><div class="small scopeline" style="margin-top:6px;display:flex;justify-content:space-between"><span class="muted">Viajes tomados según la oferta, después de gasolina y desgaste · aprox.</span><span style="color:var(--primary-strong);font-weight:600">Cómo se calculó</span></div></div>
+  <div class="section row-h"><span>Últimas ofertas</span><a class="btn text" style="width:auto;display:inline-flex;min-height:48px;padding:0 8px;color:var(--primary-strong)">Ver tu día ›</a></div>
+  <div class="list"><div class="row"><div class="vd v">✓</div><div class="m"><div class="t">Verde · la tomaste</div><div class="s">10:05 · aprox.</div></div><div class="chev">›</div></div></div>
+</div>
+<div class="nav"><div class="tab on"><svg class="svg"><use href="#i-home"/></svg><span>Hoy</span></div><div class="tab"><svg class="svg"><use href="#i-bar"/></svg><span>Ganancias</span></div><div class="tab"><svg class="svg"><use href="#i-cmp"/></svg><span>Comparar</span></div></div>
+</div></div><div class="cap"><b>B6 · Hoy, partial support (a partial-support day in the fixture, the fixture).</b> An unsupported app version is not an off state: the reader stays "funcionando" for the apps it reads, the partial notice names the app and offers no permission toggle, and repeated parse failures on the last usable parser would downgrade the status (failure precedence over an earlier success).</div></div>
+
+</div>

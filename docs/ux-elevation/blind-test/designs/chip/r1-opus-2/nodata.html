@@ -1,0 +1,26 @@
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&display=swap');
+.g-ov{position:absolute;top:444px;left:12px;right:12px;height:88px;box-sizing:border-box;display:flex;align-items:stretch;background:#0F172A;border:1px solid rgba(255,255,255,.08);border-radius:20px;box-shadow:0 6px 16px -6px rgba(2,6,23,.55),0 1px 3px rgba(2,6,23,.4);color:#F8FAFC;font-family:'Inter',system-ui,-apple-system,Roboto,'Segoe UI',sans-serif;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;z-index:20;animation:g-in .22s cubic-bezier(.2,.8,.2,1) both}
+.g-ov *{box-sizing:border-box}
+.g-ov::after{content:"";position:absolute;right:46px;bottom:-6px;width:11px;height:11px;background:#0F172A;border-right:1px solid rgba(255,255,255,.08);border-bottom:1px solid rgba(255,255,255,.08);border-bottom-right-radius:3px;transform:rotate(45deg)}
+@keyframes g-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.g-ov{animation:none}}
+.g-band{flex:0 0 82px;margin:-1px 0 -1px -1px;padding:0 6px;border-radius:20px 0 0 20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;background:var(--g-c);color:var(--g-on);text-align:center}
+.g-ic{position:relative;flex:none;width:30px;height:30px;border-radius:50%;background:var(--g-icbg)}
+.g-q{display:flex;align-items:center;justify-content:center;font-size:17px;line-height:1;font-weight:800}
+.g-word{font-size:11px;line-height:1.15;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+.g-body{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;padding:0 16px 0 14px}
+.g-nd-t{font-size:16px;line-height:1.2;font-weight:700;letter-spacing:-.01em;color:#F8FAFC}
+.g-nd-s{margin-top:4px;font-size:12.5px;line-height:1.35;font-weight:500;color:#94A3B8}
+.g-is-nodata{--g-c:repeating-linear-gradient(135deg,rgba(255,255,255,.07) 0 6px,transparent 6px 12px),#334155;--g-on:#E2E8F0;--g-icbg:rgba(255,255,255,.1)}
+</style>
+<div class="g-ov g-is-nodata" role="status" aria-label="Sin datos: no se pudo leer la tarifa de esta oferta. Revisa la oferta antes de decidir.">
+  <div class="g-band">
+    <span class="g-ic g-q" aria-hidden="true">?</span>
+    <span class="g-word">Sin datos</span>
+  </div>
+  <div class="g-body">
+    <div class="g-nd-t">No se pudo leer la tarifa</div>
+    <div class="g-nd-s">Revisa la oferta antes de decidir.</div>
+  </div>
+</div>

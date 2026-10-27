@@ -1,0 +1,40 @@
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&display=swap');
+.g-nil-ov,.g-nil-ov *{box-sizing:border-box;margin:0;padding:0}
+.g-nil-ov{--t:#B4BECC;position:absolute;top:114px;left:16px;right:16px;height:116px;z-index:30;display:flex;overflow:hidden;border-radius:20px;background:rgba(14,18,24,.96);box-shadow:0 0 0 1px rgba(255,255,255,.12),0 14px 34px rgba(0,0,0,.40),0 3px 8px rgba(0,0,0,.28);font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;color:#fff;-webkit-font-smoothing:antialiased;pointer-events:none}
+.g-nil-hero{flex:0 0 140px;display:flex;flex-direction:column;justify-content:center;padding:0 8px 0 16px;background:repeating-linear-gradient(135deg,#2C333E 0,#2C333E 7px,#262D37 7px,#262D37 14px);box-shadow:inset 0 1px 0 rgba(255,255,255,.08);color:#8E99A8}
+.g-nil-num{display:flex;align-items:flex-start;font-size:40px;font-weight:800;line-height:1;letter-spacing:-.035em;color:#6F7A8A;white-space:nowrap}
+.g-nil-cur{margin:3px 2px 0 0;font-size:20px;font-weight:700;letter-spacing:0}
+.g-nil-unit{margin-top:7px;font-size:13px;font-weight:700;letter-spacing:.01em;white-space:nowrap}
+.g-nil-side{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;padding:12px 14px 11px 16px}
+.g-nil-verdict{display:flex;align-items:center;gap:8px;height:20px;color:var(--t)}
+.g-nil-glyph{flex:none;width:18px;height:16px;fill:currentColor}
+.g-nil-off{opacity:.28}
+.g-nil-word{font-size:16px;font-weight:800;line-height:20px;letter-spacing:-.005em;white-space:nowrap}
+.g-nil-hr{display:flex;align-items:center;margin-top:5px;height:26px;white-space:nowrap}
+.g-nil-msg{font-size:13px;font-weight:600;color:#E8ECF2;letter-spacing:0}
+.g-nil-gauge{position:relative;height:8px;margin-top:13px}
+.g-nil-seg{position:absolute;top:0;bottom:0;display:block;border-radius:4px;background:rgba(255,255,255,.14)}
+.g-nil-s1{left:0;width:calc(33.333% - 1.5px)}
+.g-nil-s2{left:calc(33.333% + 1.5px);width:calc(33.333% - 3px)}
+.g-nil-s3{left:calc(66.667% + 1.5px);right:0}
+.g-nil-ticks{position:relative;height:12px;margin-top:7px}
+.g-nil-tk{position:absolute;top:0;transform:translateX(-50%);font-size:11px;font-weight:600;line-height:12px;color:#7C8798;font-variant-numeric:tabular-nums;white-space:nowrap}
+</style>
+<div class="g-nil-ov" role="status" aria-live="polite" aria-label="Sin datos. No se pudo leer la tarifa de esta oferta.">
+  <div class="g-nil-hero">
+    <div class="g-nil-num"><span class="g-nil-cur">$</span>–.––</div>
+    <div class="g-nil-unit">/km neto</div>
+  </div>
+  <div class="g-nil-side">
+    <div class="g-nil-verdict">
+      <svg class="g-nil-glyph" viewBox="0 0 18 16" aria-hidden="true"><rect class="g-nil-off" x="0" y="9" width="4.5" height="7" rx="1.6"/><rect class="g-nil-off" x="6.75" y="4.5" width="4.5" height="11.5" rx="1.6"/><rect class="g-nil-off" x="13.5" y="0" width="4.5" height="16" rx="1.6"/></svg>
+      <span class="g-nil-word">Sin datos</span>
+    </div>
+    <div class="g-nil-hr"><span class="g-nil-msg">No se pudo leer la tarifa</span></div>
+    <div class="g-nil-gauge">
+      <i class="g-nil-seg g-nil-s1"></i><i class="g-nil-seg g-nil-s2"></i><i class="g-nil-seg g-nil-s3"></i>
+    </div>
+    <div class="g-nil-ticks"><span class="g-nil-tk" style="left:33.333%">$6 mín</span><span class="g-nil-tk" style="left:66.667%">$8 meta</span></div>
+  </div>
+</div>

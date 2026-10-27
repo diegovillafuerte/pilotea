@@ -1,0 +1,49 @@
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&display=swap');
+.g-root{position:absolute;top:350px;left:16px;right:16px;z-index:50;pointer-events:none;font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#0F172A;-webkit-font-smoothing:antialiased;}
+.g-card{background:#FFFFFF;border-radius:20px;overflow:hidden;box-shadow:0 12px 28px rgba(15,23,42,.24),0 1px 3px rgba(15,23,42,.14);}
+.g-band{display:flex;align-items:center;justify-content:space-between;height:36px;padding:0 16px;background:#047857;color:#FFFFFF;}
+.g-verdict{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;}
+.g-dot{width:9px;height:9px;border-radius:50%;background:#FFFFFF;box-shadow:0 0 0 3px rgba(255,255,255,.3);}
+.g-brand{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;letter-spacing:.06em;opacity:.92;}
+.g-brand-k{width:16px;height:16px;border-radius:5px;background:rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;}
+.g-body{display:flex;align-items:flex-end;justify-content:space-between;padding:10px 16px 0;}
+.g-num{font-size:44px;line-height:1;font-weight:800;letter-spacing:-.02em;color:#047857;font-variant-numeric:tabular-nums;white-space:nowrap;}
+.g-unit{font-size:16px;font-weight:700;letter-spacing:0;color:#334155;margin-left:3px;}
+.g-sub{margin-top:6px;font-size:12px;font-weight:500;color:#475569;}
+.g-hour{text-align:right;padding-bottom:2px;}
+.g-hour-v{font-size:24px;line-height:1;font-weight:800;color:#0F172A;font-variant-numeric:tabular-nums;white-space:nowrap;}
+.g-hour-l{margin-top:4px;font-size:11px;font-weight:600;color:#64748B;}
+.g-track{position:relative;height:8px;margin:14px 16px 0;}
+.g-segs{display:flex;height:100%;border-radius:999px;overflow:hidden;}
+.g-seg{height:100%;display:block;}
+.g-seg-red{flex:50 0 0;background:#FECACA;}
+.g-seg-yel{flex:16.6667 0 0;background:#FDE68A;}
+.g-seg-grn{flex:33.3333 0 0;background:#A7F3D0;}
+.g-mark{position:absolute;top:50%;left:79.1%;width:16px;height:16px;margin:-8px 0 0 -8px;box-sizing:border-box;border-radius:50%;background:#FFFFFF;border:3px solid #047857;box-shadow:0 1px 4px rgba(15,23,42,.3);}
+.g-foot{display:flex;justify-content:space-between;padding:10px 16px 10px;font-size:11px;font-weight:600;color:#64748B;}
+.g-foot b{color:#334155;font-weight:700;}
+</style>
+<div class="g-root" role="status" aria-label="Conviene: 9.49 pesos por kilómetro neto, 285 pesos por hora">
+  <div class="g-card">
+    <div class="g-band">
+      <div class="g-verdict"><span class="g-dot"></span>Conviene</div>
+      <div class="g-brand"><span class="g-brand-k">K</span>KOMPARA</div>
+    </div>
+    <div class="g-body">
+      <div>
+        <div class="g-num">$9.49<span class="g-unit">/km</span></div>
+        <div class="g-sub">Arriba de tu meta</div>
+      </div>
+      <div class="g-hour">
+        <div class="g-hour-v">$285<span class="g-unit">/h</span></div>
+        <div class="g-hour-l">por hora</div>
+      </div>
+    </div>
+    <div class="g-track">
+      <div class="g-segs"><span class="g-seg g-seg-red"></span><span class="g-seg g-seg-yel"></span><span class="g-seg g-seg-grn"></span></div>
+      <span class="g-mark"></span>
+    </div>
+    <div class="g-foot"><span>Tu mínimo <b>$6.00/km</b></span><span>Tu meta <b>$8.00/km</b></span></div>
+  </div>
+</div>

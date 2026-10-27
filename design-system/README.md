@@ -1,5 +1,9 @@
 # Kompara — Design System
 
+> **v3 note — 2026-10-26, updated 2026-10-27 (Round 14).** The Android UX elevation moved to the **"paper and ink"** system: a white day surface, ink text, Barlow / Barlow Semi Condensed, no cards, no pills, no icon tiles, no brand strip; the verdict triple (verde `#187A36` · amarillo `#F2B705` · rojo `#D32F2F`) appears only on verdicts (the chip and the mark), plus one green dot for "Lector funcionando". The chip is **"la regla"**: an ink plate with the driver's two limits as labelled lines (**tu meta** $8, **tu mínimo** $6) and the trip as a colour band above, between or below them, with a ▲ ▬ ▼ cue. It won a blind test against generic designs from fresh models ([`docs/ux-elevation/debate/180-blind-template-test.md`](../docs/ux-elevation/debate/180-blind-template-test.md)).
+> The implemented palette / type / surface rules and the chip are in [`ui_kits/android-app-v2/base-v3.css`](ui_kits/android-app-v2/base-v3.css) (per-state chip markup: `_regla-markup.html`); the decisions are in [`docs/ux-elevation/debate/`](../docs/ux-elevation/debate/) (`120` synthesis, `190` propagation) and the contract in [`docs/ux-elevation-spec.md`](../docs/ux-elevation-spec.md) §4 / §6.
+> The emerald / slate / Inter tokens described below and in `tokens/` are the **current code** and the legacy website; for the Android app they are superseded and will be replaced when the v3 build starts. In `tokens/` only the verde value has moved so far (`#1B8A3A` → `#187A36`). Round 10's kit is frozen in `ui_kits/android-app-v2-r10/`.
+
 Earnings analytics and a real-time **trip-offer verdict** for ride-hailing
 drivers in Mexico. A driver mounts their phone on the dash; when an Uber or DiDi
 offer pops up, Kompara reads it and overlays an instant **semáforo** — verde /
@@ -72,7 +76,7 @@ verdict triple. Light is the `:root` default; add `class="theme-dark"` to flip.
 **Colour.**
 - **Primary — Emerald.** `#059669` (600) is the canonical brand green (logomark, dark-theme primary, chip brand strip); `#047857` (700) is the light-theme primary. Full 50–950 scale.
 - **Neutrals — Slate.** 50–950. Dark surfaces: bg slate-900 → card slate-800 → variant slate-700. Light: bg slate-50 → card white → variant slate-200.
-- **Verdict triple (the heart).** Verde `#1B8A3A`, Amarillo `#F2B705` (dark text on it), Rojo `#D32F2F`. **Reserve these three for verdicts only** — never decorative red/green/yellow elsewhere. Colour is *never the only signal*: it always pairs with a number or word.
+- **Verdict triple (the heart).** Verde `#187A36`, Amarillo `#F2B705` (dark text on it), Rojo `#D32F2F`. **Reserve these three for verdicts only** — never decorative red/green/yellow elsewhere. Colour is *never the only signal*: it always pairs with a number or word.
 - **Accents.** Amber `#F59E0B` (web CTAs, streak); info-blue `#2D77E0` (actionable tips, sits outside the triple).
 
 **Type.** **Inter**, one family, the whole way down (variable, weights 400–900).

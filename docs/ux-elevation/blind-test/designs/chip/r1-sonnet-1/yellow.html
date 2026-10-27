@@ -1,0 +1,66 @@
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&display=swap');
+.g-root,.g-root *{box-sizing:border-box;margin:0;padding:0}
+.g-root{position:absolute;top:112px;left:16px;right:16px;z-index:60;pointer-events:none;
+ --g-r:#FF5B50;--g-y:#FFC93C;--g-g:#3DDC84;--g-panel:#10141A;--g-line:rgba(255,255,255,.14);--g-mute:#99A4B0;
+ font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
+ -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+.g-root.g-green{--g-c:var(--g-g);--g-ink:#05170C}
+.g-root.g-yellow{--g-c:var(--g-y);--g-ink:#1F1600}
+.g-root.g-red{--g-c:var(--g-r);--g-ink:#240604}
+.g-root.g-nodata{--g-c:#56616C;--g-ink:#C9D1DA}
+.g-card{display:flex;height:110px;border-radius:20px;overflow:hidden;background:var(--g-panel);border:2px solid var(--g-c);box-shadow:0 12px 30px rgba(0,0,0,.42),0 2px 6px rgba(0,0,0,.3)}
+.g-nodata .g-card{border-style:dashed}
+.g-verdict{flex:0 0 116px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:0 6px;background:var(--g-c);color:var(--g-ink);text-align:center}
+.g-nodata .g-verdict{background:#222A32}
+.g-ico{display:block;width:34px;height:34px;flex:none}
+.g-word{font-size:15px;line-height:16px;font-weight:800;letter-spacing:-.01em;white-space:nowrap}
+.g-body{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;padding:0 14px}
+.g-grid{position:relative;display:grid;grid-template-columns:108px 1fr;grid-template-rows:12px 44px;align-items:baseline;height:56px}
+.g-grid::before{content:"";position:absolute;left:108px;top:3px;bottom:5px;width:1px;background:var(--g-line)}
+.g-grid>:nth-child(2n){padding-left:16px}
+.g-top{height:56px}
+.g-lab{font-size:10px;line-height:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--g-mute);white-space:nowrap}
+.g-num{color:#fff;font-weight:800;line-height:1;letter-spacing:-.03em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.g-hero{font-size:42px}
+.g-hour{font-size:26px;font-weight:700;color:#E8ECF0}
+.g-cur,.g-dec{font-size:.6em;font-weight:700}
+.g-cur{margin-right:1px;opacity:.75}
+.g-nd{margin-top:2px;font-size:17px;line-height:21px;font-weight:700;color:#fff;letter-spacing:-.01em;white-space:nowrap}
+.g-gauge{position:relative;height:14px;margin-top:4px}
+.g-track{position:absolute;left:0;right:0;top:4px;height:6px;border-radius:3px;overflow:hidden}
+.g-seg{position:absolute;top:0;bottom:0;display:block;opacity:.3}
+.g-seg-r{left:0;width:50%;background:var(--g-r)}
+.g-seg-y{left:50%;width:16.6667%;background:var(--g-y);border-left:2px solid var(--g-panel)}
+.g-seg-g{left:66.6667%;width:33.3333%;background:var(--g-g);border-left:2px solid var(--g-panel)}
+.g-green .g-seg-g,.g-yellow .g-seg-y,.g-red .g-seg-r{opacity:1}
+.g-nodata .g-seg{background:#3B444E;opacity:1}
+.g-mark{position:absolute;top:0;display:block;width:4px;height:14px;margin-left:-2px;border-radius:2px;background:#fff;box-shadow:0 0 0 2px var(--g-panel)}
+.g-nodata .g-mark{display:none}
+.g-ticks{position:relative;height:12px;margin-top:3px;font-size:10.5px;line-height:12px;font-weight:600;color:var(--g-mute);font-variant-numeric:tabular-nums}
+.g-ticks span{position:absolute;top:0;white-space:nowrap}
+.g-tl{left:0;letter-spacing:.01em}
+.g-t6{left:50%;transform:translateX(-50%)}
+.g-t8{left:66.6667%;transform:translateX(-50%)}
+</style>
+<div class="g-root g-yellow" style="position:absolute;top:112px;left:16px;right:16px" role="status" aria-label="Regular: 7.16 pesos netos por kilómetro y 191 pesos por hora">
+  <div class="g-card">
+    <div class="g-verdict">
+      <svg class="g-ico" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 3.8 29 27.2H3z" fill="var(--g-ink)" stroke="var(--g-ink)" stroke-width="3.2" stroke-linejoin="round"/><path d="M16 12.2v7" stroke="var(--g-c)" stroke-width="3.2" stroke-linecap="round"/><circle cx="16" cy="23.4" r="1.9" fill="var(--g-c)"/></svg>
+      <div class="g-word">Regular</div>
+    </div>
+    <div class="g-body">
+      <div class="g-grid">
+        <div class="g-lab">Neto por km</div>
+        <div class="g-lab">Por hora</div>
+        <div class="g-num g-hero"><span class="g-cur">$</span>7<span class="g-dec">.16</span></div>
+        <div class="g-num g-hour"><span class="g-cur">$</span>191</div>
+      </div>
+      <div class="g-gauge">
+        <div class="g-track"><i class="g-seg g-seg-r"></i><i class="g-seg g-seg-y"></i><i class="g-seg g-seg-g"></i></div>
+        <i class="g-mark" style="left:59.67%"></i>
+      </div>
+      <div class="g-ticks"><span class="g-tl">tus límites</span><span class="g-t6">$6</span><span class="g-t8">$8</span></div>
+    </div>
+  </div>
+</div>

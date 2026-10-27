@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="es-MX">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=393, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Hoy</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+*{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --ink:#0B0B0B;
+  --ink-2:#4B4B4B;
+  --ink-3:#6B6B6B;
+  --line:#E8E8E8;
+  --surface:#F3F3F3;
+  --surface-2:#E6E6E6;
+  --good:#08874A;
+  --good-ink:#0A6B3B;
+  --good-tint:#E3F4EA;
+  --bad:#D12E2E;
+}
+
+html{width:393px;height:852px;background:#fff}
+
+body{
+  width:393px;
+  height:852px;
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+  background:#fff;
+  color:var(--ink);
+  font-family:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  font-size:16px;
+  line-height:1.3;
+  -webkit-font-smoothing:antialiased;
+  -webkit-text-size-adjust:100%;
+  text-size-adjust:100%;
+}
+
+a{color:inherit;text-decoration:none;-webkit-tap-highlight-color:transparent}
+a:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+ul{list-style:none}
+i{font-style:normal}
+
+/* ---------- Top bar ---------- */
+.top{
+  flex:none;
+  height:72px;
+  padding:28px 20px 0;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}
+
+.status{
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  height:40px;
+  padding:0 16px 0 14px;
+  border-radius:20px;
+  background:var(--good-tint);
+  color:var(--good-ink);
+  font-size:15px;
+  line-height:20px;
+  font-weight:600;
+}
+.dot{
+  flex:none;
+  width:10px;
+  height:10px;
+  border-radius:50%;
+  background:var(--good);
+  box-shadow:0 0 0 4px rgba(8,135,74,.2);
+}
+
+.me{
+  position:relative;
+  flex:none;
+  width:44px;
+  height:44px;
+  border-radius:50%;
+  background:var(--surface);
+  overflow:hidden;
+}
+.me::before,.me::after{content:"";position:absolute;background:var(--ink)}
+.me::before{left:17px;top:9px;width:10px;height:10px;border-radius:50%}
+.me::after{left:11px;top:23px;width:22px;height:20px;border-radius:11px 11px 0 0}
+
+/* ---------- Main ---------- */
+main{
+  flex:1;
+  min-height:0;
+  display:flex;
+  flex-direction:column;
+  padding:0 20px 24px;
+}
+
+.hero{margin-top:44px}
+.eyebrow{
+  font-size:17px;
+  line-height:22px;
+  font-weight:500;
+  color:var(--ink-2);
+}
+.amount{
+  display:flex;
+  align-items:baseline;
+  gap:12px;
+  margin-top:2px;
+}
+.num{
+  font-size:92px;
+  line-height:96px;
+  font-weight:800;
+  letter-spacing:-0.045em;
+}
+.approx{
+  padding:4px 11px;
+  border-radius:999px;
+  background:var(--surface);
+  color:var(--ink-2);
+  font-size:14px;
+  line-height:18px;
+  font-weight:600;
+}
+.caption{
+  margin-top:6px;
+  font-size:16px;
+  line-height:22px;
+  color:var(--ink-2);
+}
+.caption span{display:block}
+.caption b{font-weight:600;color:var(--ink)}
+
+/* ---------- Observation ---------- */
+.tip{
+  margin-top:28px;
+  height:60px;
+  padding:0 18px;
+  display:flex;
+  align-items:center;
+  gap:14px;
+  border-radius:14px;
+  background:var(--surface);
+  font-size:16px;
+  line-height:22px;
+  font-weight:500;
+}
+.tip b{font-weight:700}
+.clock{
+  position:relative;
+  flex:none;
+  width:24px;
+  height:24px;
+  border:2.5px solid var(--ink);
+  border-radius:50%;
+}
+.clock::before{
+  content:"";
+  position:absolute;
+  left:8px;
+  top:3px;
+  width:6px;
+  height:7px;
+  border-left:2px solid var(--ink);
+  border-bottom:2px solid var(--ink);
+}
+
+/* ---------- Offers ---------- */
+.offers{margin-top:32px;margin-bottom:16px}
+.offers h2{
+  font-size:20px;
+  line-height:26px;
+  font-weight:700;
+  margin-bottom:4px;
+}
+.offer{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  min-height:76px;
+}
+.offer + .offer{border-top:1px solid var(--line)}
+.t{flex:1;min-width:0}
+.v{font-size:16px;line-height:22px;font-weight:600}
+.s{margin-top:2px;font-size:15px;line-height:20px;color:var(--ink-2)}
+.h{
+  flex:none;
+  font-size:16px;
+  line-height:22px;
+  font-weight:600;
+  color:var(--ink-2);
+  font-variant-numeric:tabular-nums;
+}
+
+.b{position:relative;flex:none;width:40px;height:40px;border-radius:50%}
+.b::before,.b::after{content:"";position:absolute}
+.b.ok{background:var(--good)}
+.b.ok::before{
+  left:15px;top:9px;
+  width:9px;height:16px;
+  border:solid #fff;
+  border-width:0 3px 3px 0;
+  transform:rotate(45deg);
+}
+.b.no{background:var(--bad)}
+.b.no::before,.b.no::after{
+  left:calc(50% - 1.5px);
+  top:calc(50% - 9px);
+  width:3px;height:18px;
+  border-radius:2px;
+  background:#fff;
+}
+.b.no::before{transform:rotate(45deg)}
+.b.no::after{transform:rotate(-45deg)}
+.b.na{
+  display:grid;
+  place-items:center;
+  background:var(--surface-2);
+  color:var(--ink-2);
+  font-size:20px;
+  font-weight:700;
+}
+.b.na::before{content:"?";position:static}
+
+/* ---------- Link ---------- */
+.more{
+  margin-top:auto;
+  flex:none;
+  height:56px;
+  padding:0 22px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  border-radius:14px;
+  background:var(--ink);
+  color:#fff;
+  font-size:17px;
+  line-height:22px;
+  font-weight:600;
+}
+.more:focus-visible{outline-color:var(--ink)}
+.chev{
+  width:10px;height:10px;
+  border:solid #fff;
+  border-width:2.5px 2.5px 0 0;
+  transform:rotate(45deg);
+  margin-right:3px;
+}
+
+/* ---------- Bottom navigation ---------- */
+.nav{
+  flex:none;
+  height:80px;
+  padding:0 8px 16px;
+  display:flex;
+  border-top:1px solid var(--line);
+  background:#fff;
+}
+.tab{
+  --c:var(--ink-3);
+  position:relative;
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:4px;
+  color:var(--c);
+  font-size:13px;
+  line-height:16px;
+  font-weight:600;
+}
+.tab.on{--c:var(--ink);font-weight:700}
+.tab.on::before{
+  content:"";
+  position:absolute;
+  top:0;left:50%;
+  width:32px;height:3px;
+  margin-left:-16px;
+  border-radius:0 0 3px 3px;
+  background:var(--ink);
+}
+.ic{height:26px;display:grid;place-items:center}
+.i-home{
+  width:24px;height:22px;
+  background:var(--c);
+  -webkit-clip-path:polygon(50% 0,100% 44%,100% 100%,65% 100%,65% 62%,35% 62%,35% 100%,0 100%,0 44%);
+  clip-path:polygon(50% 0,100% 44%,100% 100%,65% 100%,65% 62%,35% 62%,35% 100%,0 100%,0 44%);
+}
+.i-coin{
+  width:24px;height:24px;
+  border-radius:50%;
+  background:var(--c);
+  color:#fff;
+  display:grid;
+  place-items:center;
+  font-size:14px;
+  line-height:1;
+  font-weight:800;
+}
+.i-cmp{position:relative;width:28px;height:18px}
+.i-cmp::before,.i-cmp::after{
+  content:"";
+  position:absolute;
+  top:0;
+  width:18px;height:18px;
+  border-radius:50%;
+  background:var(--c);
+}
+.i-cmp::before{left:0}
+.i-cmp::after{left:10px;box-shadow:0 0 0 2.5px #fff}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="status" role="status"><span class="dot" aria-hidden="true"></span>Lector funcionando</div>
+  <a class="me" href="#cuenta" aria-label="Cuenta"></a>
+</header>
+
+<main>
+  <section class="hero" aria-label="Lo que te queda hoy">
+    <p class="eyebrow">Te quedan libres hoy</p>
+    <p class="amount"><span class="num">$762</span><span class="approx">aprox.</span></p>
+    <p class="caption"><span>Después de gasolina y desgaste,</span><span>con <b>6 viajes</b> hechos.</span></p>
+  </section>
+
+  <aside class="tip">
+    <span class="clock" aria-hidden="true"></span>
+    <p>Tu mejor hora hoy fue de <b>9 a 10</b></p>
+  </aside>
+
+  <section class="offers" aria-labelledby="t-ofertas">
+    <h2 id="t-ofertas">Últimas ofertas</h2>
+    <ul>
+      <li class="offer">
+        <span class="b ok" aria-hidden="true"></span>
+        <div class="t">
+          <p class="v">Oferta buena</p>
+          <p class="s">La tomaste</p>
+        </div>
+        <time class="h" datetime="14:32">14:32</time>
+      </li>
+      <li class="offer">
+        <span class="b no" aria-hidden="true"></span>
+        <div class="t">
+          <p class="v">Oferta mala</p>
+          <p class="s">La dejaste pasar</p>
+        </div>
+        <time class="h" datetime="12:10">12:10</time>
+      </li>
+      <li class="offer">
+        <span class="b na" aria-hidden="true"></span>
+        <div class="t">
+          <p class="v">No pudimos leer la tarifa</p>
+          <p class="s">Sin calificación</p>
+        </div>
+        <time class="h" datetime="11:48">11:48</time>
+      </li>
+    </ul>
+  </section>
+
+  <a class="more" href="#dia">Ver todo el día<span class="chev" aria-hidden="true"></span></a>
+</main>
+
+<nav class="nav" aria-label="Principal">
+  <a class="tab on" href="#hoy" aria-current="page"><span class="ic" aria-hidden="true"><i class="i-home"></i></span>Hoy</a>
+  <a class="tab" href="#ganancias"><span class="ic" aria-hidden="true"><i class="i-coin">$</i></span>Ganancias</a>
+  <a class="tab" href="#comparar"><span class="ic" aria-hidden="true"><i class="i-cmp"></i></span>Comparar</a>
+</nav>
+
+</body>
+</html>

@@ -1,0 +1,27 @@
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&display=swap');
+.g-ov{position:absolute;top:420px;left:12px;right:12px;height:116px;box-sizing:border-box;padding:13px 14px 10px;border-radius:20px;background:linear-gradient(100deg,var(--g-tint) 0%,rgba(11,17,32,0) 58%),rgba(11,17,32,.95);border:1px solid var(--g-edge);box-shadow:0 12px 32px rgba(2,6,23,.45),0 2px 8px rgba(2,6,23,.35),inset 0 1px 0 rgba(255,255,255,.07);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;font-feature-settings:'tnum' 1;-webkit-font-smoothing:antialiased;color:#F8FAFC;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden;pointer-events:none;z-index:30}
+.g-ov *{box-sizing:border-box}
+.g-row{display:flex;align-items:center;gap:12px;height:56px}
+.g-badge{flex:none;width:56px;height:56px;border-radius:16px;background:var(--g-solid);display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 3px var(--g-ring),0 6px 18px var(--g-glow)}
+.g-badge svg{width:30px;height:30px;fill:none;stroke:var(--g-ink);stroke-width:3.2;stroke-linecap:round;stroke-linejoin:round}
+.g-main{flex:1;min-width:0}
+.g-verdict{font-size:13px;line-height:16px;font-weight:700;letter-spacing:.01em;color:var(--g-text);white-space:nowrap}
+.g-none{--g-solid:rgba(51,65,85,.55);--g-ink:#CBD5E1;--g-text:#CBD5E1;--g-tint:rgba(100,116,139,.16);--g-edge:rgba(148,163,184,.30);--g-ring:transparent;--g-glow:transparent}
+.g-none .g-badge{border:2px dashed #64748B}
+.g-none .g-badge svg{width:28px;height:28px;stroke-width:2.2}
+.g-msg{margin-top:3px;font-size:17px;line-height:24px;font-weight:700;letter-spacing:-.01em;color:#F1F5F9;white-space:nowrap}
+.g-hint{height:25px;display:flex;align-items:center;gap:6px;font-size:12px;line-height:16px;font-weight:500;color:#94A3B8;white-space:nowrap}
+.g-hint svg{flex:none;width:14px;height:14px;fill:none;stroke:#94A3B8;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.g-hint b{font-weight:700;color:#CBD5E1}
+</style>
+<div class="g-ov g-none" role="status" aria-live="polite" aria-label="Sin datos. No se pudo leer la tarifa. Sin veredicto: revisa la tarjeta del viaje.">
+  <div class="g-row" aria-hidden="true">
+    <div class="g-badge"><svg viewBox="0 0 24 24"><path d="M2.5 12s3.5-6.5 9.5-6.5 9.5 6.5 9.5 6.5-3.5 6.5-9.5 6.5S2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.6"/><path d="M4 4l16 16"/></svg></div>
+    <div class="g-main">
+      <div class="g-verdict">Sin datos</div>
+      <div class="g-msg">No se pudo leer la tarifa</div>
+    </div>
+  </div>
+  <div class="g-hint" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg><span><b>Sin veredicto</b> · revisa la tarjeta del viaje</span></div>
+</div>

@@ -1,0 +1,60 @@
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&display=swap');
+.g-ov{position:absolute;top:442px;left:12px;right:12px;height:94px;box-sizing:border-box;display:flex;align-items:stretch;border-radius:22px;overflow:hidden;font-family:'Inter',system-ui,-apple-system,Roboto,'Segoe UI',sans-serif;color:#fff;background:linear-gradient(100deg,rgba(34,197,94,.22) 0%,rgba(34,197,94,.06) 55%,rgba(34,197,94,0) 100%),#0A140E;box-shadow:inset 0 0 0 1.5px rgba(34,197,94,.55),0 14px 30px -8px rgba(0,0,0,.6),0 2px 6px rgba(0,0,0,.3);pointer-events:none;z-index:30;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+.g-ov *,.g-ov *::before{box-sizing:border-box}
+.g-tile{flex:0 0 100px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;background:#22C55E;color:#052E16;text-align:center}
+.g-ico{position:relative;display:block;width:30px;height:30px}
+.g-ico::before{content:"";position:absolute;inset:0;border-radius:50%;background:#052E16}
+.g-chk{position:absolute;left:10.5px;top:4.5px;width:8.5px;height:14.5px;border-right:3.5px solid #22C55E;border-bottom:3.5px solid #22C55E;border-radius:0 0 2px 0;transform:rotate(45deg)}
+.g-word{font-size:13px;font-weight:800;letter-spacing:.06em;line-height:1.05}
+.g-body{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;justify-content:center;padding:9px 16px 8px 14px}
+.g-row{display:flex;align-items:flex-end;justify-content:space-between;gap:10px}
+.g-main{display:flex;align-items:flex-end;gap:6px}
+.g-num{font-size:38px;font-weight:800;line-height:1;letter-spacing:-.035em;white-space:nowrap}
+.g-cur{position:relative;top:-11px;font-size:22px;font-weight:700;letter-spacing:0;margin-right:1px}
+.g-unit{display:flex;flex-direction:column;padding-bottom:4px;line-height:1.1}
+.g-u1{font-size:14px;font-weight:700}
+.g-u2{font-size:11px;font-weight:600;color:rgba(255,255,255,.62);letter-spacing:.02em}
+.g-hr{text-align:right;padding:2px 0 3px 12px;border-left:1px solid rgba(255,255,255,.14);white-space:nowrap}
+.g-hv{font-size:21px;font-weight:700;line-height:1.05;letter-spacing:-.02em}
+.g-hl{margin-top:2px;font-size:11px;font-weight:600;line-height:1.1;color:rgba(255,255,255,.62)}
+.g-scale{position:relative;height:24px;margin-top:10px}
+.g-track{position:absolute;left:0;right:0;top:0;height:6px}
+.g-z{position:absolute;top:0;height:6px;opacity:.28}
+.g-zr{left:0;width:calc(50% - 1px);background:#F05252;border-radius:3px 0 0 3px}
+.g-zy{left:calc(50% + 1px);width:calc(16.667% - 2px);background:#FACC15}
+.g-zg{left:calc(66.667% + 1px);right:0;background:#22C55E;border-radius:0 3px 3px 0}
+.g-on{opacity:1}
+.g-dot{position:absolute;top:-4px;left:79.083%;width:14px;height:14px;margin-left:-7px;border-radius:50%;background:#fff;box-shadow:0 0 0 3px #22C55E,0 2px 6px rgba(0,0,0,.55)}
+.g-tl{position:absolute;top:14px;left:0;font-size:10px;font-weight:500;line-height:1;color:rgba(255,255,255,.42)}
+.g-tk{position:absolute;top:14px;font-size:10px;font-weight:600;line-height:1;color:rgba(255,255,255,.58);transform:translateX(-50%)}
+.g-t6{left:50%}
+.g-t8{left:66.667%}
+</style>
+<div class="g-ov" role="status" aria-live="polite" aria-label="Conviene. 9.49 pesos por kilómetro neto, 285 pesos por hora. Arriba de tu límite verde de 8 pesos por kilómetro.">
+  <div class="g-tile" aria-hidden="true">
+    <span class="g-ico"><span class="g-chk"></span></span>
+    <span class="g-word">CONVIENE</span>
+  </div>
+  <div class="g-body" aria-hidden="true">
+    <div class="g-row">
+      <div class="g-main">
+        <span class="g-num"><span class="g-cur">$</span>9.49</span>
+        <span class="g-unit"><span class="g-u1">/km</span><span class="g-u2">neto</span></span>
+      </div>
+      <div class="g-hr">
+        <div class="g-hv">$285</div>
+        <div class="g-hl">por hora</div>
+      </div>
+    </div>
+    <div class="g-scale">
+      <div class="g-track">
+        <span class="g-z g-zr"></span><span class="g-z g-zy"></span><span class="g-z g-zg g-on"></span>
+      </div>
+      <span class="g-dot"></span>
+      <span class="g-tl">tus límites</span>
+      <span class="g-tk g-t6">$6</span>
+      <span class="g-tk g-t8">$8</span>
+    </div>
+  </div>
+</div>

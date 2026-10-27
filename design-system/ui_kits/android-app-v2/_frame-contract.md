@@ -1,0 +1,77 @@
+# Frame contract — strings check-fixture.py asserts INSIDE each frame's screen text (captions excluded). Keep every one verbatim (same characters, including the − minus sign and plain spaces).
+
+- **A1**: `$285/h` · `$9.49/km`
+- **A2**: (no asserted figures)
+- **A3**: (no asserted figures)
+- **A4**: (no asserted figures)
+- **A5**: `$2.84 por km` · `$34`
+- **A6**: (no asserted figures)
+- **A7**: (no asserted figures)
+- **B1**: `$762` · `6 viajes tomados` · `Tu mejor hora hoy: 9 a 10 h`
+- **B2**: `$1,240`
+- **B3**: `$285/h` · `$9.49/km`
+- **B4**: `$499` · `20:10`
+- **B5**: `$648` · `4 h 30 min`
+- **B6**: `$380` · `3 viajes tomados` · `2 h 20 min`
+- **C1**: `$9.49/km` · `$285/h`
+- **C2**: `$7.16/km` · `$191/h`
+- **C3**: `$2.20/km` · `$54/h`
+- **C7**: `−$1.05/km` · `−$26/h`
+- **C4**: `Sin lectura`
+- **C5**: `Falta tiempo` · `sin semáforo`
+- **C6**: (no asserted figures)
+- **C8**: (no asserted figures)
+- **C9**: (no asserted figures)
+- **C10**: (no asserted figures)
+- **C11**: (no asserted figures)
+- **D1**: `$1,240` · `9 viajes tomados` · `$648` · `$592` · `$9.49/km` · `$2.20/km` · `8 h 10 min`
+- **D2**: `$114` · `$148` · `12.0 km` · `24 min` · `−$34` · `$9.49/km`
+- **D3**: `$1,590` · `123.2 km` · `−$350` · `$1,240`
+- **D3b**: `$12,169` · `−$4,071` · `$16,241`
+- **E1**: `$4,980` · `62 viajes tomados` · `Tu mejor día fue el viernes` · `Tu lugar entre los de Uber en CDMX`
+- **E1b**: `−$1,500` · `$808` · `$950` · `$910` · `$1,041` · `$1,380` · `$891` · `$499` · `$6,480` · `$6,479` · `$4,980`
+- **E2**: `$4,747` · `60 viajes tomados` · `hace 4 semanas`
+- **E3**: `$12,169` · `158 viajes tomados` · `La mejor fue 12 – 18 oct`
+- **E3d**: `$12,169` · `$12,170` · `$1,026` · `$4,980` · `$4,747` · `$1,417` · `$774`
+- **E3b**: `$5,340` · `29 viajes`
+- **E3c**: `$7,170` · `75 viajes tomados` · `$5,340` · `no entra en el total` · `La mejor fue 21 – 27 sep`
+- **E4**: `$12,608` · `$8,432`
+- **E5**: `$11,852` · `$7,926` · `$1,656` · `$9,582` · `0.94`
+- **E6**: `19 – 25 oct · en curso` · `12 – 18 oct` · `5 – 11 oct` · `28 sep – 4 oct` · `14 – 20 sep`
+- **E7**: (no asserted figures)
+- **E7b**: `$4,980` · `Sin conexión`
+- **E8**: `$548` · `$214` · `6 viajes tomados`
+- **F1**: `$9.13/km` · `$10.34/km` · `$1.21`
+- **F2**: `78 %` · `$149/viaje` · `$131/viaje` · `1,240 conductores`
+- **F3**: (no asserted figures)
+- **F4**: `$120/viaje` · `$107/viaje` · `+13 %`
+- **F5**: `$161/viaje`
+- **G1**: `$2.84 por km` · `$8.00/km` · `$1,500`
+- **G2**: `$285/h` · `$8.00/km` · `$6.00/km` · `$9.49/km`
+- **G3**: `$24.50` · `12 km`
+- **G4**: (no asserted figures)
+- **G5**: `28 sep` · `$1,500` · `$214`
+- **G6**: (no asserted figures)
+- **G6b**: (no asserted figures)
+- **G7**: (no asserted figures)
+- **G8**: (no asserted figures)
+- **G9**: `$7.70/km`
+- **H1**: `$149` · `$79`
+- **H2**: `$79` · `9 de noviembre`
+- **H2b**: `$79` · `21 días` · `9 de noviembre`
+- **H2c**: `26 de noviembre` · `17 de diciembre`
+- **H2d**: `9 de noviembre`
+- **H1b**: (no asserted figures)
+- **H3**: `78 %` · `34`
+- **H4**: (no asserted figures)
+- **H5**: `$5,340` · `29` · `26 h` · `24 %`
+- **H5b**: `$2,210` · `20` · `14` · `150.6` · `−$428` · `faltan los km de 6 viajes` · `$1,480`
+- **H5c**: `$3,100` · `29 viajes`
+- **H5d**: `$5,340` · `29` · `26 h`
+- **H5e**: (no asserted figures)
+- **H6**: `9 viajes` · `62 viajes`
+
+Bar charts (height:% values inside `<div class="spark…">`, in DOM order): E1 and E7b = 59 69 66 75 100 65 36 · E8 first bar 100 · E3 = 28 95 100 21 · E3c = 0 100 25.
+Caption rule: the E2 caption must contain "2 nov". C5 must not carry $9.49.
+
+Spec strings that must stay in docs/ux-elevation-spec.md: `$9.49/km` · `$7.16/km` · `$2.20/km` · `$762` · `$648` · `$592` · `$1,240` · `$4,980` · `$6,480` · `$548` · `$9.13/km` · `$10.34/km` · `$1.21` · `78 %` · `$149/viaje` · `$131` · `$12,169` · `$11,852` · `$7,926` · `$1,656` · `$5,340` · `$2,210` · `$428`

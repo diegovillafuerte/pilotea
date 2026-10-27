@@ -1,5 +1,9 @@
 # Kompara design principles
 
+> **v3 note — 2026-10-26, updated 2026-10-27 (Round 14).** This document describes what the Compose code *does today* (emerald / slate, Inter, dark by default, cards). The target for the Android app is now the **v3 "paper and ink"** system from the UX elevation: a white day surface with ink text, Barlow / Barlow Semi Condensed, no cards, pills or icon tiles, verdict colour only on verdicts (the chip and the mark) plus one green dot for "Lector funcionando", errors as ink states, the app following the system theme (designed day-first, with a night set), and the chip rebuilt as **"la regla"**: a 240 × 100dp ink plate with the driver's two limits as labelled lines (**tu meta** $8, **tu mínimo** $6) and the trip as a colour band above, between or below them, placed just above the host's offer card.
+> Palette, type, surface rules and the chip: [`design-system/ui_kits/android-app-v2/base-v3.css`](../design-system/ui_kits/android-app-v2/base-v3.css) · decisions: [`ux-elevation/debate/`](ux-elevation/debate/) (`120` synthesis, `180` blind test, `190` propagation) · the contract: [`ux-elevation-spec.md`](ux-elevation-spec.md) §4 and §6.
+> Until the v3 build lands, the sections below stay the as-built reference; where they disagree with v3, v3 is canonical for new work.
+
 The visual language for the Android app. The goal is cohesion: a driver should feel the same hand
 across Lector, Inicio, Comparar, Ajustes, and the overlay. **When building UI, reach for an existing
 component before inventing one** — the recipes below point at the canonical ones. New tokens or
@@ -49,7 +53,7 @@ Defined in `android/ui/src/main/java/mx/kompara/ui/theme/Color.kt`, wired in `Th
 | `secondary` (VerdictYellow) | `#F2B705` | same | Attention/marginal accents (use sparingly) |
 | `error` (VerdictRed) | `#D32F2F` | same | Destructive/alert surfaces (e.g. WatchdogBanner) |
 
-**Verdict palette** (`VerdictLevel.brandColor` / `onBrandColor`): Verde `#1B8A3A` on white · Amarillo
+**Verdict palette** (`VerdictLevel.brandColor` / `onBrandColor`): Verde `#187A36` on white (target per the UX elevation spec §12; Compose `Color.kt` still ships `#1B8A3A` until the chip is rebuilt) · Amarillo
 `#F2B705` on `#1A1300` · Rojo `#D32F2F` on white. These are the semáforo — only for verdicts.
 
 > **Debt:** `overlay/VerdictColors.kt` defines a *second*, slightly different verdict palette

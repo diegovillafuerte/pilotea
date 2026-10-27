@@ -1,0 +1,82 @@
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&display=swap');
+.g-card,.g-card *{box-sizing:border-box;margin:0;padding:0}
+.g-card{--g-panel:#0F1613;--g-text:#F4F7F5;--g-mute:#97A79F;--g-grn:#2FD072;--g-grn-ink:#04200F;--g-yel:#FFC400;--g-yel-ink:#2B1D00;--g-red:#FF4338;--g-red-ink:#2D0705;position:absolute;top:420px;left:16px;right:16px;height:112px;display:flex;overflow:hidden;border-radius:22px;background:var(--g-panel);color:var(--g-text);font-family:'Inter','Roboto',system-ui,-apple-system,'Segoe UI',sans-serif;font-feature-settings:"tnum" 1;-webkit-font-smoothing:antialiased;box-shadow:0 14px 30px rgba(0,0,0,.38),0 3px 8px rgba(0,0,0,.28);pointer-events:none;-webkit-user-select:none;user-select:none}
+.g-card::after{content:"";position:absolute;top:0;left:0;right:0;bottom:0;border-radius:inherit;box-shadow:inset 0 0 0 1px rgba(255,255,255,.09)}
+.g-s-green{--g-c:var(--g-grn);--g-ink:var(--g-grn-ink)}
+.g-s-yellow{--g-c:var(--g-yel);--g-ink:var(--g-yel-ink)}
+.g-s-red{--g-c:var(--g-red);--g-ink:var(--g-red-ink)}
+.g-s-none{--g-c:#26302B;--g-ink:#C9D3CE}
+.g-tile{flex:0 0 112px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;padding:10px 8px;background:linear-gradient(180deg,rgba(255,255,255,.24),rgba(255,255,255,0) 58%),var(--g-c);color:var(--g-ink)}
+.g-ico{position:relative;flex:0 0 auto;width:46px;height:46px;border-radius:50%;background:var(--g-ink)}
+.g-s-none .g-ico{background:rgba(255,255,255,.06);border:2px dashed rgba(201,211,206,.5)}
+.g-word{font-size:14px;line-height:16px;font-weight:800;letter-spacing:-.005em;white-space:nowrap}
+.g-gl{position:absolute;display:block}
+.g-gl::before,.g-gl::after{content:"";position:absolute;display:block}
+.g-gl-ok{left:17px;top:9px;width:11px;height:21px;border:solid var(--g-c);border-width:0 5px 5px 0;border-radius:1px;transform:rotate(45deg)}
+.g-gl-warn{left:20px;top:10.5px;width:6px;height:15px;border-radius:3px;background:var(--g-c)}
+.g-gl-warn::after{left:0;top:20px;width:6px;height:6px;border-radius:50%;background:var(--g-c)}
+.g-gl-no{left:10px;top:20.5px;width:26px;height:5px}
+.g-gl-no::before,.g-gl-no::after{left:0;top:0;width:26px;height:5px;border-radius:3px;background:var(--g-c)}
+.g-gl-no::before{transform:rotate(45deg)}
+.g-gl-no::after{transform:rotate(-45deg)}
+.g-q{position:absolute;top:0;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:var(--g-ink)}
+.g-body{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;justify-content:center;padding:12px 16px}
+.g-row{display:flex;align-items:flex-end;justify-content:space-between;height:40px}
+.g-km{display:flex;align-items:flex-end;gap:6px}
+.g-big{font-size:40px;line-height:40px;font-weight:800;letter-spacing:-.035em;white-space:nowrap}
+.g-cur{display:inline-block;vertical-align:top;margin:7px 2px 0 0;font-size:22px;line-height:1;font-weight:700;letter-spacing:0;opacity:.7}
+.g-unit{display:flex;flex-direction:column;padding-bottom:2px}
+.g-u1{display:block;font-size:15px;line-height:16px;font-weight:700}
+.g-u2{display:block;font-size:11px;line-height:12px;font-weight:600;color:var(--g-mute)}
+.g-hr{display:flex;flex-direction:column;align-items:flex-end;padding-bottom:2px}
+.g-hr-n{display:block;font-size:22px;line-height:24px;font-weight:800;letter-spacing:-.02em}
+.g-hr-l{display:block;font-size:11px;line-height:12px;font-weight:600;color:var(--g-mute)}
+.g-msg{font-size:20px;line-height:20px;font-weight:800;letter-spacing:-.015em}
+.g-gauge{position:relative;height:16px;margin-top:10px}
+.g-track{position:absolute;left:0;right:0;top:4px;height:8px;border-radius:4px;overflow:hidden}
+.g-seg{position:absolute;top:0;bottom:0;display:block}
+.g-seg-r{left:0;width:50%;background:var(--g-red)}
+.g-seg-y{left:50%;width:16.6667%;background:var(--g-yel)}
+.g-seg-g{left:66.6667%;right:0;background:var(--g-grn)}
+.g-s-green .g-seg-r,.g-s-green .g-seg-y{opacity:.26}
+.g-s-yellow .g-seg-r,.g-s-yellow .g-seg-g{opacity:.26}
+.g-s-red .g-seg-y,.g-s-red .g-seg-g{opacity:.26}
+.g-s-none .g-seg{opacity:.13}
+.g-tick{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;display:block;background:var(--g-panel)}
+.g-tick-a{left:50%}
+.g-tick-b{left:66.6667%}
+.g-pin{position:absolute;top:0;width:16px;height:16px;display:block;border-radius:50%;background:radial-gradient(circle,var(--g-c) 0,var(--g-c) 3.5px,#fff 4.5px);box-shadow:0 0 0 3px var(--g-panel),0 3px 8px rgba(0,0,0,.55)}
+.g-scale{position:relative;height:13px;margin-top:3px}
+.g-lim{position:absolute;top:0;font-size:11px;line-height:13px;font-weight:700;color:var(--g-mute);white-space:nowrap}
+.g-lim-a{left:50%;transform:translateX(-50%)}
+.g-lim-b{left:66.6667%;transform:translateX(-50%)}
+.g-lim-t{left:0;font-weight:600;opacity:.8}
+</style>
+<div class="g-card g-s-green" role="status" aria-label="Conviene. 9.49 pesos netos por kilómetro y 285 pesos por hora.">
+  <div class="g-tile">
+    <div class="g-ico"><i class="g-gl g-gl-ok" aria-hidden="true"></i></div>
+    <div class="g-word">Conviene</div>
+  </div>
+  <div class="g-body">
+    <div class="g-row">
+      <div class="g-km">
+        <div class="g-big"><span class="g-cur">$</span>9.49</div>
+        <div class="g-unit"><span class="g-u1">/km</span><span class="g-u2">neto</span></div>
+      </div>
+      <div class="g-hr"><span class="g-hr-n">$285</span><span class="g-hr-l">por hora</span></div>
+    </div>
+    <div class="g-gauge">
+      <div class="g-track">
+        <i class="g-seg g-seg-r"></i><i class="g-seg g-seg-y"></i><i class="g-seg g-seg-g"></i>
+        <i class="g-tick g-tick-a"></i><i class="g-tick g-tick-b"></i>
+      </div>
+      <i class="g-pin" style="left:calc(79.083% - 8px)"></i>
+    </div>
+    <div class="g-scale">
+      <span class="g-lim g-lim-t">tus límites</span>
+      <span class="g-lim g-lim-a">$6</span>
+      <span class="g-lim g-lim-b">$8</span>
+    </div>
+  </div>
+</div>
