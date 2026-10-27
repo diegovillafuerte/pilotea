@@ -10,17 +10,19 @@
  *
  * Covers: uber-pdf happy path with exact field mapping, didi 2-image path,
  * oversize + MIME rejections with Spanish messages, parse-failure → 422 with
- * imports.status='failed', the captured-beats-imported upsert rule, and
- * idempotent re-import of the same week.
+ * imports.status='failed', the captured-beats-imported upsert rule,
+ * idempotent re-import of the same week, and that stored originals never
+ * outlive their imports row (DELETE /v1/me reach + insert-failure cleanup).
  */
 
-import { describe, it, expect, beforeEach, beforeAll } from "vitest";
+import { describe, it, expect, beforeEach, beforeAll, afterEach, vi } from "vitest";
 import { Hono } from "hono";
 import { eq } from "drizzle-orm";
 import sharp from "sharp";
 import { drivers, imports, weeklyAggregates } from "../db/schema.js";
 import { createSession } from "../auth/sessions.js";
 import { importsRoutes } from "./imports.js";
+import { meRoutes } from "./me.js";
 import { MemoryStorage } from "../imports/storage.js";
 import type { VisionClient, VisionRequest, VisionResponse } from "../imports/claude.js";
 import { makeTestDb, type TestDb } from "../test/db.js";
@@ -628,5 +630,78 @@ describe("idempotent re-import", () => {
     const allImports = await db.select().from(imports).where(eq(imports.driverId, driverId));
     expect(allImports).toHaveLength(2);
     expect(allImports.every((r) => r.status === "parsed")).toBe(true);
+  });
+});
+
+// ─── Stored originals vs account deletion ─────────────────────
+describe("stored originals vs account deletion", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("DELETE /v1/me removes every original a real import stored (single + DiDi multi-file)", async () => {
+    // Same storage instance on both routers, as createApp wires them.
+    app = new Hono();
+    app.route("/v1", importsRoutes(asDb(db), vision, storage));
+    app.route("/v1", meRoutes(asDb(db), storage));
+
+    vision.setJson(UBER_PDF_EXTRACTION);
+    const uber = await postImport({
+      platform: "uber",
+      uploadType: "pdf",
+      files: [{ name: "report.pdf", type: "application/pdf" }],
+      auth: token,
+    });
+    expect(uber.status).toBe(200);
+    vision.setJson(DIDI_EXTRACTION);
+    const didi = await postImport({
+      platform: "didi",
+      uploadType: "screenshot",
+      files: [
+        { name: "earnings.png", type: "image/png", bytes: pngBytes },
+        { name: "tablero.png", type: "image/png", bytes: pngBytes },
+      ],
+      auth: token,
+    });
+    expect(didi.status).toBe(200);
+    expect(storage.keys()).toHaveLength(3);
+
+    const res = await app.request("/v1/me", {
+      method: "DELETE",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.status).toBe(200);
+    expect(storage.keys()).toHaveLength(0);
+  });
+
+  it("removes its stored originals when the row insert fails (account deleted mid-upload)", async () => {
+    // DELETE /v1/me commits between this import's upload (step 5) and its row insert (step 6): the
+    // insert then fails its FK check, so no imports row will ever point at the uploaded originals.
+    class AccountDeletedMidUpload extends MemoryStorage {
+      override async uploadFile(key: string, body: Buffer): Promise<void> {
+        await super.uploadFile(key, body);
+        await db.delete(drivers).where(eq(drivers.id, driverId));
+      }
+    }
+    const racing = new AccountDeletedMidUpload();
+    app = new Hono();
+    app.route("/v1", importsRoutes(asDb(db), vision, racing));
+    vi.spyOn(console, "error").mockImplementation(() => {}); // Hono logs the unhandled FK error
+
+    vision.setJson(DIDI_EXTRACTION);
+    const res = await postImport({
+      platform: "didi",
+      uploadType: "screenshot",
+      files: [
+        { name: "earnings.png", type: "image/png", bytes: pngBytes },
+        { name: "tablero.png", type: "image/png", bytes: pngBytes },
+      ],
+      auth: token,
+    });
+
+    expect(res.status).toBe(500);
+    expect(racing.keys()).toHaveLength(0);
+    expect(await db.select().from(imports)).toHaveLength(0);
+    expect(vision.calls).toHaveLength(0); // never got as far as parsing
   });
 });

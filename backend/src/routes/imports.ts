@@ -232,10 +232,21 @@ export function importsRoutes(
     //    Skipped in dry-run: a preview never leaves a durable record behind.
     let importRow: typeof imports.$inferSelect | undefined;
     if (!dryRun) {
-      [importRow] = await db
-        .insert(imports)
-        .values({ id: importId, driverId, platform, uploadType, fileKey, status: "pending" })
-        .returning();
+      try {
+        [importRow] = await db
+          .insert(imports)
+          .values({ id: importId, driverId, platform, uploadType, fileKey, status: "pending" })
+          .returning();
+      } catch (error) {
+        // The original(s) are already stored (step 5) but no row will point at them — e.g. the
+        // account was deleted mid-upload (FK violation), and DELETE /v1/me only reaches files
+        // through imports.file_key. Remove them rather than orphan PII, then fail as before.
+        const cleanup = await Promise.allSettled(fileKeys.map((key) => storage.deleteFile(key)));
+        if (cleanup.some((r) => r.status === "rejected")) {
+          console.error("Storage cleanup error: orphaned original(s) for import", importId);
+        }
+        throw error;
+      }
       if (!importRow) {
         // INSERT … RETURNING always yields a row; defensive guard for the type.
         return c.json({ error: "Error interno del servidor. Intentalo de nuevo." }, 500);
