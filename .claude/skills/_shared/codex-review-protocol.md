@@ -62,17 +62,17 @@ This ensures reviewers can find architecture rules and project context without t
 
 ### 2.3: Execute Codex
 
-Run Codex with the assembled prompt. Set the Bash tool's `timeout` to `TIMEOUT_MS`.
+Run Codex with the assembled prompt. Set the Bash tool's `timeout` to `TIMEOUT_MS`. Codex's progress stream goes to a log file that never enters the conversation: only the final message comes back (or, on failure, the log's last 20 lines).
 
 ```bash
 codex exec - \
   --sandbox read-only \
   --output-schema "$OUTPUT_SCHEMA_PATH" \
   --output-last-message "$OUTFILE" \
-  -C "$(pwd)" < "$TMPFILE"
-
-cat "$OUTFILE"
-rm -f "$TMPFILE" "$OUTFILE" "$HEADER" "$BODYFILE"
+  -C "$(pwd)" < "$TMPFILE" > "$OUTFILE.log" 2>&1
+rc=$?
+if [ "$rc" -eq 0 ] && [ -s "$OUTFILE" ]; then cat "$OUTFILE"; else echo "CODEX FAILED (exit $rc)"; tail -n 20 "$OUTFILE.log"; fi
+rm -f "$TMPFILE" "$OUTFILE" "$OUTFILE.log" "$HEADER" "$BODYFILE"
 ```
 
 ### 2.4: Parse output
@@ -128,7 +128,7 @@ When Codex is unavailable or fails and `FALLBACK_BEHAVIOR` is `claude-agent`:
 
 1. Build the same review prompt from the calling skill, but remove `.claude/codex-guide.md` references and sandbox-specific instructions.
 2. Append to the prompt: a request to respond with ONLY a JSON object matching the output schema.
-3. Spawn a Claude subagent (using the Agent tool) with `description: "adversarial review"` and the assembled prompt. The subagent has access to Read, Grep, and Glob tools.
+3. Write the assembled prompt to a file, then spawn a Claude subagent (using the Agent tool) with `description: "adversarial review"`, `model: "opus"` and a short prompt telling it to read that file and follow it. Pass the path, not the contents, so the diff never passes through this conversation. The subagent has access to Read, Grep, and Glob tools.
 4. Parse the JSON from the agent's response. If parsing fails, treat the raw text as advisory and set verdict to positive (PASS/lgtm).
 5. Return to Step 3 (reconciliation loop) with the parsed result.
 

@@ -79,11 +79,10 @@ Before entering the task loop, verify a clean baseline:
 
 1. Ensure on main branch: `git checkout main`
 2. Pull latest: `git pull origin main`
-3. Install deps: `pnpm install`
-4. Run tests: `pnpm test`
-5. Run lint: `pnpm lint`
+3. Install backend deps: `(cd backend && pnpm install --frozen-lockfile)`
+4. Run the AGENTS.md **Verify** rows for `android/` and `backend/`
 
-If tests or lint fail on clean main: **STOP immediately.**
+If any check fails on clean main: **STOP immediately.**
 Report: "Pre-flight failed: main is broken before work started. [error output]"
 Write a minimal session report (see Step 8), clean up the session file, and exit.
 
@@ -136,7 +135,7 @@ If `CONFLICT:` is returned, handle as a skip (see "When a task is skipped" in St
 
 ### 4. Implement + Codex implementation check
 
-1. Follow the plan. Run `pnpm test` and `pnpm lint` when done. Fix any failures.
+1. Delegate implementation to the `coder` agent (Opus 5.5; `builder` only for very easy, mechanical tasks) with the task file, the plan and the worktree path. It runs the AGENTS.md verify rows for the areas it touched and fixes failures.
 2. Run a Codex implementation check (same as `/work` Step 5b): native review of working tree changes via companion script or `codex exec -`. Fix any issues found before proceeding to /ship.
 
 ### 5. Ship review loop
@@ -149,7 +148,7 @@ Loop until the code passes review:
 
 ```
 repeat:
-  a. Run `pnpm lint` and `pnpm test` — fix failures before reviewing
+  a. Run the AGENTS.md verify rows for the touched areas — fix failures before reviewing
   b. Run /ship (which runs native pre-screen, then conditionally specialized Codex reviewers)
   c. If review passes → break, proceed to step 6
   d. If any reviewer returns REJECT:
@@ -236,7 +235,7 @@ When the loop stops (any reason), generate `session-report.md` in the project ro
    - `"specific_tasks_exhausted"` → "All specified tasks processed."
 
 3. Gather additional data:
-   - Current state of main: run `pnpm test` and `pnpm lint`, report pass/fail
+   - Current state of main: run the AGENTS.md verify rows for `android/` and `backend/`, report pass/fail
    - Git log of all commits made this session (since `session_start`)
    - Any remaining pending tasks by priority
 

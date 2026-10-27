@@ -88,15 +88,13 @@ These need human judgment — just flag them in "Needs Human Attention":
 Run these in parallel:
 - List all skill directories: `ls $MAIN_PATH/.claude/skills/`
 - List all command files: `find $MAIN_PATH/.claude/commands/ -name "*.md" -type f`
-- List all src top-level directories: `ls -d $MAIN_PATH/src/*/`
-- Read current CLAUDE.md: `$MAIN_PATH/CLAUDE.md`
+- Read current CLAUDE.md: `$MAIN_PATH/CLAUDE.md` (it imports the shared instructions from `$MAIN_PATH/AGENTS.md` with `@AGENTS.md`)
 - Extract all backtick-quoted file paths from CLAUDE.md and verify each exists
 
 ### 2.2: Detect drift
 
 Compare:
 - **Skills:** actual skills vs skills mentioned in CLAUDE.md (the "Other skills" line and any skill tables)
-- **Directories:** actual `src/` directories vs the project structure table in CLAUDE.md
 - **File refs:** backtick-quoted paths that don't exist on disk
 
 ### 2.3: Apply fixes
@@ -104,8 +102,7 @@ Compare:
 If any drift detected, spawn the **claude-md-sync subagent** (read prompt from `$MAIN_PATH/.claude/skills/rem/healers/claude-md-sync.md`):
 1. Replace `{CLAUDE_MD}` with current CLAUDE.md content
 2. Replace `{ACTUAL_SKILLS}` with the list of actual skills (name + description from each SKILL.md frontmatter)
-3. Replace `{ACTUAL_SRC_DIRS}` with the list of actual `src/` directories
-4. Replace `{DEAD_REFS}` with the list of backtick-quoted paths that don't exist
+3. Replace `{DEAD_REFS}` with the list of backtick-quoted paths that don't exist
 
 Launch as a single Agent call with `model: "opus"`.
 
@@ -228,10 +225,12 @@ Check if any skill referenced in `$MAIN_PATH/docs/guides/agentic-development.md`
 ### 5.4: Test count trend
 
 ```bash
-pnpm test --reporter=verbose 2>&1 | tail -5
+(cd "$MAIN_PATH/backend" && pnpm test 2>&1 | tail -5)
+# Android unit tests recorded by the last Gradle run (rem does not run Gradle itself)
+find "$MAIN_PATH/android" -path '*/build/test-results/testDebugUnitTest/*.xml' -exec grep -o '<testcase ' {} + | wc -l
 ```
 
-Extract the test count. Check if a previous rem report exists in `$MAIN_PATH/pming/reports/` and compare test counts. Report the delta.
+Extract the test counts (backend from vitest, Android from the last Gradle run). Check if a previous rem report exists in `$MAIN_PATH/pming/reports/` and compare test counts. Report the delta.
 
 ## Phase 6: Commit & Report
 

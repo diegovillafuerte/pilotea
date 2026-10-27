@@ -51,11 +51,10 @@ If the session file doesn't exist, parse $ARGUMENTS and create it:
 Run once on fresh start (skip on resume):
 
 1. `git checkout main && git pull origin main`
-2. `pnpm install`
-3. `pnpm test` — must pass
-4. `pnpm lint` — must be clean
+2. `(cd backend && pnpm install --frozen-lockfile)`
+3. The AGENTS.md **Verify** rows for `android/` and `backend/` — all must pass
 
-If tests or lint fail: STOP, write minimal session report, exit.
+If any check fails: STOP, write minimal session report, exit.
 
 ## Step 2: The Loop
 
@@ -102,7 +101,7 @@ Worker coordination script: {MAIN_PATH}/pming/worker.sh
    ```
    If `CONFLICT:` is returned, respond with: `{"success": false, "reason": "worker conflict"}`
 2. Update the task status to `in_progress` in the task file
-3. Run `pnpm install`
+3. If the task touches `backend/`: `(cd backend && pnpm install --frozen-lockfile)`
 
 ### Phase 2: Plan
 1. Read the task description and acceptance criteria carefully
@@ -110,14 +109,16 @@ Worker coordination script: {MAIN_PATH}/pming/worker.sh
 3. Produce a step-by-step implementation plan
 4. If a Codex CLI is available (`which codex`), write the plan to a temp file and run a quick Codex plan review:
    ```bash
-   codex exec - --sandbox read-only --output-last-message /tmp/plan-review-{TASK_ID}.txt -C "$(pwd)" < /tmp/plan-{TASK_ID}.txt
+   codex exec - --sandbox read-only --output-last-message /tmp/plan-review-{TASK_ID}.txt -C "$(pwd)" < /tmp/plan-{TASK_ID}.txt > /tmp/plan-review-{TASK_ID}.log 2>&1
+   rc=$?
+   if [ "$rc" -eq 0 ] && [ -s /tmp/plan-review-{TASK_ID}.txt ]; then cat /tmp/plan-review-{TASK_ID}.txt; else echo "CODEX FAILED (exit $rc)"; tail -n 20 /tmp/plan-review-{TASK_ID}.log; fi
    ```
    Address any REVISE feedback. If Codex fails, proceed anyway.
 
 ### Phase 3: Implement
 1. Follow the plan step by step
-2. Run `pnpm test` and `pnpm lint` when done
-3. If tests or lint fail, fix and retry (up to 3 attempts)
+2. Run the AGENTS.md verify rows for the areas you touched when done
+3. If a check fails, fix and retry (up to 3 attempts)
 4. If still failing after 3 attempts, respond with: `{"success": false, "reason": "tests/lint failed after 3 attempts"}`
 
 ### Phase 4: Ship
@@ -213,7 +214,7 @@ When the loop stops (any reason), generate `session-report.md` in the project ro
    - `"specific_tasks_exhausted"` → "All specified tasks processed."
 
 3. Gather data:
-   - `pnpm test` and `pnpm lint` on main — pass/fail
+   - the AGENTS.md verify rows for `android/` and `backend/` on main — pass/fail
    - `git log` commits since `session_start`
    - Remaining pending tasks by priority
 
