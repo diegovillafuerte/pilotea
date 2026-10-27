@@ -8,6 +8,8 @@ import { effectiveTier } from "../subscriptions/status.js";
 import type { SubscriptionStatus } from "../subscriptions/verifier.js";
 import type { DriverProfile } from "../auth/otp.js";
 import type { Database } from "../db/client.js";
+import type { StorageAdapter } from "../imports/storage.js";
+import { storageFromEnv } from "../imports/storage.js";
 
 const updateInput = z
   .object({
@@ -101,10 +103,12 @@ async function isVerified(db: Database, driverId: string): Promise<boolean> {
 }
 
 /**
- * Authenticated driver-profile router: read and update the current driver.
- * Mounted under /v1 so the paths are GET /v1/me and PATCH /v1/me.
+ * Authenticated driver-profile router: read, update and delete the current driver.
+ * Mounted under /v1 so the paths are GET, PATCH and DELETE /v1/me. Takes the storage
+ * adapter holding the import originals (which account deletion must remove) so tests
+ * can inject in-memory storage, mirroring `importsRoutes`.
  */
-export function meRoutes(db: Database) {
+export function meRoutes(db: Database, storage: StorageAdapter = storageFromEnv()) {
   const app = new Hono();
   const guard = requireBearer(db);
 
@@ -146,15 +150,73 @@ export function meRoutes(db: Database) {
   });
 
   // DELETE /v1/me — hard-delete the driver account (Play data-safety requirement: B-069).
-  // Every child table that references drivers.id is ON DELETE CASCADE (sessions, weekly_aggregates,
-  // imports, subscriptions, referral_codes, referral_redemptions, premium_grants) or SET NULL
-  // (devices — the anonymous install identity survives so the reader keeps working post-deletion), so
-  // a single delete removes all of the driver's PII and consented data. The bearer session is revoked
-  // implicitly by the sessions cascade.
+  // In Postgres, every child table that references drivers.id is ON DELETE CASCADE (sessions,
+  // weekly_aggregates, imports, subscriptions, referral_codes, referral_redemptions,
+  // premium_grants) or SET NULL (devices — the anonymous install identity survives so the reader
+  // keeps working post-deletion). The bearer session is revoked implicitly by the sessions
+  // cascade.
+  //
+  // The uploaded import originals (Uber/DiDi/inDrive PDFs + screenshots, which carry PII) live in
+  // object storage, not Postgres, and `imports.file_key` is the only pointer to them — the cascade
+  // would drop those rows and orphan the objects for good. So they are deleted explicitly, first:
+  //   1. Snapshot the driver's imports and delete every original, outside any transaction (a slow
+  //      or stalled R2 call must not hold a DB connection or row lock). Fail closed: if any delete
+  //      fails, Postgres is left untouched and the request 503s so the client can retry. Originals
+  //      already deleted stay deleted (nothing reads them back), and deleteFile is idempotent.
+  //   2. Delete the driver row under a FOR UPDATE lock, unless an import landed after the
+  //      snapshot (its originals weren't deleted): then 409, and the retry's snapshot includes it.
+  //      While the lock is held, a racing import insert blocks on its FK check, then fails once
+  //      the driver is gone, and POST /v1/imports removes that upload itself.
+  // So the account is never deleted while an original it references survives (gaps: TD-046).
   app.delete("/me", guard, async (c) => {
     const driverId = c.get("driverId");
-    const [row] = await db.delete(drivers).where(eq(drivers.id, driverId)).returning();
-    if (!row) return c.json({ error: "Driver not found" }, 404);
+
+    const snapshot = await db
+      .select({ id: imports.id, fileKey: imports.fileKey })
+      .from(imports)
+      .where(eq(imports.driverId, driverId));
+    // file_key is comma-joined for multi-file (DiDi) imports; see the imports schema.
+    const keys = new Set(snapshot.flatMap((r) => r.fileKey.split(",")).filter(Boolean));
+    const results = await Promise.allSettled([...keys].map((key) => storage.deleteFile(key)));
+    const failures = results.filter((r) => r.status === "rejected");
+    if (failures.length > 0) {
+      const reason: unknown = failures[0]!.reason;
+      console.error(
+        `Account deletion aborted: ${failures.length}/${keys.size} stored file(s) not deleted:`,
+        reason instanceof Error ? reason.message : reason,
+      );
+      return c.json(
+        { error: "Could not delete stored import files; account not deleted. Retry." },
+        503,
+      );
+    }
+
+    const cleared = new Set(snapshot.map((r) => r.id));
+    const outcome = await db.transaction(async (tx) => {
+      const [driver] = await tx
+        .select({ id: drivers.id })
+        .from(drivers)
+        .where(eq(drivers.id, driverId))
+        .for("update");
+      if (!driver) return "not_found" as const;
+
+      const current = await tx
+        .select({ id: imports.id })
+        .from(imports)
+        .where(eq(imports.driverId, driverId));
+      if (current.some((r) => !cleared.has(r.id))) return "raced" as const;
+
+      await tx.delete(drivers).where(eq(drivers.id, driverId));
+      return "deleted" as const;
+    });
+
+    if (outcome === "not_found") return c.json({ error: "Driver not found" }, 404);
+    if (outcome === "raced") {
+      return c.json(
+        { error: "An import arrived during deletion; account not deleted. Retry." },
+        409,
+      );
+    }
     return c.json({ ok: true }, 200);
   });
 

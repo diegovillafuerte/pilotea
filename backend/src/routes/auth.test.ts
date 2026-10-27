@@ -7,11 +7,13 @@
  * /v1/me, anonymous device → account merge, and logout revocation.
  */
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { sql } from "drizzle-orm";
 import { createApp } from "../app.js";
 import { devices, drivers, otpCodes } from "../db/schema.js";
 import type { MessageSender } from "../auth/message-sender.js";
+import { AnthropicVisionClient } from "../imports/claude.js";
+import { MemoryStorage } from "../imports/storage.js";
 import { makeTestDb, type TestDb } from "../test/db.js";
 
 /** Fake sender that records the last code sent per phone. */
@@ -27,6 +29,7 @@ class FakeSender implements MessageSender {
 
 let db: TestDb;
 let sender: FakeSender;
+let storage: MemoryStorage;
 let app: ReturnType<typeof createApp>;
 
 const PHONE = "+5215598765432";
@@ -51,7 +54,8 @@ function post(path: string, body: unknown, headers: Record<string, string> = {})
 beforeEach(async () => {
   db = await makeTestDb();
   sender = new FakeSender();
-  app = createApp(asDb(db), sender);
+  storage = new MemoryStorage();
+  app = createApp(asDb(db), sender, storage);
 });
 
 describe("POST /v1/auth/otp/request", () => {
@@ -254,6 +258,10 @@ describe("POST /v1/auth/logout", () => {
 });
 
 describe("DELETE /v1/me (account deletion)", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   async function login(phone = PHONE): Promise<string> {
     await post("/v1/auth/otp/request", { phone });
     const res = await post("/v1/auth/otp/verify", { phone, code: sender.lastCodeFor(phone)! });
@@ -277,6 +285,36 @@ describe("DELETE /v1/me (account deletion)", () => {
       headers: { authorization: `Bearer ${token}` },
     });
     expect(after.status).toBe(401);
+  });
+
+  it("deletes the originals POST /v1/imports stored (createApp shares one storage)", async () => {
+    // Keep the real Claude Vision client offline: the parse fails (422), but the original is
+    // stored and its imports row written before the parse, which is all this needs.
+    vi.spyOn(AnthropicVisionClient.prototype, "callClaudeVision").mockRejectedValue(
+      new Error("offline in tests"),
+    );
+    const token = await login();
+    const form = new FormData();
+    form.set("platform", "uber");
+    form.set("upload_type", "pdf");
+    form.append(
+      "files",
+      new File([new Uint8Array([1, 2, 3, 4])], "report.pdf", { type: "application/pdf" }),
+    );
+    const upload = await app.request("/v1/imports", {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}` },
+      body: form,
+    });
+    expect(upload.status).toBe(422);
+    expect(storage.keys()).toHaveLength(1);
+
+    const del = await app.request("/v1/me", {
+      method: "DELETE",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(del.status).toBe(200);
+    expect(storage.keys()).toHaveLength(0);
   });
 
   it("keeps the anonymous device (set-null) so the reader survives deletion", async () => {

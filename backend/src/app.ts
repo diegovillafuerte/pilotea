@@ -16,30 +16,40 @@ import { fiscalConfigRoutes } from "./routes/fiscal-config.js";
 import { appConfigRoutes } from "./routes/app-config.js";
 import { referralRoutes } from "./routes/referrals.js";
 import { senderFromEnv, type MessageSender } from "./auth/message-sender.js";
+import { storageFromEnv, type StorageAdapter } from "./imports/storage.js";
 import type { Database } from "./db/client.js";
 
 /**
- * Build the Hono app against a given Drizzle DB and WhatsApp message sender.
- * Keeping construction in a factory (rather than at module top-level) lets
- * tests inject an in-memory pglite database and a fake sender without any
- * global state, real DATABASE_URL, or Twilio credentials.
+ * Build the Hono app against a given Drizzle DB, WhatsApp message sender and
+ * object storage. Keeping construction in a factory (rather than at module
+ * top-level) lets tests inject an in-memory pglite database, a fake sender and
+ * in-memory storage without any global state, real DATABASE_URL, or Twilio/R2
+ * credentials.
  *
  * The `sender` defaults to {@link senderFromEnv} (Twilio when configured, else
- * a dev logger), so production wiring stays a one-liner.
+ * a dev logger), so production wiring stays a one-liner. `storage` likewise
+ * defaults to {@link storageFromEnv} (R2 when configured, else in-memory). One
+ * instance is shared by the imports router (which stores the originals) and the
+ * me router (whose DELETE removes them), so account deletion reaches the same
+ * store even on the in-memory dev fallback.
  */
-export function createApp(db: Database, sender: MessageSender = senderFromEnv()) {
+export function createApp(
+  db: Database,
+  sender: MessageSender = senderFromEnv(),
+  storage: StorageAdapter = storageFromEnv(),
+) {
   const app = new Hono();
 
   app.route("/", health);
   app.route("/v1/auth", authRoutes(db, sender));
-  app.route("/v1", meRoutes(db));
+  app.route("/v1", meRoutes(db, storage));
   app.route("/v1", devicesRoutes(db));
   app.route("/v1", aggregatesRoutes(db));
   app.route("/v1", benchmarksRoutes(db));
   app.route("/v1", parserConfigsRoutes(db));
   app.route("/v1", telemetryRoutes(db));
   app.route("/v1", fixtureReportsRoutes(db));
-  app.route("/v1", importsRoutes(db));
+  app.route("/v1", importsRoutes(db, undefined, storage)); // default Claude Vision client
   app.route("/v1", subscriptionsRoutes(db));
   app.route("/v1", adminRoutes(db));
   app.route("/v1", fiscalConfigRoutes(db));
