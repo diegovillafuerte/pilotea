@@ -35,17 +35,19 @@ Read frontmatter (id, title, status, priority, epic, story, category) from ALL f
 - `$MAIN_PATH/pming/tasks/pending/B-*.md` and `$MAIN_PATH/pming/tasks/done/B-*.md`
 - `$MAIN_PATH/pming/stories/pending/S-*.md` and `$MAIN_PATH/pming/stories/done/S-*.md`
 - `$MAIN_PATH/pming/epics/pending/E-*.md` and `$MAIN_PATH/pming/epics/done/E-*.md`
-- Active workers: `$MAIN_PATH/pming/worker.sh list --json`
+- Worker entries: `$MAIN_PATH/pming/worker.sh list --json`. If `$MAIN_PATH/pming/.workers` doesn't exist, there are none: skip every `worker.sh` call, since each one creates that file.
+
+The `superseded/` folders hold retired items: the web-era epics, stories and tasks the Android pivot replaced. Only PM-9 reads them.
 
 ### 1.2: Run checks
 
 **PM-1: Completed stories still in pending/**
-For each story in `stories/pending/`: find all tasks matching `story: S-XXX` across both `pending/` and `done/`. If ALL tasks have `status: done`, flag.
+For each story in `stories/pending/`: find all tasks matching `story: S-XXX` across both `pending/` and `done/`. If there is at least one and every one has `status: done` or `status: cancelled` (both mean finished, as in PM-4), flag.
 - Severity: `[+]` auto-fixable
 - Fix: Update `status: done` in frontmatter, move to `stories/done/`
 
 **PM-2: Completed epics still in pending/**
-For each epic in `epics/pending/`: find all stories matching `epic: E-XXX` across both `pending/` and `done/`. If ALL stories have `status: done`, flag.
+For each epic in `epics/pending/`: find all stories matching `epic: E-XXX` across both `pending/` and `done/`. If ALL stories have `status: done`, flag. Count a story PM-1 flags as done, and say so: that epic's fix then needs PM-1's fix for the story to run first.
 - Severity: `[+]` auto-fixable
 - Fix: Update `status: done` in frontmatter, move to `epics/done/`
 
@@ -59,21 +61,45 @@ Tasks in `tasks/done/` with status other than `done` or `cancelled`.
 - Severity: `[~]` warning (may be intentional revert)
 
 **PM-5: Stale workers**
-Run `$MAIN_PATH/pming/worker.sh cleanup` to detect and remove stale entries (dead PIDs, expired pending claims, legacy entries).
-- Severity: `[+]` auto-fixable
-- Fix: `$MAIN_PATH/pming/worker.sh cleanup`
+Find them without writing anything. `worker.sh cleanup` rewrites the git-tracked `pming/.workers` and trims `pming/.activity-log` to its last 50 lines, so it runs only as a Step 5 fix. Work from the entries `list --json` printed in Step 1.1, the output of `$MAIN_PATH/pming/worker.sh validate`, and this machine's `hostname`. Check each entry against these cases in order. Cases 1 and 2 are stale entries. An entry in case 3 or 4, or in none, may be live: PM-6 and CODE-5 still count its claim.
+1. **`cleanup` removes it**, by its own rules: its `pid` is `0` (a legacy entry); or its `hostname` is this machine's and `kill -0 <pid>` fails (the session has ended); or its `status` is `pending` and `cleanup` would count it more than 5 minutes old: `date +%s` minus `date -j -f '%Y-%m-%dT%H:%M:%SZ' '<started_at>' +%s` is over 300. (That reads the UTC time as local time, as `cleanup` does.)
+   - Severity: `[+]` auto-fixable
+   - Fix: `$MAIN_PATH/pming/worker.sh cleanup`
+2. **Another host's entry on a finished task:** `validate` prints `WORKER_DONE_TASK` for it, and the task's `status` is `done` or `cancelled`. (A task in `done/` with any other status, which PM-4 reports, may have been reopened: treat its entry as case 3.) `cleanup` never removes such an entry: it can't check a PID on another machine.
+   - Severity: `[+]` auto-fixable
+   - Fix: right before running it, check that a fresh `list --json` still shows the entry with the reported `task`, and that it still fits this case (re-run `validate` and re-read the task's `status`); skip it otherwise, since `update-task` moves an entry to a new task under the same `uuid`. Then run `$MAIN_PATH/pming/worker.sh release --uuid <uuid>`, passing the entry's full `uuid` field. Its 8-character `id` matches no entry, and `release` prints `OK` all the same. Besides the entry, `release` deletes `.worktrees/<task>/.worker-uuid` and this session's own `/tmp/kompara-worker-<pid>.uuid`, if they exist.
+3. **Another host's entry on an open task.** It may still be live on that host, and while it stays, `/work` here can't claim the task.
+   - Severity: `[~]` warning — show its host and `started_at`
+4. **An entry on this host that `validate` flags:** `WORKER_DONE_TASK` (its session hasn't run `/done`) or `WORKER_NO_WORKTREE`.
+   - Severity: `[~]` warning
+
+`validate` also prints `WORKER_NO_WORKTREE` for another host's entry whose worktree isn't on this machine, which is normal: it is usually on that host. Ignore those. `WORKTREE_NO_WORKER` lines belong to CODE-5.
+
+`cleanup` also drops lines that aren't JSON, such as merge-conflict markers (the file is tracked), and one such line makes `list --json` print `[]` for the whole file. If `grep -c -v -e '^#' -e '^$' "$MAIN_PATH/pming/.workers"` counts more lines than `list --json` returned entries, flag it as `[+]` (fix: `cleanup`) and treat the worker entries as unknown.
 
 **PM-6: Stale in_progress tasks**
-Tasks with `status: in_progress` that have NO matching entry in `worker.sh list --json` AND no git commits in the last 2 days (check `git log --since="2 days ago" --all --oneline`).
+Tasks with `status: in_progress` that have no worker entry (other than one PM-5 reports as stale) and no commit of their own in the last 2 days. Look only at the task's commits: a repo-wide `git log --since="2 days ago"` is almost never empty, so it can't spot an abandoned task. For task B-XXX, check two places:
+- commits whose message names it: `git -C "$MAIN_PATH" log --all --since="2 days ago" --oneline -F --grep="B-XXX"`
+- commits on its branch that main doesn't have: list the branch with `git -C "$MAIN_PATH" for-each-ref --format='%(refname)' refs/heads/work/B-XXX 'refs/remotes/*/work/B-XXX'`, then run `git -C "$MAIN_PATH" log --since="2 days ago" --oneline <ref> --not refs/heads/main refs/remotes/origin/main` for each ref it prints, which leaves out what either main already has (drop `refs/remotes/origin/main` if the repo has no such ref)
+
+Flag the task when all of these print nothing.
 - Severity: `[~]` warning
 
 **PM-7: Stale active stories**
-Stories with `status: active` where ALL tasks are `done` or `backlog` (none `in_progress` or `todo`).
+Stories with `status: active` where ALL tasks are `done`, `cancelled` or `backlog` (none `in_progress` or `todo`).
 - Severity: `[~]` warning
 
 **PM-8: Orphaned tasks**
 Tasks in `tasks/pending/` with no `story` and no `epic` field in frontmatter. Tasks with only `story` but also having `epic` through the story's own frontmatter are fine — only flag truly orphaned ones.
 - Severity: `[~]` warning
+
+**PM-9: Duplicate IDs**
+An ID must name one file. List the file names in every folder under `tasks/`, `stories/` and `epics/`, `superseded/` included, and print the names that appear more than once:
+```bash
+find "$MAIN_PATH/pming/tasks" "$MAIN_PATH/pming/stories" "$MAIN_PATH/pming/epics" -mindepth 2 -maxdepth 2 -name '*.md' | sed 's|.*/||' | sort | uniq -d
+```
+Report each duplicate with the folders it is in and the `title` of each copy.
+- Severity: `[~]` warning — a commit or doc that names the ID could mean either item
 
 ### 1.3: Display PM results
 
@@ -209,17 +235,23 @@ Two lists register code by hand, and both fail silently when they drift:
 2. **Backend routes.** Every module in `backend/src/routes/` other than its `*.test.ts` files must be imported and mounted with `app.route(...)` in `backend/src/app.ts`. Flag one that isn't: its endpoints don't exist.
 - Severity: `[~]` warning
 
-### CODE-5: Orphaned worktrees
+### CODE-5: Leftover worktrees
 
-1. Run `git worktree list` — get all worktrees beyond the main one
-2. For each worktree:
-   - Extract the branch name
-   - Check if the corresponding task (from branch name `work/B-XXX`) is in `pming/tasks/done/`
-   - If the task is done but worktree still exists: flag
-3. Also run `$MAIN_PATH/pming/worker.sh validate` to cross-check `.workers` entries vs worktrees vs task statuses
-4. Also check `.worktrees/` directory for directories not tracked by `git worktree list` (fully orphaned)
-- Severity: `[+]` auto-fixable
-- Fix: `git worktree remove <path>` for listed worktrees; `rm -rf` for fully orphaned directories; `$MAIN_PATH/pming/worker.sh cleanup` for stale entries
+`/work` creates `$MAIN_PATH/.worktrees/<task-id>` on branch `work/<task-id>`, and `/solve` creates `$MAIN_PATH/.worktrees/<slug>` on `fix/<slug>`. Both remove their worktree when the work ships; this check finds the ones left behind. A worktree is safe to remove only when its commits are on main and it holds nothing uncommitted. `git worktree remove` refuses a tree with changes or untracked files, though a config can hide the untracked ones from it (see **Clean** below), and `--force` would delete them.
+
+1. Run `git -C "$MAIN_PATH" worktree list --porcelain`. Skip the first entry (the main checkout) and the worktree this session runs in (`git rev-parse --show-toplevel`). For each other entry, note its `worktree` path, its `HEAD` commit, its branch (the `branch` line without `refs/heads/`, the form worker entries store; none when `detached`), and whether it is `locked` or `prunable`.
+2. Don't check the worktrees directly under `$MAIN_PATH/.claude/worktrees/`. Claude Code sessions and agents create them and clean them up through Claude Code, and any of them may belong to a session that is still running, maybe this one. Report one line, counting them all, this session's own included: `[i] N Claude Code worktrees in .claude/worktrees/ (not checked: they belong to Claude Code sessions)`.
+3. A `prunable` entry's directory is missing: moved by hand, deleted, or on a volume that isn't mounted. `[~]` warning. If it moved, `git -C "$MAIN_PATH" worktree repair <new-path>` reconnects it. Never offer `git worktree prune`: it acts on every prunable entry at once and drops each one's index and `HEAD`. Skip it below.
+4. For each remaining worktree, find out:
+   - **Claimed:** an entry in a fresh `$MAIN_PATH/pming/worker.sh list --json` (run it again here, since Step 1.1's list may be minutes old) has the worktree's directory name as its `task` or its branch as its `branch`, and isn't stale: it fits neither PM-5 case 1 nor case 2 as that list shows it now. Re-run their tests (`kill -0`, a `pending` entry's age, `validate`, the task's `status`) rather than reuse PM-5's verdict, since an entry can move to a new task. If `.workers` has more non-comment lines than that list has entries (a line isn't JSON, see PM-5), the claims are unknown: count every worktree as claimed.
+   - **Merged:** its `HEAD` commit is an ancestor of `refs/heads/main` or `refs/remotes/origin/main` (`git -C "$MAIN_PATH" merge-base --is-ancestor <commit> <ref>` exits 0). If it isn't, count the commits neither main has: `git -C "$MAIN_PATH" rev-list --count <commit> --not refs/heads/main refs/remotes/origin/main`.
+   - **Clean:** `git --no-optional-locks -C <worktree> status --porcelain --untracked-files=normal` exits 0 and prints nothing. Untracked files count and ignored ones don't. `--untracked-files=normal` overrides a `status.showUntrackedFiles=no` setting, which would hide them (from `git worktree remove` too), and `--no-optional-locks` keeps `git status` from rewriting the worktree's index.
+   - **Age:** its directory was created more than a day ago: `stat -f %B <worktree>` (creation time, in seconds) is below `date +%s` minus 86400. A newer one may belong to a session that has only just started, which the other tests can miss: a branch with no commits of its own counts as merged, `/solve` claims its worktree only after creating it, and a worktree made by hand has no claim at all.
+   - **Task:** only a `work/B-XXX` branch names a task; show in the report whether B-XXX is in `tasks/done/`. A branch from `/solve` (`fix/<slug>`) or one made by hand (`chore/agent-routing`) names none, so the other tests decide alone.
+5. Report each worktree that isn't claimed (a claimed one is in use):
+   - `[+]` auto-fixable if it is merged, clean, not locked and more than a day old. Fix: right before removing it, repeat these tests for that worktree, with another fresh `list --json`, and skip it if any of them now fails. Then run `git -c status.showUntrackedFiles=normal -C "$MAIN_PATH" worktree remove <worktree>`, never with `--force`. The `-c` makes git's own check see untracked files whatever the config says.
+   - `[~]` warning otherwise, naming what blocks removal: "N commits not on main" (it may be in-flight work, such as an open PR's branch), "N uncommitted or untracked entries", "locked", "created less than a day ago". Removing it is a human's call.
+6. List the directories in `$MAIN_PATH/.worktrees/` (`find "$MAIN_PATH/.worktrees" -mindepth 1 -maxdepth 1 -type d`) that `git worktree list` doesn't show. Git can't tell what they hold: `[~]` warning, to inspect and delete by hand. Never offer `rm -rf` as a fix.
 
 ### Display codebase results
 
@@ -235,7 +267,7 @@ Same format as previous sections.
 PM Hygiene:       N auto-fixable, N warnings
 CLAUDE.md:        N critical, N warnings, N advisories
 Documentation:    N warnings, N advisories
-Codebase:         N critical, N warnings
+Codebase:         N critical, N auto-fixable, N warnings, N advisories
 
 Total: N findings (N auto-fixable, N critical, N warnings, N advisories)
 ```
@@ -248,7 +280,9 @@ If there are auto-fixable issues (`[+]` items), list them and ask:
 I can automatically fix N issues:
   1. Move S-002, S-006 to stories/done/ and update status
   2. Move B-039 to tasks/done/
-  3. Remove 1 stale worker entry from .workers
+  3. Remove 1 stale worker entry from .workers (worker.sh cleanup)
+  4. Release worker ccb36594 (B-006, from Diegos-MacBook-Air.local; B-006 is done)
+  5. Remove worktree .worktrees/B-041 (work/B-041 is merged, nothing uncommitted)
 
 Fix these now?
 ```
@@ -261,14 +295,17 @@ If no auto-fixable issues: skip this step.
 
 For non-auto-fixable issues, provide one concrete actionable suggestion per finding. Examples:
 - Undocumented module: "Describe `:X` in `docs/android-technical-design.md`" or "Add `X/` to the Layout block in `backend/README.md`"
-- Stale in_progress task: "Reset B-XXX to `todo` or pick it up with `/work B-XXX`"
+- Stale in_progress task: "Reset B-XXX to `todo` or pick it up with `/work B-XXX`"; for one in `tasks/done/` (PM-4 reports it too): "Set B-XXX to `done` if it shipped"
+- Another host's worker on an open task: "Ask whoever works on <host> whether their B-XXX session has ended; if it has, run `$MAIN_PATH/pming/worker.sh release --uuid <uuid>`"
+- Leftover worktree: "Commit or discard the N entries `git -C <worktree> status --untracked-files=normal` lists, then run `git -c status.showUntrackedFiles=normal -C "$MAIN_PATH" worktree remove <worktree>`" or "Remove `<worktree>` once `<branch>` is merged"
+- Duplicate ID: "Give the copy fewer commits and docs name a new, unused ID (file name and `id:`), and note the old ID in its body"
 - Rule violation: "Remove the `performGlobalAction(` call at `android/capture/src/main/java/mx/kompara/capture/Foo.kt:42` — capture stays read-only"
 
 ## Guidelines
 
 - **Never modify files during Steps 1-4.** All changes happen in Step 5 after user approval.
-- Use `git log -1 --format=%ci <file>` for timestamps, not filesystem `stat`.
-- Use `$MAIN_PATH/pming/worker.sh cleanup` for stale worker detection (handles PID checks, expired pending entries).
+- Use `git log -1 --format=%ci <file>` for timestamps, not filesystem `stat`. The exception is CODE-5's worktree age: git doesn't record when a worktree was created.
+- Detect stale workers with `worker.sh list --json` and `worker.sh validate`, which only read. `cleanup` and `release` rewrite the tracked `pming/.workers`, so they run only as Step 5 fixes.
 - Run PM checks and doc checks in parallel where possible (they're independent).
 - If a check fails to execute (e.g., a file doesn't exist), skip with `[?] Check skipped: <reason>` rather than stopping.
 - Keep output scannable — one line per finding, details indented below.
