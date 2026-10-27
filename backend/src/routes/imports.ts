@@ -118,6 +118,23 @@ function aggregateValuesFrom(metrics: ParsedMetrics): AggregateColumns {
 }
 
 /**
+ * Best-effort delete of an import's stored originals once no `imports` row will ever point at
+ * them: DELETE /v1/me reaches originals only through `imports.file_key`, so they would outlive the
+ * account. `deleteFile` is idempotent, so a key that was never stored is harmless. A failed delete
+ * is only logged; the caller's own failure response stands (TD-046).
+ */
+async function removeOriginals(
+  storage: StorageAdapter,
+  fileKeys: string[],
+  importId: string,
+): Promise<void> {
+  const cleanup = await Promise.allSettled(fileKeys.map(async (key) => storage.deleteFile(key)));
+  if (cleanup.some((r) => r.status === "rejected")) {
+    console.error("Storage cleanup error: orphaned original(s) for import", importId);
+  }
+}
+
+/**
  * Build the imports router. Takes the Drizzle DB plus an injectable Claude
  * Vision client and storage adapter so tests can run with a fixture-replaying
  * client and in-memory storage (no ANTHROPIC_API_KEY / R2 creds).
@@ -204,23 +221,25 @@ export function importsRoutes(
     const ext = MIME_TO_EXT[mimeType] ?? "bin";
     const fileKeys: string[] = [];
     if (!dryRun) {
-      try {
-        if (fileBuffers.length === 1) {
-          const key = `${driverId}/${importId}.${ext}`;
-          fileKeys.push(key);
-          await storage.uploadFile(key, fileBuffers[0]!, mimeType);
-        } else {
-          await Promise.all(
-            fileBuffers.map((buf, i) => {
-              const key = `${driverId}/${importId}_${i}.${ext}`;
-              fileKeys.push(key);
-              return storage.uploadFile(key, buf, mimeType);
-            }),
-          );
-        }
-      } catch (error) {
+      if (fileBuffers.length === 1) {
+        fileKeys.push(`${driverId}/${importId}.${ext}`);
+      } else {
+        fileKeys.push(...fileBuffers.map((_, i) => `${driverId}/${importId}_${i}.${ext}`));
+      }
+      // Let every upload settle even after one fails, so no PutObject is still in flight when the
+      // cleanup below deletes its key. (`async` makes a synchronous adapter throw a rejection too.)
+      const uploads = await Promise.allSettled(
+        fileKeys.map(async (key, i) => storage.uploadFile(key, fileBuffers[i]!, mimeType)),
+      );
+      const failure = uploads.find((r) => r.status === "rejected");
+      if (failure) {
+        const error: unknown = failure.reason;
         const message = error instanceof Error ? error.message : "Error desconocido";
         console.error("Storage upload error:", message);
+        // A failed upload can still leave objects behind: a multi-file (DiDi) sibling that
+        // succeeded, or a PutObject whose response was lost after R2 stored the object. No row will
+        // ever point at them, so delete every key of this import, then fail as before.
+        await removeOriginals(storage, fileKeys, importId);
         return c.json({ error: "Error al subir el archivo. Intentalo de nuevo." }, 500);
       }
     }
@@ -241,10 +260,7 @@ export function importsRoutes(
         // The original(s) are already stored (step 5) but no row will point at them — e.g. the
         // account was deleted mid-upload (FK violation), and DELETE /v1/me only reaches files
         // through imports.file_key. Remove them rather than orphan PII, then fail as before.
-        const cleanup = await Promise.allSettled(fileKeys.map((key) => storage.deleteFile(key)));
-        if (cleanup.some((r) => r.status === "rejected")) {
-          console.error("Storage cleanup error: orphaned original(s) for import", importId);
-        }
+        await removeOriginals(storage, fileKeys, importId);
         throw error;
       }
       if (!importRow) {
