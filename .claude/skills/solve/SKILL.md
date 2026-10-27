@@ -25,8 +25,8 @@ This is the critical step. Do NOT skip to fixing. Understand the root cause firs
    - If an error message or stack trace is provided, follow it to the source file and line
    - If a screenshot or visual bug, identify the rendering/data path responsible
    - If behavioral (wrong output, missing data), trace the data flow from input to output
-2. **Read the relevant code** — follow the call chain, don't just read the file where the error surfaces
-3. **Check recent changes** — `git log --oneline -20` and `git diff HEAD~5` to see if this was introduced recently
+2. **Map the relevant code** — have a `scout` trace the call chain (`path:line` and a one-line role per hop), then read yourself only the functions the diagnosis hinges on. Don't stop at the file where the error surfaces.
+3. **Check recent changes** — `git log --oneline --stat -20` to see if this was introduced recently. If a commit looks suspect, write its diff to a file (`git show <sha> > /tmp/kompara-agents/solve/<sha>.diff`) and have a `scout` summarize it instead of printing it here.
 4. **Form a hypothesis** — state it clearly: "The bug is caused by X because Y"
 5. **Verify the hypothesis** — find confirming evidence in the code. If your first hypothesis doesn't hold, form another. Do not proceed until you have a confirmed root cause.
 
@@ -155,12 +155,11 @@ Display the complete plan, then wait for user approval. Once approved, exit plan
 
 ## Step 5: Fix
 
-Execute the plan:
+Delegate the approved plan to the `coder` agent (Opus 5.5) with the worktree path, per the routing in `CLAUDE.md`. It must:
 
 1. Make the code changes
 2. Add or update tests that reproduce the bug and verify the fix
-3. Run `pnpm test` — the new test must pass, all existing tests must still pass
-4. Run `pnpm lint` — must be clean
+3. Run the AGENTS.md **Verify** rows for the areas it touched — the new test must pass and every existing check must still pass
 
 ## Important notes
 - Diagnosis before action — resist the urge to jump to a fix before confirming root cause

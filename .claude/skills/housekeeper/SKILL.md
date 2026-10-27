@@ -19,8 +19,8 @@ Audit project health across three dimensions. Report findings, then offer to fix
 ## Step 0: Determine mode
 
 From $ARGUMENTS:
-- **Empty or `quick`**: Skip `pnpm test` and `pnpm lint` (fast, ~10 seconds)
-- **`full`**: Run everything including tests and lint (~60 seconds)
+- **Empty or `quick`**: Skip tests and lint (fast, ~10 seconds)
+- **`full`**: Run everything including the Android and backend checks (several minutes; Gradle dominates)
 
 Resolve main worktree path for all steps:
 ```
@@ -209,8 +209,8 @@ Same format as previous sections. Group passing checks together.
 ### CODE-1 & CODE-2: Tests and lint (full mode only)
 
 If mode is `full`:
-1. Run `pnpm test` — report pass/fail with failure summary
-2. Run `pnpm lint` — report pass/fail with violation count
+1. Android, from `android/`: `./gradlew verifyReadOnlyCapture assembleDebug testDebugUnitTest lintDebug` — report pass/fail with a failure summary (set `JAVA_HOME` first if it is empty; see AGENTS.md)
+2. Backend, from `backend/`: `pnpm typecheck && pnpm test` — report pass/fail with a failure summary
 - Severity: `[!!]` critical if either fails
 
 If mode is `quick`: show `Skipped (use /housekeeper full to include)`

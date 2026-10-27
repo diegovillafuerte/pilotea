@@ -62,9 +62,8 @@ Check for own worker entry: `$MAIN_PATH/pming/worker.sh info`
 ## Step 5: For code tasks — verify before marking done
 
 Before marking a code task as done:
-- Run `pnpm test` to verify tests pass
-- Run `pnpm lint` to verify lint is clean
-- If tests or lint fail, fix the issues first instead of marking done
+- Run the AGENTS.md **Verify** row for every area the task changed
+- If any check fails, fix the issues first instead of marking done
 
 For non-code tasks (ops, business), just confirm completion with the user.
 

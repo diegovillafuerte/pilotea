@@ -6,7 +6,7 @@ argument-hint: [B-XXX | S-XXX | E-XXX]
 
 # Start Working
 
-Begin work on a task. Isolates work in a git worktree, plans inline, then implements with Codex review checkpoints. Review is tiered: Codex checks the plan and implementation here in `/work`, then `/ship` runs a lighter or heavier gate depending on change size and risk.
+Begin work on a task. Isolates work in a git worktree, plans inline, then implements with Codex review checkpoints. Review is tiered: Codex checks the plan and implementation here in `/work`, then `/ship` runs a lighter or heavier gate depending on change size and risk. Model routing (see `CLAUDE.md`): this session plans and orchestrates; the `coder` agent (Opus 5.5) implements.
 
 ## Step 0: Resolve main worktree path
 
@@ -113,7 +113,7 @@ Read the task and plan the approach inline:
 1. **Show the task**: Display full task content including description and acceptance criteria
 2. **Show hierarchy context**: Which epic and story, what comes before/after
 3. **If working through a group**: Show progress (e.g., "Task 3/6 in S-003")
-4. **Read relevant source files** mentioned in the task
+4. **Locate the relevant code** with a `scout` (paths, symbols, a short summary). Read yourself only the files the plan's decisions hinge on.
 5. **Produce a step-by-step implementation plan** with specific files and changes
 6. Proceed to Step 4b (Codex plan review)
 
@@ -124,9 +124,9 @@ Before implementing, send the plan to Codex for a quick sanity check. This catch
 1. Write the plan to a temp file with this prompt:
 
    ```
-   You are reviewing an implementation plan for a task in the Kompara codebase (a web application, Node.js/TypeScript).
+   You are reviewing an implementation plan for a task in the Kompara codebase (a native Android app in Kotlin and Jetpack Compose, plus a TypeScript backend).
 
-   You have read-only access to the full repo. Read `.claude/codex-guide.md` FIRST for efficient navigation, then read `CLAUDE.md` for architecture boundary rules.
+   You have read-only access to the full repo. Read `.claude/codex-guide.md` FIRST for efficient navigation, then `AGENTS.md` for the repo map, module boundaries and the rules that are easy to break.
 
    ## Task
    {TASK DESCRIPTION AND ACCEPTANCE CRITERIA}
@@ -135,7 +135,7 @@ Before implementing, send the plan to Codex for a quick sanity check. This catch
    {STEP-BY-STEP PLAN FROM STEP 4}
 
    ## Review Instructions
-   1. Check the plan against architecture boundary rules in CLAUDE.md (engine vs flows vs underwriting vs banking-core)
+   1. Check the plan against AGENTS.md: module boundaries, read-only capture, on-device processing, and the verify commands the change will need
    2. Will the planned changes break anything else? Check for side effects.
    3. Is the plan minimal — focused on the task, no unnecessary refactoring?
    4. Does the plan address all acceptance criteria?
@@ -152,9 +152,10 @@ Before implementing, send the plan to Codex for a quick sanity check. This catch
    codex exec - \
      --sandbox read-only \
      --output-last-message "$OUTFILE" \
-     -C "$(pwd)" < /tmp/kompara-plan-review.txt && \
-   cat "$OUTFILE"
-   rm -f "$OUTFILE" /tmp/kompara-plan-review.txt
+     -C "$(pwd)" < /tmp/kompara-plan-review.txt > "$OUTFILE.log" 2>&1
+   rc=$?
+   if [ "$rc" -eq 0 ] && [ -s "$OUTFILE" ]; then cat "$OUTFILE"; else echo "CODEX FAILED (exit $rc)"; tail -n 20 "$OUTFILE.log"; fi
+   rm -f "$OUTFILE" "$OUTFILE.log" /tmp/kompara-plan-review.txt
    ```
 
 3. **If PROCEED**: Show Codex's assessment briefly, move to Step 5.
@@ -165,10 +166,11 @@ Before implementing, send the plan to Codex for a quick sanity check. This catch
 
 Execute the plan:
 
-1. **If category is `code`**:
-   - Follow the plan step by step
-   - Run tests frequently as you go
-   - When complete, run `pnpm test` and `pnpm lint` to verify
+1. **If category is `code`**, delegate per the routing in `CLAUDE.md`:
+   - Hand the task to the `coder` agent (Opus 5.5): the task file path, the approved plan, the worktree path and the files that matter. Use `builder` (Sonnet 5.5) only when the change is very easy and mechanical.
+   - The agent implements, runs the AGENTS.md **Verify** rows for the areas it touched, and returns a short summary with a report path. Open the report only when something failed or looks off.
+   - If the agent stops on an ambiguity or a needed deviation, apply "When to stop and ask" (AGENTS.md).
+   - If it is still stuck after two genuinely different attempts, escalate to Codex (`/codex:rescue`), not to a bigger Claude model.
    - Proceed to Step 5b (Codex implementation check)
 2. **If category is `ops` or `business`**:
    - Show what needs to be done
@@ -187,15 +189,17 @@ After implementation passes lint and tests, run a quick Codex review to catch is
 
    If `CLAUDE_PLUGIN_ROOT` is not set, fall back to:
    ```bash
-   codex exec - --sandbox read-only --output-last-message /tmp/kompara-impl-review.json -C "$(pwd)" <<'EOF'
+   rm -f /tmp/kompara-impl-review.json
+   codex exec - --sandbox read-only --output-last-message /tmp/kompara-impl-review.json -C "$(pwd)" > /tmp/kompara-impl-review.log 2>&1 <<'EOF'
    Review the uncommitted changes in this repository. Focus on bugs, data integrity risks, and missing error handling. Be brief — list only material issues.
    EOF
-   cat /tmp/kompara-impl-review.json
-   rm -f /tmp/kompara-impl-review.json
+   rc=$?
+   if [ "$rc" -eq 0 ] && [ -s /tmp/kompara-impl-review.json ]; then cat /tmp/kompara-impl-review.json; else echo "CODEX FAILED (exit $rc)"; tail -n 20 /tmp/kompara-impl-review.log; fi
+   rm -f /tmp/kompara-impl-review.json /tmp/kompara-impl-review.log
    ```
 
 2. **If the review is clean**: Tell the user "Implementation check passed. Ready to ship." and stop.
-3. **If issues are found**: Fix them, re-run `pnpm test` and `pnpm lint`, then tell the user it's ready to ship.
+3. **If issues are found**: Send them back to the agent that implemented the change, `coder` or `builder` (continue it with SendMessage so it keeps its context) to fix and re-verify, then tell the user it's ready to ship.
 4. **If Codex fails**: Warn briefly ("Implementation check unavailable"), tell the user it's ready to ship. The `/ship` review will still gate quality.
 
 ## Important notes

@@ -19,10 +19,9 @@ MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
 Run these sequentially. If ANY fail, STOP and show errors.
 
 1. `git status` — verify there are changes to commit (staged or unstaged modified/untracked files). If working tree is clean, tell the user and stop.
-2. `pnpm lint` — must pass clean.
-3. `pnpm test` — all tests must pass.
+2. Run the AGENTS.md **Verify** row for every area the changes touch (`android/`, `backend/`, legacy `src/`). All must pass; changes only to docs, `pming/` or `design-system/` have nothing to run.
 
-If lint or tests fail, show the output and STOP. Tell the user what failed.
+If any check fails, show the failing lines (not the whole log) and STOP. Tell the user what failed.
 
 ## Step 1b: Simplify pass (for diffs > 100 lines)
 
@@ -35,25 +34,32 @@ If the total lines changed exceeds 100, run a quality pass before review:
 
 1. Snapshot the current tree: `git stash push -m 'pre-simplify'` then `git stash pop` (this creates a stash entry as a restore point without changing the working tree).
 2. Use the Skill tool to invoke `simplify`. This spawns parallel agents that check for code reuse opportunities, quality issues, and efficiency improvements, then auto-fixes them.
-3. If `/simplify` made any changes, re-run `pnpm lint` and `pnpm test` to verify the fixes don't break anything.
-4. If lint or tests fail after simplify's changes, restore the pre-simplify state: `git checkout stash@{0} -- .` then `git stash drop` and proceed without simplification. If tests passed, just `git stash drop` to clean up.
+3. If `/simplify` made any changes, re-run the Step 1 item 2 verify rows to make sure the fixes don't break anything.
+4. If the checks fail after simplify's changes, restore the pre-simplify state: `git checkout stash@{0} -- .` then `git stash drop` and proceed without simplification. If tests passed, just `git stash drop` to clean up.
 
 If the diff is <= 100 lines, skip this step silently.
 
 ## Step 2: Analyze changes
 
 Run these in parallel:
-- `git diff` and `git diff --cached` to capture changes to tracked files
-- For each untracked file listed by `git status`, capture its content with `git diff --no-index /dev/null <file>` to generate a diff
+- `git diff` and `git diff --cached` to capture changes to tracked files, redirected into the diff file below (never printed here)
+- For each untracked file listed by `git status`, append its content to the same file with `git diff --no-index /dev/null <file>`
+- `git diff --stat` and `git diff --cached --stat`: the size and file list are all this conversation needs
 - `git log --oneline -10` for recent commit style
 - `git status` to list all changed and untracked files
 - `git branch --show-current` for the current branch
-- Read documentation files for the reviewers' context: `ARCHITECTURE.md`, `CLAUDE.md`, `techdebt.md`. If any flows were changed, also read the relevant flow's `knowledge-base.md` and `tone.md`.
+- Don't read documentation into this conversation: reviewers read `AGENTS.md` (Codex loads it automatically) and `techdebt.md` themselves.
 - Read YAML frontmatter from all docs in `docs/` to build a source-to-doc mapping. For each doc, extract the `sources:` list and `last_verified:` date. This will be used in Step 3.1 to determine whether the Docs reviewer should run.
 
 **Important:** `git diff` does not show untracked (new) files. You MUST capture new file contents separately so the reviewers see the complete picture.
 
-Combine all diffs into a single `FULL_DIFF` text block for the reviewers.
+Combine all diffs into one file with shell redirection, so the diff never passes through the orchestrator's context:
+
+```bash
+mkdir -p /tmp/kompara-ship
+{ git diff; git diff --cached; git ls-files --others --exclude-standard | while IFS= read -r f; do git diff --no-index /dev/null "$f"; done; } > /tmp/kompara-ship/full.diff
+wc -l < /tmp/kompara-ship/full.diff
+```
 
 ## Step 3: Codex tiered review
 
@@ -77,11 +83,13 @@ Set `timeout: 480000` (8 minutes).
 
 If `CLAUDE_PLUGIN_ROOT` is not set, fall back to:
 ```bash
-codex exec - --sandbox read-only --output-last-message /tmp/kompara-prescreen.txt -C "$(pwd)" <<'EOF'
+rm -f /tmp/kompara-prescreen.txt
+codex exec - --sandbox read-only --output-last-message /tmp/kompara-prescreen.txt -C "$(pwd)" > /tmp/kompara-prescreen.log 2>&1 <<'EOF'
 Review the uncommitted changes in this repo. Report material issues only — bugs, security risks, data integrity, architectural violations. Be brief.
 EOF
-cat /tmp/kompara-prescreen.txt
-rm -f /tmp/kompara-prescreen.txt
+rc=$?
+if [ "$rc" -eq 0 ] && [ -s /tmp/kompara-prescreen.txt ]; then cat /tmp/kompara-prescreen.txt; else echo "CODEX FAILED (exit $rc)"; tail -n 20 /tmp/kompara-prescreen.log; fi
+rm -f /tmp/kompara-prescreen.txt /tmp/kompara-prescreen.log
 ```
 
 Read the pre-screen output. Classify it as:
@@ -94,7 +102,7 @@ If the pre-screen fails (Codex error, timeout): treat as HAS_CONCERNS (proceed t
 
 Check these conditions using the diff stats and changed file list from Step 2:
 
-**Critical paths:** `src/banking-core/`, `src/underwriting/`, `src/db/migrations/`, `src/engine/machine/`, `src/engine/transport/`
+**Critical paths:** `android/capture/`, `android/ocr/`, `android/overlay/`, `android/data/` (Room schema and migrations), `android/billing/`, any `AndroidManifest.xml` or accessibility-service config (`src/main/res/xml/`), `backend/src/auth/`, `backend/src/middleware/`, `backend/migrations/`
 
 **Full review (specialized reviewers) when ANY of:**
 - Pre-screen classified as HAS_CONCERNS
@@ -105,7 +113,7 @@ Check these conditions using the diff stats and changed file list from Step 2:
 - Pre-screen classified as CLEAN
 - Total diff lines > 50 and <= 100, OR files changed > 3 and <= 6
 - No changes to critical paths above
-- OR: total diff lines <= 50 AND files changed <= 3 AND at least one `.ts` file outside of docs/config
+- OR: total diff lines <= 50 AND files changed <= 3 AND at least one source file (`.kt`, `.ts`) outside of docs/config
 
 The lean lane runs a single condensed review using the Codex CLI (or Claude fallback) with the lean reviewer prompt (`.claude/skills/ship/reviewers/lean.md`). This covers security, architecture, and correctness in one pass with a shorter checklist, skipping the parallel specialized reviewer battery.
 
@@ -113,7 +121,7 @@ The lean lane runs a single condensed review using the Codex CLI (or Claude fall
 - Pre-screen classified as CLEAN
 - Total diff lines <= 50
 - Files changed <= 3
-- Changes are limited to: docs (`docs/`, `*.md`), config files (`*.json`, `*.yaml`, `*.yml`, `*.toml`, `.eslintrc*`, `tsconfig*`), PM files (`pming/`), or test files (`test/`)
+- Changes are limited to: docs (`docs/`, `*.md`), config files (`*.json`, `*.yaml`, `*.yml`, `*.toml`, `.eslintrc*`, `tsconfig*`), PM files (`pming/`), or test files (`src/test/`, `src/androidTest/`, `*.test.ts`)
 
 If **fast lane**: Skip to Step 3.6 (Log telemetry). The pre-screen is the sole review gate. Show the user: "Pre-screen passed. Fast lane — skipping specialized reviewers."
 
@@ -126,7 +134,7 @@ If **full review**: Continue to Step 3.3.
 Run a single lightweight review using the lean reviewer prompt:
 
 1. Read `.claude/skills/ship/reviewers/lean.md`
-2. Replace `{DIFF}` with the full diff from Step 2
+2. Replace `{DIFF}` with `/tmp/kompara-ship/full.diff` by script, as in Step 3.4 (never paste the diff through this conversation)
 3. Prefix with the navigation header from the shared protocol (Step 2.2)
 4. Execute via Codex CLI (same as Step 3.4 but with a single reviewer):
 
@@ -136,9 +144,10 @@ codex exec - \
   --sandbox read-only \
   --output-schema .claude/skills/ship/code-review-schema.json \
   --output-last-message "$OUTFILE" \
-  -C "$(pwd)" < /tmp/kompara-review-lean.txt && \
-cat "$OUTFILE"
-rm -f /tmp/kompara-review-lean.txt /tmp/kompara-review-lean-out.json
+  -C "$(pwd)" < /tmp/kompara-review-lean.txt > "$OUTFILE.log" 2>&1
+rc=$?
+if [ "$rc" -eq 0 ] && [ -s "$OUTFILE" ]; then cat "$OUTFILE"; else echo "CODEX FAILED (exit $rc)"; tail -n 20 "$OUTFILE.log"; fi
+rm -f /tmp/kompara-review-lean.txt "$OUTFILE" "$OUTFILE.log"
 ```
 
 Set `timeout: 300000` (5 minutes — shorter than full review since it is a single reviewer).
@@ -165,8 +174,8 @@ Show the user: "Lean mode — single lightweight review (skipping full adversari
 For each reviewer to run:
 
 1. Read the reviewer's prompt file from `.claude/skills/ship/reviewers/<name>.md`
-2. Replace `{DIFF}` with the full diff. For Docs reviewer, also replace `{IMPACTED_DOCS}` with full doc content.
-3. Include relevant context doc excerpts from Step 2 in the prompt (speeds up Codex — it won't need to read them).
+2. Replace `{DIFF}` with the contents of `/tmp/kompara-ship/full.diff` by script (snippet after this list), never by pasting it through this conversation. For the Docs reviewer, fill `{IMPACTED_DOCS}` from the impacted doc files the same way.
+3. Don't paste context docs into the prompt: reviewers read `AGENTS.md` and `techdebt.md` from the repo.
 4. Prefix each assembled prompt with the navigation header from the shared protocol (Step 2.2):
    ```
    You have read-only access to the full repo. Read `.claude/codex-guide.md` for efficient navigation.
@@ -175,7 +184,14 @@ For each reviewer to run:
    {"verdict":"PASS or REJECT","findings":[{"severity":"CRITICAL or ADVISORY","title":"...","location":"file:line","evidence":"...","why":"...","fix":"..."}],"summary":"..."}
    ```
 5. Build prompt files per shared protocol Step 2.1 (split trusted/untrusted content into separate files, concatenate safely — never embed diffs in heredocs).
-6. Write each assembled prompt to a temp file: `/tmp/kompara-review-<name>.txt`
+6. Write each assembled prompt to a temp file: `/tmp/kompara-review-<name>.txt`. Save the item 4 header once as `/tmp/kompara-ship/header.txt` (it is trusted static text), then assemble every prompt from files, in its own Bash call before the Codex run:
+
+   ```bash
+   for name in <reviewer names>; do
+     python3 -c 'import sys; h, t, d, o = sys.argv[1:]; open(o, "w").write(open(h).read() + "\n" + open(t).read().replace("{DIFF}", open(d).read()))' \
+       /tmp/kompara-ship/header.txt ".claude/skills/ship/reviewers/$name.md" /tmp/kompara-ship/full.diff "/tmp/kompara-review-$name.txt"
+   done
+   ```
 
 Launch ALL reviewers in parallel per shared protocol Step 2.3:
 ```bash
@@ -184,13 +200,14 @@ codex exec - \
   --sandbox read-only \
   --output-schema .claude/skills/ship/code-review-schema.json \
   --output-last-message "$OUTFILE" \
-  -C "$(pwd)" < /tmp/kompara-review-<name>.txt && \
-cat "$OUTFILE"
+  -C "$(pwd)" < /tmp/kompara-review-<name>.txt > "$OUTFILE.log" 2>&1
+rc=$?
+if [ "$rc" -eq 0 ] && [ -s "$OUTFILE" ]; then cat "$OUTFILE"; else echo "CODEX FAILED (exit $rc)"; tail -n 20 "$OUTFILE.log"; fi
 ```
 
 Set `timeout: 480000` (8 minutes) for each. After all complete:
 ```bash
-rm -f /tmp/kompara-review-*.txt /tmp/kompara-review-*-out.json
+rm -f /tmp/kompara-review-*.txt /tmp/kompara-review-*-out.json /tmp/kompara-review-*-out.json.log
 ```
 
 **Error handling per shared protocol Step 2.4:** If a reviewer fails (non-zero exit, timeout, empty output), treat as PASS with advisory: "[Reviewer] Codex review failed — review manually." Do NOT block ship.
@@ -327,15 +344,15 @@ If no doc findings, skip this step and proceed to Step 5.
       - **Release the merge lock immediately**: `$MAIN_PATH/pming/worker.sh merge-lock release`
       - Show conflicting files clearly
       - STOP and tell the user: "Main has moved since your branch diverged (likely from a parallel worker). These files conflict: [list]. Please resolve manually."
-   f. After successful merge, **re-run `pnpm test`** — two branches may each pass individually but break when combined
+   f. After successful merge, **re-run only the Step 1 item 2 verify rows** (not the working-tree check: the tree is clean after a merge) for the areas either side of the merge touched — two branches may each pass individually but break when combined
    g. If post-merge tests fail:
       - **Release the merge lock**: `$MAIN_PATH/pming/worker.sh merge-lock release`
       - STOP and explain: "Merge succeeded but tests fail — this branch may conflict with changes from a parallel worker. Fix the integration issues before pushing."
    h. `git push origin main`
    i. If push is rejected (another worker pushed between pull and push):
       - `git pull --rebase origin main`
-      - Re-run `pnpm test`
-      - If tests pass: `git push origin main`
+      - Re-run only the Step 1 item 2 verify rows
+      - If they pass: `git push origin main`
       - If tests fail or push fails again: **Release merge lock** and STOP
    j. **Release the merge lock**: `$MAIN_PATH/pming/worker.sh merge-lock release`
 
