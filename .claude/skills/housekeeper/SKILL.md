@@ -153,8 +153,6 @@ Use the standard format. Group passing checks. For critical findings, include th
 1. List all directories under `src/` (depth 1) and under `src/engine/` (depth 1)
 2. Grep ARCHITECTURE.md for each directory name
 3. Flag directories present in `src/` but not mentioned ANYWHERE in ARCHITECTURE.md
-
-Note: ARCHITECTURE.md also has `sources:` frontmatter, so its overall freshness is tracked by DOC-5. DOC-1 still adds value by catching directories that exist in src/ but aren't mentioned at all in the doc.
 - Severity: `[~]` warning
 
 ### DOC-2: techdebt.md resolved items
@@ -178,27 +176,18 @@ For each flow directory in `src/flows/*/`:
 
 ### DOC-5: Source-mapped doc freshness
 
-Docs in `docs/` have YAML frontmatter with `sources:` (file paths/glob patterns) and `last_verified:` (date). This check compares the doc's last_verified date against the latest commit date of its source files.
+Kompara's docs carry no frontmatter. The **Doc Inventory** in `.claude/skills/ship/reviewers/docs.md` maps each doc to the source paths it describes, and `/ship` and `/rem` read the same inventory. Docs it leaves out on purpose (dated records, research, legacy reference) aren't checked. Run:
 
-1. For each markdown file in `docs/` (recursively, excluding `docs/literature/`):
-   a. Read the YAML frontmatter. If no `sources:` field, skip (evergreen doc).
-   b. Parse the `sources:` list into file paths/glob patterns.
-   c. For each source pattern:
-      - If it ends with `/`, it's a directory — find all `.ts` files within it
-      - Otherwise, treat as a specific file path
-   d. Get the latest commit date across ALL matched source files:
-      `git log -1 --format=%ci -- <file1> <file2> ...`
-   e. Compare against `last_verified:` date from frontmatter.
-   f. If the latest source commit is AFTER `last_verified`, flag the doc as potentially stale.
+```bash
+python3 .claude/skills/_shared/doc-freshness.py
+```
 
-2. For each stale doc, report:
-   - Doc path
-   - `last_verified` date
-   - Latest source change date
-   - Which source files changed (list the ones with commits after last_verified)
+It works from git alone and prints one line per inventory doc. A commit-message line `Doc-Verified: <doc> <commit>` records that the doc was checked against the code at `<commit>` and found accurate. A doc's baseline is the newest of the commit that wrote its current text and the verified commits where it already had that text. A doc is `STALE` when its sources at HEAD differ from its sources at the baseline; the files that differ are listed under it. The script also reports three inventory problems, each of which would otherwise make a doc skip this check in silence: `DEAD` (a source entry that matches no tracked file by the inventory's rules), `MISSING` (a listed doc that HEAD doesn't have), `UNMAPPED` (a doc under `docs/` that is in neither the inventory nor its left-out list).
 
-- Severity: `[~]` warning — the doc may need updating
-- Suggested fix: "Read <doc> and compare against changes in <source files>. Update doc content and set `last_verified` to today's date."
+- `STALE`: `[~]` warning — the doc may need updating. Report the doc, its baseline (date and commit), and the changed source files.
+  Suggested fix: "Run `python3 .claude/skills/_shared/doc-freshness.py --diff <doc>`; its first line names the commit it checked (`Checked <commit>`). Read the doc as that commit has it (`git show <commit>:<doc>`) against those changes, and update it. If it is still accurate, record the check with `python3 .claude/skills/_shared/doc-freshness.py --verify <doc> <commit>`, which refuses if HEAD's or your copy of the doc differs from that commit's, and keeps anything staged out of its commit. `/rem docs-only` runs the same check and updates or verifies what it can."
+- `DEAD`, `MISSING`, `UNMAPPED`: `[~]` warning. Suggested fix: "Update the Doc Inventory in `.claude/skills/ship/reviewers/docs.md`; `/ship` uses it to decide whether the Docs reviewer runs."
+- If the script exits non-zero: `[?] Check skipped: <its error message>`.
 
 ### Display documentation results
 

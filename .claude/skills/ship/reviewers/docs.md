@@ -12,7 +12,7 @@ Two docs weigh more than the rest: `docs/play-compliance.md` and `docs/privacy-p
 
 ## Doc Inventory
 
-Kompara's docs have no frontmatter; this inventory is the map. `/ship` matches the changed files against it to decide whether you run and which docs you receive. A changed path matches an entry when it starts with a listed directory (written with a trailing `/`) or equals a listed file; `*` stands for one path segment.
+Kompara's docs have no frontmatter; this inventory is the map. `/ship` matches the changed files against it to decide whether you run and which docs you receive. A changed path matches an entry when it starts with a listed directory (written with a trailing `/`) or equals a listed file; `*` stands for one path segment. `/housekeeper` and `/rem` parse this inventory too (`.claude/skills/_shared/doc-freshness.py`), so keep its layout.
 
 ```
 AGENTS.md

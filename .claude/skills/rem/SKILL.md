@@ -17,7 +17,7 @@ MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
 Determine mode from `$ARGUMENTS`:
 - **empty or `full`**: Run all phases (default — used for nightly runs)
 - **`quick`**: Phase 1 only (PM hygiene fixes, ~30 seconds)
-- **`dry`**: Run all phases but make NO modifications — only show what would change
+- **`dry`**: Run all phases but make NO modifications to the repo — only show what would change
 - **`docs-only`**: Phase 3 only (documentation freshness healing)
 
 Record the current date (`date -u +%Y-%m-%d`) and start time. Initialize an empty report structure in memory:
@@ -119,45 +119,43 @@ This is the core differentiator — rem actually rewrites stale docs.
 
 ### 3.1: Identify stale docs
 
-For each markdown file in `$MAIN_PATH/docs/` (recursive), read YAML frontmatter. Skip files without `sources:` and `last_verified:` fields.
+Kompara's docs carry no frontmatter. The **Doc Inventory** in `$MAIN_PATH/.claude/skills/ship/reviewers/docs.md` maps each doc to the source paths it describes, and `/ship` and `/housekeeper` read the same inventory. Docs it leaves out on purpose (dated records, research, legacy reference) are never checked. Run:
 
-For each doc with source mapping:
-1. Parse the `sources:` list and `last_verified:` date. If `last_verified:` is missing or not a valid date, treat the doc as maximally stale (use `1970-01-01`) and flag in report: "docs/X.md: missing or malformed last_verified — treating as stale"
-2. Get latest commit date across all source files:
-   ```bash
-   git log -1 --format=%ci -- <source1> <source2> ...
-   ```
-3. If the latest source commit is **after** `last_verified:`, mark the doc as stale
-4. Identify which specific source files changed:
-   ```bash
-   git log --since="<last_verified>" --name-only --format="" -- <sources> | sort -u
-   ```
+```bash
+python3 "$MAIN_PATH/.claude/skills/_shared/doc-freshness.py"
+```
+
+It works from the git repo at `$MAIN_PATH`. A commit-message line `Doc-Verified: <doc> <commit>` records that the doc was checked against the code at `<commit>` and found accurate; rem writes those lines in Phase 6.2. A doc's baseline is the newest of the commit that wrote its current text and the verified commits where it already had that text. Each `STALE` line is a doc whose sources at HEAD differ from its sources at the baseline; the files that differ are listed under it. The report's last line names the HEAD commit it checked: keep it for Phase 3.2 and Phase 6.2.
+
+- `DEAD`, `MISSING` and `UNMAPPED` lines are inventory problems. Rem doesn't edit the inventory, which belongs to `/ship`: add each line to "Needs Human Attention".
+- If the script exits non-zero, add its error message to "Needs Human Attention" and skip the rest of this phase.
 
 ### 3.2: Spawn doc-updater subagents
 
-For each stale doc, prepare a subagent call:
+Make a fresh directory for this run's files with `mktemp -d /tmp/kompara-rem.XXXXXX`, and use the path it prints as `$REM_TMP` below. It is outside the repo, so `dry` mode uses it too. Below, `<commit>` is the commit on the last line of the Phase 3.1 report and `<slug>` is the doc's path with each `/` replaced by `_`. For each stale doc, prepare a subagent call:
 
-1. Read the prompt template from `$MAIN_PATH/.claude/skills/rem/healers/doc-updater.md`
-2. Read the current doc content
-3. Get the source diffs since last verification:
+1. Write the changes to the doc's sources between its baseline and `<commit>` to a file, never into this conversation (they can run to thousands of lines):
    ```bash
-   git log --since="<last_verified>" -p -- <changed_sources>
+   python3 "$MAIN_PATH/.claude/skills/_shared/doc-freshness.py" --diff <doc> <commit> > "$REM_TMP/<slug>.diff"
    ```
-4. Replace `{DOC_CONTENT}` with the current doc
-5. Replace `{SOURCE_DIFFS}` with the source diffs
-6. Replace `{TODAY}` with today's date
+   If it exits non-zero or the file is empty, spawn no doc-updater for that doc: flag it in "Needs Human Attention" with the error, and don't record it as verified.
+2. Save the doc as `<commit>` has it, so the doc-updater reviews exactly that text whatever happens to the working copy meanwhile: `git -C "$MAIN_PATH" show <commit>:<doc> > "$REM_TMP/<slug>.doc"`
+3. Read the prompt template from `$MAIN_PATH/.claude/skills/rem/healers/doc-updater.md`
+4. Replace `{DOC_PATH}` with `$REM_TMP/<slug>.doc`, `{DIFF_PATH}` with `$REM_TMP/<slug>.diff`, `{OUT_PATH}` with `$REM_TMP/<slug>.new`, and `{REPO}` with `$MAIN_PATH`
 
-**Launch ALL doc-updater agents in a single message** so they execute in parallel. Use `model: "opus"` for each.
+**Launch ALL doc-updater agents in a single message** so they execute in parallel. Use `model: "opus"` for each. Each one either writes the complete updated doc to `{OUT_PATH}` and replies `UPDATED: <summary>`, or replies `NO_CHANGES_NEEDED`.
 
 ### 3.3: Apply updates
 
 For each subagent response:
-1. Count the number of changed lines vs the original doc
-2. **Safety check:** if >40% of lines changed, do NOT apply. Instead, flag in "Needs Human Attention": "docs/X.md: subagent wants to change N% of content — manual review needed"
-3. If within threshold: write the updated doc, record in report
-4. In `dry` mode: show the diff but don't write
-
-For docs where sources haven't changed but `last_verified` is >30 days old: just bump `last_verified` to today (the doc is still accurate, just needs re-stamping).
+1. `NO_CHANGES_NEEDED`: the doc still matches the code. Record it in the report as verified, and give it a `Doc-Verified:` line in the Phase 6.2 commit so the next run doesn't check it again.
+2. `UPDATED` for `AGENTS.md`, `CLAUDE.md`, `docs/play-compliance.md` or `docs/privacy-policy.md`: don't apply it. Rem never edits `AGENTS.md`, and Phase 2 owns `CLAUDE.md`. The two compliance docs back the Play declarations: when code contradicts them, the code may be what's wrong, so a human decides which side changes. Flag in "Needs Human Attention": "<doc> is stale against its sources: <summary>"
+3. `UPDATED` for any other doc in `docs/`:
+   a. Count the number of changed lines vs the original doc (`<slug>.doc` against `<slug>.new`)
+   b. **Safety check:** if >40% of lines changed, do NOT apply. Instead, flag in "Needs Human Attention": "docs/X.md: subagent wants to change N% of content — manual review needed"
+   c. If within threshold: `python3 "$MAIN_PATH/.claude/skills/_shared/doc-freshness.py" --apply <doc> <commit> "$REM_TMP/<slug>.new"`. It writes and stages the update only while the index and the working copy hold exactly the reviewed text, so local edits are never overwritten, and never through a symlink. If it exits 2, nothing was written: flag in "Needs Human Attention": "<doc>: update not applied: <its message>". If it exits 3, the working copy was replaced but not staged, so the update stays out of this run's commit: flag in "Needs Human Attention": "<doc>: updated in the working copy but not staged: <its message>". Otherwise record in report
+   d. In `dry` mode: show the diff but don't write
+4. Any other reply, or `UPDATED` with no file at `{OUT_PATH}`: flag the doc in "Needs Human Attention" and don't record it as verified.
 
 **If mode is `docs-only`: skip to Phase 6 (Commit & Report).**
 
@@ -252,7 +250,7 @@ Run at: HH:MM UTC | Mode: <mode> | Duration: <seconds>s
 <list each change made to CLAUDE.md>
 
 ### Documentation Updates
-<list each doc updated, with a one-line summary of what changed>
+<list each doc updated, with a one-line summary of what changed, then each doc verified as still accurate>
 
 ### Techdebt
 <list new entries added or entries archived>
@@ -277,21 +275,23 @@ In all other modes:
 
 1. Stage all changed files **by name** (NEVER use `git add -A` or `git add .`):
    - Changed PM files (tasks, stories, epics moved between folders)
-   - Updated docs (`docs/**/*.md`)
+   - Not the updated docs: `--apply` (Phase 3.3) already staged exactly what the doc-updater wrote, and adding them again would re-read the working copy
    - Updated CLAUDE.md (if changed)
    - Updated techdebt.md (if changed)
    - The report file itself
 2. Check that no source code files (`src/`, `test/`, `admin/`) are staged — if any are, unstage them immediately. Rem must never commit source changes.
+   If Phase 3 ran, also check that `git -C "$MAIN_PATH" rev-parse HEAD` still prints the Phase 3.1 commit. If it doesn't, another commit landed during the run, and committing rem's doc updates on top of it would mark that commit's source changes as seen: don't commit. Display the report with this reason and STOP.
 3. Commit:
    ```bash
    git commit -m "$(cat <<'EOF'
    rem: nightly maintenance — N fixes, M doc updates
 
+   Doc-Verified: <doc> <commit>
    Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
    EOF
    )"
    ```
-   Replace N and M with actual counts.
+   Replace N and M with actual counts. Write one `Doc-Verified: <doc> <commit>` line for each doc the doc-updater found still accurate (Phase 3.3): its repo path, such as `docs/privacy-policy.md`, then the full commit from the last line of the Phase 3.1 report, the one every Phase 3.2 diff was taken at. Write none when there are none. The next run's freshness check reads these lines.
 4. Push: `git push origin main`
 5. Display a brief summary (3-5 lines) of what was done.
 
@@ -301,11 +301,11 @@ If the commit or push fails, display the error and STOP. Do not retry.
 
 These are non-negotiable constraints. Violating any of them is a critical failure.
 
-1. **Never modify source code.** Rem only touches: `docs/`, `pming/`, `CLAUDE.md`, `techdebt.md`, and its own report files. If you find yourself about to write to `src/`, `test/`, `admin/`, or any `.ts` file — STOP.
+1. **Never modify source code.** Rem only touches: `docs/`, `pming/`, `CLAUDE.md`, `techdebt.md`, its own report files, and the run's scratch directory under `/tmp` (Phase 3.2). If you find yourself about to write to `src/`, `test/`, `admin/`, or any `.ts` file — STOP.
 2. **Never delete files.** Only move PM files between `pending/` and `done/`. Never `rm` a doc, a task file, or anything else.
 3. **Doc update size cap.** If a doc-updater subagent returns content that changes >40% of the original doc's lines, skip that doc and flag for human review.
 4. **CLAUDE.md change cap.** Never apply more than 15 changed lines to CLAUDE.md in a single run.
-5. **Dry-run mode.** When invoked as `/rem dry`, make ZERO modifications to any file. Only read and report.
+5. **Dry-run mode.** When invoked as `/rem dry`, make ZERO modifications to any file outside the run's scratch directory under `/tmp`, where the doc-updaters put their proposals. Only read and report.
 6. **Idempotency.** Running rem twice in a row should produce no changes on the second run (all drift already fixed).
 7. **No destructive git.** Never use `--force`, `--no-verify`, `--hard`, `clean -f`, or `branch -D`.
 8. **No interactive prompts.** Rem runs autonomously. Never ask the user a question. If uncertain, skip the action and flag it in "Needs Human Attention".
