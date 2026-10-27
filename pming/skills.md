@@ -91,12 +91,12 @@ Marks done, verifies tests/lint for code tasks. Advances to next task if in a gr
 ### `/roadmap` — View project roadmap
 Bird's-eye view of all epics, stories, and completion progress.
 
-### `/plan` — Planning session
+### `/plan-session` — Planning session
 Reviews priorities, surfaces blockers, recommends what to work on next.
 
 ```
-/plan                           # daily planning (default)
-/plan weekly                    # weekly scope
+/plan-session                   # daily planning (default)
+/plan-session weekly            # weekly scope
 ```
 
 ## Parallel work
