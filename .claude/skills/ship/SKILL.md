@@ -49,7 +49,7 @@ Run these in parallel:
 - `git status` to list all changed and untracked files
 - `git branch --show-current` for the current branch
 - Don't read documentation into this conversation: reviewers read `AGENTS.md` (Codex loads it automatically) and `techdebt.md` themselves.
-- Read YAML frontmatter from all docs in `docs/` to build a source-to-doc mapping. For each doc, extract the `sources:` list and `last_verified:` date. This will be used in Step 3.1 to determine whether the Docs reviewer should run.
+- Read the **Doc Inventory** section of `.claude/skills/ship/reviewers/docs.md`: Kompara's docs have no frontmatter, and the inventory maps each doc to the source paths it describes. Step 3.3 matches the changed files against it to decide whether the Docs reviewer runs.
 
 **Important:** `git diff` does not show untracked (new) files. You MUST capture new file contents separately so the reviewers see the complete picture.
 
@@ -162,9 +162,9 @@ Show the user: "Lean mode — single lightweight review (skipping full adversari
 
 **Always run:** Security, Architecture, Correctness (3 reviewers)
 
-**Conditional — UX reviewer:** If ANY changed file path contains: `src/flows/`, `src/orchestrator/`, `tone.md`, `knowledge-base.md`, `src/engine/renderer/`, `src/engine/transport/`
+**Conditional — UX reviewer:** If ANY changed file path starts with `android/ui/`, `android/overlay/` or `android/app/src/main/` (the activities, the manifest's labels and the resources), equals `android/ocr/src/main/java/mx/kompara/ocr/OcrCaptureService.kt` (its notifications are hardcoded driver-facing text), or is a `strings.xml` under another module's `src/main/res/` (such as `android/capture/`, whose strings are the accessibility-service text drivers see in Settings)
 
-**Conditional — Docs reviewer:** If ANY changed file matches a doc's `sources:` YAML frontmatter pattern, or changes include `src/db/migrations/`. Pass the list of impacted docs in the prompt.
+**Conditional — Docs reviewer:** If ANY changed file matches a `sources:` entry in the Doc Inventory of `reviewers/docs.md` (the matching rules are stated there; `backend/migrations/` and `android/data/schemas/` are covered). The matched docs are the impacted docs: pass their full text as `{IMPACTED_DOCS}` (Step 3.4).
 
 ### 3.4: Prepare and launch specialized reviewers
 
@@ -256,10 +256,10 @@ Build and display a consolidated report. The report format adapts to the review 
 | Docs         | PASS    | 0        | 1        |
 
 ### Critical Findings
-1. [Correctness] Floating promise in webhook handler — src/engine/transport/webhook.ts:45 ...
+1. [Correctness] Room version bumped without a migration — android/data/src/main/java/mx/kompara/data/db/KomparaDatabase.kt:52 ...
 
 ### Advisory Findings
-1. [Security] Broad error message could include less detail — src/flows/credit-card/integrations/moffin.ts:112 ...
+1. [Security] Broad error message could include less detail — backend/src/routes/imports.ts:190 ...
 ```
 
 **Lean review report:**
@@ -271,7 +271,7 @@ Build and display a consolidated report. The report format adapts to the review 
 | Lean     | PASS    | 0        | 1        |
 
 ### Advisory Findings
-1. [Lean] Consider adding test for new helper — src/utils/format.ts:22 ...
+1. [Lean] Consider adding test for new helper — android/metrics/src/main/java/mx/kompara/metrics/NetProfitEngine.kt:142 ...
 ```
 
 **Fast lane report:**
@@ -291,8 +291,7 @@ Based on the aggregate review results:
 
 If the Docs reviewer found ADVISORY or CRITICAL findings about stale docs:
 1. For each impacted doc, update the content to match the code changes
-2. Update `last_verified:` date in the doc's frontmatter to today
-3. Stage the updated docs alongside the code changes
+2. Stage the updated docs alongside the code changes
 
 If no doc findings, skip this step and proceed to Step 5.
 
