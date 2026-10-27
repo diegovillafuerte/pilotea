@@ -123,8 +123,11 @@ If `CONFLICT:` is returned, handle as a skip (see "When a task is skipped" in St
 ### 2. Spin up worktree
 
 1. Branch name: `work/<task-id>`
-2. `git worktree add .worktrees/<task-id> -b work/<task-id>`
-3. `cd` into `.worktrees/<task-id>`
+2. Create the worktree and move into it. Run this as one command, since shell variables don't carry over to the next one. It goes in `$MAIN_PATH/.worktrees/`, where `worker.sh` looks for it, even when this session runs in another worktree:
+   ```bash
+   MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+   git worktree add "$MAIN_PATH/.worktrees/<task-id>" -b work/<task-id> && cd "$MAIN_PATH/.worktrees/<task-id>"
+   ```
 
 ### 3. Plan + Codex plan review
 

@@ -37,11 +37,14 @@ Present the diagnosis to the user:
 
 ## Step 3: Spin up worktree
 
-1. Resolve main worktree path: `MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')`
-2. Derive a short slug from the bug (e.g., `fix-missing-guard-prequal`, `fix-spei-timeout`)
-3. `git worktree add .worktrees/<slug> -b fix/<slug>`
-4. `cd` into `.worktrees/<slug>`
-5. Register in worker coordination: `$MAIN_PATH/pming/worker.sh claim <slug> task <slug> fix/<slug>`
+1. Derive a short slug from the bug (e.g., `fix-missing-guard-prequal`, `fix-spei-timeout`)
+2. Create the worktree, move into it, and register it in worker coordination. Run this as one command, since shell variables don't carry over to the next one. The worktree goes in `$MAIN_PATH/.worktrees/` (the main checkout's), where `worker.sh` looks for it, even when this session runs in another worktree (a relative `.worktrees/` would nest it there):
+   ```bash
+   MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+   git worktree add "$MAIN_PATH/.worktrees/<slug>" -b fix/<slug> &&
+     cd "$MAIN_PATH/.worktrees/<slug>" &&
+     "$MAIN_PATH/pming/worker.sh" claim <slug> task <slug> fix/<slug>
+   ```
 
 ## Step 4: Plan the fix
 
@@ -164,6 +167,6 @@ Delegate the approved plan to the `coder` agent (Opus 5.5) with the worktree pat
 ## Important notes
 - Diagnosis before action — resist the urge to jump to a fix before confirming root cause
 - Minimal changes — fix the bug, don't improve adjacent code
-- Worktrees live under `.worktrees/` — the `/ship` skill handles merging back to main
+- Worktrees live under `$MAIN_PATH/.worktrees/` — the `/ship` skill handles merging back to main
 - After shipping the fix, release the worker and clean up the worktree: `$MAIN_PATH/pming/worker.sh release --worktree`
 - If the diagnosis reveals the issue is NOT a bug (user error, config issue, expected behavior), say so and stop
