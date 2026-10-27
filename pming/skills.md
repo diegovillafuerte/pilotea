@@ -78,10 +78,10 @@ Picks up a task, updates status, loads context, explores code, and begins.
 /work E-002                     # work through an epic sequentially
 ```
 
-When working through a story or epic, `/done` automatically advances to the next task.
+When working through a story or epic, `/done` offers the group's next task and starts it once you confirm.
 
 ### `/done` — Complete a task
-Marks done, verifies tests/lint for code tasks. Advances to next task if in a group.
+Marks done, verifies tests/lint for code tasks. In a group, asks "Continue with B-YYY?" and advances only if you confirm.
 
 ```
 /done                           # complete current task
