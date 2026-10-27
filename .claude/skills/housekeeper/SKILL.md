@@ -10,7 +10,7 @@ Audit project health across three dimensions. Report findings, then offer to fix
 
 ## Severity markers
 
-- `[!!]` critical — must fix (test/lint failures, boundary violations)
+- `[!!]` critical — must fix (test/lint failures, rule violations)
 - `[+]` auto-fixable — skill can fix with user approval
 - `[~]` warning — needs human judgment
 - `[i]` advisory — nice to know
@@ -83,63 +83,58 @@ Show each check on one line with severity marker and count. For checks with find
 
 CLAUDE.md is the front door for every agent session. It must be razor-sharp: every instruction currently true, every reference pointing to something that exists, every description matching reality. A stale CLAUDE.md actively misleads agents and causes wasted work.
 
+Kompara's CLAUDE.md holds only what is specific to Claude Code and pulls in the shared instructions from `AGENTS.md` with its `@AGENTS.md` line, so every session loads both. Audit them together, and name the file each finding is in.
+
 ### CMD-1: File references exist
 
-Extract every file path and directory mentioned in CLAUDE.md (look for backtick-quoted paths like `TASKS.md`, `BLUEPRINT.md`, `docs/...`, `src/...`, `pming/...`, `techdebt.md`). For each, verify the file/directory exists on disk.
+Extract every file path and directory mentioned in CLAUDE.md and AGENTS.md (look for backtick-quoted paths like `docs/...`, `android/...`, `backend/...`, `pming/...`, `.claude/...`, `techdebt.md`). For each, verify the file/directory exists on disk. Skip paths outside the repo (`/tmp/...`, `/Applications/...`), placeholders (`.worktrees/<task-id>`), globs (`android/**`), and names that aren't repo paths: a file on the device (`kompara.db`), a path inside each module (`src/test`), a naming pattern (`kebab-case.ts`, `types.ts`). A file the text itself says only the main checkout has (`.claude/settings.local.json`) counts as present when `$MAIN_PATH` has it.
 - Severity: `[!!]` critical if any referenced file doesn't exist — agents will fail on step 1
 - Fix: Remove or update the stale reference
 
-### CMD-2: Project structure tree vs reality
+### CMD-2: Repo map vs reality
 
-1. Extract the fenced code block under `## Project structure` in CLAUDE.md
-2. Run `find src -type d -maxdepth 3 | sort` and `find test -type d -maxdepth 3 | sort`
-3. Flag directories present on disk but missing from the tree
-4. Flag directories listed in the tree but not on disk
+1. Run `git ls-tree -d --name-only HEAD` to list the top-level directories git tracks. Flag any that the `## Repo map` table in AGENTS.md doesn't list, leaving out the tooling directories `.claude` and `.github`. (CMD-1 already flags listed paths that don't exist.)
+2. Compare the modules on the "Android modules:" line below that table with the `include(":…")` lines in `android/settings.gradle.kts`. Flag a module that is in one but not the other.
+3. Check what that line says about which modules use Compose, Hilt and KSP against the `plugins {}` block of each `android/<module>/build.gradle.kts` (`libs.plugins.kotlin.compose`, `libs.plugins.hilt`, `libs.plugins.ksp`).
 - Severity: `[~]` warning — agents get a wrong mental model of the codebase
 
 ### CMD-3: Opening description matches current state
 
-Read the first paragraph of CLAUDE.md. Check:
-1. Does it mention the currently active flow? (grep `src/flows/*/definition.ts` for flow directories, compare)
-2. Does it say "mocked" when integrations are real (or vice versa)?
-3. Does it reference V1 concepts as current?
+Read the opening paragraph of AGENTS.md (CLAUDE.md shows it through the import). Check:
+1. Each app it says the reader reads has a parser spec registered in `SPEC_NAMES` in `android/parsers/src/main/java/mx/kompara/parsers/spec/BundledSpecs.kt`. A registered spec for an app the paragraph doesn't name may be a platform that hasn't launched yet: report it as `[i]` advisory.
+2. Does it present the Android app as the product? The Next.js web MVP in `src/` is legacy reference, not current.
+3. Each thing it says the backend does still has a route module mounted in `backend/src/app.ts`.
 - Severity: `[~]` warning
 
 ### CMD-4: "How to work" section is actionable
 
-Read the "How to work" section. Check:
+Read the workflow sections: "How to work (skills)" in CLAUDE.md and "How work is organized" in AGENTS.md. Check:
 1. Every file referenced in the workflow steps exists
-2. Instructions reference the pming/ system (not legacy TASKS.md/BLUEPRINT.md)
-3. Skills mentioned actually exist in `.claude/skills/`
-- Severity: `[!!]` critical if workflow points to nonexistent files
+2. The steps verify with the "Verify before calling work done" table in AGENTS.md (Gradle from `android/`, pnpm from `backend/`), not with the legacy web app's root `pnpm test` and `pnpm lint` as the default gate
+3. Skills mentioned actually exist in `.claude/skills/` or `.claude/commands/`. A name with a plugin prefix (`/codex:rescue`) comes from a plugin: check that this session lists it instead.
+- Severity: `[!!]` critical if workflow points to nonexistent files; `[~]` warning for a skill that doesn't exist or a plugin skill this session doesn't list
 
-### CMD-5: Architectural decisions reference current concepts
+### CMD-6: Verify table matches CI
 
-Scan all AD-N entries. For each:
-1. If it references specific state names (e.g., PRE_QUAL, LOAN_CONFIG), check if those states exist in any active flow definition.ts
-2. If it references specific file paths, verify they exist
-3. Flag ADs that reference only V1/archived concepts with no current equivalent
-- Severity: `[i]` advisory — stale ADs cause confusion but aren't blocking
-
-### CMD-6: Lint rules section matches eslint.config.js
-
-1. Read `eslint.config.js` and extract all custom boundary rules
-2. Read the "Custom lint rules" section in CLAUDE.md
-3. Flag rules documented but not implemented, or implemented but not documented
-4. Check the section heading — it should NOT say "to implement" if rules are implemented
-- Severity: `[~]` warning
+AGENTS.md says its "Verify before calling work done" table mirrors CI.
+1. For each workflow in `.github/workflows/`, list its gates (the `run:` steps other than installs, each with its job's `working-directory`) and the paths it triggers on
+2. Compare them with the table row for those paths. The legacy `src/**` row has no workflow.
+3. Flag a gate the row leaves out, a row command the workflow doesn't run, and a workflow with no row
+4. Check the Java, Node and pnpm versions AGENTS.md names against the versions the workflows set up (`actions/setup-java`, `actions/setup-node`, `pnpm/action-setup`) and the Node range `backend/package.json` requires
+- Severity: `[~]` warning — agents hand off work that CI then fails
 
 ### CMD-7: Line count
 
-Count lines in CLAUDE.md. Warn if > 300 (research shows instruction quality degrades beyond this).
+Count lines in CLAUDE.md and AGENTS.md together, since every session loads both. Warn if > 300 (research shows instruction quality degrades beyond this).
 - Severity: `[i]` advisory
 
-### CMD-8: .env.example completeness
+### CMD-8: Backend .env.example completeness
 
-1. Run `grep -roh 'process\.env\.\w\+' src/ | sort -u` to find all env vars used in code
-2. Read `.env.example` (if it exists)
-3. Flag env vars used in code but missing from .env.example
-4. Flag if .env.example doesn't exist at all
+The backend is the part of Kompara that reads environment variables, and `backend/.env.example` documents them. The root `.env.example` belongs to the legacy web app: don't check it.
+1. List the variables the backend reads outside its tests: `git grep -hoE 'env\.[A-Z][A-Z0-9_]+' -- 'backend/*.ts' ':!backend/*.test.ts' ':!backend/src/test/*' | sed 's/^env\.//' | sort -u`. The pattern catches `process.env.X` and the `env.X` reads of helpers that take the environment as a parameter, such as `senderFromEnv`. Add the variables a library reads by itself, which no `env.` line shows: an SDK client built without credentials reads them from the environment, like the bare `new Anthropic()` in `backend/src/imports/claude.ts`, which reads `ANTHROPIC_API_KEY`.
+2. Read the keys in `backend/.env.example`. A commented-out key (`# KEY=`) counts as documented.
+3. Flag variables read in code but missing from `backend/.env.example`
+4. Flag if `backend/.env.example` doesn't exist at all
 - Severity: `[~]` warning
 
 ### Display CLAUDE.md results
@@ -148,11 +143,10 @@ Use the standard format. Group passing checks. For critical findings, include th
 
 ## Step 3: Documentation Freshness
 
-### DOC-1: ARCHITECTURE.md vs actual src/ layout
+### DOC-1: Architecture docs cover every module
 
-1. List all directories under `src/` (depth 1) and under `src/engine/` (depth 1)
-2. Grep ARCHITECTURE.md for each directory name
-3. Flag directories present in `src/` but not mentioned ANYWHERE in ARCHITECTURE.md
+1. Android: for each module in `android/settings.gradle.kts`, grep `docs/android-technical-design.md` for `:<module>`. Flag modules not mentioned ANYWHERE in it.
+2. Backend: for each directory under `backend/src/` (depth 1), check the fenced block under `## Layout` in `backend/README.md` lists it, as `<dir>/` or as a file inside it. Flag directories it doesn't list.
 - Severity: `[~]` warning
 
 ### DOC-2: techdebt.md resolved items
@@ -162,16 +156,9 @@ Grep `techdebt.md` for `RESOLVED` entries. If > 3, suggest archiving.
 
 ### DOC-3: Untracked TODO/FIXME comments
 
-Run: `grep -rn "TODO\|FIXME\|HACK\|XXX" src/ --include="*.ts" | grep -v node_modules`
-For each hit, check if a corresponding entry exists in `techdebt.md`. Report untracked ones.
-- Severity: `[i]` advisory
-
-### DOC-4: Flow docs freshness
-
-For each flow directory in `src/flows/*/`:
-1. Get last commit date of `definition.ts`: `git log -1 --format=%ci <path>`
-2. Get last commit dates of `knowledge-base.md` and `tone.md`
-3. If `definition.ts` is newer by > 1 day, flag.
+Run: `git grep -nwE 'TODO|FIXME|HACK|XXX' -- 'android/*.kt' 'android/*.kts' 'android/*.java' 'backend/*.ts'`
+`git grep` searches tracked files only, so Gradle `build/` output and `node_modules/` stay out. Keep `-w`: macOS `git grep` doesn't support `\b`.
+For each hit, check if a corresponding entry exists in `techdebt.md`: one that names the file, or the task the comment names (`TODO(legal-B038)` → B-038, `TODO(techdebt TD-B034)` → B-034), and describes the same work. Report untracked ones.
 - Severity: `[i]` advisory
 
 ### DOC-5: Source-mapped doc freshness
@@ -204,24 +191,22 @@ If mode is `full`:
 
 If mode is `quick`: show `Skipped (use /housekeeper full to include)`
 
-### CODE-3: Architecture boundary violations
+### CODE-3: Rule violations
 
-Run these greps (always, even in quick mode):
+Check the "Rules that are easy to break" in AGENTS.md that a search can catch (always, even in quick mode). Items 1 and 2 are a quick stand-in for `./gradlew verifyReadOnlyCapture`, which full mode runs (CODE-1); its token lists are in `android/build.gradle.kts`.
 
-1. **Engine importing from flows:**
-   `grep -rn "from.*flows/" src/engine/ --include="*.ts"`
-2. **Flows importing engine internals** (anything beyond `engine/types` and `engine/machine/types`):
-   `grep -rn "from.*engine/" src/flows/ --include="*.ts"` — then filter OUT lines matching `engine/types` or `engine/machine/types`
-3. **Engine importing from orchestrator config:**
-   `grep -rn "from.*orchestrator/" src/engine/ --include="*.ts"`
+1. **Accessibility automation in production code.** Search for each token in the task's `bannedAutomationTokens`, one `-e` per token:
+   `git grep -nF -e '<token>' -- 'android/*/src/*.kt' 'android/*/src/*.java' ':!android/*/src/test/*' ':!android/*/src/androidTest/*'`
+2. **The read-only declaration.** Find the accessibility-service configs: the XML files under `android/*/src/*/res/xml/` that contain `<accessibility-service`. There must be at least one, since the task fails without one. Ignoring XML comments, as the task does, each keeps `android:isAccessibilityTool="false"` and declares none of the task's `bannedConfigTokens`.
+3. **`FLAG_SECURE` on our windows:** `git grep -nw FLAG_SECURE` over the same production sources as item 1. Flag code that sets it, not a comment explaining why it isn't used.
 
 - Severity: `[!!]` critical if any violations found
 
-### CODE-4: Flow registration completeness
+### CODE-4: Registration completeness
 
-1. Glob `src/flows/*/definition.ts` to find all flow definitions
-2. Read `src/orchestrator/config.ts` and check that each flow directory name appears in an agent's `flow_ids`
-3. Flag flows that exist but aren't referenced
+Two lists register code by hand, and both fail silently when they drift:
+1. **Parser specs.** `SPEC_NAMES` in `android/parsers/src/main/java/mx/kompara/parsers/spec/BundledSpecs.kt` names every spec the app loads, and a name whose file is missing is skipped without an error. Compare it with `android/parsers/src/main/resources/specs/*.json`: flag a file whose name isn't in the list (it never loads) and a name with no file.
+2. **Backend routes.** Every module in `backend/src/routes/` other than its `*.test.ts` files must be imported and mounted with `app.route(...)` in `backend/src/app.ts`. Flag one that isn't: its endpoints don't exist.
 - Severity: `[~]` warning
 
 ### CODE-5: Orphaned worktrees
@@ -275,9 +260,9 @@ If no auto-fixable issues: skip this step.
 ### 5.3: Suggest follow-ups
 
 For non-auto-fixable issues, provide one concrete actionable suggestion per finding. Examples:
-- Undocumented module: "Add a Package Responsibilities section for `src/X/` to ARCHITECTURE.md"
+- Undocumented module: "Describe `:X` in `docs/android-technical-design.md`" or "Add `X/` to the Layout block in `backend/README.md`"
 - Stale in_progress task: "Reset B-XXX to `todo` or pick it up with `/work B-XXX`"
-- Boundary violation: "Fix import in `src/engine/foo.ts:42` — engine must not import from flows"
+- Rule violation: "Remove the `performGlobalAction(` call at `android/capture/src/main/java/mx/kompara/capture/Foo.kt:42` — capture stays read-only"
 
 ## Guidelines
 

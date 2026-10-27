@@ -20,6 +20,12 @@ Determine mode from `$ARGUMENTS`:
 - **`dry`**: Run all phases but make NO modifications to the repo — only show what would change
 - **`docs-only`**: Phase 3 only (documentation freshness healing)
 
+Unless the mode is `dry`, check two things before changing anything. If either fails, display its message and STOP:
+- `$MAIN_PATH` is on `main`: `git -C "$MAIN_PATH" symbolic-ref --short HEAD` prints `main`. Rem commits there and pushes `main` (Phase 6.2), so on any other branch its commit would never reach main. Message: "rem: $MAIN_PATH is on <branch>, not main; switch it to main, then run rem again".
+- Nothing is staged there yet: `git -C "$MAIN_PATH" diff --cached --quiet` exits 0. Otherwise someone else's work is staged and rem's commit would carry it. Message: "rem: changes are already staged in $MAIN_PATH; commit or unstage them, then run rem again".
+
+Then record the run's start commit, the one `main` points to: `git -C "$MAIN_PATH" rev-parse refs/heads/main`. Phase 6.2 commits on top of it, and only while `main` still points there.
+
 Record the current date (`date -u +%Y-%m-%d`) and start time. Initialize an empty report structure in memory:
 
 ```
@@ -108,7 +114,7 @@ Launch as a single Agent call with `model: "opus"`.
 
 When the subagent returns:
 - Diff the result against the original CLAUDE.md
-- **Safety cap:** count changed lines. If >15 lines changed, only apply the subagent's changes to the skill list and project structure table sections. Flag the rest in "Needs Human Attention".
+- **Safety cap:** count changed lines. If >15 lines changed, only apply the subagent's changes to the skill lists (the "How to work (skills)" steps and the "Other skills" line). Flag the rest in "Needs Human Attention".
 - In `dry` mode: show the diff but don't apply
 - Write the updated CLAUDE.md
 - Record all changes in report
@@ -167,9 +173,9 @@ Read `$MAIN_PATH/techdebt.md`. Find any entries marked as `RESOLVED`. If there a
 
 ### 4.2: Techdebt — find untracked TODOs
 
-Run:
+Run the same search as `/housekeeper` DOC-3. `git grep` searches tracked files only, so Gradle `build/` output and `node_modules/` stay out; keep `-w`, since macOS `git grep` doesn't support `\b`.
 ```bash
-grep -rn "TODO\|FIXME\|HACK" $MAIN_PATH/src/ --include="*.ts" | grep -v node_modules | grep -v dist
+git -C "$MAIN_PATH" grep -nwE 'TODO|FIXME|HACK|XXX' -- 'android/*.kt' 'android/*.kts' 'android/*.java' 'backend/*.ts'
 ```
 
 Compare against existing techdebt entries. For comments not yet tracked, spawn the **techdebt-triage subagent** (read prompt from `$MAIN_PATH/.claude/skills/rem/healers/techdebt-triage.md`):
@@ -188,9 +194,15 @@ For each techdebt entry that references a specific file path, verify the file ex
 
 ### 4.4: Memory hygiene
 
-Read `$MAIN_PATH/../.claude/projects/-Users-diegovillafuerte-ongoing-projects-pilotea/memory/MEMORY.md`. Note: the memory directory path may vary — if this path doesn't work, skip this step silently.
+Claude Code keeps this project's memory in `$HOME/.claude/projects/<name>/memory/`, where `<name>` is `$MAIN_PATH` with every character other than a letter or digit replaced by `-` (`/home/me/kompara` becomes `-home-me-kompara`):
 
-For each memory entry that references a file path in its description or linked file:
+```bash
+MEMORY_DIR="$HOME/.claude/projects/$(printf '%s' "$MAIN_PATH" | sed 's/[^A-Za-z0-9]/-/g')/memory"
+```
+
+Read `$MEMORY_DIR/MEMORY.md`. If it doesn't exist, add "Memory check skipped: no MEMORY.md in <MEMORY_DIR>" to "Needs Human Attention" and go on to Phase 5.
+
+For each memory entry that references a file path in its description or linked file (a linked memory file is relative to `$MEMORY_DIR`, a repo path to `$MAIN_PATH`):
 - Verify the path exists
 - If it doesn't, flag in "Needs Human Attention": "Memory 'X' references path that no longer exists"
 
@@ -200,13 +212,13 @@ Do NOT auto-delete or modify memories. Memory removal requires human judgment.
 
 This phase is **report-only** — it never modifies files. It populates the "Improvement Opportunities" section.
 
-### 5.1: New directories
+### 5.1: New modules and backend directories
 
 ```bash
-git log --since="7 days ago" --diff-filter=A --name-only --format="" | grep "^src/" | cut -d'/' -f1-2 | sort -u
+git -C "$MAIN_PATH" log --since="7 days ago" --diff-filter=A --name-only --format="" -- android backend/src | grep -oE '^(android/[^/]+/build\.gradle\.kts|backend/src/[^/]+/)' | sort -u
 ```
 
-For each new `src/` directory, check if it's mentioned in `docs/ARCHITECTURE.md`. Flag any that aren't.
+An `android/<module>/build.gradle.kts` line is a new Android module: check that `$MAIN_PATH/docs/android-technical-design.md` mentions `:<module>`. A `backend/src/<dir>/` line is a backend directory that gained files: check that the fenced block under `## Layout` in `$MAIN_PATH/backend/README.md` lists it. Flag any that aren't. This is `/housekeeper` DOC-1, limited to the week's additions.
 
 ### 5.2: Recurring commit patterns
 
@@ -218,7 +230,7 @@ If >3 "fix lint/test/type" commits in the last week, suggest: "Consider adding a
 
 ### 5.3: Skill consistency
 
-Check if any skill referenced in `$MAIN_PATH/docs/guides/agentic-development.md` doesn't exist in `.claude/skills/` or `.claude/commands/`. Flag discrepancies.
+Check if any skill referenced in `$MAIN_PATH/pming/skills.md`, the PM system's guide to its skills, doesn't exist in `.claude/skills/` or `.claude/commands/`. Flag discrepancies. (Phase 2 already keeps the skills CLAUDE.md lists in sync.)
 
 ### 5.4: Test count trend
 
@@ -273,27 +285,55 @@ In `dry` mode: display the report and a summary of all changes that would have b
 
 In all other modes:
 
-1. Stage all changed files **by name** (NEVER use `git add -A` or `git add .`):
+1. Stage all changed files **by name** with `git -C "$MAIN_PATH" add -- <path>...` (NEVER use `git add -A` or `git add .`):
    - Changed PM files (tasks, stories, epics moved between folders)
    - Not the updated docs: `--apply` (Phase 3.3) already staged exactly what the doc-updater wrote, and adding them again would re-read the working copy
    - Updated CLAUDE.md (if changed)
    - Updated techdebt.md (if changed)
    - The report file itself
-2. Check that no source code files (`src/`, `test/`, `admin/`) are staged — if any are, unstage them immediately. Rem must never commit source changes.
-   If Phase 3 ran, also check that `git -C "$MAIN_PATH" rev-parse HEAD` still prints the Phase 3.1 commit. If it doesn't, another commit landed during the run, and committing rem's doc updates on top of it would mark that commit's source changes as seen: don't commit. Display the report with this reason and STOP.
-3. Commit:
+2. Commit what this run staged, and nothing else, by running this block as one command. Fill it in first:
+   - `START`: the start commit Phase 0 recorded. `PINNED`: the commit on the last line of the Phase 3.1 report. `REM_TMP`: the Phase 3.2 scratch directory. Leave `PINNED` and `REM_TMP` empty if Phase 3 didn't run.
+   - The `printf` into `$REM_LIST`: every path this run staged, one argument each. That is the step 1 files, each moved PM file under both its old and its new path, and the docs Phase 3.3 applied.
+   - The message: replace N and M with actual counts. Write one `Doc-Verified: <doc> <commit>` argument for each doc the doc-updater found still accurate (Phase 3.3): its repo path, such as `docs/privacy-policy.md`, then the full commit from the last line of the Phase 3.1 report, the one every Phase 3.2 diff was taken at. Write none when there are none. The next run's freshness check reads these lines. For the `Co-Authored-By:` line, use the one this session's commit attribution gives, which names the model running rem; if it gives none, leave it out.
    ```bash
-   git commit -m "$(cat <<'EOF'
-   rem: nightly maintenance — N fixes, M doc updates
-
-   Doc-Verified: <doc> <commit>
-   Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
-   EOF
-   )"
+   START=<the commit Phase 0 recorded>
+   PINNED=<the commit on the last line of the Phase 3.1 report; empty if Phase 3 didn't run>
+   REM_TMP=<the Phase 3.2 scratch directory; empty if Phase 3 didn't run>
+   REM_LIST=$(mktemp /tmp/kompara-rem-paths.XXXXXX)
+   printf '%s\n' <each path this run staged, both sides of a move> > "$REM_LIST"
+   REM_MSG=$(mktemp /tmp/kompara-rem-msg.XXXXXX)
+   printf '%s\n' "rem: nightly maintenance — N fixes, M doc updates" "" "Doc-Verified: <doc> <commit>" "Co-Authored-By: Claude <model> <noreply@anthropic.com>" > "$REM_MSG"
+   REM_INDEX=$(mktemp /tmp/kompara-rem-index.XXXXXX)
+   on_main() { [ "$(git -C "$MAIN_PATH" symbolic-ref -q HEAD)" = refs/heads/main ] && [ "$(git -C "$MAIN_PATH" rev-parse refs/heads/main)" = "$START" ]; }
+   not_rems() { while IFS= read -r p; do
+     new=""; case "$p" in docs/*) [ -n "$REM_TMP" ] && new="$REM_TMP/$(printf '%s' "$p" | tr / _).new" ;; esac
+     if [ -n "$new" ] && [ -f "$new" ]; then want=$(git -C "$MAIN_PATH" hash-object --path="$p" -- "$new")
+     elif [ -f "$MAIN_PATH/$p" ]; then want=$(git -C "$MAIN_PATH" hash-object -- "$p")
+     else want=""; fi
+     have=$(GIT_INDEX_FILE="$REM_INDEX" git -C "$MAIN_PATH" ls-files -s -- ":(literal)$p" | cut -d' ' -f2)
+     [ "$have" = "$want" ] || printf '%s\n' "$p"
+   done < "$REM_LIST"; }
+   if [ -n "$PINNED" ] && [ "$PINNED" != "$START" ]; then
+     echo "STOP: Phase 3 checked $PINNED, not the start commit"
+   elif ! { on_main && cp "$(git -C "$MAIN_PATH" rev-parse --path-format=absolute --git-path index)" "$REM_INDEX" && on_main; }; then
+     echo "STOP: main moved since Phase 0, or $MAIN_PATH is no longer on main"
+   elif ! PATHS=$(GIT_INDEX_FILE="$REM_INDEX" git -C "$MAIN_PATH" diff --cached --name-only --no-renames "$START") || [ -z "$PATHS" ]; then
+     echo "STOP: nothing is staged, or the staged paths could not be listed"
+   elif BAD=$( { printf '%s\n' "$PATHS" | grep -vxF -f "$REM_LIST"; printf '%s\n' "$PATHS" | grep -vxE 'CLAUDE\.md|techdebt\.md|pming/\.workers|pming/\.activity-log|(docs|pming)/.+\.md'; not_rems; } | sort -u ); [ -n "$BAD" ]; then
+     printf 'STOP: staged paths rem must not commit:\n%s\n' "$BAD"
+   elif TREE=$(GIT_INDEX_FILE="$REM_INDEX" git -C "$MAIN_PATH" write-tree) &&
+        COMMIT=$(git -C "$MAIN_PATH" commit-tree "$TREE" -p "$START" -F "$REM_MSG") &&
+        git -C "$MAIN_PATH" update-ref -m "rem: nightly maintenance" refs/heads/main "$COMMIT" "$START"; then
+     echo "COMMITTED $COMMIT"
+   else
+     echo "STOP: the commit failed; main may have moved"
+   fi
    ```
-   Replace N and M with actual counts. Write one `Doc-Verified: <doc> <commit>` line for each doc the doc-updater found still accurate (Phase 3.3): its repo path, such as `docs/privacy-policy.md`, then the full commit from the last line of the Phase 3.1 report, the one every Phase 3.2 diff was taken at. Write none when there are none. The next run's freshness check reads these lines.
-4. Push: `git push origin main`
-5. Display a brief summary (3-5 lines) of what was done.
+   The block copies the index and commits the copy on top of the start commit, moving `main` only if it still points there. So it never overwrites or reverts a commit that landed during the run (it stops instead), and a path staged after the copy stays staged and out of the commit. In the copy, every path that differs from the start commit must be one this run staged (`$REM_LIST`) and one rem may change (Safety Guardrail 1): Markdown files under `docs/` or `pming/`, `pming/.workers`, `pming/.activity-log`, `CLAUDE.md` and `techdebt.md`. Each listed path must also hold what rem wrote: a doc under `docs/` holds the reviewed text Phase 3.3 applied from `$REM_TMP` (Phase 3 applies no doc outside `docs/`; Phase 2 writes `CLAUDE.md`), any other path its working copy, and a path whose file is gone holds nothing. Anything else stops the commit: app code in `android/`, the backend in `backend/`, `pming/worker.sh`, `AGENTS.md`, the legacy web app in `src/`, or someone else's staged work. Rem must never commit source changes. `--no-renames` lists both sides of a move. `PINNED` keeps the Phase 3 rule: if Phase 3 checked a commit other than the start commit, its doc updates and `Doc-Verified:` lines describe that other commit, so committing them would mark source changes as seen that no one checked. `commit-tree` runs no commit hooks; Kompara has none.
+
+   Go on only if the block prints `COMMITTED <commit>`. On anything else, don't commit some other way and don't unstage anything (it may be someone else's work): display the report with the block's output and STOP.
+3. Push: `git push origin main`
+4. Display a brief summary (3-5 lines) of what was done.
 
 If the commit or push fails, display the error and STOP. Do not retry.
 
@@ -301,7 +341,7 @@ If the commit or push fails, display the error and STOP. Do not retry.
 
 These are non-negotiable constraints. Violating any of them is a critical failure.
 
-1. **Never modify source code.** Rem only touches: `docs/`, `pming/`, `CLAUDE.md`, `techdebt.md`, its own report files, and the run's scratch directory under `/tmp` (Phase 3.2). If you find yourself about to write to `src/`, `test/`, `admin/`, or any `.ts` file — STOP.
+1. **Never modify source code.** Rem only touches: the Markdown files in `docs/` and `pming/` (its own report files included), `pming/.workers` and `pming/.activity-log` (through `worker.sh`), `CLAUDE.md`, `techdebt.md`, and the run's scratch files under `/tmp` (Phase 3.2, and the path list, commit message and index copy in Phase 6.2). If you find yourself about to write anywhere else (the app in `android/`, the backend in `backend/`, `pming/worker.sh`, `AGENTS.md`, `design-system/`, `.github/`, `.claude/`, the legacy web app in `src/`) or to any `.kt`, `.kts` or `.ts` file — STOP.
 2. **Never delete files.** Only move PM files between `pending/` and `done/`. Never `rm` a doc, a task file, or anything else.
 3. **Doc update size cap.** If a doc-updater subagent returns content that changes >40% of the original doc's lines, skip that doc and flag for human review.
 4. **CLAUDE.md change cap.** Never apply more than 15 changed lines to CLAUDE.md in a single run.

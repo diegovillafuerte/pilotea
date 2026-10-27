@@ -558,3 +558,11 @@ Conscious deferrals. Each entry: date, severity, context, why deferred, when to 
   4. **Half-known distance denominator** ([NetProfitEngine.kt:52](android/metrics/src/main/java/mx/kompara/metrics/NetProfitEngine.kt)): when only one leg is present, net $/km uses a partial km denominator AND under-charges cost, so the displayed hero rate can be ~2-3× optimistic on a missing pickup leg. Mitigated (the missing-input rule caps the color to YELLOW), but the *number* shown is still misleading; consider suppressing the rate when a leg is missing.
 - **Verified clean by the review:** division-by-zero guards, verdict threshold boundaries, default-vs-configured threshold selection (TD-025 not re-triggered), PercentileCalculator parity with the SQL/web reference, meters-vs-km handling, SpecEngine variant resolution.
 - **When to fix:** during the on-device OCR calibration (TD-030/B-084 window), with real Uber/DiDi frames — NOT before (headless rule changes could regress the TD-028 real-frame fix).
+
+## TD-044: /rem commits other people's edits to the non-doc files it stages
+- **Date:** 2026-10-27
+- **Status:** OPEN
+- **Severity:** low (needs someone working in the main checkout during a rem run; never source code)
+- **Context:** `/rem` stages its PM files, `CLAUDE.md`, `techdebt.md` and its report by name from the main checkout's working copy (`.claude/skills/rem/SKILL.md`, Phase 6.2 step 1). Its commit block (step 2) proves that every committed path is one rem staged and may change, and that each holds what rem wrote: an applied doc its reviewed text, any other file its working copy. Someone else's uncommitted edit to one of those non-doc files is indistinguishable from rem's own, whether made before rem stages it or edited and restaged during the run, so it lands in rem's commit and is pushed to main. Docs are safe: `doc-freshness.py --apply` checks the exact text, and the block checks the reviewed blob.
+- **Why deferred:** Outside the web-era cleanup of /housekeeper and /rem that found it. A fix records what rem writes at write time (Phases 1, 2 and 4), or refuses files that already have uncommitted changes, and touches every phase.
+- **When to fix:** Before rem runs while other sessions work in the main checkout, or with the next change to rem's commit pipeline.

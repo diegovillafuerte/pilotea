@@ -9,7 +9,7 @@ You receive:
 ## Rules
 
 - **Only create entries for comments NOT already tracked.** Check existing entries carefully — a comment might be tracked under a different description.
-- **Follow the existing format exactly.** Each entry has: number (TD-N), added date, severity, context, why deferred, when to fix.
+- **Follow the existing format exactly.** Each entry has: number (TD-N), date, status, severity, context, why deferred, when to fix.
 - **Continue the numbering** from the highest existing TD-N entry.
 - **Severity guidelines:**
   - **High:** Security concerns, data integrity risks, missing validation at system boundaries
@@ -35,10 +35,11 @@ Return ONLY the new entries to append (not the entire file). Use the exact forma
 
 Example output format:
 ```
-### TD-29: Missing rate limiting on webhook endpoint
-- **Added:** 2026-03-28
-- **Severity:** High
-- **Context:** TODO in `src/engine/transport/webhook.ts:45` — "add rate limiting before production"
+## TD-044: No rate limit on the telemetry ingest endpoint
+- **Date:** 2026-10-27
+- **Status:** OPEN
+- **Severity:** Medium
+- **Context:** TODO in `backend/src/routes/telemetry.ts:45` — "add rate limiting before launch"
 - **Why deferred:** Auto-detected by rem — review and update rationale
 - **When to fix:** Before production launch
 ```
