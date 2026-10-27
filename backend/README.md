@@ -15,7 +15,8 @@ parser-config hosting, and parser-health telemetry. Auth is WhatsApp OTP
 - **Validation:** zod (`@hono/zod-validator`)
 - **Tests:** Vitest + [`@electric-sql/pglite`](https://pglite.dev/) — an in-memory
   Postgres, so DB tests run with **zero infrastructure**
-- **Deploy target:** Render (containerless Node service) — config deferred to launch
+- **Deploy target:** Render (containerless Node service) — the `kompara-backend`
+  web service + `kompara-backend-db` Postgres in the repo-root `render.yaml`
 
 ## Layout
 
@@ -29,7 +30,9 @@ backend/
       client.ts         # runtime Postgres client (lazy)
       percentile.test.ts# percentile parity test (acceptance criterion)
     auth/               # WhatsApp OTP, sessions, token hashing, Twilio sender
-    middleware/auth.ts  # real bearer-session auth (B-042)
+    middleware/
+      auth.ts           # real bearer-session auth (B-042)
+      device-auth.ts    # X-Device-Id auth for anonymous-data endpoints
     routes/             # health, auth, me, devices, aggregates, benchmarks,
                         # parser-configs, telemetry, fixture-reports, imports,
                         # subscriptions, admin, fiscal-config, app-config,
@@ -39,6 +42,8 @@ backend/
                         #   router), claude.ts (Vision client), utils.ts (sharp
                         #   normalization + completeness), storage.ts
                         #   (StorageAdapter: R2Storage | MemoryStorage), types.ts
+                        #   aggregate-merge.ts (pure field-level merge rules)
+                        #   aggregate-write.ts (locked DB read-merge-write)
     jobs/               # population_stats fold-in from real aggregates (B-043)
     referrals/          # referral-code generation + premium-day grants (B-056)
     spec/               # signed OTA parser-config bundle + signing key (B-033)
@@ -46,7 +51,18 @@ backend/
     telemetry/          # parser-breakage alerts from telemetry counters (B-034)
     test/db.ts          # pglite test harness: migrate + seed
   migrations/           # drizzle-kit SQL + raw get_percentile() function
-  seed/population-stats.ts  # synthetic seed (10 cities + national)
+  seed/
+    population-stats.ts # synthetic seed (10 cities + national)
+    parser-specs.ts     # parser_configs: initial OTA bundle (uber/didi/indrive)
+    specs/              # vendored parser-spec JSON loaded by parser-specs.ts
+    fiscal-config.ts    # fiscal_config: current-year IMSS threshold (B-051)
+    app-config.ts       # app_config singleton, paywall kill switch ON (B-050)
+  scripts/              # CLI entry points (run with tsx):
+                        #   sign-spec-bundle.ts: sign the OTA bundle (B-033)
+                        #   fold-population-stats.ts: benchmark fold-in (B-043)
+                        #   check-alerts.ts: parser-breakage alert cron (B-034)
+                        #   dev-pglite.ts: dev server on ephemeral pglite
+  keys/dev/             # committed dev spec-signing keypair (TD-014)
 ```
 
 ## Setup
@@ -67,7 +83,7 @@ pnpm test         # vitest (pglite, no DB server needed)
 pnpm db:generate  # drizzle-kit generate (schema -> SQL migration)
 pnpm db:migrate   # apply migrations to DATABASE_URL
 pnpm db:seed      # seed population_stats (needs DATABASE_URL)
-pnpm db:seed:specs # seed parser_configs with the launch-day uber+didi bundle (needs DATABASE_URL)
+pnpm db:seed:specs # seed parser_configs with the launch-day uber+didi+indrive bundle (needs DATABASE_URL)
 pnpm db:seed:fiscal # seed fiscal_config with the current-year IMSS threshold (B-051; needs DATABASE_URL)
 pnpm db:seed:app  # seed app_config with the paywall kill switch ON (B-050; needs DATABASE_URL)
 pnpm sign-bundle  # build + sign the active parser-config bundle (DB if DATABASE_URL set, else seed)
@@ -88,12 +104,23 @@ pglite, so the function and schema are exercised exactly as they ship.
 | GET | `/health` | liveness |
 | `/v1/auth/*` | — | WhatsApp OTP auth (request/verify/logout) |
 | GET/PATCH | `/v1/me` | current driver profile (bearer required) |
+| DELETE | `/v1/me` | hard-delete the account; child rows cascade, device rows are kept unlinked (bearer required; B-069) |
+| POST | `/v1/devices/register` | anonymous install registration (no account; merged at OTP verify) |
 | POST | `/v1/aggregates` | upsert weekly aggregate (bearer required) |
 | GET | `/v1/benchmarks?city=&platform=&period=` | population_stats breakpoints |
 | GET | `/v1/parser-configs?package=&versionCode=` | active spec rows for a package (legacy list) |
 | GET | `/v1/parser-configs/bundle` | active SIGNED OTA bundle (specs + kill switches) — see below |
 | POST | `/v1/telemetry` | parser-health counter ingest |
+| GET | `/v1/telemetry/alerts` | parser-breakage report: recent failure rate per host version (ADMIN_TOKEN) |
+| POST | `/v1/fixture-reports` | consented, scrubbed snapshot of a card the parser couldn't read (X-Device-Id; ≤50 KB, ≤10 per 24h) |
 | POST | `/v1/imports` | Claude Vision import (multipart; bearer required) |
+| POST | `/v1/subscriptions/sync` | record a Play purchase token + state, stub-verified (bearer required; B-049) |
+| POST | `/v1/rtdn` | Play RTDN webhook stub; no Pub/Sub verification yet (launch blocker) |
+| POST | `/v1/admin/fold-stats?windowWeeks=` | recompute benchmark percentiles from real aggregates (ADMIN_TOKEN; B-043) |
+| GET | `/v1/config/fiscal` | latest year's IMSS threshold + daily minimum wage (B-051) |
+| PATCH | `/v1/config/fiscal` | upsert one year's fiscal values (ADMIN_TOKEN) |
+| GET | `/v1/config/app` | `{ paywallEnabled }` paywall kill switch; `true` if unseeded (B-050) |
+| PATCH | `/v1/config/app` | set `paywallEnabled`; `false` = launch promo, all unlocked (ADMIN_TOKEN) |
 | GET | `/v1/referrals/mine` | own referral code + stats (bearer; auto-creates code) |
 | POST | `/v1/referrals/redeem` | redeem a referral/partner code (bearer) — see below |
 | POST | `/v1/admin/partners` | mint a partner code (ADMIN_TOKEN) |
@@ -111,13 +138,22 @@ parsed via Claude Vision (pipeline ported from the web MVP). Fields:
 
 The original(s) are stored via a `StorageAdapter` (R2 in prod, in-memory in
 dev/CI) under `{driverId}/{importId}.{ext}`, parsed, validated (zod), and
-upserted into `weekly_aggregates` with `source='imported'`. **Conflict rule —
-captured beats imported:** a `weekly_aggregates` row whose `source='captured'`
-(live Android capture) is never overwritten by an import; the import still
-succeeds and links to the existing row. Imported-over-imported re-imports
-overwrite (idempotent re-import of the same week). Returns
+merged into the driver's `weekly_aggregates` row for that platform and week
+(created if absent). **Conflict rule — field-level coalesce**
+(`src/imports/aggregate-merge.ts`): a field the import carries overwrites the
+stored value, and a field it lacks (null, e.g. Uber km/hours) keeps its prior
+captured or imported value. One exception: an import with net earnings and a
+positive earnings-per-km figure but no km total (DiDi) gets its km derived as
+net / earnings-per-km before the merge (TD-035), so that km overwrites too.
+The derived ratios (earnings per trip/km/hour, trips per hour) are recomputed
+from the merged raw fields. A row that combines a captured and an imported
+contribution becomes `source='mixed'`; an import-only row stays `'imported'`.
+The captured sync (`POST /v1/aggregates`) writes through the same merge
+(`src/imports/aggregate-write.ts`), so whichever source writes last wins only
+for the fields it carries. Returns
 `{ import_id, metrics, data_completeness }`, or **422** with a Spanish error
-(and `imports.status='failed'`) on a parse failure.
+(and `imports.status='failed'`) on a parse failure or when the import would
+create a new row with no core earnings (net, gross and trips all missing).
 
 Files are private and processed server-side (distinct from the on-device
 parser-config posture used by the Android capture engine). Requires
