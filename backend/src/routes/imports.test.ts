@@ -12,7 +12,8 @@
  * oversize + MIME rejections with Spanish messages, parse-failure → 422 with
  * imports.status='failed', the captured-beats-imported upsert rule,
  * idempotent re-import of the same week, and that stored originals never
- * outlive their imports row (DELETE /v1/me reach + insert-failure cleanup).
+ * outlive their imports row (DELETE /v1/me reach + upload- and insert-failure
+ * cleanup).
  */
 
 import { describe, it, expect, beforeEach, beforeAll, afterEach, vi } from "vitest";
@@ -498,6 +499,7 @@ describe("fresh import with no core earnings", () => {
 describe("dry_run preview", () => {
   it("returns parsed metrics + dry_run:true without persisting anything", async () => {
     vision.setJson(UBER_PDF_EXTRACTION);
+    const upload = vi.spyOn(storage, "uploadFile");
 
     const res = await postImport({
       platform: "uber",
@@ -538,6 +540,7 @@ describe("dry_run preview", () => {
     // PR-A privacy fix (TD-018): a dry-run preview must NOT store the original
     // file — the upload carries PII, so a preview leaves nothing in storage.
     expect(storage.keys()).toHaveLength(0);
+    expect(upload).not.toHaveBeenCalled(); // not even an upload that gets cleaned up
   });
 
   it("returns 422 with the Spanish error on a parse failure and still persists nothing", async () => {
@@ -703,5 +706,103 @@ describe("stored originals vs account deletion", () => {
     expect(racing.keys()).toHaveLength(0);
     expect(await db.select().from(imports)).toHaveLength(0);
     expect(vision.calls).toHaveLength(0); // never got as far as parsing
+  });
+
+  it("removes every original when one upload of a multi-file import fails (sibling still in flight)", async () => {
+    // One DiDi upload fails while its sibling is still in flight; the sibling lands afterwards. The
+    // request 500s before the row insert (step 6), so no imports row will ever point at the sibling.
+    let siblingLanded!: () => void;
+    const landed = new Promise<void>((resolve) => (siblingLanded = resolve));
+    class OneUploadFails extends MemoryStorage {
+      override async uploadFile(key: string, body: Buffer): Promise<void> {
+        if (key.endsWith("_1.png")) throw new Error("PutObject failed");
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        await super.uploadFile(key, body);
+        siblingLanded();
+      }
+    }
+    const partial = new OneUploadFails();
+    app = new Hono();
+    app.route("/v1", importsRoutes(asDb(db), vision, partial));
+    vi.spyOn(console, "error").mockImplementation(() => {}); // "Storage upload error: …"
+
+    vision.setJson(DIDI_EXTRACTION);
+    const res = await postImport({
+      platform: "didi",
+      uploadType: "screenshot",
+      files: [
+        { name: "earnings.png", type: "image/png", bytes: pngBytes },
+        { name: "tablero.png", type: "image/png", bytes: pngBytes },
+      ],
+      auth: token,
+    });
+
+    expect(res.status).toBe(500);
+    expect(await errorOf(res)).toBe("Error al subir el archivo. Intentalo de nuevo.");
+    await landed; // the sibling is stored by now, so only a later delete can empty storage
+    expect(partial.keys()).toHaveLength(0);
+    expect(await db.select().from(imports)).toHaveLength(0);
+    expect(vision.calls).toHaveLength(0);
+  });
+
+  it("removes the original when an upload fails after storage already stored it (lost response)", async () => {
+    // R2 can store the object and still fail the PutObject call, so a failed upload doesn't prove
+    // that nothing was stored.
+    class ResponseLost extends MemoryStorage {
+      override async uploadFile(key: string, body: Buffer): Promise<void> {
+        await super.uploadFile(key, body);
+        throw new Error("socket hang up");
+      }
+    }
+    const lossy = new ResponseLost();
+    app = new Hono();
+    app.route("/v1", importsRoutes(asDb(db), vision, lossy));
+    vi.spyOn(console, "error").mockImplementation(() => {}); // "Storage upload error: …"
+
+    vision.setJson(UBER_PDF_EXTRACTION);
+    const res = await postImport({
+      platform: "uber",
+      uploadType: "pdf",
+      files: [{ name: "report.pdf", type: "application/pdf" }],
+      auth: token,
+    });
+
+    expect(res.status).toBe(500);
+    expect(await errorOf(res)).toBe("Error al subir el archivo. Intentalo de nuevo.");
+    expect(lossy.keys()).toHaveLength(0);
+    expect(await db.select().from(imports)).toHaveLength(0);
+    expect(vision.calls).toHaveLength(0);
+  });
+
+  it("answers the same 500 when the cleanup fails too, and logs the orphan", async () => {
+    class StorageDown extends MemoryStorage {
+      override async uploadFile(key: string, body: Buffer): Promise<void> {
+        await super.uploadFile(key, body);
+        throw new Error("socket hang up");
+      }
+      override async deleteFile(): Promise<void> {
+        throw new Error("R2 unavailable");
+      }
+    }
+    app = new Hono();
+    app.route("/v1", importsRoutes(asDb(db), vision, new StorageDown()));
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    vision.setJson(UBER_PDF_EXTRACTION);
+    const res = await postImport({
+      platform: "uber",
+      uploadType: "pdf",
+      files: [{ name: "report.pdf", type: "application/pdf" }],
+      auth: token,
+    });
+
+    expect(res.status).toBe(500);
+    expect(await errorOf(res)).toBe("Error al subir el archivo. Intentalo de nuevo.");
+    expect(errors).toHaveBeenCalledWith(
+      "Storage cleanup error: orphaned original(s) for import",
+      expect.any(String),
+    );
+    expect(await db.select().from(imports)).toHaveLength(0);
+    expect(vision.calls).toHaveLength(0);
   });
 });
