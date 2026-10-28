@@ -82,7 +82,7 @@ This step uses two `worker.sh` commands. Run each one only where a step below sa
      MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
      cd "$MAIN_PATH/.worktrees/<task-id>" && git log --oneline origin/main..HEAD
      ```
-     When the `cd` works, the block also lists the worktree's commits that `origin/main` doesn't have: check them as Step 3 says for a worktree that already existed.
+     When the `cd` works, the block also lists the worktree's commits that `origin/main` doesn't have: check them as Step 3 says for a worktree that already existed. Then run the Step 3 item 3 check: the `cd` may not have stuck.
    - If the task's status field shows `pending` (two-phase claim not yet activated), activate it:
      ```bash
      MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
@@ -145,7 +145,14 @@ Create an isolated branch and worktree for this work session:
        ```bash
        git branch -m "work/<task-id>" "work/<task-id>-old-$(date +%Y%m%d%H%M%S)"
        ```
-3. Confirm to user: "Worktree ready on branch `work/<task-id>`"
+3. Check that the shell stayed in the worktree, after whichever block above moved into it. Claude Code keeps a `cd` only into the session's folders. A session started in a Claude Code worktree (`.claude/worktrees/<name>`) doesn't have `.worktrees/` among them, so the block's output ends with `Shell cwd was reset to …` and the shell is back in the session's own checkout:
+   ```bash
+   MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+   WT="$MAIN_PATH/.worktrees/<task-id>"
+   if [ "$(git rev-parse --show-toplevel)" = "$WT" ]; then echo "IN: $WT"; else echo "OUTSIDE: the shell is in $(pwd -P), not in $WT; add $MAIN_PATH/.worktrees to the session"; fi
+   ```
+   If it prints `OUTSIDE:`, follow `.claude/skills/_shared/task-worktree-shell.md`: add `$MAIN_PATH/.worktrees` to the session, run `cd "<the worktree's path>"`, and run the check again. Never go on outside the worktree: edits, verify rows and `/ship` would act on the session's own checkout and branch. From here on, `cd` outside the session's folders only inside a subshell, and run `cd "<the worktree's path>"` again whenever a result shows `Shell cwd was reset to …`.
+4. Confirm to user: "Worktree ready on branch `work/<task-id>`"
 
 ## Step 4: Plan
 

@@ -159,6 +159,13 @@ If `CONFLICT:` is returned, handle as a skip (see "When a task is skipped" in St
    fi
    ```
    If it fails, handle the task as a skip (Step 7) whose reason is `step 2 failed: ` followed by the line that says why: the `LEFTOVER:` line, the `STOP:` line (the fetch failed) or git's `fatal:` line. Step 9 finds these skips by that prefix, even after a `/clear`. `LEFTOVER:` and `STOP:` create nothing. A `fatal:` line saying the folder already exists means a folder git doesn't list as a worktree is in the way; git may have created the branch at `origin/main` first, with nothing on it. Never reuse or remove an earlier session's worktree, branch or folder; a human decides.
+3. When the block succeeds, check that the shell stayed in the worktree. Claude Code keeps a `cd` only into the session's folders. A session started in a Claude Code worktree (`.claude/worktrees/<name>`) doesn't have `.worktrees/` among them, so the block's output ends with `Shell cwd was reset to …` and the shell is back in the session's own checkout:
+   ```bash
+   MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+   WT="$MAIN_PATH/.worktrees/<task-id>"
+   if [ "$(git rev-parse --show-toplevel)" = "$WT" ]; then echo "IN: $WT"; else echo "OUTSIDE: the shell is in $(pwd -P), not in $WT; add $MAIN_PATH/.worktrees to the session"; fi
+   ```
+   If it prints `OUTSIDE:`, follow `.claude/skills/_shared/task-worktree-shell.md`: add `$MAIN_PATH/.worktrees` to the session with the `mcp__ccd_directory__request_directory` tool, run `cd "<the worktree's path>"`, and run the check again. Work-auto never stops to ask, so if that tool isn't available (the terminal CLI), handle the task as a skip (Step 7) whose reason is `the shell can't stay in the task worktree: add <MAIN_PATH>/.worktrees to the session`; this iteration created the worktree, so the skip releases with `--worktree`. Never go on outside the worktree: the plan, the implementation, its verify rows and `/ship` would act on the session's own checkout and branch. From here on, `cd` outside the session's folders only inside a subshell, and run `cd "<the worktree's path>"` again whenever a result shows `Shell cwd was reset to …`.
 
 ### 3. Plan + Codex plan review
 
