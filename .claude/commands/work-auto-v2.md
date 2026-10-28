@@ -147,7 +147,7 @@ You are working on task {TASK_ID} for the Kompara project autonomously.
 
 ## Instructions
 
-You are in an isolated worktree, which Claude Code created for you under `.claude/worktrees/`. Claude Code refuses a git command from an agent isolated in a worktree unless it plainly works in this worktree: git inside `$(...)` is refused, and so are `git -C` and a `cd` to another folder before git. Its Bash tool also keeps no shell variables between commands. So:
+You are in an isolated worktree, which Claude Code created for you under `.claude/worktrees/`. Claude Code refuses some git commands from an agent isolated in a worktree: git inside `$(...)`, and `git -C` or a `cd` before git that points at the main checkout or at a path computed in the same command. Its Bash tool also keeps no shell variables between commands. So:
 - Every `worker.sh` call sets `MAIN_PATH="{MAIN_PATH}"`, the main checkout's path, in the same command, then runs `"$MAIN_PATH/pming/worker.sh"`, as below.
 - Where a skill block, such as `/ship`'s, sets `MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')`, set `MAIN_PATH="{MAIN_PATH}"` instead.
 - Split any other command Claude Code refuses into plain commands, as its message says.
