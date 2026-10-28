@@ -11,9 +11,7 @@ From $ARGUMENTS:
 
 ## Step 0: Resolve paths and session
 
-```bash
-MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
-```
+`$MAIN_PATH` is the main checkout, the first entry `git worktree list` prints. Claude Code's Bash tool keeps no shell variables between commands, so each block below that uses `$MAIN_PATH` sets it on its first line, and each one that uses `$SESSION_FILE` sets that too. Run each block as one command.
 
 ### Session file
 
@@ -26,7 +24,10 @@ while [ "$CURRENT" != "1" ] && [ -n "$CURRENT" ] && [ "$CURRENT" != "0" ]; do
   CURRENT=$(ps -o ppid= -p "$CURRENT" 2>/dev/null | tr -d ' ')
 done
 SESSION_FILE="/tmp/kompara-work-auto-v2-$SESSION_PID.json"
+echo "$SESSION_FILE"
 ```
+
+It prints the session file's path. Each block below that uses `$SESSION_FILE` sets it to that path on its first line, `SESSION_FILE=<the path Step 0 printed>`.
 
 If the session file exists and is < 24 hours old, resume from it. If `stop_reason` is set, go to Step 4 (session report). If `current_task` is set, check disk: done → record success; pending+in_progress → record skip. Then continue the loop.
 
@@ -62,12 +63,20 @@ Each iteration picks a task, spawns an Agent to do the work, and records the res
 
 ### 2a. Pick the next task
 
-1. `$MAIN_PATH/pming/worker.sh cleanup`
+1. Clean stale entries:
+   ```bash
+   MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+   "$MAIN_PATH/pming/worker.sh" cleanup
+   ```
 2. Read session file for `specific_tasks`, `completed_tasks`, `skipped_tasks`
 3. If specific tasks given, pick next unprocessed one
 4. Otherwise, conflict-aware auto-selection:
    a. Read all `pming/tasks/pending/B-*.md` — extract id, priority, category, status, story, epic
-   b. `$MAIN_PATH/pming/worker.sh list --json` — get active workers, exclude their tasks
+   b. Get active workers, and exclude their tasks:
+      ```bash
+      MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+      "$MAIN_PATH/pming/worker.sh" list --json
+      ```
    c. **Skip `ops`, `business` category tasks and `blocked` status tasks**
    d. **Skip tasks with `review: human` in frontmatter**
    e. **Skip tasks whose `depends_on` lists a task not yet in `pming/tasks/done/`**
@@ -91,13 +100,13 @@ You are working on task {TASK_ID} for the Kompara project autonomously.
 
 ## Instructions
 
-You are in an isolated worktree. The main worktree is at {MAIN_PATH}.
-Worker coordination script: {MAIN_PATH}/pming/worker.sh
+You are in an isolated worktree. Worker coordination runs through `pming/worker.sh` in the main checkout, the first entry `git worktree list` prints. Claude Code's Bash tool keeps no shell variables between commands, so every command that calls it sets `MAIN_PATH` first, as below.
 
 ### Phase 1: Setup
 1. Register as a worker:
    ```bash
-   {MAIN_PATH}/pming/worker.sh claim {TASK_ID} task {TASK_ID} work/{TASK_ID}
+   MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+   "$MAIN_PATH/pming/worker.sh" claim {TASK_ID} task {TASK_ID} work/{TASK_ID}
    ```
    If `CONFLICT:` is returned, respond with: `{"success": false, "reason": "worker conflict"}`
 2. Update the task status to `in_progress` in the task file
@@ -157,7 +166,7 @@ After completion (success or failure), your final message MUST be a JSON object:
 - If the task is ambiguous, add a `<!-- QUESTION: ... -->` comment and report failure
 - If you want to deviate from spec, add a `<!-- DEVIATION: ... -->` comment and report failure
 - Never skip adversarial review — time and tokens are not the bottleneck
-- All worker.sh calls use the full path: {MAIN_PATH}/pming/worker.sh
+- Every worker.sh call sets `MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')` in the same command, then runs `"$MAIN_PATH/pming/worker.sh"`
 ````
 
 **Agent call parameters:**
@@ -181,10 +190,15 @@ Parse the Agent's return message. Extract the JSON result.
 2. Ensure the task status is reset to `todo` if still `in_progress`:
    ```bash
    # Check and reset if needed
+   MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
    grep -q 'status: in_progress' "$MAIN_PATH/pming/tasks/pending/{TASK_ID}.md" 2>/dev/null && \
      sed -i '' 's/status: in_progress/status: todo/' "$MAIN_PATH/pming/tasks/pending/{TASK_ID}.md"
    ```
-3. Release worker if still registered: `$MAIN_PATH/pming/worker.sh release`
+3. Release worker if still registered:
+   ```bash
+   MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+   "$MAIN_PATH/pming/worker.sh" release
+   ```
 4. Update session file: append to `skipped_tasks`, increment `consecutive_skips`, clear `current_task`
 5. Check stop conditions:
    - `consecutive_skips >= 3` → set `stop_reason` to `"consecutive_skips"`
@@ -206,7 +220,7 @@ Otherwise → go to Step 2a (pick next task).
 
 When the loop stops (any reason), generate `session-report.md` in the project root.
 
-1. Read `$SESSION_FILE`
+1. Read the session file, the path Step 0 printed
 2. Map `stop_reason` to human-readable text:
    - `"budget_reached"` → "Budget of N tasks reached."
    - `"all_done"` → "All pending tasks completed."
@@ -249,12 +263,14 @@ Top 3-5 remaining tasks by priority
 
 6. Log to telemetry:
 ```bash
+MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+SESSION_FILE=<the path Step 0 printed>
 TELEMETRY_FILE="$MAIN_PATH/pming/.telemetry.jsonl"
 if [ -f "$TELEMETRY_FILE" ]; then
   COMPLETED=$(jq '.completed_tasks | length' "$SESSION_FILE")
   SKIPPED=$(jq '.skipped_tasks | length' "$SESSION_FILE")
   START=$(jq -r '.session_start' "$SESSION_FILE")
-  DURATION_MIN=$(( ($(date +%s) - $(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$START" +%s 2>/dev/null || echo $(date +%s))) / 60 ))
+  DURATION_MIN=$(( ($(date +%s) - $(date -j -u -f "%Y-%m-%dT%H:%M:%SZ" "$START" +%s 2>/dev/null || echo $(date +%s))) / 60 ))
   echo "{\"ts\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"event\":\"work_auto_v2_session\",\"tasks_completed\":$COMPLETED,\"tasks_skipped\":$SKIPPED,\"duration_min\":$DURATION_MIN}" >> "$TELEMETRY_FILE"
 fi
 ```
@@ -274,9 +290,13 @@ git push origin main
    ```
    For merged branches: `git worktree remove <path> && git branch -d <branch>`
 
-2. Release own worker: `$MAIN_PATH/pming/worker.sh release`
+2. Release own worker:
+   ```bash
+   MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+   "$MAIN_PATH/pming/worker.sh" release
+   ```
 
-3. Delete session file: `rm -f "$SESSION_FILE"`
+3. Delete the session file: `rm -f "<the path Step 0 printed>"`
 
 4. Commit PM state if dirty:
    ```bash

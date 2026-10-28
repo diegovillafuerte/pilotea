@@ -7,18 +7,24 @@ description: Preview the next task that /work would pick up, without changing an
 
 Show what would be picked up next by `/work`, without modifying anything.
 
-## Step 0: Resolve main worktree path
+## Step 0: Main checkout path
 
-```bash
-MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
-```
+`$MAIN_PATH` is the main checkout, the first entry `git worktree list` prints. Claude Code's Bash tool keeps no shell variables between commands, so each block below sets it on its first line. Run each block as one command.
 
 ## Logic
 
-1. Check for own worker entry: `$MAIN_PATH/pming/worker.sh info`
+1. Check for own worker entry:
+   ```bash
+   MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+   "$MAIN_PATH/pming/worker.sh" info
+   ```
    - If exit code 0: parse JSON for task, mode, target — "what am I working on"
    - If exit code 1: no active session
-2. Get all active workers: `$MAIN_PATH/pming/worker.sh list --json`
+2. Get all active workers:
+   ```bash
+   MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+   "$MAIN_PATH/pming/worker.sh" list --json
+   ```
 3. If own worker exists and current task is `in_progress`: show that task (it's what you're on)
 4. If own worker exists and current task is `done`: find the next `todo` task in the group, skipping tasks claimed by other workers
 5. If no own worker entry: find the highest-priority `todo` task globally using conflict-aware selection:

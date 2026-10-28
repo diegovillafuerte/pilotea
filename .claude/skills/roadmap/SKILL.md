@@ -12,15 +12,18 @@ Display the full project roadmap with progress tracking.
 1. Read all epic files: glob `pming/epics/pending/E-*.md` and `pming/epics/done/E-*.md`, read frontmatter
 2. Read all story files: glob `pming/stories/pending/S-*.md` and `pming/stories/done/S-*.md`, read frontmatter
 3. Read all task files: glob `pming/tasks/pending/B-*.md` and `pming/tasks/done/B-*.md`, read frontmatter only (just need status, epic, story)
-4. Resolve main worktree path: `MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')`
-5. Get active workers: `$MAIN_PATH/pming/worker.sh list --json`
-6. Compute progress for each story: done tasks / total tasks
-7. Compute progress for each epic: done tasks across all its stories / total
-8. Sort epics by priority, then by ID
+4. Get active workers. `worker.sh` lives in the main checkout, the first entry `git worktree list` prints; run this as one command, since shell variables don't carry over to the next one:
+   ```bash
+   MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+   "$MAIN_PATH/pming/worker.sh" list --json
+   ```
+5. Compute progress for each story: done tasks / total tasks
+6. Compute progress for each epic: done tasks across all its stories / total
+7. Sort epics by priority, then by ID
 
 ## Active workers
 
-If `$MAIN_PATH/pming/worker.sh list` shows workers, show at the top:
+If the step 4 list has workers, show at the top:
 
 ```
 Active workers:

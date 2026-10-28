@@ -8,17 +8,20 @@ argument-hint: [B-XXX]
 
 Mark a task as done and handle group progression.
 
-## Step 0: Resolve main worktree path
+## Step 0: Main checkout path
 
-```bash
-MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
-```
+`$MAIN_PATH` is the main checkout, the first entry `git worktree list` prints. Claude Code's Bash tool keeps no shell variables between commands, so each block below sets it on its first line. Run each block as one command.
 
 ## Step 1: Determine which task
 
 From $ARGUMENTS:
 - **`B-XXX`**: mark that specific task as done
-- **Empty**: find own worker entry via `$MAIN_PATH/pming/worker.sh info`. Parse the JSON output to get the `task` field. If no matching worker entry (exit code 1), ask which task to complete.
+- **Empty**: find own worker entry:
+  ```bash
+  MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+  "$MAIN_PATH/pming/worker.sh" info
+  ```
+  Parse the JSON output to get the `task` field. If no matching worker entry (exit code 1), ask which task to complete.
 
 ## Step 2: Mark done
 
@@ -35,28 +38,48 @@ After marking the task done:
 
 ## Step 4: Handle group progression
 
-Check for own worker entry: `$MAIN_PATH/pming/worker.sh info`
+Check for own worker entry:
+```bash
+MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+"$MAIN_PATH/pming/worker.sh" info
+```
 
 ### If working through a group (mode is `story` or `epic`):
 
 1. Find remaining `todo` tasks in the group (same story or epic, depending on mode)
-2. Get active workers: `$MAIN_PATH/pming/worker.sh list --json` — skip tasks claimed by other workers
+2. Get active workers, and skip tasks claimed by other workers:
+   ```bash
+   MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+   "$MAIN_PATH/pming/worker.sh" list --json
+   ```
 3. **Skip `ops` and `business` category tasks** — these require human action, not code
 4. **If more unclaimed code tasks remain:**
    - Show: `Completed B-XXX: "[title]"`
    - Show the next task preview: `Next in [group name]: B-YYY "[title]"` with a brief description
    - Ask: **"Continue with B-YYY?"**
-   - If user confirms: update own worker entry via `$MAIN_PATH/pming/worker.sh update-task B-YYY work/B-YYY`, set B-YYY to `in_progress`, and begin working on it (same behavior as `/work B-YYY`)
+   - If user confirms: update own worker entry, set B-YYY to `in_progress`, and begin working on it (same behavior as `/work B-YYY` from its Step 3, since the entry already holds B-YYY):
+     ```bash
+     MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+     "$MAIN_PATH/pming/worker.sh" update-task B-YYY work/B-YYY
+     ```
 4. **If no more unclaimed tasks in group:**
    - Show: `Completed B-XXX: "[title]"`
    - Show: `All tasks in [group name] are complete!` (or "All remaining tasks are being handled by other workers")
-   - Release own worker entry: `$MAIN_PATH/pming/worker.sh release`
+   - Release own worker entry:
+     ```bash
+     MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+     "$MAIN_PATH/pming/worker.sh" release
+     ```
    - Show what the highest-priority remaining task would be globally (respecting active workers)
 
 ### If NOT working through a group (mode is `task`):
 
 1. Show: `Completed B-XXX: "[title]"`
-2. Release own worker entry: `$MAIN_PATH/pming/worker.sh release`
+2. Release own worker entry:
+   ```bash
+   MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+   "$MAIN_PATH/pming/worker.sh" release
+   ```
 3. Briefly mention the next highest-priority task available (respecting active workers)
 
 ## Step 5: For code tasks — verify before marking done

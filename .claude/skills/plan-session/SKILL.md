@@ -13,9 +13,12 @@ Help the user plan their work by reviewing current state and making recommendati
 1. Read all task frontmatter from `pming/tasks/pending/B-*.md` and `pming/tasks/done/B-*.md`
 2. Read all story frontmatter from `pming/stories/pending/S-*.md` and `pming/stories/done/S-*.md`
 3. Read all epic frontmatter from `pming/epics/pending/E-*.md` and `pming/epics/done/E-*.md`
-4. Resolve main worktree path: `MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')`
-5. Get active workers: `$MAIN_PATH/pming/worker.sh list --json`
-6. Check recent git log (`git log --oneline -20`) for context on recently completed work
+4. Get active workers. `worker.sh` lives in the main checkout, the first entry `git worktree list` prints; run this as one command, since shell variables don't carry over to the next one:
+   ```bash
+   MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+   "$MAIN_PATH/pming/worker.sh" list --json
+   ```
+5. Check recent git log (`git log --oneline -20`) for context on recently completed work
 
 ## Analysis sections
 

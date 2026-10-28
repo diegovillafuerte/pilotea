@@ -11,8 +11,10 @@ Follow these phases exactly in order. Do NOT skip phases unless the mode exclude
 ## Phase 0: Setup
 
 ```bash
-MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+git worktree list --porcelain | head -1 | sed 's/worktree //'
 ```
+
+It prints the main checkout's path, `$MAIN_PATH` below. In a Read, Glob, Grep, Edit or Write path, and in a prompt you fill in, write that path in its place. Claude Code's Bash tool keeps no shell variables between commands, so every command below that uses `$MAIN_PATH` sets it first: a block on its first line, an inline command with `MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //');` in front.
 
 Determine mode from `$ARGUMENTS`:
 - **empty or `full`**: Run all phases (default — used for nightly runs)
@@ -21,10 +23,10 @@ Determine mode from `$ARGUMENTS`:
 - **`docs-only`**: Phase 3 only (documentation freshness healing)
 
 Unless the mode is `dry`, check two things before changing anything. If either fails, display its message and STOP:
-- `$MAIN_PATH` is on `main`: `git -C "$MAIN_PATH" symbolic-ref --short HEAD` prints `main`. Rem commits there and pushes `main` (Phase 6.2), so on any other branch its commit would never reach main. Message: "rem: $MAIN_PATH is on <branch>, not main; switch it to main, then run rem again".
-- Nothing is staged there yet: `git -C "$MAIN_PATH" diff --cached --quiet` exits 0. Otherwise someone else's work is staged and rem's commit would carry it. Message: "rem: changes are already staged in $MAIN_PATH; commit or unstage them, then run rem again".
+- `$MAIN_PATH` is on `main`: `MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //'); git -C "$MAIN_PATH" symbolic-ref --short HEAD` prints `main`. Rem commits there and pushes `main` (Phase 6.2), so on any other branch its commit would never reach main. Message: "rem: $MAIN_PATH is on <branch>, not main; switch it to main, then run rem again".
+- Nothing is staged there yet: `MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //'); git -C "$MAIN_PATH" diff --cached --quiet` exits 0. Otherwise someone else's work is staged and rem's commit would carry it. Message: "rem: changes are already staged in $MAIN_PATH; commit or unstage them, then run rem again".
 
-Then record the run's start commit, the one `main` points to: `git -C "$MAIN_PATH" rev-parse refs/heads/main`. Phase 6.2 commits on top of it, and only while `main` still points there.
+Then record the run's start commit, the one `main` points to: `MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //'); git -C "$MAIN_PATH" rev-parse refs/heads/main`. Phase 6.2 commits on top of it, and only while `main` still points there.
 
 Record the current date (`date -u +%Y-%m-%d`) and start time. Initialize an empty report structure in memory:
 
@@ -66,7 +68,8 @@ Same logic as 1.2 but for epics in `$MAIN_PATH/pming/epics/pending/`. An epic is
 ### 1.4: Stale workers cleanup
 
 ```bash
-$MAIN_PATH/pming/worker.sh cleanup
+MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+"$MAIN_PATH/pming/worker.sh" cleanup
 ```
 
 Record any cleaned entries in report.
@@ -92,8 +95,8 @@ These need human judgment — just flag them in "Needs Human Attention":
 ### 2.1: Gather actual state
 
 Run these in parallel:
-- List all skill directories: `ls $MAIN_PATH/.claude/skills/`
-- List all command files: `find $MAIN_PATH/.claude/commands/ -name "*.md" -type f`
+- List all skill directories: `MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //'); ls "$MAIN_PATH/.claude/skills/"`
+- List all command files: `MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //'); find "$MAIN_PATH/.claude/commands/" -name "*.md" -type f`
 - Read current CLAUDE.md: `$MAIN_PATH/CLAUDE.md` (it imports the shared instructions from `$MAIN_PATH/AGENTS.md` with `@AGENTS.md`)
 - Extract all backtick-quoted file paths from CLAUDE.md and verify each exists
 
@@ -128,6 +131,7 @@ This is the core differentiator — rem actually rewrites stale docs.
 Kompara's docs carry no frontmatter. The **Doc Inventory** in `$MAIN_PATH/.claude/skills/ship/reviewers/docs.md` maps each doc to the source paths it describes, and `/ship` and `/housekeeper` read the same inventory. Docs it leaves out on purpose (dated records, research, legacy reference) are never checked. Run:
 
 ```bash
+MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
 python3 "$MAIN_PATH/.claude/skills/_shared/doc-freshness.py"
 ```
 
@@ -138,16 +142,17 @@ It works from the git repo at `$MAIN_PATH`. A commit-message line `Doc-Verified:
 
 ### 3.2: Spawn doc-updater subagents
 
-Make a fresh directory for this run's files with `mktemp -d /tmp/kompara-rem.XXXXXX`, and use the path it prints as `$REM_TMP` below. It is outside the repo, so `dry` mode uses it too. Below, `<commit>` is the commit on the last line of the Phase 3.1 report and `<slug>` is the doc's path with each `/` replaced by `_`. For each stale doc, prepare a subagent call:
+Make a fresh directory for this run's files with `mktemp -d /tmp/kompara-rem.XXXXXX`, and write the path it prints in place of `<rem-tmp>` below (Phase 6.2 sets `REM_TMP` to it). It is outside the repo, so `dry` mode uses it too. Below, `<commit>` is the commit on the last line of the Phase 3.1 report and `<slug>` is the doc's path with each `/` replaced by `_`. For each stale doc, prepare a subagent call:
 
 1. Write the changes to the doc's sources between its baseline and `<commit>` to a file, never into this conversation (they can run to thousands of lines):
    ```bash
-   python3 "$MAIN_PATH/.claude/skills/_shared/doc-freshness.py" --diff <doc> <commit> > "$REM_TMP/<slug>.diff"
+   MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+   python3 "$MAIN_PATH/.claude/skills/_shared/doc-freshness.py" --diff <doc> <commit> > "<rem-tmp>/<slug>.diff"
    ```
    If it exits non-zero or the file is empty, spawn no doc-updater for that doc: flag it in "Needs Human Attention" with the error, and don't record it as verified.
-2. Save the doc as `<commit>` has it, so the doc-updater reviews exactly that text whatever happens to the working copy meanwhile: `git -C "$MAIN_PATH" show <commit>:<doc> > "$REM_TMP/<slug>.doc"`
+2. Save the doc as `<commit>` has it, so the doc-updater reviews exactly that text whatever happens to the working copy meanwhile: `MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //'); git -C "$MAIN_PATH" show <commit>:<doc> > "<rem-tmp>/<slug>.doc"`
 3. Read the prompt template from `$MAIN_PATH/.claude/skills/rem/healers/doc-updater.md`
-4. Replace `{DOC_PATH}` with `$REM_TMP/<slug>.doc`, `{DIFF_PATH}` with `$REM_TMP/<slug>.diff`, `{OUT_PATH}` with `$REM_TMP/<slug>.new`, and `{REPO}` with `$MAIN_PATH`
+4. Replace `{DOC_PATH}` with `<rem-tmp>/<slug>.doc`, `{DIFF_PATH}` with `<rem-tmp>/<slug>.diff`, `{OUT_PATH}` with `<rem-tmp>/<slug>.new`, and `{REPO}` with `$MAIN_PATH`
 
 **Launch ALL doc-updater agents in a single message** so they execute in parallel. Use `model: "opus"` for each. Each one either writes the complete updated doc to `{OUT_PATH}` and replies `UPDATED: <summary>`, or replies `NO_CHANGES_NEEDED`.
 
@@ -159,7 +164,7 @@ For each subagent response:
 3. `UPDATED` for any other doc in `docs/`:
    a. Count the number of changed lines vs the original doc (`<slug>.doc` against `<slug>.new`)
    b. **Safety check:** if >40% of lines changed, do NOT apply. Instead, flag in "Needs Human Attention": "docs/X.md: subagent wants to change N% of content — manual review needed"
-   c. If within threshold: `python3 "$MAIN_PATH/.claude/skills/_shared/doc-freshness.py" --apply <doc> <commit> "$REM_TMP/<slug>.new"`. It writes and stages the update only while the index and the working copy hold exactly the reviewed text, so local edits are never overwritten, and never through a symlink. If it exits 2, nothing was written: flag in "Needs Human Attention": "<doc>: update not applied: <its message>". If it exits 3, the working copy was replaced but not staged, so the update stays out of this run's commit: flag in "Needs Human Attention": "<doc>: updated in the working copy but not staged: <its message>". Otherwise record in report
+   c. If within threshold: `MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //'); python3 "$MAIN_PATH/.claude/skills/_shared/doc-freshness.py" --apply <doc> <commit> "<rem-tmp>/<slug>.new"`. It writes and stages the update only while the index and the working copy hold exactly the reviewed text, so local edits are never overwritten, and never through a symlink. If it exits 2, nothing was written: flag in "Needs Human Attention": "<doc>: update not applied: <its message>". If it exits 3, the working copy was replaced but not staged, so the update stays out of this run's commit: flag in "Needs Human Attention": "<doc>: updated in the working copy but not staged: <its message>". Otherwise record in report
    d. In `dry` mode: show the diff but don't write
 4. Any other reply, or `UPDATED` with no file at `{OUT_PATH}`: flag the doc in "Needs Human Attention" and don't record it as verified.
 
@@ -175,6 +180,7 @@ Read `$MAIN_PATH/techdebt.md`. Find any entries marked as `RESOLVED`. If there a
 
 Run the same search as `/housekeeper` DOC-3. `git grep` searches tracked files only, so Gradle `build/` output and `node_modules/` stay out; keep `-w`, since macOS `git grep` doesn't support `\b`.
 ```bash
+MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
 git -C "$MAIN_PATH" grep -nwE 'TODO|FIXME|HACK|XXX' -- 'android/*.kt' 'android/*.kts' 'android/*.java' 'backend/*.ts'
 ```
 
@@ -197,10 +203,12 @@ For each techdebt entry that references a specific file path, verify the file ex
 Claude Code keeps this project's memory in `$HOME/.claude/projects/<name>/memory/`, where `<name>` is `$MAIN_PATH` with every character other than a letter or digit replaced by `-` (`/home/me/kompara` becomes `-home-me-kompara`):
 
 ```bash
+MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
 MEMORY_DIR="$HOME/.claude/projects/$(printf '%s' "$MAIN_PATH" | sed 's/[^A-Za-z0-9]/-/g')/memory"
+printf '%s\n' "$MEMORY_DIR"
 ```
 
-Read `$MEMORY_DIR/MEMORY.md`. If it doesn't exist, add "Memory check skipped: no MEMORY.md in <MEMORY_DIR>" to "Needs Human Attention" and go on to Phase 5.
+It prints that folder, `$MEMORY_DIR` below. Read `$MEMORY_DIR/MEMORY.md`. If it doesn't exist, add "Memory check skipped: no MEMORY.md in <MEMORY_DIR>" to "Needs Human Attention" and go on to Phase 5.
 
 For each memory entry that references a file path in its description or linked file (a linked memory file is relative to `$MEMORY_DIR`, a repo path to `$MAIN_PATH`):
 - Verify the path exists
@@ -215,6 +223,7 @@ This phase is **report-only** — it never modifies files. It populates the "Imp
 ### 5.1: New modules and backend directories
 
 ```bash
+MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
 git -C "$MAIN_PATH" log --since="7 days ago" --diff-filter=A --name-only --format="" -- android backend/src | grep -oE '^(android/[^/]+/build\.gradle\.kts|backend/src/[^/]+/)' | sort -u
 ```
 
@@ -235,6 +244,7 @@ Check if any skill referenced in `$MAIN_PATH/pming/skills.md`, the PM system's g
 ### 5.4: Test count trend
 
 ```bash
+MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
 (cd "$MAIN_PATH/backend" && pnpm test 2>&1 | tail -5)
 # Android unit tests recorded by the last Gradle run (rem does not run Gradle itself)
 find "$MAIN_PATH/android" -path '*/build/test-results/testDebugUnitTest/*.xml' -exec grep -o '<testcase ' {} + | wc -l
@@ -285,7 +295,7 @@ In `dry` mode: display the report and a summary of all changes that would have b
 
 In all other modes:
 
-1. Stage all changed files **by name** with `git -C "$MAIN_PATH" add -- <path>...` (NEVER use `git add -A` or `git add .`):
+1. Stage all changed files **by name** with `MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //'); git -C "$MAIN_PATH" add -- <path>...` (NEVER use `git add -A` or `git add .`):
    - Changed PM files (tasks, stories, epics moved between folders)
    - Not the updated docs: `--apply` (Phase 3.3) already staged exactly what the doc-updater wrote, and adding them again would re-read the working copy
    - Updated CLAUDE.md (if changed)
@@ -296,6 +306,7 @@ In all other modes:
    - The `printf` into `$REM_LIST`: every path this run staged, one argument each. That is the step 1 files, each moved PM file under both its old and its new path, and the docs Phase 3.3 applied.
    - The message: replace N and M with actual counts. Write one `Doc-Verified: <doc> <commit>` argument for each doc the doc-updater found still accurate (Phase 3.3): its repo path, such as `docs/privacy-policy.md`, then the full commit from the last line of the Phase 3.1 report, the one every Phase 3.2 diff was taken at. Write none when there are none. The next run's freshness check reads these lines. For the `Co-Authored-By:` line, use the one this session's commit attribution gives, which names the model running rem; if it gives none, leave it out.
    ```bash
+   MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
    START=<the commit Phase 0 recorded>
    PINNED=<the commit on the last line of the Phase 3.1 report; empty if Phase 3 didn't run>
    REM_TMP=<the Phase 3.2 scratch directory; empty if Phase 3 didn't run>
