@@ -23,6 +23,7 @@ lands in B-042.
 backend/
   src/
     index.ts            # server entrypoint (boots Hono on PORT)
+    shutdown.ts         # SIGTERM/SIGINT drain: finish in-flight requests, close the pool, exit
     app.ts              # createApp(db) — wires routes; testable factory
     db/
       schema.ts         # Drizzle schema v1
