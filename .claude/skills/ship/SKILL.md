@@ -14,7 +14,26 @@ Follow these steps exactly in order. Do NOT skip steps.
 
 ## Step 1: Pre-flight checks
 
-Run these sequentially. If ANY fail, STOP and show errors.
+First check that the shell is in the checkout to ship: Step 6 merges the branch this directory has checked out. After `/work` or `/solve`, Claude Code may have moved the shell back out of the task worktree (`.claude/skills/_shared/task-worktree-shell.md` explains when):
+
+Put this session's claim UUID in place of `<uuid>`: the one `/work` or `/solve` used (`OK <uuid>` from `claim`). Leave it empty if you don't have it; `worker.sh` then finds the claim from this directory first, so a shell sitting in another session's task worktree would pass.
+
+```bash
+MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+UUID=<uuid>
+if [ -n "$UUID" ]; then INFO=$("$MAIN_PATH/pming/worker.sh" info --uuid "$UUID"); else INFO=$("$MAIN_PATH/pming/worker.sh" info); fi
+TASK=$(printf '%s\n' "$INFO" | jq -r '.task // empty')
+WT="$MAIN_PATH/.worktrees/$TASK"
+if [ -n "$TASK" ] && [ -d "$WT" ] && [ "$(git rev-parse --show-toplevel)" != "$WT" ]; then
+  echo "OUTSIDE: this session's task $TASK has its worktree at $WT, but the shell is in $(pwd -P)"
+else
+  echo "SHIP FROM: $(git rev-parse --show-toplevel) on branch $(git branch --show-current)"
+fi
+```
+
+If it prints `OUTSIDE:`, run `cd "<the worktree it names>"` and the check again (if Claude Code resets that `cd`, follow the shared file). If it prints `SHIP FROM:`, make sure that is the checkout and branch you mean to ship.
+
+Then run these sequentially. If ANY fail, STOP and show errors.
 
 1. `git status` — verify there are changes to commit (staged or unstaged modified/untracked files). If working tree is clean, tell the user and stop.
 2. Run the AGENTS.md **Verify** row for every area the changes touch (`android/`, `backend/`, legacy `src/`). All must pass; changes only to docs, `pming/` or `design-system/` have nothing to run.
@@ -325,7 +344,7 @@ If no doc findings, skip this step and proceed to Step 5.
    - `git push origin main`
    - Log activity (see 6.4 below)
 
-3. **If on a feature branch:**
+3. **If on a feature branch:** merge it into `main` in a temporary worktree, never in this checkout or in the main checkout. Git won't check out `main` in a second worktree while the main checkout has it (`'main' is already used by worktree at …`), and the main checkout's branch and uncommitted work belong to whoever is using it (if it has `main` checked out, its local `main` stays behind until its user pulls). The temporary worktree starts detached at a freshly fetched `origin/main`, takes the merge, runs the verify rows on exactly what will be pushed, and pushes it to `main`. The blocks reach it with `git -C`, and `cd` into it only inside a subshell, so the shell stays in this checkout (`.claude/skills/_shared/task-worktree-shell.md`).
    a. **Acquire the merge lock** to prevent parallel ship collisions:
       ```bash
       MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
@@ -333,55 +352,92 @@ If no doc findings, skip this step and proceed to Step 5.
       ```
       If this times out, tell the user another worker is merging. Wait or retry.
 
-   b. `git checkout main`
-   c. `git pull origin main` — **critical: fetches changes merged by parallel workers**
+   b. **Create the temporary worktree:**
+      ```bash
+      MERGE_WT=$(mktemp -d /tmp/kompara-merge.XXXXXX)
+      if git worktree add -q --detach "$MERGE_WT" origin/main; then
+        echo "MERGE_WT=$MERGE_WT"
+      else
+        git worktree remove "$MERGE_WT" 2>/dev/null || rmdir "$MERGE_WT" 2>/dev/null
+        echo "STOP: could not add a temporary worktree at $MERGE_WT"; false
+      fi
+      ```
+      The blocks below set `MERGE_WT` to the path it printed. On `STOP:`, release the merge lock (step j's block) and STOP. The block removes what git made (git can register the worktree before a `post-checkout` hook fails); if that path still exists, tell the user.
 
-   c2. **Read recent activity from parallel workers:**
+   c. **Read recent activity from parallel workers:**
       ```bash
       MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
       "$MAIN_PATH/pming/worker.sh" recent-activity 10
       ```
       If entries exist, show a brief one-line-per-entry summary: "Recent changes on main:" with task ID, title, and key files for each. This is informational — does not gate the merge.
 
-   d. `git merge <branch-name>`
-   e. If merge conflicts:
-      - **Release the merge lock** immediately (step j's block)
-      - Show conflicting files clearly
-      - STOP and tell the user: "Main has moved since your branch diverged (likely from a parallel worker). These files conflict: [list]. Please resolve manually."
-   f. After successful merge, **re-run only the Step 1 item 2 verify rows** (not the working-tree check: the tree is clean after a merge) for the areas either side of the merge touched — two branches may each pass individually but break when combined
+   d. **Merge the branch** into a freshly fetched `origin/main` — **critical: fetches changes merged by parallel workers**. Put the branch from item 1 in place of `<branch>`:
+      ```bash
+      MERGE_WT="<the path step b printed>"
+      BRANCH=<branch>
+      if ! git -C "$MERGE_WT" fetch origin main || ! git -C "$MERGE_WT" checkout -q --detach origin/main; then
+        echo "STOP: could not move the temporary worktree to a freshly fetched origin/main"; false
+      elif git -C "$MERGE_WT" merge -m "Merge branch '$BRANCH'" "$BRANCH"; then
+        echo "MERGED: $(git -C "$MERGE_WT" log -1 --format='%h %s')"
+      else
+        FILES=$(git -C "$MERGE_WT" diff --name-only --diff-filter=U)
+        if git -C "$MERGE_WT" rev-parse -q --verify MERGE_HEAD >/dev/null; then git -C "$MERGE_WT" merge --abort; fi
+        if [ -n "$FILES" ]; then echo "CONFLICT:"; echo "$FILES"; else echo "STOP: the merge failed"; fi
+        false
+      fi
+      ```
+   e. If it prints `CONFLICT:` or `STOP:`:
+      - **Release the merge lock** immediately (step j's block), then remove the temporary worktree (step k's block)
+      - On `CONFLICT:`, show the conflicting files clearly and STOP. Tell the user: "Main has moved since your branch diverged (likely from a parallel worker). These files conflict: [list]. Please resolve manually." One way: in this checkout, `git merge origin/main`, fix the conflicts and commit the merge, then run this Step 6 again rather than the whole skill (Step 1 stops on a clean working tree). That way the resolution gets no Codex review: if it changed behavior, have it reviewed first.
+      - On `STOP:`, show git's message and STOP.
+   f. After successful merge, **re-run only the Step 1 item 2 verify rows** (not the working-tree check: the tree is clean after a merge) for the areas either side of the merge touched — two branches may each pass individually but break when combined. Run them in the temporary worktree, each inside a subshell so the shell stays here, such as `(cd "<the path step b printed>/android" && ./gradlew verifyReadOnlyCapture assembleDebug testDebugUnitTest lintDebug)`. It is a fresh checkout: it builds only what is committed, and it has no dependencies installed, so a pnpm row installs them first in the same subshell, such as `(cd "<the path step b printed>/backend" && pnpm install --frozen-lockfile && pnpm typecheck && pnpm test)` (the legacy web row does the same from the worktree's root). Give Gradle `JAVA_HOME` and `ANDROID_HOME` as AGENTS.md says.
    g. If post-merge tests fail:
-      - **Release the merge lock** (step j's block)
+      - **Release the merge lock** (step j's block), then remove the temporary worktree (step k's block)
       - STOP and explain: "Merge succeeded but tests fail — this branch may conflict with changes from a parallel worker. Fix the integration issues before pushing."
-   h. `git push origin main`
-   i. If push is rejected (another worker pushed between pull and push):
-      - `git pull --rebase origin main`
-      - Re-run only the Step 1 item 2 verify rows
-      - If they pass: `git push origin main`
-      - If tests fail or push fails again: **Release merge lock** (step j's block) and STOP
+   h. **Push the merge to `main`:**
+      ```bash
+      MERGE_WT="<the path step b printed>"
+      git -C "$MERGE_WT" push origin HEAD:main
+      ```
+   i. If push is rejected (another worker pushed after step d's fetch):
+      - Run step d's block again: it fetches, moves the temporary worktree to the new `origin/main` and merges the branch there again
+      - Re-run only the Step 1 item 2 verify rows, as step f says
+      - If they pass: run step h's block again
+      - If the merge, the tests or the push fail again: **Release merge lock** (step j's block), remove the temporary worktree (step k's block), and STOP
    j. **Release the merge lock**:
       ```bash
       MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
       "$MAIN_PATH/pming/worker.sh" merge-lock release
       ```
+   k. **Remove the temporary worktree** once this skill is done with it: after a failure in steps b–i, right after releasing the lock (an unpushed merge in it is lost, but the next `/ship` makes it again); after a successful push, at the end of Step 7, which works in it:
+      ```bash
+      MERGE_WT="<the path step b printed>"
+      case "$MERGE_WT" in
+        /tmp/kompara-merge.*|/private/tmp/kompara-merge.*) git worktree remove "$MERGE_WT" && echo "REMOVED $MERGE_WT" ;;
+        *) echo "STOP: $MERGE_WT is not a temporary merge worktree"; false ;;
+      esac
+      ```
+      If git refuses because the worktree holds files `.gitignore` doesn't cover (left by a verify row), show the user git's message and the path. Don't add `--force`.
 
 4. **Log activity** (6.4):
    After successful push, log the shipped task to the activity log so parallel workers can see what changed:
    ```bash
    MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
-   COMMIT=$(git rev-parse --short HEAD)
+   DIR="<the path step 3b printed; . if item 2 pushed main directly>"
+   COMMIT=$(git -C "$DIR" rev-parse --short HEAD)
    "$MAIN_PATH/pming/worker.sh" log-activity "<task-id>" "<task-title>" "$COMMIT"
-   git add pming/.activity-log 2>/dev/null || true
+   if [ "$(git rev-parse --show-toplevel)" = "$MAIN_PATH" ] && [ "$(git branch --show-current)" = main ]; then git -C "$MAIN_PATH" add pming/.activity-log; fi
    ```
    The task ID and title come from the worker info (Step 7 reads this). If no worker entry exists (shipping from main directly), use the commit message first line as the title and "manual" as the task ID.
-   The staged activity log will be committed with the next commit (PM state in Step 7, or a future ship).
+   `log-activity` writes the main checkout's `pming/.activity-log`, the copy step 3c and the other sessions on this Mac read. The block stages it only when this session is the main checkout on `main` (item 2), where it is this session's own work; it is then committed by Step 7, or by the next commit made there. From any other checkout it stays unstaged in the main checkout: `git add` here would stage this checkout's unchanged copy, and the main checkout's index belongs to whoever is using it.
 
-5. Show `git log --oneline -3` to confirm.
+5. Show `git -C "<the path step 3b printed; . after item 2>" log --oneline -3` to confirm.
 
 **CRITICAL: Always release the merge lock, even on failure.** If any step in 3b-3i fails, release the lock before stopping. The merge lock must never be left held.
 
 ## Step 7: Auto-complete task
 
-After a successful push, automatically complete the task:
+After a successful push, automatically complete the task. Work in the checkout Step 6 pushed from, `<DIR>` below: the temporary worktree (the path step 6.3b printed), whose files are the `main` just pushed, or, if Step 6 item 2 pushed `main` directly, this checkout's top level (`git rev-parse --show-toplevel` prints it). Not in the task worktree: its `pming/` files are as old as its branch, and a commit there no longer reaches `main`.
 
 1. Check for own worker entry:
    ```bash
@@ -390,24 +446,34 @@ After a successful push, automatically complete the task:
    ```
 2. If a worker entry exists (exit code 0):
    - Parse the JSON output to get `task`, `mode`, `target`
-   - Read the task file and update `status: done`
-   - Move task file to `pming/tasks/done/` if in `pming/tasks/pending/`
+   - In `<DIR>`: read the task file and update `status: done`
+   - Move task file to `pming/tasks/done/` if in `pming/tasks/pending/`: `git -C "<DIR>" mv pming/tasks/pending/<task-id>.md pming/tasks/done/<task-id>.md`
    - Update parent story/epic status if all their tasks are now done
+   - If any of that changed a file (a `/solve` fix has no task file), commit the changes and push them to `main`. Put each changed file in place of `<path>...` under its current path, a moved file under its new one (`git mv` already staged the move; git refuses the old path):
+     ```bash
+     DIR="<DIR>"
+     git -C "$DIR" add -- <path>... &&
+       git -C "$DIR" commit -m "PM: mark <task-id> done" &&
+       { git -C "$DIR" push origin HEAD:main || { git -C "$DIR" pull --rebase origin main && git -C "$DIR" push origin HEAD:main; }; }
+     ```
+     If `git add` or `git commit` fails, nothing is committed yet: fix the cause and run the block again. If the pushes fail, STOP, and don't release or remove anything: the temporary worktree holds the only copy of that commit. If `pull --rebase` stopped on a conflict, run `git -C "<DIR>" rebase --abort` first. Tell the user the task's code is on `main` but its completion is not, and where it waits: `git -C "<DIR>" log --oneline -1`. Once they have pushed it (`git -C "<DIR>" push origin HEAD:main`), the rest of this step can run.
    - Handle group progression:
-     - If working through a group (mode is `story` or `epic`): find remaining `todo` tasks, get active workers with `MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //'); "$MAIN_PATH/pming/worker.sh" list --json`, skip tasks claimed by other workers, **skip `ops` and `business` category tasks**. If more code tasks remain, show the next one and ask "Continue with B-YYY?". If user confirms, update own worker entry with `MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //'); "$MAIN_PATH/pming/worker.sh" update-task B-YYY work/B-YYY`, set B-YYY to `in_progress`, and start working on it (`/work` Step 3 onward).
-     - If no more tasks or mode is `task`: release and clean up the worktree:
+     - If working through a group (mode is `story` or `epic`): find remaining `todo` tasks in `<DIR>`, get active workers with `MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //'); "$MAIN_PATH/pming/worker.sh" list --json`, skip tasks claimed by other workers, **skip `ops` and `business` category tasks**. If more code tasks remain, show the next one and ask "Continue with B-YYY?". If user confirms, remove the temporary worktree (Step 6.3k's block) if Step 6.3 made one, update own worker entry with `MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //'); "$MAIN_PATH/pming/worker.sh" update-task B-YYY work/B-YYY`, and start working on it (`/work` Step 3 onward). Set B-YYY to `in_progress` in its new worktree once `/work` Step 3 has made it, so the change ships with B-YYY.
+     - If no more tasks or mode is `task`: release and clean up the worktree. Run it from `<DIR>`: `release --worktree` deletes the task's branch with `git branch -d`, which needs a checkout whose HEAD contains the branch, and `<DIR>`'s HEAD is the `main` just pushed. (Run from the task worktree, git can't run at all once the worktree is removed, so the branch would stay.) From there `worker.sh` can't tell the claim from the directory, so pass the `uuid` field item 1 printed:
        ```bash
        MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
-       "$MAIN_PATH/pming/worker.sh" release --worktree
+       DIR="<DIR>"
+       (cd "$DIR" && "$MAIN_PATH/pming/worker.sh" release --worktree --uuid <uuid>)
        ```
+       Then remove the temporary worktree (Step 6.3k's block) if Step 6.3 made one.
    - Show: `Shipped and completed B-XXX: "[title]"`
-3. If no worker entry found (e.g., shipping from main directly): skip this step
+3. If no worker entry found (e.g., shipping from main directly): skip this step, but remove the temporary worktree (Step 6.3k's block) if Step 6.3 made one
 
 ## Rules
 
 - NEVER use `--force`, `--no-verify`, or `--no-gpg-sign`
 - NEVER amend existing commits
-- If anything fails unexpectedly, **release the merge lock first**, then STOP and explain — do not retry blindly
+- If anything fails unexpectedly, **release the merge lock first** and remove Step 6's temporary worktree (6.3k), unless it holds Step 7's unpushed PM commit, then STOP and explain — do not retry blindly
 - Keep status updates brief (one line per step)
 - The review is tiered: fast lane (pre-screen only), lean lane (single lightweight reviewer), or full review (parallel specialized reviewers). Lane selection is automatic based on diff size, file count, and whether critical paths are touched. All active reviewers must PASS for the ship to proceed. Never review the code yourself in the main conversation.
 - Codex reviews need time — always set `timeout: 480000` on full review Bash tool calls that invoke `codex exec`, and `timeout: 300000` for lean review calls.

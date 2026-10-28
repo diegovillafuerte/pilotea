@@ -47,6 +47,13 @@ Present the diagnosis to the user:
      "$MAIN_PATH/pming/worker.sh" claim <slug> task <slug> fix/<slug>
    ```
    If the fetch fails, tell the user and stop. If `fix/<slug>` already exists (an earlier session's), git refuses and the block creates nothing. If a `.worktrees/<slug>` folder is in the way, git refuses it too, but may first create `fix/<slug>` at `origin/main`, with nothing on it. Either way, leave both alone, pick another slug and run the block again.
+3. Check that the shell stayed in the worktree. Claude Code keeps a `cd` only into the session's folders. A session started in a Claude Code worktree (`.claude/worktrees/<name>`) doesn't have `.worktrees/` among them, so the block's output ends with `Shell cwd was reset to …` and the shell is back in the session's own checkout:
+   ```bash
+   MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+   WT="$MAIN_PATH/.worktrees/<slug>"
+   if [ "$(git rev-parse --show-toplevel)" = "$WT" ]; then echo "IN: $WT"; else echo "OUTSIDE: the shell is in $(pwd -P), not in $WT; add $MAIN_PATH/.worktrees to the session"; fi
+   ```
+   If it prints `OUTSIDE:`, follow `.claude/skills/_shared/task-worktree-shell.md`: add `$MAIN_PATH/.worktrees` to the session, run `cd "<the worktree's path>"`, and run the check again. Never go on outside the worktree: the fix, its verify rows and `/ship` would act on the session's own checkout and branch. From here on, `cd` outside the session's folders only inside a subshell, and run `cd "<the worktree's path>"` again whenever a result shows `Shell cwd was reset to …`.
 
 ## Step 4: Plan the fix
 
