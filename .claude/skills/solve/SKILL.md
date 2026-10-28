@@ -38,13 +38,15 @@ Present the diagnosis to the user:
 ## Step 3: Spin up worktree
 
 1. Derive a short slug from the bug (e.g., `fix-missing-guard-prequal`, `fix-spei-timeout`)
-2. Create the worktree, move into it, and register it in worker coordination. Run this as one command, since shell variables don't carry over to the next one. The worktree goes in `$MAIN_PATH/.worktrees/` (the main checkout's), where `worker.sh` looks for it, even when this session runs in another worktree (a relative `.worktrees/` would nest it there):
+2. Create the worktree, move into it, and register it in worker coordination. Run this as one command, since shell variables don't carry over to the next one. The worktree goes in `$MAIN_PATH/.worktrees/` (the main checkout's), where `worker.sh` looks for it, even when this session runs in another worktree (a relative `.worktrees/` would nest it there). The branch starts from a freshly fetched `origin/main`, the `main` that `/ship` merges it into, never from this checkout's HEAD, whose commits `/ship` would merge too:
    ```bash
    MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
-   git worktree add "$MAIN_PATH/.worktrees/<slug>" -b fix/<slug> &&
+   git fetch origin main &&
+     git worktree add --no-track -b fix/<slug> "$MAIN_PATH/.worktrees/<slug>" origin/main &&
      cd "$MAIN_PATH/.worktrees/<slug>" &&
      "$MAIN_PATH/pming/worker.sh" claim <slug> task <slug> fix/<slug>
    ```
+   If the fetch fails, tell the user and stop. If `fix/<slug>` already exists (an earlier session's), git refuses and the block creates nothing. If a `.worktrees/<slug>` folder is in the way, git refuses it too, but may first create `fix/<slug>` at `origin/main`, with nothing on it. Either way, leave both alone, pick another slug and run the block again.
 
 ## Step 4: Plan the fix
 
@@ -168,5 +170,9 @@ Delegate the approved plan to the `coder` agent (Opus 5.5) with the worktree pat
 - Diagnosis before action — resist the urge to jump to a fix before confirming root cause
 - Minimal changes — fix the bug, don't improve adjacent code
 - Worktrees live under `$MAIN_PATH/.worktrees/` — the `/ship` skill handles merging back to main
-- After shipping the fix, release the worker and clean up the worktree: `$MAIN_PATH/pming/worker.sh release --worktree`
+- After shipping the fix, release the worker and clean up the worktree:
+  ```bash
+  MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+  "$MAIN_PATH/pming/worker.sh" release --worktree
+  ```
 - If the diagnosis reveals the issue is NOT a bug (user error, config issue, expected behavior), say so and stop

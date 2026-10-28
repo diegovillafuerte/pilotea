@@ -9,13 +9,9 @@ From $ARGUMENTS:
 - **Number (e.g., `5`)**: Complete at most N tasks, then stop and generate session report
 - **`B-XXX B-YYY ...`**: Work on specific tasks in order
 
-## Step 0: Resolve main worktree path
+## Step 0: Main checkout path
 
-```bash
-MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
-```
-
-Worker coordination is handled atomically by `$MAIN_PATH/pming/worker.sh`.
+`$MAIN_PATH` is the main checkout, the first entry `git worktree list` prints. Worker coordination is handled atomically by `$MAIN_PATH/pming/worker.sh`. Claude Code's Bash tool keeps no shell variables between commands, so each block below that uses `$MAIN_PATH` sets it on its first line, and each one that uses `$SESSION_FILE` sets that too (Step 0a). Run each block as one command.
 
 ## Step 0a: Determine session file path
 
@@ -34,28 +30,36 @@ SESSION_FILE="/tmp/kompara-work-auto-$SESSION_PID.json"
 echo "$SESSION_FILE"
 ```
 
+It prints the session file's path. Each block below that uses `$SESSION_FILE` sets it to that path on its first line, `SESSION_FILE=<the path Step 0a printed>`.
+
 ## Step 0b: Resume detection
 
 Check if a session file already exists (meaning we're resuming after a `/clear`).
 
-**If `$SESSION_FILE` exists — this is a RESUME:**
+**If the session file exists — this is a RESUME:**
 
-1. Read the session file: `cat $SESSION_FILE`
+1. Read the session file, the path Step 0a printed
 2. Parse all fields. If the JSON is malformed, warn "Corrupt session file — starting fresh", delete the file, and treat as a fresh start.
 3. **Staleness check:** If `session_start` is more than 24 hours ago, warn "Found stale work-auto session from <date>. Starting fresh.", delete the file, and treat as a fresh start.
 4. **If `stop_reason` is not null:** A stop condition was hit before the last `/clear`. Proceed directly to Step 8 (session report).
 5. **If `current_task` is not null:** A task was in-flight when the session was interrupted.
    - Check the task's status on disk (look in both `pming/tasks/done/` and `pming/tasks/pending/`):
    - If the task file is in `done/`: it shipped successfully. Add to `completed_tasks` if not already there, increment `task_count`, reset `consecutive_skips` to 0. Clear `current_task` in session file.
-   - If the task file is in `pending/` with `status: in_progress`: it was not shipped. Reset status to `todo`. Release worker entry: `$MAIN_PATH/pming/worker.sh release`. Add to `skipped_tasks` with reason "interrupted mid-task". Increment `consecutive_skips`. Clear `current_task` in session file.
+   - If the task file is in `pending/` with `status: in_progress`: it was not shipped. Reset status to `todo`. Release worker entry:
+     ```bash
+     MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+     "$MAIN_PATH/pming/worker.sh" release
+     ```
+     Add to `skipped_tasks` with reason "interrupted mid-task". Increment `consecutive_skips`. Clear `current_task` in session file.
 6. **Skip pre-flight.** Go directly to Step 1 (The Loop — pick next task).
 
-**If `$SESSION_FILE` does not exist — this is a FRESH START:**
+**If the session file does not exist — this is a FRESH START:**
 
 1. Parse `$ARGUMENTS` (empty, number, or task IDs).
 2. Run Step 0c (Pre-flight).
 3. After pre-flight passes, create the session file:
    ```bash
+   SESSION_FILE=<the path Step 0a printed>
    cat > "$SESSION_FILE" << EOF
    {
      "version": 1,
@@ -92,14 +96,26 @@ Run this cycle. Each iteration completes one task end-to-end, then clears contex
 
 ### 1. Pick the next task
 
-1. Clean stale entries: `$MAIN_PATH/pming/worker.sh cleanup`
+1. Clean stale entries:
+   ```bash
+   MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+   "$MAIN_PATH/pming/worker.sh" cleanup
+   ```
 2. Read the session file to get `specific_tasks`, `completed_tasks`, and `skipped_tasks` (to know which tasks are already processed).
 3. If specific tasks were given (`specific_tasks` is not null), pick the next unprocessed one from that list.
-4. Otherwise, check for existing session: `$MAIN_PATH/pming/worker.sh info`
+4. Otherwise, check for existing session:
+   ```bash
+   MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+   "$MAIN_PATH/pming/worker.sh" info
+   ```
    - If exit code 0 (entry found): parse JSON to get task. If task is `in_progress`, use it.
    - If exit code 1 (no entry): use **conflict-aware auto-selection**:
      a. Read all pending tasks from `pming/tasks/pending/B-*.md`
-     b. Get active workers: `$MAIN_PATH/pming/worker.sh list --json` — exclude their tasks
+     b. Get active workers, and exclude their tasks:
+        ```bash
+        MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+        "$MAIN_PATH/pming/worker.sh" list --json
+        ```
      c. Prefer tasks in different stories/epics from active workers
      d. Apply priority ordering: urgent > high > medium > low, then lowest B-XXX number
 5. If no tasks remain, set `stop_reason` to `"all_done"` in session file and proceed to Step 8 (session report).
@@ -108,6 +124,7 @@ Read the task file. Update status to `in_progress`.
 
 **Record the in-flight task** in the session file (crash recovery breadcrumb):
 ```bash
+SESSION_FILE=<the path Step 0a printed>
 jq --arg t "B-XXX" '.current_task = $t' "$SESSION_FILE" > "${SESSION_FILE}.tmp" \
   && mv "${SESSION_FILE}.tmp" "$SESSION_FILE"
 ```
@@ -115,7 +132,8 @@ jq --arg t "B-XXX" '.current_task = $t' "$SESSION_FILE" > "${SESSION_FILE}.tmp" 
 ### 1b. Register worker
 
 ```bash
-$MAIN_PATH/pming/worker.sh claim B-XXX task B-XXX work/B-XXX
+MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+"$MAIN_PATH/pming/worker.sh" claim B-XXX task B-XXX work/B-XXX
 ```
 
 If `CONFLICT:` is returned, handle as a skip (see "When a task is skipped" in Step 7).
@@ -123,11 +141,24 @@ If `CONFLICT:` is returned, handle as a skip (see "When a task is skipped" in St
 ### 2. Spin up worktree
 
 1. Branch name: `work/<task-id>`
-2. Create the worktree and move into it. Run this as one command, since shell variables don't carry over to the next one. It goes in `$MAIN_PATH/.worktrees/`, where `worker.sh` looks for it, even when this session runs in another worktree:
+2. Create the worktree and move into it. Run this as one command, since shell variables don't carry over to the next one. It goes in `$MAIN_PATH/.worktrees/`, where `worker.sh` looks for it, even when this session runs in another worktree. The branch starts from a freshly fetched `origin/main`, the `main` that `/ship` merges it into, never from this checkout's HEAD, whose commits `/ship` would merge too. A `work/<task-id>` branch an earlier session left with no commits of its own is reset to `origin/main`:
    ```bash
    MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
-   git worktree add "$MAIN_PATH/.worktrees/<task-id>" -b work/<task-id> && cd "$MAIN_PATH/.worktrees/<task-id>"
+   WT="$MAIN_PATH/.worktrees/<task-id>"
+   BR="work/<task-id>"
+   if git worktree list --porcelain | grep -Fxq "worktree $WT"; then
+     echo "LEFTOVER: an earlier session left a worktree at $WT"; false
+   elif ! git fetch origin main; then
+     echo "STOP: could not fetch origin main"; false
+   elif ! git show-ref --verify --quiet "refs/heads/$BR"; then
+     git worktree add --no-track -b "$BR" "$WT" origin/main && cd "$WT"
+   elif [ -z "$(git rev-list -1 "origin/main..$BR")" ]; then
+     git worktree add --no-track -B "$BR" "$WT" origin/main && cd "$WT"
+   else
+     echo "LEFTOVER: $BR has commits origin/main doesn't:"; git log --oneline "origin/main..$BR"; false
+   fi
    ```
+   If it fails, handle the task as a skip (Step 7) whose reason is `step 2 failed: ` followed by the line that says why: the `LEFTOVER:` line, the `STOP:` line (the fetch failed) or git's `fatal:` line. Step 9 finds these skips by that prefix, even after a `/clear`. `LEFTOVER:` and `STOP:` create nothing. A `fatal:` line saying the folder already exists means a folder git doesn't list as a worktree is in the way; git may have created the branch at `origin/main` first, with nothing on it. Never reuse or remove an earlier session's worktree, branch or folder; a human decides.
 
 ### 3. Plan + Codex plan review
 
@@ -180,6 +211,7 @@ Once /ship passes (reviewer approved, committed, merged to main, pushed), the ta
 
 1. Update the session file — append to `completed_tasks`, increment `task_count`, reset `consecutive_skips` to 0, clear `current_task`:
    ```bash
+   SESSION_FILE=<the path Step 0a printed>
    jq \
      --arg id "B-XXX" \
      --arg title "task title" \
@@ -203,9 +235,19 @@ Once /ship passes (reviewer approved, committed, merged to main, pushed), the ta
 
 **When a task is skipped** (ops/business category, 3 fix failures, review unavailable, conflict):
 
-1. If the task was started (worktree exists): reset task status to `todo`, release worker: `$MAIN_PATH/pming/worker.sh release --worktree`.
+1. If the task was started (claimed in step 1b): reset task status to `todo` and release the worker:
+   ```bash
+   MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+   "$MAIN_PATH/pming/worker.sh" release
+   ```
+   Only if step 2 created the task's worktree in this iteration, release with `--worktree` instead, which also removes that worktree. After step 2 failed, a worktree at that path is an earlier session's, and `--worktree` would remove it:
+   ```bash
+   MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+   "$MAIN_PATH/pming/worker.sh" release --worktree
+   ```
 2. Update the session file — append to `skipped_tasks`, increment `consecutive_skips`, clear `current_task`:
    ```bash
+   SESSION_FILE=<the path Step 0a printed>
    jq \
      --arg id "B-XXX" \
      --arg title "task title" \
@@ -225,8 +267,9 @@ Once /ship passes (reviewer approved, committed, merged to main, pushed), the ta
 
 When the loop stops (any reason), generate `session-report.md` in the project root.
 
-1. Read `$SESSION_FILE` to get all tracking data:
+1. Read the session file to get all tracking data:
    ```bash
+   SESSION_FILE=<the path Step 0a printed>
    cat "$SESSION_FILE"
    ```
    Extract `completed_tasks`, `skipped_tasks`, `session_start`, `stop_reason`, `task_count`.
@@ -277,12 +320,14 @@ Top 3-5 remaining tasks by priority
 
 6. Log session to telemetry (if `pming/.telemetry.jsonl` exists):
    ```bash
+   MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+   SESSION_FILE=<the path Step 0a printed>
    TELEMETRY_FILE="$MAIN_PATH/pming/.telemetry.jsonl"
    if [ -f "$TELEMETRY_FILE" ]; then
      COMPLETED=$(jq '.completed_tasks | length' "$SESSION_FILE")
      SKIPPED=$(jq '.skipped_tasks | length' "$SESSION_FILE")
      START=$(jq -r '.session_start' "$SESSION_FILE")
-     DURATION_MIN=$(( ($(date +%s) - $(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$START" +%s 2>/dev/null || echo $(date +%s))) / 60 ))
+     DURATION_MIN=$(( ($(date +%s) - $(date -j -u -f "%Y-%m-%dT%H:%M:%SZ" "$START" +%s 2>/dev/null || echo $(date +%s))) / 60 ))
      echo "{\"ts\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"event\":\"work_auto_session\",\"tasks_completed\":$COMPLETED,\"tasks_skipped\":$SKIPPED,\"duration_min\":$DURATION_MIN}" >> "$TELEMETRY_FILE"
    fi
    ```
@@ -298,15 +343,21 @@ git push origin main
 
 1. Clean orphaned worktrees:
    - List all worktrees: `git worktree list`
-   - For each worktree that is NOT the main repo:
+   - Leave out the worktree, branch and folder of every task in the session file's `skipped_tasks` whose `reason` starts with `step 2 failed:`: an earlier session left them, and a human decides.
+   - For each other worktree that is NOT the main repo:
      - Check if its branch is fully merged to main: `git branch --merged main | grep <branch>`
      - If merged: `git worktree remove <path>` and `git branch -d <branch>`
      - If not merged but task is done: remove worktree, keep branch (human can review)
 
-2. Release own worker entry: `$MAIN_PATH/pming/worker.sh release`
+2. Release own worker entry:
+```bash
+MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+"$MAIN_PATH/pming/worker.sh" release
+```
 
 3. Delete the session file:
 ```bash
+SESSION_FILE=<the path Step 0a printed>
 rm -f "$SESSION_FILE"
 ```
 
@@ -331,5 +382,5 @@ git push origin main
 - Keep going until all tasks are done, budget is reached, or 3 consecutive tasks are skipped
 - If 3 consecutive tasks are skipped, proceed to Step 8 — something systemic may be wrong
 - Worker coordination is handled by `pming/worker.sh` — never read/write `pming/.workers` directly
-- **All `worker.sh` calls use `$MAIN_PATH/pming/worker.sh`** — works from any worktree
+- **Every `worker.sh` call runs `$MAIN_PATH/pming/worker.sh` and sets `MAIN_PATH` in the same command** — works from any worktree
 - **Conflict-aware selection**: always check what other workers are doing before picking a task

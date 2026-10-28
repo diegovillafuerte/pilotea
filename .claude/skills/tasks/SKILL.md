@@ -13,11 +13,14 @@ Display tasks from `pming/tasks/` with optional filtering.
 1. Glob all task files: `pming/tasks/pending/B-*.md` and `pming/tasks/done/B-*.md`
 2. Read each file's YAML frontmatter (just the `---` block, not the full body)
 3. Also read epic names from `pming/epics/pending/E-*.md` and `pming/epics/done/E-*.md`, and story names from `pming/stories/pending/S-*.md` and `pming/stories/done/S-*.md` for display
-4. Resolve main worktree path: `MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')`
-5. Get active workers: `$MAIN_PATH/pming/worker.sh list --json` — to know which tasks are actively being worked on
-6. Apply filters from $ARGUMENTS
-7. Sort by: priority (urgent > high > medium > low), then by ID
-8. Display grouped by epic and story
+4. Get active workers, to know which tasks are actively being worked on. `worker.sh` lives in the main checkout, the first entry `git worktree list` prints; run this as one command, since shell variables don't carry over to the next one:
+   ```bash
+   MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+   "$MAIN_PATH/pming/worker.sh" list --json
+   ```
+5. Apply filters from $ARGUMENTS
+6. Sort by: priority (urgent > high > medium > low), then by ID
+7. Display grouped by epic and story
 
 ## Parsing filters from $ARGUMENTS
 

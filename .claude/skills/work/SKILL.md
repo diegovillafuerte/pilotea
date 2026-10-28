@@ -8,13 +8,9 @@ argument-hint: [B-XXX | S-XXX | E-XXX]
 
 Begin work on a task. Isolates work in a git worktree, plans inline, then implements with Codex review checkpoints. Review is tiered: Codex checks the plan and implementation here in `/work`, then `/ship` runs a lighter or heavier gate depending on change size and risk. Model routing (see `CLAUDE.md`): this session plans and orchestrates; the `coder` agent (Opus 5.5) implements.
 
-## Step 0: Resolve main worktree path
+## Step 0: Main checkout path
 
-```bash
-MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
-```
-
-Worker coordination is handled atomically by `$MAIN_PATH/pming/worker.sh`. All worker state lives in `$MAIN_PATH/pming/.workers` (JSONL format).
+`$MAIN_PATH` is the main checkout, the first entry `git worktree list` prints. Worker coordination is handled atomically by `$MAIN_PATH/pming/worker.sh`. All worker state lives in `$MAIN_PATH/pming/.workers` (JSONL format). Claude Code's Bash tool keeps no shell variables between commands, so each block below that uses `$MAIN_PATH` sets it on its first line. Run each block as one command.
 
 ## Step 1: Parse input
 
@@ -29,47 +25,69 @@ From $ARGUMENTS, determine what to work on:
 Run cleanup to remove dead sessions and expired pending entries:
 
 ```bash
-$MAIN_PATH/pming/worker.sh cleanup
+MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+"$MAIN_PATH/pming/worker.sh" cleanup
 ```
 
 ## Step 2: Determine the target task
 
+This step uses two `worker.sh` commands. Run each one only where a step below says to:
+- **list** prints the active workers as JSON:
+  ```bash
+  MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+  "$MAIN_PATH/pming/worker.sh" list --json
+  ```
+- **claim** registers this session on a task. Put the task's ID in place of `<task-id>`, the mode (`task`, `story` or `epic`) in place of `<mode>`, and the ID it works through (the task, story or epic) in place of `<target>`. It prints `OK <uuid>`, or `CONFLICT: ...` when another worker has the task:
+  ```bash
+  MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+  "$MAIN_PATH/pming/worker.sh" claim <task-id> <mode> <target> work/<task-id>
+  ```
+
 ### Specific task (B-XXX)
 1. Read the task file (check both `pming/tasks/pending/B-XXX.md` and `pming/tasks/done/B-XXX.md`)
-2. Check for conflicts: `$MAIN_PATH/pming/worker.sh list --json` — if another worker is already on this task, warn the user and ask to confirm
+2. Check for conflicts: run **list** — if another worker is already on this task, warn the user and ask to confirm
 3. Update its status to `in_progress`
-4. Register: `$MAIN_PATH/pming/worker.sh claim B-XXX task B-XXX work/B-XXX`
+4. Register: run **claim** for B-XXX, mode `task`, target B-XXX
    - If output starts with `CONFLICT:`, another worker has it. Warn user and ask to confirm.
 
 ### Story (S-XXX)
 1. Read the story file (check `pming/stories/pending/S-XXX.md`)
 2. Find all tasks in this story: glob `pming/tasks/pending/B-*.md`, filter by `story: S-XXX`
 3. Sort by ID number
-4. Get active workers: `$MAIN_PATH/pming/worker.sh list --json` — skip tasks already claimed
+4. Get active workers: run **list** — skip tasks already claimed
 5. **Skip `ops` and `business` category tasks** — these require human action
 6. Find first unclaimed code task with status `todo` and set it to `in_progress`
 7. Update story status to `active` if currently `backlog` or `todo`
-8. Register: `$MAIN_PATH/pming/worker.sh claim B-XXX story S-XXX work/B-XXX`
+8. Register: run **claim** for B-XXX, mode `story`, target S-XXX
 
 ### Epic (E-XXX)
 1. Read the epic file (check `pming/epics/pending/E-XXX.md`)
 2. Find all tasks in this epic: glob `pming/tasks/pending/B-*.md`, filter by `epic: E-XXX`
 3. Sort by story order (S-XXX number), then task ID within story
-4. Get active workers: `$MAIN_PATH/pming/worker.sh list --json` — skip tasks already claimed
+4. Get active workers: run **list** — skip tasks already claimed
 5. **Skip `ops` and `business` category tasks** — these require human action
 6. Find first unclaimed code task with status `todo` and set it to `in_progress`
 7. Update epic status to `active` if currently `backlog`
-8. Register: `$MAIN_PATH/pming/worker.sh claim B-XXX epic E-XXX work/B-XXX`
+8. Register: run **claim** for B-XXX, mode `epic`, target E-XXX
 
 ### Resume (no args)
-1. Check for an existing worker entry: `$MAIN_PATH/pming/worker.sh info`
+1. Check for an existing worker entry:
+   ```bash
+   MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+   "$MAIN_PATH/pming/worker.sh" info
+   ```
    - If exit code 0 (entry found): parse the JSON output to get `task` and `branch`
    - If a worktree exists for this task, `cd` into it (if the `cd` fails, there is none yet). Run this as one command, since shell variables don't carry over to the next one:
      ```bash
      MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
-     cd "$MAIN_PATH/.worktrees/<task-id>"
+     cd "$MAIN_PATH/.worktrees/<task-id>" && git log --oneline origin/main..HEAD
      ```
-   - If the task's status field shows `pending` (two-phase claim not yet activated): run `$MAIN_PATH/pming/worker.sh activate`
+     When the `cd` works, the block also lists the worktree's commits that `origin/main` doesn't have: check them as Step 3 says for a worktree that already existed.
+   - If the task's status field shows `pending` (two-phase claim not yet activated), activate it:
+     ```bash
+     MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+     "$MAIN_PATH/pming/worker.sh" activate
+     ```
    - If the task is still `in_progress`, resume working on it (skip to Step 4 if worktree exists, Step 3 if not)
    - If the task is `done`, find next `todo` task in the group (respecting mode/target) and start it
 2. If `worker.sh info` returns exit code 1 (no entry): use **conflict-aware auto-selection** (see Step 2a)
@@ -79,7 +97,7 @@ $MAIN_PATH/pming/worker.sh cleanup
 When no specific task/story/epic is given and no active session exists:
 
 1. Read all pending tasks: glob `pming/tasks/pending/B-*.md`
-2. Get active workers: `$MAIN_PATH/pming/worker.sh list --json`
+2. Get active workers: run **list**
 3. Filter candidates:
    - Exclude tasks already claimed by active workers
    - **Skip `ops` and `business` category tasks** — these require human action, not code
@@ -88,22 +106,45 @@ When no specific task/story/epic is given and no active session exists:
    - **Tier 3:** tasks in the same story as an active worker (warn: may cause merge conflicts)
 4. Within the best available tier, apply priority ordering: urgent > high > medium > low, then lowest B-XXX number
 5. If ALL remaining tasks are Tier 3 or claimed, warn the user: "All remaining tasks overlap with active workers. Pick manually or wait for a worker to finish."
-6. Register the selected task: `$MAIN_PATH/pming/worker.sh claim B-XXX task B-XXX work/B-XXX`
+6. Register the selected task: run **claim** for B-XXX, mode `task`, target B-XXX
 
 ## Step 3: Spin up worktree
 
 Create an isolated branch and worktree for this work session:
 
 1. Derive branch name: `work/<task-id>` (e.g., `work/B-042`)
-2. Create the worktree, or move into it if it already exists. Run this as one command, since shell variables don't carry over to the next one. The worktree goes in `$MAIN_PATH/.worktrees/`, where `worker.sh` looks for it, even when this session runs in another worktree (a relative `.worktrees/` would nest it there). Put the UUID from the claim output (`OK <uuid>`) in place of `<uuid>`; the block writes it to the worktree only when it creates the worktree:
+2. Create the worktree, or move into it if it already exists. Run this as one command, since shell variables don't carry over to the next one. The worktree goes in `$MAIN_PATH/.worktrees/`, where `worker.sh` looks for it, even when this session runs in another worktree (a relative `.worktrees/` would nest it there). The branch starts from a freshly fetched `origin/main`, the `main` that `/ship` merges it into, never from this checkout's HEAD: that may be another branch (a Claude Code worktree's, or whatever the main checkout has checked out), and `/ship` would merge its commits too. Put this session's claim UUID in place of `<uuid>`: the `OK <uuid>` that **claim** printed, or, after `update-task` moved the claim to this task, the `uuid` field `worker.sh info` prints. The block writes it to the worktree only when it creates the worktree:
    ```bash
    MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
    WT="$MAIN_PATH/.worktrees/<task-id>"
-   if ! git worktree list --porcelain | grep -Fxq "worktree $WT"; then
-     git worktree add "$WT" -b work/<task-id> && echo "<uuid>" > "$WT/.worker-uuid"
+   BR="work/<task-id>"
+   if git worktree list --porcelain | grep -Fxq "worktree $WT"; then
+     cd "$WT" && git log --oneline origin/main..HEAD
+   elif ! git fetch origin main; then
+     echo "STOP: could not fetch origin main"; false
+   elif ! git show-ref --verify --quiet "refs/heads/$BR"; then
+     git worktree add --no-track -b "$BR" "$WT" origin/main && echo "<uuid>" > "$WT/.worker-uuid" && cd "$WT"
+   elif [ -z "$(git rev-list -1 "origin/main..$BR")" ]; then
+     git worktree add --no-track -B "$BR" "$WT" origin/main && echo "<uuid>" > "$WT/.worker-uuid" && cd "$WT"
+   else
+     echo "LEFTOVER: $BR has commits origin/main doesn't:"; git log --oneline "origin/main..$BR"; false
    fi
-   cd "$WT"
    ```
+   - If the worktree already existed, the block moves into it and lists its commits that `origin/main` doesn't have. `/ship` merges them all, so each must be this task's own work: a worktree made before branches started from `origin/main` may carry another branch's commits. If any isn't, show the list and ask the user before going on.
+   - A `work/<task-id>` branch an earlier session left with no commits of its own is reset to `origin/main` (`-B`): nothing is lost.
+   - `STOP:` the fetch failed. Tell the user and stop: the branch must start from the current `origin/main`.
+   - A git error that the folder already exists: a folder git doesn't list as a worktree is in the way (`/housekeeper` CODE-5 reports these). Git may have created `work/<task-id>` at `origin/main` first, with nothing on it. Tell the user and stop; never delete the folder.
+   - `LEFTOVER:` an earlier session left `work/<task-id>` with the commits listed, which `origin/main` doesn't have, and the block created nothing. Show the list and ask the user which to do; never delete the branch:
+     - **Resume it**, only if every listed commit is this task's own work, since `/ship` merges them all into `main`:
+       ```bash
+       MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+       WT="$MAIN_PATH/.worktrees/<task-id>"
+       git worktree add "$WT" "work/<task-id>" && echo "<uuid>" > "$WT/.worker-uuid" && cd "$WT"
+       ```
+     - **Start over**: keep the old commits under a new branch name, then run the block above again:
+       ```bash
+       git branch -m "work/<task-id>" "work/<task-id>-old-$(date +%Y%m%d%H%M%S)"
+       ```
 3. Confirm to user: "Worktree ready on branch `work/<task-id>`"
 
 ## Step 4: Plan
@@ -210,4 +251,4 @@ After implementation passes lint and tests, run a quick Codex review to catch is
 - If a task is already `done`, skip it and find the next one
 - Worktrees live under `$MAIN_PATH/.worktrees/` — ensure `.worktrees/` is in `.gitignore`
 - On `/ship`, the ship skill handles merging the worktree's feature branch back to main
-- **All `worker.sh` calls use `$MAIN_PATH/pming/worker.sh`** — works from any worktree
+- **Every `worker.sh` call runs `$MAIN_PATH/pming/worker.sh` and sets `MAIN_PATH` in the same command** — works from any worktree

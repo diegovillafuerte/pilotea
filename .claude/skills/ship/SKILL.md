@@ -8,11 +8,9 @@ argument-hint: [optional commit message hint]
 
 Follow these steps exactly in order. Do NOT skip steps.
 
-## Step 0: Resolve main worktree path
+## Step 0: Main checkout path
 
-```bash
-MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
-```
+`$MAIN_PATH` is the main checkout, the first entry `git worktree list` prints. Claude Code's Bash tool keeps no shell variables between commands, so each block below that uses `$MAIN_PATH` sets it on its first line. Run each block as one command.
 
 ## Step 1: Pre-flight checks
 
@@ -227,6 +225,7 @@ Per shared protocol Step 2.4 (parse output) and Step 3.1 (evaluate verdict):
 After aggregation, append ship result to telemetry (if the file exists):
 
 ```bash
+MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
 TELEMETRY_FILE="$MAIN_PATH/pming/.telemetry.jsonl"
 if [ -f "$TELEMETRY_FILE" ]; then
   # Log the aggregate result — include review_lane to track which path was taken
@@ -238,7 +237,11 @@ Replace placeholders with actual values from the review results. `review_lane` i
 
 If any reviewer returned REJECT, also log each critical finding:
 ```bash
-echo '{"ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","event":"ship_rejected","task":"<TASK_ID>","reviewer":"<reviewer_name>","reason":"<finding_title>"}' >> "$TELEMETRY_FILE"
+MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+TELEMETRY_FILE="$MAIN_PATH/pming/.telemetry.jsonl"
+if [ -f "$TELEMETRY_FILE" ]; then
+  echo '{"ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","event":"ship_rejected","task":"<TASK_ID>","reviewer":"<reviewer_name>","reason":"<finding_title>"}' >> "$TELEMETRY_FILE"
+fi
 ```
 
 Build and display a consolidated report. The report format adapts to the review lane:
@@ -325,7 +328,8 @@ If no doc findings, skip this step and proceed to Step 5.
 3. **If on a feature branch:**
    a. **Acquire the merge lock** to prevent parallel ship collisions:
       ```bash
-      $MAIN_PATH/pming/worker.sh merge-lock acquire
+      MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+      "$MAIN_PATH/pming/worker.sh" merge-lock acquire
       ```
       If this times out, tell the user another worker is merging. Wait or retry.
 
@@ -334,32 +338,38 @@ If no doc findings, skip this step and proceed to Step 5.
 
    c2. **Read recent activity from parallel workers:**
       ```bash
-      $MAIN_PATH/pming/worker.sh recent-activity 10
+      MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+      "$MAIN_PATH/pming/worker.sh" recent-activity 10
       ```
       If entries exist, show a brief one-line-per-entry summary: "Recent changes on main:" with task ID, title, and key files for each. This is informational — does not gate the merge.
 
    d. `git merge <branch-name>`
    e. If merge conflicts:
-      - **Release the merge lock immediately**: `$MAIN_PATH/pming/worker.sh merge-lock release`
+      - **Release the merge lock** immediately (step j's block)
       - Show conflicting files clearly
       - STOP and tell the user: "Main has moved since your branch diverged (likely from a parallel worker). These files conflict: [list]. Please resolve manually."
    f. After successful merge, **re-run only the Step 1 item 2 verify rows** (not the working-tree check: the tree is clean after a merge) for the areas either side of the merge touched — two branches may each pass individually but break when combined
    g. If post-merge tests fail:
-      - **Release the merge lock**: `$MAIN_PATH/pming/worker.sh merge-lock release`
+      - **Release the merge lock** (step j's block)
       - STOP and explain: "Merge succeeded but tests fail — this branch may conflict with changes from a parallel worker. Fix the integration issues before pushing."
    h. `git push origin main`
    i. If push is rejected (another worker pushed between pull and push):
       - `git pull --rebase origin main`
       - Re-run only the Step 1 item 2 verify rows
       - If they pass: `git push origin main`
-      - If tests fail or push fails again: **Release merge lock** and STOP
-   j. **Release the merge lock**: `$MAIN_PATH/pming/worker.sh merge-lock release`
+      - If tests fail or push fails again: **Release merge lock** (step j's block) and STOP
+   j. **Release the merge lock**:
+      ```bash
+      MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+      "$MAIN_PATH/pming/worker.sh" merge-lock release
+      ```
 
 4. **Log activity** (6.4):
    After successful push, log the shipped task to the activity log so parallel workers can see what changed:
    ```bash
+   MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
    COMMIT=$(git rev-parse --short HEAD)
-   $MAIN_PATH/pming/worker.sh log-activity "<task-id>" "<task-title>" "$COMMIT"
+   "$MAIN_PATH/pming/worker.sh" log-activity "<task-id>" "<task-title>" "$COMMIT"
    git add pming/.activity-log 2>/dev/null || true
    ```
    The task ID and title come from the worker info (Step 7 reads this). If no worker entry exists (shipping from main directly), use the commit message first line as the title and "manual" as the task ID.
@@ -373,15 +383,23 @@ If no doc findings, skip this step and proceed to Step 5.
 
 After a successful push, automatically complete the task:
 
-1. Check for own worker entry: `$MAIN_PATH/pming/worker.sh info`
+1. Check for own worker entry:
+   ```bash
+   MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+   "$MAIN_PATH/pming/worker.sh" info
+   ```
 2. If a worker entry exists (exit code 0):
    - Parse the JSON output to get `task`, `mode`, `target`
    - Read the task file and update `status: done`
    - Move task file to `pming/tasks/done/` if in `pming/tasks/pending/`
    - Update parent story/epic status if all their tasks are now done
    - Handle group progression:
-     - If working through a group (mode is `story` or `epic`): find remaining `todo` tasks, get active workers via `$MAIN_PATH/pming/worker.sh list --json`, skip tasks claimed by other workers, **skip `ops` and `business` category tasks**. If more code tasks remain, show the next one and ask "Continue with B-YYY?". If user confirms, update own worker entry: `$MAIN_PATH/pming/worker.sh update-task B-YYY work/B-YYY`, set B-YYY to `in_progress`, and start working on it.
-     - If no more tasks or mode is `task`: release and clean up the worktree: `$MAIN_PATH/pming/worker.sh release --worktree`
+     - If working through a group (mode is `story` or `epic`): find remaining `todo` tasks, get active workers with `MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //'); "$MAIN_PATH/pming/worker.sh" list --json`, skip tasks claimed by other workers, **skip `ops` and `business` category tasks**. If more code tasks remain, show the next one and ask "Continue with B-YYY?". If user confirms, update own worker entry with `MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //'); "$MAIN_PATH/pming/worker.sh" update-task B-YYY work/B-YYY`, set B-YYY to `in_progress`, and start working on it (`/work` Step 3 onward).
+     - If no more tasks or mode is `task`: release and clean up the worktree:
+       ```bash
+       MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+       "$MAIN_PATH/pming/worker.sh" release --worktree
+       ```
    - Show: `Shipped and completed B-XXX: "[title]"`
 3. If no worker entry found (e.g., shipping from main directly): skip this step
 
