@@ -1,0 +1,1 @@
+Participant harness and the run-8 brief/tasks used for the interactive walkthroughs (runs 5–8). Usage: node pt.mjs <dir> start | look | tap "texto" | tapxy X Y | scroll down|up | back | swipe-down-top | task start|done|stuck | log | stop. Tally: ../tally_run5.py <workflow output> <walk dir>.

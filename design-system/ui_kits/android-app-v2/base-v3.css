@@ -1,5 +1,7 @@
-/* Kompara v3 mockups — "paper, ink and the raya". One surface per screen, no cards, no pills, one accent (ink),
-   verdict colours only on verdicts. Tokens are the v3 design system (docs/ux-elevation-spec.md §4/§6, Round 11). */
+/* Kompara v3 mockups — "paper and ink". One surface per screen, no cards, no pills, one accent (ink); verdict colours only on
+   verdicts (the chip "la regla" and the row mark) plus one green dot for a healthy reader. Tokens: docs/ux-elevation-spec.md §4/§6.
+   Read in order: Round 11 base → Round 12/13 fixes → the Round 13 system layer (white surface, Hoy v5) → the Round 14
+   consolidation → the Round 15 components → the Round 16 chip "la regla" v16 (last). Later blocks override earlier ones. */
 :root{
   /* surfaces (day) */
   --paper:#F5F4EF;--paper-2:#EBE9E2;--ink:#111110;--ink-2:#5C5B57;--ink-3:#8A8984;--rule:#DCDAD2;
@@ -83,7 +85,7 @@ b,strong{font-weight:600}
 .link.row-link{display:flex;align-items:center;min-height:48px}
 .gap8{height:8px}.gap16{height:16px}.gap24{height:24px}.gap32{height:32px}
 .hr{height:1px;background:var(--rule);margin:8px 0}
-/* ---- the mark: the chip in miniature (16×24dp): outline, a 6dp lane between two 1dp rules; colour above / in / below ---- */
+/* ---- the mark: la regla in miniature (16×24dp): outline, two 1dp rules (tu meta, tu mínimo); colour above / between / below ---- */
 .mark{width:16px;height:24px;flex:0 0 16px;position:relative;border:1.5px solid var(--ink-2);border-radius:3px;display:block;overflow:hidden}
 .mark::before,.mark::after{content:"";position:absolute;left:0;right:0;height:1px;background:var(--ink-3)}
 .mark::before{top:8px}.mark::after{top:14px}
@@ -165,33 +167,13 @@ b,strong{font-weight:600}
 .skeleton{background:var(--paper-2);border-radius:4px;color:transparent}
 /* ---- the K (brand): an unboxed letter in verde ---- */
 .kmark{font-family:var(--font-money);font-weight:700;color:var(--k);display:inline-block;line-height:1}
-/* ---- the chip (overlay): "la raya con carril" (Round 11b, both reviewers) ----
-   200×88dp ink plate docked to the bezel. Two threshold rules form a 16dp lane (carril) between the number zone (y 0–36)
-   and the qualifier zone (y 52–88): the upper rule is tu mínimo, the lower is tu rojo. Only the relevant field is coloured:
-   verde = zone T · amarillo = the lane · rojo = zone B · gris = no colour, dashed rules. Text never moves. Theme-independent.
-   Markup: <div class="chip v"><div class="zt">$9.49<small>/km</small></div><div class="lane"></div><div class="zb">neto aprox. · $285/h</div><span class="kk">K</span></div> */
-.chip{position:absolute;right:0;top:144px;width:200px;height:88px;background:var(--chip-ink);color:var(--on-chip-ink);font-family:var(--font-money);border-radius:2px 0 0 2px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.25),0 0 0 1px rgba(255,255,255,.28)}
-.chip.left{right:auto;left:0;border-radius:0 2px 2px 0}
-.chip .zt,.chip .zb{position:absolute;left:0;right:0;padding:0 16px;white-space:nowrap;font-variant-numeric:tabular-nums lining-nums;display:flex;align-items:center}
-.chip .zt{top:0;height:36px;font-size:32px;font-weight:600;letter-spacing:-.01em;padding-top:2px}
-.chip .zt small{font-size:16px;font-weight:500;margin-left:2px}
-.chip .zb{top:52px;height:36px;font-size:16px;font-weight:500}
-.chip .lane{position:absolute;left:0;right:0;top:36px;height:16px;border-top:2px solid rgba(245,244,239,.8);border-bottom:2px solid rgba(245,244,239,.8)}
-.chip .kk{position:absolute;right:16px;top:9px;width:12px;height:14px;font-size:13px;line-height:14px;font-weight:700;opacity:.6;text-align:center}
-.chip.v .zt{background:var(--verde);color:var(--on-verde)}
-.chip.a .lane{background:var(--amarillo);border-color:var(--amarillo)}
-.chip.r .zb{background:var(--rojo);color:var(--on-rojo)}
-.chip.g .lane{border-top:2px dashed rgba(245,244,239,.5);border-bottom:2px dashed rgba(245,244,239,.5)}
-.chip.g .zt{font-family:var(--font-ui);font-size:20px;font-weight:600;padding-top:0}
-.chip.g .zb{font-family:var(--font-ui);font-weight:400;color:#B9B8B3}
 /* "Lector detenido": a different object — half-height ink tab, no raya, no colour */
 .lector-tab{position:absolute;right:0;top:144px;width:200px;height:48px;background:var(--chip-ink);color:var(--on-chip-ink);border-radius:2px 0 0 2px;padding:6px 16px;display:flex;flex-direction:column;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.25)}
 .lector-tab .t{font-size:16px;line-height:20px;font-weight:600}
 .lector-tab .s{font-size:13px;line-height:16px;opacity:.85;white-space:nowrap}
 /* ---- in-app sample of the chip (A1, B3, G2): the same object, docked to this screen's edge ---- */
-.sample{position:relative;height:104px}
-.sample .lbl{position:absolute;left:0;top:34px;font-size:13px;color:var(--ink-2)}
-.sample .chip{top:8px;right:calc(-1 * var(--gutter))}
+.sample{position:relative;height:116px}
+.sample .lbl{position:absolute;left:0;top:19px;font-size:13px;color:var(--ink-2)}
 /* ---- host mock (generic ride app, no brand): light map, top control row, mid-lower offer card ---- */
 .phone.host{background:#f4f6fb;color:#111;font-family:Inter,Roboto,sans-serif}
 .phone.host .statusbar{color:#111}
@@ -226,10 +208,6 @@ b,strong{font-weight:600}
 /* ---- Round 12 system fixes ---- */
 .phone.host.night .map{background:url("data:image/svg+xml;utf8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 393 760%22 width=%22393%22 height=%22760%22%3E%3Crect width=%22393%22 height=%22760%22 fill=%22%231f2329%22/%3E%3Crect x=%2225.0%22 y=%225.0%22 width=%2245%22 height=%2250%22 rx=%226%22 fill=%22%23243128%22/%3E%3Crect x=%2224.0%22 y=%2264.0%22 width=%2247%22 height=%2262%22 rx=%226%22 fill=%22%23282e36%22/%3E%3Crect x=%2224.0%22 y=%22134.0%22 width=%2247%22 height=%2272%22 rx=%226%22 fill=%22%23262c33%22/%3E%3Crect x=%2225.0%22 y=%22215.0%22 width=%2245%22 height=%2280%22 rx=%226%22 fill=%22%23262c33%22/%3E%3Crect x=%2224.0%22 y=%22304.0%22 width=%2247%22 height=%2272%22 rx=%226%22 fill=%22%23262c33%22/%3E%3Crect x=%2224.0%22 y=%22384.0%22 width=%2247%22 height=%2282%22 rx=%226%22 fill=%22%23223326%22/%3E%3Crect x=%2225.0%22 y=%22475.0%22 width=%2245%22 height=%2280%22 rx=%226%22 fill=%22%23282e36%22/%3E%3Crect x=%2224.0%22 y=%22564.0%22 width=%2247%22 height=%2282%22 rx=%226%22 fill=%22%23223326%22/%3E%3Crect x=%2224.0%22 y=%22654.0%22 width=%2247%22 height=%22102%22 rx=%226%22 fill=%22%23223326%22/%3E%3Crect x=%2279.0%22 y=%224.0%22 width=%2267%22 height=%2252%22 rx=%226%22 fill=%22%232c323a%22/%3E%3Crect x=%2279.0%22 y=%2264.0%22 width=%2267%22 height=%2262%22 rx=%226%22 fill=%22%232a3038%22/%3E%3Crect x=%2280.0%22 y=%22135.0%22 width=%2265%22 height=%2270%22 rx=%226%22 fill=%22%232c323a%22/%3E%3Crect x=%2279.0%22 y=%22214.0%22 width=%2267%22 height=%2282%22 rx=%226%22 fill=%22%232c323a%22/%3E%3Crect x=%2279.0%22 y=%22304.0%22 width=%2267%22 height=%2272%22 rx=%226%22 fill=%22%23262c33%22/%3E%3Crect x=%2280.0%22 y=%22385.0%22 width=%2265%22 height=%2280%22 rx=%226%22 fill=%22%23262c33%22/%3E%3Crect x=%2279.0%22 y=%22474.0%22 width=%2267%22 height=%2282%22 rx=%226%22 fill=%22%232a3038%22/%3E%3Crect x=%2279.0%22 y=%22564.0%22 width=%2267%22 height=%2282%22 rx=%226%22 fill=%22%232a3038%22/%3E%3Crect x=%2280.0%22 y=%22655.0%22 width=%2265%22 height=%22100%22 rx=%226%22 fill=%22%232c323a%22/%3E%3Crect x=%22154.0%22 y=%224.0%22 width=%2257%22 height=%2252%22 rx=%226%22 fill=%22%23252b32%22/%3E%3Crect x=%22155.0%22 y=%2265.0%22 width=%2255%22 height=%2260%22 rx=%226%22 fill=%22%232c323a%22/%3E%3Crect x=%22154.0%22 y=%22134.0%22 width=%2257%22 height=%2272%22 rx=%226%22 fill=%22%232a3038%22/%3E%3Crect x=%22154.0%22 y=%22214.0%22 width=%2257%22 height=%2282%22 rx=%226%22 fill=%22%232c323a%22/%3E%3Crect x=%22155.0%22 y=%22305.0%22 width=%2255%22 height=%2270%22 rx=%226%22 fill=%22%23223326%22/%3E%3Crect x=%22154.0%22 y=%22384.0%22 width=%2257%22 height=%2282%22 rx=%226%22 fill=%22%232a3038%22/%3E%3Crect x=%22154.0%22 y=%22474.0%22 width=%2257%22 height=%2282%22 rx=%226%22 fill=%22%232c323a%22/%3E%3Crect x=%22155.0%22 y=%22565.0%22 width=%2255%22 height=%2280%22 rx=%226%22 fill=%22%23243128%22/%3E%3Crect x=%22154.0%22 y=%22654.0%22 width=%2257%22 height=%22102%22 rx=%226%22 fill=%22%23282e36%22/%3E%3Crect x=%22220.0%22 y=%225.0%22 width=%2275%22 height=%2250%22 rx=%226%22 fill=%22%232a3038%22/%3E%3Crect x=%22219.0%22 y=%2264.0%22 width=%2277%22 height=%2262%22 rx=%226%22 fill=%22%23252b32%22/%3E%3Crect x=%22219.0%22 y=%22134.0%22 width=%2277%22 height=%2272%22 rx=%226%22 fill=%22%23262c33%22/%3E%3Crect x=%22220.0%22 y=%22215.0%22 width=%2275%22 height=%2280%22 rx=%226%22 fill=%22%232c323a%22/%3E%3Crect x=%22219.0%22 y=%22304.0%22 width=%2277%22 height=%2272%22 rx=%226%22 fill=%22%23243128%22/%3E%3Crect x=%22219.0%22 y=%22384.0%22 width=%2277%22 height=%2282%22 rx=%226%22 fill=%22%23243128%22/%3E%3Crect x=%22220.0%22 y=%22475.0%22 width=%2275%22 height=%2280%22 rx=%226%22 fill=%22%23223326%22/%3E%3Crect x=%22219.0%22 y=%22564.0%22 width=%2277%22 height=%2282%22 rx=%226%22 fill=%22%23282e36%22/%3E%3Crect x=%22219.0%22 y=%22654.0%22 width=%2277%22 height=%22102%22 rx=%226%22 fill=%22%23243128%22/%3E%3Crect x=%22304.0%22 y=%224.0%22 width=%2285%22 height=%2252%22 rx=%226%22 fill=%22%23282e36%22/%3E%3Crect x=%22304.0%22 y=%2264.0%22 width=%2285%22 height=%2262%22 rx=%226%22 fill=%22%23223326%22/%3E%3Crect x=%22305.0%22 y=%22135.0%22 width=%2283%22 height=%2270%22 rx=%226%22 fill=%22%232c323a%22/%3E%3Crect x=%22304.0%22 y=%22214.0%22 width=%2285%22 height=%2282%22 rx=%226%22 fill=%22%23243128%22/%3E%3Crect x=%22304.0%22 y=%22304.0%22 width=%2285%22 height=%2272%22 rx=%226%22 fill=%22%23243128%22/%3E%3Crect x=%22305.0%22 y=%22385.0%22 width=%2283%22 height=%2280%22 rx=%226%22 fill=%22%232c323a%22/%3E%3Crect x=%22304.0%22 y=%22474.0%22 width=%2285%22 height=%2282%22 rx=%226%22 fill=%22%23262c33%22/%3E%3Crect x=%22304.0%22 y=%22564.0%22 width=%2285%22 height=%2282%22 rx=%226%22 fill=%22%23243128%22/%3E%3Crect x=%22305.0%22 y=%22655.0%22 width=%2283%22 height=%22100%22 rx=%226%22 fill=%22%23223326%22/%3E%3Crect x=%220%22 y=%22296%22 width=%22393%22 height=%2212%22 fill=%22%232e333b%22/%3E%3Crect x=%22212%22 y=%220%22 width=%2212%22 height=%22760%22 fill=%22%232e333b%22/%3E%3Cpath d=%22M96 640 L96 384 L218 384 L218 232 L330 232%22 fill=%22none%22 stroke=%22%23e8edf1%22 stroke-width=%227%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22 opacity=%22.9%22/%3E%3Ccircle cx=%2296%22 cy=%22640%22 r=%2217%22 fill=%22%231f2329%22 stroke=%22%23e8edf1%22 stroke-width=%224%22/%3E%3Cpath d=%22M96 629 l9 18 -9 -5 -9 5z%22 fill=%22%23e8edf1%22/%3E%3Ccircle cx=%22218%22 cy=%22384%22 r=%227%22 fill=%22%234c8dff%22 stroke=%22%231f2329%22 stroke-width=%223%22/%3E%3Ccircle cx=%22330%22 cy=%22232%22 r=%229%22 fill=%22%23e8edf1%22/%3E%3Crect x=%22326%22 y=%22228%22 width=%228%22 height=%228%22 fill=%22%231f2329%22/%3E%3C/svg%3E") no-repeat top left/393px 760px,#1f2329}
 .phone.host.night .map::after{content:none}
-/* chip: the unit shares the number's baseline */
-.chip .zt{align-items:baseline;padding-top:0;line-height:36px}
-.chip .zt small{line-height:36px}
-.chip.g .zt{align-items:center;line-height:26px}
 /* C6 tab is set in the UI face */
 .lector-tab{font-family:var(--font-ui)}
 /* nav: inactive labels readable (ink-2, 6.2:1); icons stay ink-3 */
@@ -256,10 +234,8 @@ b,strong{font-weight:600}
 .select .car:empty::before{-webkit-mask-image:var(--i-chev-d);mask-image:var(--i-chev-d)}
 /* charts: the bars are their own group — 24 + the 8dp top padding = the 32dp group gap (E4's framed chart is not a direct child and keeps its own layout) */
 .content > .spark{margin-top:24px}
-/* host mock: the control row sits at 80–128 so the chip at y 144 docks 16dp under it (placement rule, 120 §1.1) */
+/* host mock: the control row sits at 80–128 */
 .hosttop{top:80px}
-/* chip: the K's right edge at 16dp, its centre on the 32sp cap centre */
-.chip .kk{right:16px;width:auto;top:11px}
 /* night host (N8): the host app's own dark theme — colours only, same geometry as C1 */
 .phone.host.night{background:#1f2329}
 .phone.host.night .hosttop b{background:#f3f4f6;color:#111}
@@ -278,12 +254,11 @@ b,strong{font-weight:600}
 .dialog .db{font-size:13px;line-height:18px;color:var(--ink-2)}
 .dialog .da{display:flex;justify-content:flex-end;gap:24px;padding-top:8px;font-size:16px;font-weight:600}
 /* ---- Round 13 system changes (R12 Opus/Codex) ---- */
-/* chip: 2dp exposed corners everywhere (frames and previews share one geometry) */
 /* targets ≥ 48dp: qualifier row and text tabs */
 .hero .qual{min-height:48px}
 .tabs span{min-height:48px;display:inline-flex;align-items:center;padding:0;min-width:48px}
 .tabs span.on::after{bottom:6px}
-/* one number step: 32/36 (chip, E4/E5 figures, OTP) */
+/* one number step: 32/36 (E4/E5 figures, OTP) */
 .t-num{font-size:32px;line-height:36px}
 .otp i{font-size:32px}
 /* Ganancias: the raya is the car cost. Bars are light (rule) below the line and ink-2 above it; the line is 2dp ink with a 13sp caption at its right end.
@@ -296,68 +271,14 @@ b,strong{font-weight:600}
 .spark .carline{position:absolute;left:0;right:0;height:2px;background:var(--ink);display:block}
 .spark .carline span{position:absolute;right:0;top:4px;font-size:13px;line-height:18px;color:var(--ink);font-weight:400;white-space:nowrap;background:var(--paper);padding-left:6px}
 .night .spark .carline span{background:var(--paper)}
-/* Comparar: the reference hangs on the line; the driver's row leads with the ink mark */
-.ref{display:flex;flex-direction:column}
-.ref .line{height:2px;background:var(--ink)}
-.ref .cap13{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;line-height:18px;color:var(--ink-2);padding-top:4px}
-.ref .cap13 b{font-family:var(--font-money);font-size:16px;color:var(--ink);font-variant-numeric:tabular-nums}
-.ref.dashed .line{background:repeating-linear-gradient(90deg,var(--ink-3) 0 6px,transparent 6px 10px)}
-/* G2: the lane at 1:1 with both limits labelled */
-.lane-edit{position:relative;height:88px;background:var(--chip-ink);border-radius:2px;color:var(--on-chip-ink);margin:8px 0}
-.lane-edit .r1,.lane-edit .r2{position:absolute;left:0;right:0;height:2px;background:rgba(245,244,239,.8)}
-.lane-edit .r1{top:36px}.lane-edit .r2{top:50px}
-.lane-edit .zone{position:absolute;left:0;right:0}
-.lane-edit .zt{top:0;height:36px;background:var(--verde)}.lane-edit .zl{top:38px;height:12px;background:var(--amarillo)}.lane-edit .zb{top:52px;bottom:0;background:var(--rojo)}
-.lane-edit .lbl{position:absolute;right:12px;font-size:13px;line-height:18px;font-weight:600;color:#EDEDEA;text-shadow:0 0 4px rgba(0,0,0,.6)}
-.lane-edit .lbl.top{top:9px}.lane-edit .lbl.bot{bottom:9px}
-/* A1: the four marks as 48dp targets that swap the demo state */
-.marks4{display:flex;gap:12px;align-items:center;min-height:48px}
-.marks4 .mk{width:48px;height:48px;display:flex;align-items:center;justify-content:center}
-.marks4 .mk.dim .mark{opacity:.45}
+/* a reference that hangs on a 2dp line (H3's share card; Comparar draws .cbar bars since Round 15) */
 /* D1 and long lists: a paper fade above the nav */
 .fade{position:absolute;left:0;right:0;bottom:80px;height:24px;background:linear-gradient(to bottom,transparent,var(--paper));pointer-events:none}
-/* R13 follow-ups: .mk.dim must not inherit the sheet scrim; .lane-edit is an ink lane, only the preview's zone is lit */
-.marks4 .mk.dim{position:static;inset:auto;background:none}
-.lane-edit .zone{background:transparent}
-.lane-edit.v .zt{background:var(--verde)} .lane-edit.a .zl{background:var(--amarillo)} .lane-edit.r .zb{background:var(--rojo)}
 /* Mes bars: the week bars share Semana's 30dp bar width, centred in their slots (E3, E3c, E3d backdrop, N5) */
 [data-weeks] .spark i{background:linear-gradient(var(--ink-3) 0 0) 50% 0/30px 100% no-repeat}
 [data-weeks] .spark i.outline{background:none}
 
-/* ---- the chip, Round 13 blind-test winner: "la regla" (r5a) — the trip's colour band sits above, between or below the driver's two labelled lines (tu meta $8 / tu mínimo $6), with a solid ▲ ▬ ▼ position cue; ink plate 240×100, radius 14, placed above the host's offer card. Markup per state: _regla-markup.html ---- */
-.regla{position:absolute;top:428px;right:12px;width:240px;height:100px;border-radius:14px;overflow:hidden;background:#0E0F10;color:#EDEDEA;font-family:'Barlow Semi Condensed','Roboto Condensed',sans-serif;font-variant-numeric:tabular-nums;box-shadow:0 10px 24px rgba(0,0,0,.24),0 2px 4px rgba(0,0,0,.2)}
-.regla *{box-sizing:border-box}
-.rg-band{position:absolute;left:0;right:0;height:56px;display:flex;align-items:baseline;padding:13px 14px 0 12px;white-space:nowrap}
-.rg-a path{fill:none;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round}
-.rg-n{font-size:40px;line-height:30px;font-weight:600;letter-spacing:-.01em}
-.rg-u{position:relative;margin-left:5px;font-family:'Barlow',sans-serif;font-size:13px;line-height:14px;font-weight:500}
-.rg-u i{position:absolute;left:0;bottom:14px;font-style:normal}
-.rg-h{margin-left:auto;font-size:21px;font-weight:600}
-.rg-h small{font-family:'Barlow',sans-serif;font-size:14px;font-weight:500;margin-left:1px}
-.rg-ln{position:absolute;left:0;right:0;height:22px;display:flex;align-items:center;padding:0 14px;font-size:14px;font-weight:500;color:rgba(237,237,234,.72);white-space:nowrap}
-.rg-ln b{font-weight:600;color:#EDEDEA;margin-left:4px}
-.rg-ln i{flex:1;height:1.5px;margin-left:10px;border-radius:1px;background:rgba(237,237,234,.42)}
-.rg-a{flex:0 0 22px;width:22px;height:22px;margin-right:10px;align-self:center;margin-top:-6px}
-.v .rg-band{top:0;background:#187A36;color:#fff}
-.v .rg-l8{top:56px}
-.v .rg-l6{top:78px}
-.rg-a{flex:0 0 22px;width:22px;height:22px;margin-right:10px;align-self:center;margin-top:-6px}
-.y .rg-l8{top:0}
-.y .rg-band{top:22px;background:#F2B705;color:#1A1300}
-.y .rg-l6{top:78px}
-.rg-a{flex:0 0 22px;width:22px;height:22px;margin-right:10px;align-self:center;margin-top:-6px}
-.r .rg-l8{top:0}
-.r .rg-l6{top:22px}
-.r .rg-band{top:44px;background:#D32F2F;color:#fff}
-.rg-a{flex:0 0 18px;width:18px;height:28px;margin-right:9px;align-self:baseline}
-.rg-g .rg-band{top:0;flex-direction:column;align-items:flex-start;justify-content:center;gap:3px;padding:0 14px}
-.rg-g .rg-band b{font-size:22px;font-weight:600;line-height:1}
-.rg-g .rg-band span{font-family:'Barlow',sans-serif;font-size:14px;font-weight:500;color:rgba(237,237,234,.68)}
-.rg-g .rg-l8{top:56px}
-.rg-g .rg-l6{top:78px}
-.rg-g .rg-ln{color:rgba(237,237,234,.5)}
-.rg-g .rg-ln b{color:rgba(237,237,234,.72)}
-.rg-g .rg-ln i{background:repeating-linear-gradient(90deg,rgba(237,237,234,.32) 0 5px,transparent 5px 9px)}
+/* (the Round 13 la regla rules were replaced by the Round 16 component at the end of this file) */
 /* ---- Round 13 blind-test winners, system layer (Hoy v5 language; judged Uber-class 8.1, clarity 8.3, never a template) ---- */
 :root{--paper:#FFFFFF;--paper-2:#F2F2F0;--rule:#E8E7E3}
 .top:not(.drill) .title{font-family:var(--font-money);font-size:30px;line-height:36px;font-weight:700;letter-spacing:-.01em}
@@ -388,3 +309,274 @@ h3.sec2{font-family:var(--font-money);font-size:22px;line-height:28px;font-weigh
 .obs{display:flex;align-items:center;gap:12px;min-height:56px;font-size:16px;line-height:22px;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
 .obs svg{width:22px;height:22px;flex:0 0 22px;fill:var(--ink-2)}
 .obs .m{flex:1}
+/* ---- Round 14 consolidation: the shared rules the section agents asked for (replaces their inline styles) ---- */
+/* placement: the plate's bottom edge sits 16dp above the host's offer card (standard host: card top 545 → the 112dp plate at 417–529) */
+/* chevrons inside the hero's basis line and the observation row draw the same 24dp icon as rows */
+.hero .sub2 .chev,.obs .chev{flex:0 0 24px;color:var(--ink-2)}
+.hero .sub2 .chev{margin-left:8px}
+.hero .sub2 .chev:empty::before,.obs .chev:empty::before{content:"";display:block;width:24px;height:24px;background:currentColor;-webkit-mask:var(--i-chev) center/24px 24px no-repeat;mask:var(--i-chev) center/24px 24px no-repeat}
+/* a basis line that must carry count + hours + basis wraps to two lines with the same breathing */
+.hero .sub2.two{padding:8px 0 12px}
+/* sentence heroes and onboarding headlines: one step under the 30px root title, in the money face */
+.hero.sentence .value,.t-title{font-family:var(--font-money);font-size:24px;line-height:30px;font-weight:700;letter-spacing:-.005em;text-wrap:balance}
+.hero .value small{letter-spacing:0}
+/* the grey secondary after a list */
+.of + .btn.grey,.rows + .btn.grey{margin-top:20px}
+/* observation rows: an optional quiet second line; stacked rows share one hairline */
+.obs .m em{display:block;font-style:normal;font-size:14px;line-height:18px;color:var(--ink-2)}
+.obs + .obs{border-top:0}
+/* status used inside a row's sub-line keeps the row's 13sp voice; status used as a row-leading mark takes a 24dp column */
+.row .s .status{font-size:13px;line-height:18px;font-weight:400;height:18px;color:var(--ink-2)}
+.row > .status:first-child{width:24px;flex:0 0 24px;height:auto}
+/* green dot = the reader works. A status that states a fact about data (confirmed, read) keeps the solid ink segment */
+.status.fact:not(.off):not(.paused):not(.ready) i{width:24px;height:2px;flex:0 0 24px;border-radius:0;background:var(--ink);box-shadow:none}
+/* a hero label that opens a selector (Comparar) */
+.hero .label.sel{min-height:48px;display:flex;align-items:center;justify-content:space-between}
+.hero .label.sel::after{content:"";flex:0 0 24px;width:24px;height:24px;background:var(--ink-2);-webkit-mask:var(--i-chev-d) center/24px 24px no-repeat;mask:var(--i-chev-d) center/24px 24px no-repeat}
+/* Tu semáforo (G2): the stage that holds a live la regla at 1:1, and the two limit controls (their rings: Round 15 block) */
+.stage{position:relative;background:var(--paper-2);border-radius:12px;padding:12px 0 14px}
+.stage .regla{position:relative;top:auto;right:auto;margin:0 auto}
+.limit{display:flex;align-items:center;gap:8px;min-height:92px;padding:0 15px 0 17px;border:1px solid var(--rule);border-radius:12px}
+.limit i{display:flex;align-items:center;justify-content:center;width:48px;height:48px;border-radius:50%;border:1.5px solid var(--ink-3);color:var(--ink-2);font-style:normal}
+/* lector detenido (C6): a sibling of la regla — same ink, radius and shadow; its bottom edge on the same 16dp foot (C6 sets top 473) */
+.lector-tab{top:473px;right:12px;width:240px;height:56px;border-radius:14px;padding:0 14px;gap:3px;box-shadow:0 10px 24px rgba(0,0,0,.24),0 2px 4px rgba(0,0,0,.2)}
+.lector-tab .t{font-family:var(--font-money);font-size:22px;line-height:1}
+.lector-tab .s{font-size:14px;line-height:18px;font-weight:500;opacity:.68}
+/* ---- Round 14 night: la regla on the dark host (N8–N10). The #0E0F10 plate sits on a #262c33 map at 1.3:1 and the day shadow (.24 black) vanishes on it, so the plate's ink zones lose their edge; a 1dp 12 % white keyline holds the edge and a deeper shadow lifts the plate. Night only: the day plate keeps its own shadow. ---- */
+
+/* ---- Round 15 components: the shared rules for what the section agents built inline in Round 15 (replaces their inline styles; markup per class in the R15 CSS contract) ---- */
+/* A1 legend = the demo's selector: 2 × 2 cells (≥48dp) of mark + the chip's words, 12dp under the slice, pulled 12dp out so the marks sit on the gutter.
+   The other states: ink-2 label, ink-3 mark (gris keeps its dashed ink-3). The shown state (.on): a paper-2 cell, a 600 ink label, an ink-outlined mark */
+.legend4{display:grid;grid-template-columns:1fr 1fr;column-gap:8px;margin:12px -12px 0}
+.legend4 > div{display:flex;align-items:center;gap:12px;min-height:48px;padding:0 12px;border-radius:12px;font-size:14px;line-height:18px;text-wrap:balance;color:var(--ink-2)}
+.legend4 .mark{border-color:var(--ink-3)}
+.legend4 > .on{background:var(--paper-2);color:var(--ink);font-weight:600}
+.legend4 > .on .mark{border-color:var(--ink)}
+/* D1–D3 shift timeline: a 16sp ink-2 label 24dp under the observation, then the day on a true time scale — each shift a 6dp ink segment with its net
+   above (money 17/600) and its range below (13sp ink-2), a pause as a gap that names itself. Each child's share of the day is an inline flex-basis */
+.shift-label{margin-top:24px;font-size:16px;line-height:22px;color:var(--ink-2)}
+.shiftline{display:flex;margin-top:12px}
+.shiftline > *{flex:0 0 auto}
+.shiftline b{display:block;font-family:var(--font-money);font-size:17px;line-height:22px;font-weight:600;font-variant-numeric:tabular-nums}
+.shiftline i{display:block;height:6px;margin:6px 0 8px;background:var(--ink)}
+.shiftline .pause{padding-top:22px;text-align:center}
+/* F comparison bars, one scale: a label line (name · rate in the money face, 17/600) over a 16dp bar, square at the baseline with a 4dp rounded tip,
+   24dp between rows. The leading row is ink at 100 %; the compared row (.other) has an ink-2 label and an ink-3 bar. A row's scale is the same inline
+   width on its line and its bar, so the rate ends at the bar's tip */
+.cbar .ln{display:flex;justify-content:space-between;align-items:baseline;font-size:17px;line-height:22px;font-weight:600}
+.cbar .ln.other{color:var(--ink-2)}
+.cbar .bar{height:16px;margin-top:8px;border-radius:0 4px 4px 0;background:var(--ink)}
+.cbar .bar.other{background:var(--ink-3)}
+.cbar .bar + .ln{margin-top:24px}
+.cbar .ln + .ln{margin-top:16px}
+/* F3: a withheld bar keeps its 16dp slot, undrawn; a bare 24dp ink-3 lock stands where the rate would end, optically flush right */
+.cbar .bar.held{background:none}
+.cbar .lock{align-self:center;width:24px;height:24px;margin:-1px -4px -1px 0;fill:var(--ink-3)}
+/* F4: the difference line under the bars is 400 (its figure keeps the money face's 600). F5: a qualifier in ink-2 400; a value still to come in ink-3 400 */
+.cbar .ln.diff{font-weight:400}
+.cbar .ln .q{font-weight:400;color:var(--ink-2)}
+.cbar .ln .wait{font-weight:400;color:var(--ink-3)}
+/* the basis line under the bars */
+.cbar-note{padding:20px 0 12px}
+/* E charts: the plot sits 40dp under the row above (room for the best bar's figure); .capcol keeps a 120dp caption column right of the plot, its $0 line
+   and its day labels */
+.plot{margin-top:40px}
+.capcol{margin-right:120px}
+/* the $0 line: solid 1dp ink-3, it stops at the plot edge */
+.raya.zero{height:1px;background:var(--ink-3)}
+/* the best bar is the one ink bar and carries its figure (money 16/600) 4dp above it, centred; .first sets the figure flush with the first bar's left
+   edge. On a .quiet chart every other bar is --rule. Painted as background-image, so Mes keeps its 30dp centred week bars */
+.spark.quiet i{background-image:linear-gradient(var(--rule) 0 0)}
+.spark i.best{position:relative;background-image:linear-gradient(var(--ink) 0 0)}
+.spark i.best span{position:absolute;left:50%;bottom:100%;transform:translateX(-50%);padding-bottom:4px;font-style:normal;font-family:var(--font-money);font-size:16px;line-height:20px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.spark i.best.first span{left:0;transform:none}
+/* lo del coche: a 2dp dashed ink-2 line that ends on a whole dash 3dp past the bars, its one label 8dp beyond, in the caption column */
+.spark .carline.dashed{right:-3px;background:repeating-linear-gradient(90deg,var(--ink-2) 0 6px,transparent 6px 10px)}
+.spark .carline.dashed span{top:-8px;right:auto;left:calc(100% + 8px);padding:0;background:none;color:var(--ink-2)}
+/* G2 limit cards: both are equally live, so both steppers' rings are full contrast (the .on card is retired); the label/value column, the unit in the
+   UI face, and the step printed under the cards on the label's inset */
+.limit i{border-color:var(--ink);color:var(--ink)}
+.limit i svg{width:24px;height:24px;fill:currentColor}
+.limit .m{flex:1;min-width:0}
+.limit .t-num{margin-top:4px}
+.limit small{font:400 16px/22px var(--font-ui);color:var(--ink-2);margin-left:4px}
+.limit-step{padding:8px 0 0 17px}
+/* ---- the chip, Round 16 blind-test winner: "la regla" v16 (opus-r16a — lineup 8, six judges: Uber-class rank 2.8/11 (1st), glance 3.5 (generic leaders 3.2–3.3),
+   reading order 8.5, host hierarchy 7.5, template 1/6; record: docs/ux-elevation/debate/180).
+   One reading order in every state. On top a fixed 56dp verdict band: a solid 30dp position cue ▲ ◆ ▼, the deciding rate (30sp, under the host's
+   36sp fare) with "/km neto", and under it the position phrase against the driver's own limits — "Arriba de tu meta" / "Cumple tu
+   mínimo" / "Abajo de tu mínimo" (a position, never a verdict word; the yellow phrase since Round 23). Below, the ink tray: the two labelled limits "tu meta $8" / "tu mínimo $6"
+   (15sp, 72 % label, 100 % value) on 2dp lines at 75 % white, and a small white marker of the same shape above, between or below them, with even
+   clearance in every state (5dp to the band / plate edge, 4dp to the lines' level). No $/h. Plate 240×112, radius 14, bottom edge 16dp above the
+   host card (card at 545 → top 417, right 12). Gris: no band colour, no cue, no marker; the text keeps its rows at the band's 14dp inset; dashed limits.
+   .fs13 = the system 1.3× font: every size ×1.3 through --s → 312×145.6 (312 = 240 × 1.3; since Round 23 the longest phrase, "Abajo de tu mínimo", ends
+   75.6dp inside the band at 22.1sp). .rg-ph = limits per hour ("tu mínimo $150/h"): the lines start after the longer label. Markup per state: _regla-markup.html
+
+   (Round 16 replaced the earlier la regla rules; .stage .regla is the Tu semáforo stage.) ---- */
+.regla{--s:1;--rg-x:104px;position:absolute;top:calc(529px - 112px*var(--s));right:12px;width:calc(240px*var(--s));height:calc(112px*var(--s));border-radius:14px;overflow:hidden;background:var(--chip-ink);color:var(--on-chip-ink);font-family:var(--font-money);font-variant-numeric:tabular-nums;box-shadow:0 10px 24px rgba(0,0,0,.24),0 2px 4px rgba(0,0,0,.2)}
+.regla *{box-sizing:border-box}
+.regla.fs13{--s:1.3;height:calc(112px*var(--s))}
+.regla.rg-ph{--rg-x:131px}
+/* the band: one slot, one size, every state */
+.regla .rg-band{position:absolute;left:0;right:0;top:0;height:calc(56px*var(--s));display:block;padding:0;white-space:nowrap}
+.regla.v .rg-band,.regla.y .rg-band,.regla.r .rg-band,.regla.rg-g .rg-band{top:0}
+.regla.v .rg-band{background:var(--verde);color:var(--on-verde)}
+.regla.y .rg-band{background:var(--amarillo);color:var(--on-amarillo)}
+.regla.r .rg-band{background:var(--rojo);color:var(--on-rojo)}
+.regla.rg-g .rg-band{background:#2A2C2F;color:var(--on-chip-ink)}
+.regla .rg-a{position:absolute;left:calc(13px*var(--s));top:calc(13px*var(--s));width:calc(30px*var(--s));height:calc(30px*var(--s));margin:0;flex:none}
+.regla .rg-a path{fill:currentColor;stroke:none}
+.regla .rg-n{position:absolute;left:calc(54px*var(--s));top:calc(4px*var(--s));font-size:calc(30px*var(--s));line-height:calc(30px*var(--s));font-weight:600;letter-spacing:-.01em}
+.regla .rg-u{position:static;margin-left:calc(5px*var(--s));font-family:var(--font-ui);font-size:calc(14px*var(--s));line-height:1;font-weight:500;letter-spacing:0}
+.regla .rg-p{position:absolute;left:calc(54px*var(--s));top:calc(34px*var(--s));font-size:calc(17px*var(--s));line-height:calc(19px*var(--s));font-weight:600}
+/* negative rate: a real U+2212 minus, kerned to its $; the figure keeps its size (−$1.05 /km neto ends at x 198 of 240) */
+.regla .rg-neg i{font-style:normal;margin-right:-.04em}
+/* the tray: two labelled limits, lines from a common x to 42dp short of the edge */
+.regla .rg-ln{position:absolute;left:0;right:0;height:calc(18px*var(--s));display:block;padding:0 0 0 calc(14px*var(--s));font-size:calc(15px*var(--s));line-height:calc(18px*var(--s));font-weight:600;color:rgba(237,237,234,.72);white-space:nowrap}
+.regla .rg-ln b{font-weight:600;color:var(--on-chip-ink);margin-left:calc(4px*var(--s))}
+.regla .rg-ln i{position:absolute;left:calc(var(--rg-x)*var(--s));right:calc(42px*var(--s));top:calc(8px*var(--s));height:calc(2px*var(--s));flex:none;margin:0;border-radius:1px;background:rgba(237,237,234,.75)}
+.regla .rg-ln.rg-l8{top:calc(65px*var(--s));height:calc(18px*var(--s))}
+.regla .rg-ln.rg-l6{top:calc(85px*var(--s));height:calc(18px*var(--s))}
+/* the marker: the cue's shape at 14×12, white, 8dp right of the lines' end; even clearance: ▲ 61–73 (5 under the band, sits on the meta level),
+   ◆ 78–90 (centred between the lines), ▼ 95–107 (hangs from the mínimo level, 5 above the plate edge) */
+.regla .rg-m{position:absolute;right:calc(20px*var(--s));width:calc(14px*var(--s));height:calc(12px*var(--s));fill:#FFFFFF}
+.regla.v .rg-m{top:calc(61px*var(--s))}
+.regla.y .rg-m{top:calc(78px*var(--s))}
+.regla.r .rg-m{top:calc(95px*var(--s))}
+/* gris: no verdict, so no colour, no cue and no marker. The headline and its reason keep their rows (the rate's and the phrase's) and start at the
+   band's own inset, flush with the limit labels at 14: an empty cue slot read as a missing icon and a hollow ring as a radio button / the host's
+   countdown ring (proof: gris-test.png); nothing here can read as a minus. The limits stay, dashed */
+.regla.rg-g .rg-n{left:calc(14px*var(--s));font-size:calc(24px*var(--s));line-height:calc(30px*var(--s));font-weight:600}
+.regla.rg-g .rg-p{left:calc(14px*var(--s));font-family:var(--font-money);font-size:calc(17px*var(--s));font-weight:500;color:rgba(237,237,234,.72)}
+.regla.rg-g .rg-a,.regla.rg-g .rg-m{display:none}
+.regla.rg-g .rg-ln{color:rgba(237,237,234,.5)}
+.regla.rg-g .rg-ln b{color:rgba(237,237,234,.72)}
+.regla.rg-g .rg-ln i{background:repeating-linear-gradient(90deg,rgba(237,237,234,.45) 0 5px,transparent 5px 9px)}
+/* night host: the #0E0F10 plate on a #262c33 map loses its edge; a 1dp 12 % white keyline holds it and a deeper shadow lifts it (day keeps its own) */
+.night .regla{box-shadow:0 10px 24px rgba(0,0,0,.5);outline:1px solid rgba(255,255,255,.12);outline-offset:-1px}
+/* ---- Round 16 night: the gris regla on the dark host (N10). Its band (#2A2C2F) sits on the #262c33 map at 1.0:1, so the plate's top half has no
+   edge of its own and the 12 % keyline above (1.4:1 against the band) is all that holds it; gris alone takes a 20 % keyline (1.8:1 against the
+   band, 1.9:1 against the shadowed map). The coloured bands hold their own edge (verde 2.6:1 on the map) and keep the 12 % line; night only, the
+   day plate keeps its own shadow. ---- */
+.night .regla.rg-g{box-shadow:0 10px 24px rgba(0,0,0,.5);outline:1px solid rgba(255,255,255,.2);outline-offset:-1px}
+/* ---- Round 15b (both reviewers' residuals) ---- */
+/* host mock: the standard offer card's top lands exactly on 545 (its content alone gave 547.5), so the 16dp foot is true */
+.phone.host .offer{min-height:293px}
+/* ---- compact la regla v2 (tight hosts, C12): the band slims and the PHRASE goes; the signature stays. 240×80 (×--s): a 38dp band — 24dp cue,
+   the rate at 26sp with "/km neto" — over a 42dp ink tray with "tu meta $8" / "tu mínimo $6" (14sp) on their 2dp lines and the white marker
+   above, between or below them. Same clearance logic as the full plate (the marker sits on the meta level / centred between / hangs from the
+   mínimo level, 8dp right of the lines' end, equal gap to the band and to the plate edge): marker 3/4 size (≈10.5×9), 3dp clearances.
+   The accessible name is unchanged (the band's aria-label still starts with the phrase); only the phrase's visible line is dropped.
+   Gris: no cue, no marker; the headline and its reason share one line ("Sin lectura · falta la tarifa"), dashed limits.
+   Markup = the full plate's markup + the class "compact" (no element removed). Bottom edge at 529 by default: top = 529 − 80·s.
+   (Round 15c replaced the band-only compact.) ---- */
+.regla.compact{height:calc(80px*var(--s));top:calc(529px - 80px*var(--s))}
+.regla.compact .rg-band{height:calc(38px*var(--s))}
+.regla.compact .rg-a{left:calc(12px*var(--s));top:calc(7px*var(--s));width:calc(24px*var(--s));height:calc(24px*var(--s))}
+.regla.compact .rg-n{left:calc(46px*var(--s));top:calc(6px*var(--s));font-size:calc(26px*var(--s));line-height:calc(26px*var(--s))}
+.regla.compact .rg-p{display:none}
+.regla.compact .rg-ln{display:block;height:calc(16px*var(--s));font-size:calc(14px*var(--s));line-height:calc(16px*var(--s))}
+.regla.compact .rg-ln i{top:calc(7px*var(--s))}
+.regla.compact .rg-ln.rg-l8{top:calc(43px*var(--s));height:calc(16px*var(--s))}
+.regla.compact .rg-ln.rg-l6{top:calc(59px*var(--s));height:calc(16px*var(--s))}
+/* lines' levels 51 and 67: ▲ 41–50 (3 under the band), ◆ centred on 59, ▼ 68–77 (3 above the plate edge) */
+.regla.compact .rg-m{display:block;height:calc(9px*var(--s))}
+.regla.compact.v .rg-m{top:calc(41px*var(--s))}
+.regla.compact.y .rg-m{top:calc(54.5px*var(--s))}
+.regla.compact.r .rg-m{top:calc(68px*var(--s))}
+/* gris compact: one line, headline then reason, on the band's 14dp inset */
+.regla.compact.rg-g .rg-band{display:flex;align-items:baseline;padding:calc(8px*var(--s)) 0 0 calc(14px*var(--s))}
+.regla.compact.rg-g .rg-n{position:static;font-size:calc(21px*var(--s));line-height:calc(22px*var(--s))}
+.regla.compact.rg-g .rg-p{position:static;display:block;font-size:calc(16px*var(--s));line-height:calc(22px*var(--s))}
+.regla.compact.rg-g .rg-p::before{content:"·";margin:0 calc(5px*var(--s)) 0 calc(6px*var(--s))}
+.regla.compact.rg-g .rg-m{display:none}
+/* ---- Round 17 (debate 240–242 + the usability walkthrough) ---- */
+/* status glyphs a driver can tell apart (the walkthrough could not decode three dash patterns): funcionando = the green dot;
+   preparado = a hollow ring; apagado = a slashed ring; en pausa = pause bars; a data fact = a check. Ink, 16dp, never a verdict colour */
+.status.ready i,.status.off i,.status.paused i,.status.fact:not(.off):not(.paused):not(.ready) i{width:16px;height:16px;flex:0 0 16px;border-radius:0;box-shadow:none;background:var(--ink);-webkit-mask:center/16px 16px no-repeat;mask:center/16px 16px no-repeat}
+.status.ready i{-webkit-mask-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='8' r='5.5' fill='none' stroke='black' stroke-width='2'/></svg>");mask-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='8' r='5.5' fill='none' stroke='black' stroke-width='2'/></svg>")}
+.status.off i{-webkit-mask-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='8' r='6' fill='none' stroke='black' stroke-width='2'/><path d='M3.8 3.8 12.2 12.2' stroke='black' stroke-width='2'/></svg>");mask-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='8' r='6' fill='none' stroke='black' stroke-width='2'/><path d='M3.8 3.8 12.2 12.2' stroke='black' stroke-width='2'/></svg>")}
+.status.paused i{-webkit-mask-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect x='3.5' y='2.5' width='3' height='11' fill='black'/><rect x='9.5' y='2.5' width='3' height='11' fill='black'/></svg>");mask-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect x='3.5' y='2.5' width='3' height='11' fill='black'/><rect x='9.5' y='2.5' width='3' height='11' fill='black'/></svg>")}
+.status.fact:not(.off):not(.paused):not(.ready) i{-webkit-mask-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M2.5 8.5 6.5 12.5 13.5 4' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='square'/></svg>");mask-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M2.5 8.5 6.5 12.5 13.5 4' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='square'/></svg>")}
+/* list text one step up (Codex R17: the 72sp figure dwarfed the 13–14sp words needed to read it) */
+.of .t{font-size:18px;line-height:24px}
+.of .t em{font-size:15px;line-height:20px}
+.of .tm,.of .v2{font-size:16px}
+/* Ganancias leads with its figure beside its bars (Opus R17, uber-5's layout); the 72sp display is the day's alone */
+.figrow{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;min-height:88px;margin-top:4px}
+.figrow .value{font-family:var(--font-money);font-size:40px;line-height:44px;font-weight:700;letter-spacing:-.01em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.figrow .plot{margin:0;flex:0 0 168px}
+.spark.mini{height:72px}
+/* the tray marker is a short bar in the band's colour in its slot — the chip's own "third line", the row mark's object
+   (Round 17 marker test: 0/6 read it as a control, against 6/6 for the white triangle). The ▲ ◆ ▼ stays in the band only */
+.regla .rg-m{fill:transparent;width:calc(22px*var(--s));height:calc(5px*var(--s));border-radius:calc(2px*var(--s));right:calc(18px*var(--s))}
+.regla.v .rg-m{background:#2FB35A;top:calc(64px*var(--s))}
+.regla.y .rg-m{background:#F2B705;top:calc(81.5px*var(--s))}
+.regla.r .rg-m{background:#FF5C5C;top:calc(98px*var(--s))}
+.regla.compact .rg-m{height:calc(4px*var(--s))}
+.regla.compact.v .rg-m{top:calc(43px*var(--s))}
+.regla.compact.y .rg-m{top:calc(57px*var(--s))}
+.regla.compact.r .rg-m{top:calc(70.5px*var(--s))}
+/* shared rules for the Round 17 inline styles the section agents reported */
+.legend4.col{grid-template-columns:1fr;margin:0}
+.legend4.col > div{min-height:48px;padding:0;border-radius:0;font-size:16px;line-height:22px;white-space:nowrap;background:none}
+.typeable{text-decoration:underline dotted var(--ink-2);text-decoration-thickness:2px;text-underline-offset:6px}
+.hero.sentence + .t-num,.hero .t-num{margin-top:8px}
+.row > .status:first-child{width:16px;flex:0 0 16px}
+.obs svg,.top .avatar svg{width:24px;height:24px;flex:0 0 24px}
+/* Round 18: marker tints are named tokens (Opus R17-R8: they are tints of the band hue, lifted for the ink tray), rojo 1dp lower for even gaps */
+:root{--mark-verde:#2FB35A;--mark-amarillo:#F2B705;--mark-rojo:#FF5C5C}
+.regla.v .rg-m{background:var(--mark-verde)}
+.regla.y .rg-m{background:var(--mark-amarillo)}
+.regla.r .rg-m{background:var(--mark-rojo);top:calc(99px*var(--s))}
+/* ---- Round 21 · periods stepped with words (part-e/part-f; run 5 → debate 301 Codex Astra + 302 Opus 5.5) ----
+   The period sits on its own line and, under it, one 48dp row of two labelled text steps: ‹ Semana anterior · Semana siguiente ›
+   (Mes anterior · Mes siguiente). Markup: <div class="period steps"><i>Semana anterior</i><span>12 – 18 oct · semana pasada</span><i>Semana siguiente</i></div>
+   — the steps stay the container's first and last children (.period > i:first-child / :last-child still select them); the grid lifts the
+   label above them. A step that cannot move (siguiente on the open period, anterior before Kompara) carries aria-disabled and turns ink-3.
+   The steps' 48dp row rises 6dp into the label line (the label is not a target), and the hero under it drops its 8dp top inset. */
+.period.steps{display:grid;grid-template-columns:auto auto;justify-content:space-between;height:auto;padding-top:6px;font-weight:400}
+.period.steps > span{grid-row:1;grid-column:1 / -1;font-weight:600;line-height:22px}
+.period.steps > i{grid-row:2;width:auto;height:48px;margin:-6px 0 0;display:inline-flex;align-items:center;justify-content:flex-start;font-size:16px;line-height:22px;color:var(--ink);white-space:nowrap}
+.period.steps > i:first-child{grid-column:1;margin-left:-8px}
+.period.steps > i:last-child{grid-column:2;margin-right:-8px}
+.period.steps > i::before,.period.steps > i::after{flex:0 0 24px;width:24px;height:24px;background:var(--ink-2);-webkit-mask:var(--i-chev) center/24px 24px no-repeat;mask:var(--i-chev) center/24px 24px no-repeat}
+.period.steps > i:first-child::before{content:"";-webkit-mask-image:var(--i-chev-l);mask-image:var(--i-chev-l)}
+.period.steps > i:last-child::after{content:""}
+.period.steps > i[aria-disabled]{color:var(--ink-3)}
+.period.steps > i[aria-disabled]::before,.period.steps > i[aria-disabled]::after{background:var(--ink-3)}
+.period.steps + .hero{padding-top:0}
+/* E1's best-day label names its day at 13sp ink-2 (run 5: the bold $1,166 read as a total) */
+.spark i.best span.dia{font-family:var(--font-ui);font-size:13px;line-height:18px;font-weight:400;color:var(--ink-2)}
+/* ---- Round 21 · G2b–G2e, Tu meta y tu mínimo (run 5 task 6; Codex 301 §1, Opus 302 §1). New classes only; nothing above is restyled.
+   .lf = the limit's figure in G5's filled-field idiom (a --paper-2 fill, 8dp radius, no underline), 48dp tall, "$" and "/km" fixed around the value;
+   .lf.focus = the focused field, a 2dp ink outline drawn inside the fill so nothing moves; .lf .sel = the value selected on focus (ink at 14 %, as the
+   retired G2d dialog drew it; no caret). .limit.focused = the card while its field is focused: the helper wraps to a full-width line under the field
+   (.lf-help, 13sp ink-2; its error form is ink 600 led by G4b's ring-! glyph). .limit .cue = the chip's ▲ / ▼ at 13dp in its band colour, A1's legend
+   paths, painted as a mask so the character stays in the text ---- */
+.limit .lf{display:flex;width:max-content;align-items:baseline;height:48px;margin-top:4px;padding:6px 12px 0;border-radius:8px;background:var(--paper-2);white-space:nowrap}
+.limit .lf .t-num{margin-top:0}
+.limit .lf.focus{box-shadow:inset 0 0 0 2px var(--ink)}
+.limit .lf .sel{background:color-mix(in srgb,var(--ink) 14%,transparent)}
+.limit.focused{flex-wrap:wrap;row-gap:2px;padding-top:8px;padding-bottom:8px}
+.limit .lf-help{flex:0 0 100%;font-size:13px;line-height:18px;color:var(--ink-2)}
+.limit .cue{display:inline-block;width:13px;height:13px;overflow:hidden;font-size:0;line-height:0;vertical-align:-1px;-webkit-mask:center/13px 13px no-repeat;mask:center/13px 13px no-repeat}
+.limit .cue.up{background:var(--verde);-webkit-mask-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'><path d='M15 2.5 29 27H1z'/></svg>");mask-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'><path d='M15 2.5 29 27H1z'/></svg>")}
+.limit .cue.down{background:var(--rojo);-webkit-mask-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'><path d='M1 3h28L15 27.5z'/></svg>");mask-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'><path d='M1 3h28L15 27.5z'/></svg>")}
+
+/* ---- Brand (Panamá, 2026-10-28: "the majority of the big black buttons should be green; otherwise it just looks like Uber") ----
+   Kompara green is the brand, the K's colour: every Kompara primary action, the active tab, the selected period underline, a switch
+   that is on and a field being typed into. It never fills a verdict surface: the chip's band and the row marks keep their own verdict
+   colours, always paired with ▲ ◆ ▼ and a phrase, so a green button never reads as "arriba de tu meta". Uber's own screens (.phone.host)
+   keep Uber's black. White on #187A36 is 5.4:1 (AA for the 16sp/600 button label); in the night theme the button stays the same green. */
+:root{--brand:#187A36;--on-brand:#FFFFFF;--k:var(--brand)}
+.btn.primary,.night .btn.primary{background:var(--brand);color:var(--on-brand)}
+.nav .tab.on,.nav .tab.on svg{color:var(--brand)}
+.nav .tab.on::before{background:var(--brand)}
+.night .nav .tab.on,.night .nav .tab.on svg{color:#3FB565}
+.night .nav .tab.on::before{background:#3FB565}
+.tabs span.on::after{background:var(--brand)}
+.night .tabs span.on::after{background:#3FB565}
+.sw{background:var(--brand)}
+.otp i.on{border-color:var(--brand)}
+.limit .lf.focus{box-shadow:inset 0 0 0 2px var(--brand)}
