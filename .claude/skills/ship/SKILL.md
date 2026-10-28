@@ -331,7 +331,8 @@ If no doc findings, skip this step and proceed to Step 5.
       MAIN_PATH=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
       "$MAIN_PATH/pming/worker.sh" merge-lock acquire
       ```
-      If this times out, tell the user another worker is merging. Wait or retry.
+      The lock belongs to this session: `worker.sh` records its Claude Code process. Other sessions using this main checkout wait until step j releases it or this session ends. If this session already holds it, `acquire` prints `OK (already held)`.
+      If it prints `TIMEOUT:` (after about a minute), tell the user what that line says, then wait or retry. A holder it names as a session pid on this host is another session on this Mac, possibly one that stopped without releasing the lock: the user can have that session run step j's block, or end it. A holder this host can't check (another hostname, or a lock whose writer died before finishing it) is cleared once the lock is over 5 minutes old. Delete the lock directory (the main checkout's `pming/.workers.merge-lock`) only if the user tells you to.
 
    b. `git checkout main`
    c. `git pull origin main` — **critical: fetches changes merged by parallel workers**
@@ -377,7 +378,7 @@ If no doc findings, skip this step and proceed to Step 5.
 
 5. Show `git log --oneline -3` to confirm.
 
-**CRITICAL: Always release the merge lock, even on failure.** If any step in 3b-3i fails, release the lock before stopping. The merge lock must never be left held.
+**CRITICAL: Always release the merge lock, even on failure.** If any step in 3b-3i fails, release the lock before stopping. The merge lock must never be left held: until this session releases it or ends, no other session can merge.
 
 ## Step 7: Auto-complete task
 

@@ -447,12 +447,14 @@ cmd_merge_lock_acquire() {
   local token
   token=$(uuidgen | tr '[:upper:]' '[:lower:]')
   local attempts=0
-  local now
+  local now=0 lock_pid="" lock_host="" lock_time=0
 
   while [ $attempts -lt 200 ]; do
     if mkdir "$MERGE_LOCK_DIR" 2>/dev/null; then
+      # The holder is the session's Claude Code process, which outlives this
+      # script. acquired_at goes last: a lock that has it is fully written.
       echo "$token" > "$MERGE_LOCK_DIR/token"
-      echo "$$" > "$MERGE_LOCK_DIR/pid"
+      echo "$SESSION_PID" > "$MERGE_LOCK_DIR/pid"
       echo "$MY_HOSTNAME" > "$MERGE_LOCK_DIR/host"
       date +%s > "$MERGE_LOCK_DIR/acquired_at"
       # Persist token for release
@@ -463,22 +465,35 @@ cmd_merge_lock_acquire() {
 
     # Check if lock holder is dead or stale
     if [ -d "$MERGE_LOCK_DIR" ]; then
-      local lock_pid lock_host lock_time
-      lock_pid=$(cat "$MERGE_LOCK_DIR/pid" 2>/dev/null || echo "0")
-      lock_host=$(cat "$MERGE_LOCK_DIR/host" 2>/dev/null || echo "")
-      lock_time=$(cat "$MERGE_LOCK_DIR/acquired_at" 2>/dev/null || echo "0")
       now=$(date +%s)
-      local age=$(( now - lock_time ))
-
-      # Dead owner on same host
-      if [ "$lock_host" = "$MY_HOSTNAME" ] && [ "$lock_pid" != "0" ] && ! kill -0 "$lock_pid" 2>/dev/null; then
-        rm -rf "$MERGE_LOCK_DIR"
-        attempts=$((attempts + 1))
-        continue
+      lock_time=$(cat "$MERGE_LOCK_DIR/acquired_at" 2>/dev/null || true)
+      if [[ "$lock_time" =~ ^[0-9]+$ ]]; then
+        lock_pid=$(cat "$MERGE_LOCK_DIR/pid" 2>/dev/null || echo "0")
+        lock_host=$(cat "$MERGE_LOCK_DIR/host" 2>/dev/null || echo "")
+      else
+        # Not fully written yet, or its writer died: age it by the directory
+        lock_pid=0
+        lock_host=""
+        lock_time=$(stat -f %m "$MERGE_LOCK_DIR" 2>/dev/null || true)
+        [[ "$lock_time" =~ ^[0-9]+$ ]] || lock_time=$now
       fi
 
-      # Stale lock (>5 min)
-      if [ "$age" -gt 300 ]; then
+      if [ "$lock_host" = "$MY_HOSTNAME" ] && [[ "$lock_pid" =~ ^[1-9][0-9]*$ ]]; then
+        # This session already holds it: keep its token for release
+        if [ "$lock_pid" = "$SESSION_PID" ] &&
+          cp "$MERGE_LOCK_DIR/token" "/tmp/kompara-merge-lock-$SESSION_PID.token" 2>/dev/null; then
+          echo "OK (already held)"
+          return 0
+        fi
+        # Dead owner on same host (its session ended). A live one keeps the
+        # lock however long it holds it: a merge's verify run takes minutes.
+        if ! kill -0 "$lock_pid" 2>/dev/null; then
+          rm -rf "$MERGE_LOCK_DIR"
+          attempts=$((attempts + 1))
+          continue
+        fi
+      elif [ $(( now - lock_time )) -gt 300 ]; then
+        # Stale lock (>5 min) whose owner can't be checked from this host
         rm -rf "$MERGE_LOCK_DIR"
         attempts=$((attempts + 1))
         continue
@@ -489,7 +504,11 @@ cmd_merge_lock_acquire() {
     attempts=$((attempts + 1))
   done
 
-  echo "TIMEOUT: merge lock held too long" >&2
+  if [ "$lock_host" = "$MY_HOSTNAME" ] && [[ "$lock_pid" =~ ^[1-9][0-9]*$ ]]; then
+    echo "TIMEOUT: merge lock held for $(( now - lock_time ))s by session pid $lock_pid on this host; it frees when that session releases it or ends" >&2
+  else
+    echo "TIMEOUT: merge lock held for $(( now - lock_time ))s by a holder this host can't check (pid ${lock_pid:-none}, host ${lock_host:-none}); it is cleared once it is over 300s old" >&2
+  fi
   return 1
 }
 
