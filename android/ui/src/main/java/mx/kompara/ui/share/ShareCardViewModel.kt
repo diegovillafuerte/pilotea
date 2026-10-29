@@ -8,7 +8,6 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
-import mx.kompara.data.accounting.PeriodMoney
 import mx.kompara.data.model.City
 import mx.kompara.metrics.compare.ComparisonMetric
 import mx.kompara.ui.stats.AppClock
@@ -27,7 +26,7 @@ class ShareCardViewModel @Inject constructor(
     private val zone: ZoneId,
 ) : ViewModel() {
     private val asOf = Instant.ofEpochMilli(saved.get<Long>("shareAsOf") ?: clock.nowMs().also { saved["shareAsOf"] = it })
-    private var money: PeriodMoney? = null
+    private var cachedSnapshot: ShareCardSnapshot? = null
     private var generation = 0
     private var renderJob: Job? = null
     private val _state = MutableStateFlow(ShareCardUiState())
@@ -46,11 +45,12 @@ class ShareCardViewModel @Inject constructor(
             try {
                 withContext(Dispatchers.IO) { writer.clear() }
                 val period = SharePeriod.resolve(saved["weekStart"], saved["month"], asOf.atZone(zone).toLocalDate())
-                val snapshot = money ?: provider.load(period, asOf, zone).also { money = it }
-                val data = ShareCardComposer.compose(snapshot, period.kind, hide,
+                val snapshot = cachedSnapshot ?: provider.load(period, asOf, zone).also { cachedSnapshot = it }
+                val data = ShareCardComposer.compose(snapshot.money, period.kind, hide,
                     app = saved["app"] ?: "UBER",
                     city = City.entries.firstOrNull { it.key == saved.get<String>("city") } ?: City.CDMX,
-                    metric = saved.get<String>("metric")?.takeIf { it.isNotBlank() }?.let(ComparisonMetric::valueOf) ?: ComparisonMetric.PER_TRIP)
+                    metric = saved.get<String>("metric")?.takeIf { it.isNotBlank() }?.let(ComparisonMetric::valueOf) ?: ComparisonMetric.PER_TRIP,
+                    statements = snapshot.statements)
                 val bitmap = withContext(Dispatchers.Default) { renderer.render(data) }
                 if (revision == generation) _state.value = ShareCardUiState(false, data, bitmap, hide)
             } catch (cancelled: CancellationException) { throw cancelled }

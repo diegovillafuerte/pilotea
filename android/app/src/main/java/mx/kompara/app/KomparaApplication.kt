@@ -86,6 +86,7 @@ class KomparaApplication : Application(), Configuration.Provider {
     @Inject lateinit var weekCloseScheduler: WeekCloseScheduler
 
     @Inject lateinit var dailySummaryScheduler: mx.kompara.ui.notifications.DailySummaryScheduler
+    @Inject lateinit var importReminderScheduler: mx.kompara.ui.notifications.ImportReminderScheduler
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -170,5 +171,6 @@ class KomparaApplication : Application(), Configuration.Provider {
         weekCloseScheduler.runNow()
         dailySummaryScheduler.ensureScheduled()
         dailySummaryScheduler.runNow()
+        importReminderScheduler.start(appScope)
     }
 }

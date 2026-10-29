@@ -32,6 +32,8 @@ class NoticeContractTest {
             summaryCopy(context, NoticeTarget(NoticeKind.DAY, date.toString()), SummaryFacts(9, 490), date).let { it.first to it.second.replace('\u00a0', ' ') })
         assertEquals("Tu semana está lista" to "62 viajes · 12 – 18 oct",
             summaryCopy(context, NoticeTarget(NoticeKind.WEEK, "2026-10-12"), SummaryFacts(62, 0), date))
+        assertEquals("Trae tu resumen" to "12 – 18 oct",
+            summaryCopy(context, NoticeTarget(NoticeKind.IMPORT, "2026-10-12"), SummaryFacts(62, 490), date))
         assertEquals("Octubre: revisa tus registros del mes" to "Lo que te pagó cada app y tu vigencia en el IMSS.",
             summaryCopy(context, NoticeTarget(NoticeKind.MONTH, "2026-10"), SummaryFacts(null, 0), date))
         val late = summaryCopy(context, NoticeTarget(NoticeKind.DAY, date.toString()), SummaryFacts(1, 60), date.plusDays(1))
@@ -41,7 +43,8 @@ class NoticeContractTest {
     @Test fun `public versions have titles only and distinct dated immutable activity intents`() = runTest {
         channels.migrate()
         val targets = listOf(NoticeTarget(NoticeKind.READER), NoticeTarget(NoticeKind.DAY, "2026-10-19"),
-            NoticeTarget(NoticeKind.DAY, "2026-10-20"), NoticeTarget(NoticeKind.WEEK, "2026-10-12"), NoticeTarget(NoticeKind.MONTH, "2026-10"))
+            NoticeTarget(NoticeKind.DAY, "2026-10-20"), NoticeTarget(NoticeKind.WEEK, "2026-10-12"), NoticeTarget(NoticeKind.MONTH, "2026-10"),
+            NoticeTarget(NoticeKind.IMPORT, "2026-10-12"))
         val taps = targets.map { target ->
             val notice = poster.build(target, "Título", "9 viajes · 8 h 10 min en turno", 12345)!!
             assertEquals(12345L, notice.`when`)
@@ -60,10 +63,11 @@ class NoticeContractTest {
     @Test fun `only valid period payloads parse and recovery target contains no fabricated state`() {
         for (bad in listOf("kompara://notice/day/2026-02-30", "kompara://notice/week/2026-10-13",
             "kompara://notice/month/2026-13", "kompara://notice/reader/permission_lost", "kompara://notice/reader?off=true",
-            "https://notice/day/2026-10-19", "kompara://notice/day/2026-10-19/extra")) assertNull(bad, NoticeTarget.parse(Uri.parse(bad)))
+            "https://notice/day/2026-10-19", "kompara://notice/day/2026-10-19/extra", "kompara://notice/import/2026-10-13")) assertNull(bad, NoticeTarget.parse(Uri.parse(bad)))
         assertEquals("inicio", NoticeNavigation.destination(NoticeTarget(NoticeKind.READER)))
         assertEquals("day/2026-10-19", NoticeNavigation.destination(NoticeTarget(NoticeKind.DAY, "2026-10-19")))
         assertEquals("week/2026-10-12", NoticeNavigation.destination(NoticeTarget(NoticeKind.WEEK, "2026-10-12")))
+        assertEquals("import", NoticeNavigation.destination(NoticeTarget(NoticeKind.IMPORT, "2026-10-12")))
     }
     @Test fun `channel migration renames in place and preserves blocks and disabled monthly preference`() = runTest {
         manager.createNotificationChannel(NotificationChannel(NoticeChannels.READER, "Estado del lector", NotificationManager.IMPORTANCE_NONE))

@@ -58,7 +58,7 @@ class MainActivity : ComponentActivity() {
         // The same durable outbox/mutex used by workers prevents duplicate delivery.
         lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             for (kind in listOf(mx.kompara.ui.notifications.NoticeKind.DAY, mx.kompara.ui.notifications.NoticeKind.WEEK,
-                mx.kompara.ui.notifications.NoticeKind.MONTH)) {
+                mx.kompara.ui.notifications.NoticeKind.MONTH, mx.kompara.ui.notifications.NoticeKind.IMPORT)) {
                 try { summaryDelivery.deliver(kind) }
                 catch (e: kotlinx.coroutines.CancellationException) { throw e }
                 catch (_: Exception) { /* Scheduled workers retain retries. */ }

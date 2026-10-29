@@ -23,7 +23,7 @@ data class ImportDraftEntity(
 @Entity(tableName = "import_files", primaryKeys = ["draftId", "position"])
 data class ImportFileEntity(val draftId: String, val position: Int, val name: String, val mime: String, val bytes: ByteArray)
 
-/** Saved locally, never equivalent to a server confirmation or an itemized payment receipt. */
+/** Local imports stay unconfirmed; only an authenticated contract may populate certification. */
 @Entity(tableName = "import_statements")
 data class ImportStatementEntity(
     @PrimaryKey val id: String,
@@ -37,6 +37,10 @@ data class ImportStatementEntity(
     val source: String,
     val uploadType: String,
     val savedAt: Long,
+    val certificationId: String? = null,
+    val certificationCity: String? = null,
+    /** Explicit field names certified by the server, never inferred from non-null local values. */
+    val confirmedFields: String? = null,
 ) {
     fun income() = IncomeRecord("statement:$id", platform,
         Coverage(LocalDate.parse(start), LocalDate.parse(endInclusive), dated = false),

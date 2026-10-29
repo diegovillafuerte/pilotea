@@ -68,6 +68,35 @@ class ShareCardComposerTest {
         assertEquals("$11,692", card.netEarnings); assertEquals("155", card.trips)
         assertTrue(card.netLabel!!.startsWith("Llevas en octubre")); assertFalse(card.confirmed)
     }
+    @Test fun `payment-only imports retain trips but never present partial captured net as the whole period`() {
+        val money = fixture.comparison.current.money
+        val imported = IncomeRecord("partial", "DIDI", money.window.coverage, MoneySource.PARSED_STATEMENT,
+            "400".toBigDecimal(), null, 3)
+        val mixed = money.copy(paymentOnly = listOf(Contribution(imported, null, null, null)))
+        assertNotNull(mixed.periodResult)
+        val card = ShareCardComposer.compose(mixed, SharePeriodKind.WEEK, hide = false)
+        assertEquals("65 viajes esa semana", card.finding)
+        assertEquals("Según tus viajes registrados y resúmenes importados", card.source)
+        assertNull(card.netEarnings)
+        assertEquals("Faltan datos para calcular lo que te quedó", card.basis)
+        assertFalse(card.confirmed)
+    }
+    @Test fun `unknown imported trips never become zero or a partial whole-period count`() {
+        val money = fixture.comparison.current.money
+        val imported = IncomeRecord("partial", "DIDI", money.window.coverage, MoneySource.PARSED_STATEMENT,
+            "400".toBigDecimal(), null, 0, tripsKnown = false)
+        val unknown = Contribution(imported, null, null, null)
+        for (snapshot in listOf(money.copy(paymentOnly = listOf(unknown)),
+            money.copy(contributions = emptyList(), paymentOnly = listOf(unknown)))) {
+            val card = ShareCardComposer.compose(snapshot, SharePeriodKind.WEEK, hide = false)
+            assertEquals("Resumen de Kompara", card.finding)
+            assertEquals("—", card.trips)
+            assertFalse(card.caption.contains("0 viajes"))
+            assertFalse(card.caption.contains("62 viajes"))
+            assertNull(card.netEarnings)
+            assertEquals("Faltan datos para calcular lo que te quedó", card.basis)
+        }
+    }
     @Test fun `historical period and negative or missing money never become current-month zero`() {
         assertEquals("5 – 11 oct", fixture.card("historical").periodLabel)
         val money = fixture.comparison.current.money

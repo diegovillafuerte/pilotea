@@ -59,5 +59,6 @@
     <string name="notice_past_day_title">Tu resumen del %1$s está listo</string>
     <string name="notice_month_title">%1$s: revisa tus registros del mes</string>
     <string name="notice_month_body">Lo que te pagó cada app y tu vigencia en el IMSS.</string>
+    <string name="notice_import_title">Trae tu resumen</string>
     <plurals name="notice_trips"><item quantity="one">%d viaje</item><item quantity="other">%d viajes</item></plurals>
 </resources>

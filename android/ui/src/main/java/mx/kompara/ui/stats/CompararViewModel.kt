@@ -56,16 +56,18 @@ class CompararViewModel @Inject constructor(
     private val data = combine(periods, choice, tierGatekeeper.gateFor(Capability.COMPARE)) { window, choice, gate -> Triple(window, choice, gate.isUnlocked) }
         .flatMapLatest { (window, choice, premium) ->
             combine(repository.observeComparison(window), benchmarks.observeComparisonCohorts(choice.city)) { pair, cohorts ->
-                val c = ComparisonBuilder.build(pair.first, pair.second, choice, cohorts = cohorts, premium = premium)
+                val c = ComparisonBuilder.build(pair.first, pair.second, choice,
+                    statements = pair.first.confirmedStatements, cohorts = cohorts, premium = premium)
                 CompareUiState(window.start, c.today, c.choice, false, c,
-                    weeks = (CompareState.availableWeeks(pair.first.history).map(LocalDate::parse) + window.start + c.today.monday()).distinct().sortedDescending())
+                    weeks = (CompareState.availableWeeks(pair.first.history).map(LocalDate::parse) + pair.first.importedWeeks + window.start + c.today.monday()).distinct().sortedDescending())
             }.onStart { emit(CompareUiState(window.start, window.asOf.atZone(zone).toLocalDate(), choice)) }
                 .catch { emit(CompareUiState(window.start, window.asOf.atZone(zone).toLocalDate(), choice, false, error = true)) }
         }
     val uiState: StateFlow<CompareUiState> = combine(data.scan(initial) { old, next ->
         if (next.loading && old.weekStart == next.weekStart && (old.choice == next.choice || old.comparison?.singleApp != null && next.choice.scope == CompareScope.APPS && old.choice.city == next.choice.city && old.choice.appsMetric == next.choice.appsMetric && old.choice.cityMetric == next.choice.cityMetric) && old.comparison != null) old else next
     }, connectivity.offline, settings.settings, saveError) { state, offline, prefs, failed ->
-        state.copy(offline = offline, contributing = prefs.shareAggregates, saveError = failed)
+        state.copy(offline = offline, contributing = prefs.shareAggregates, saveError = failed,
+            contributionAvailable = mx.kompara.sync.aggregate.StatementContributionContract.canUpload(true))
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), initial)
 
     init {
@@ -92,7 +94,7 @@ class CompararViewModel @Inject constructor(
     fun step(offset: Long) { val state = uiState.value; val next = state.weekStart.plusWeeks(offset); if (next <= state.today.monday()) selectWeek(next) }
     fun openSheet(id: String) { saved["compareSheet"] = id }
     fun closeSheet() { saved["compareSheet"] = null }
-    fun setContribution(enabled: Boolean) { viewModelScope.launch {
+    fun setContribution(enabled: Boolean) { if (enabled && !mx.kompara.sync.aggregate.StatementContributionContract.canUpload(true)) return; viewModelScope.launch {
         runCatching { settings.setShareAggregates(enabled); if (!enabled) scheduler.cancelPending() }
             .onSuccess { saveError.value = false }.onFailure { saveError.value = true }
     } }

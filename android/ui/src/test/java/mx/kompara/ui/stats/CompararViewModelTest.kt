@@ -14,6 +14,7 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
 import mx.kompara.billing.*
 import mx.kompara.data.db.KomparaDatabase
+import mx.kompara.data.imports.ImportStatementEntity
 import mx.kompara.data.model.City
 import mx.kompara.data.settings.*
 import mx.kompara.metrics.*
@@ -109,6 +110,10 @@ class CompararViewModelTest {
                 vm.await { it.choice.city == City.MONTERREY }
                 assertEquals(limits, h.prefs.settings.first().threshold)
                 vm.setContribution(true)
+                assertFalse(vm.uiState.value.contributionAvailable)
+                assertFalse(h.prefs.settings.first().shareAggregates)
+                // Preserve a prior saved preference without claiming that upload is available.
+                h.prefs.setShareAggregates(true)
                 val opted = vm.await { it.contributing }
                 assertEquals(original.comparison!!.values, opted.comparison!!.values)
                 assertFalse(StatementContributionContract.canUpload(opted.contributing))
@@ -122,6 +127,33 @@ class CompararViewModelTest {
                 assertEquals("DIDI", restored.await().choice.app)
                 assertEquals("2026-10-12", h.selected.week.first())
                 assertTrue(restored.await().contributing)
+            } finally { job.cancel() }
+        }
+    }
+
+    @Test fun `stored confirmed statement updates own city row without inventing a cohort or rank`() = runBlocking {
+        Harness().use { h ->
+            h.seed()
+            h.selected.select(LocalDate.parse("2026-10-12"))
+            val vm = h.vm(SavedStateHandle(mapOf("compareScope" to CompareScope.CITY.name)))
+            val job = launch { vm.uiState.collect() }
+            try {
+                assertEquals(ComparisonStatus.EMPTY, vm.await().comparison!!.status)
+                val statement = ImportStatementEntity("confirmed", "UBER", "2026-10-12", "2026-10-18",
+                    "5062", 34, null, "24", "SERVER_CONFIRMED_STATEMENT", "pdf", h.now,
+                    "server-proof", "cdmx", "PAYMENT,TRIPS,HOURS")
+                h.db.importDao().putStatement(statement)
+                val confirmed = vm.await { it.comparison!!.status == ComparisonStatus.NO_COHORT }.comparison!!
+                assertEquals("Según tu resumen de Uber", confirmed.qualifier)
+                assertEquals("Aún juntamos conductores de Uber para compararte", confirmed.finding)
+                assertEquals("$149/viaje", CompareUiText.rate(confirmed.values.single().value!!, ComparisonMetric.PER_TRIP))
+                assertNull(confirmed.rank); assertFalse(confirmed.locked)
+                // Removing certification must invalidate the displayed proof, even with the same money.
+                h.db.importDao().putStatement(statement.copy(source = "USER_CORRECTED_IMPORT", certificationId = null))
+                val unconfirmed = vm.await { it.comparison!!.status != ComparisonStatus.NO_COHORT }.comparison!!
+                assertNull(unconfirmed.rank)
+                assertFalse(unconfirmed.qualifier.startsWith("Según tu resumen"))
+                assertTrue(unconfirmed.finding.isNotBlank())
             } finally { job.cancel() }
         }
     }

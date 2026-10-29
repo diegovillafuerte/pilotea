@@ -43,12 +43,12 @@ class SummaryWorkerTest {
         allowNotices(context); DrivingActivity.foreground(null)
     }
     @After fun cleanup() { db.close(); DrivingActivity.foreground(null) }
-    private suspend fun seed(day: String = "2026-10-19"): Long {
+    private suspend fun seed(day: String = "2026-10-19", platform: String = "UBER"): Long {
         val start = LocalDate.parse(day).atTime(10, 0).atZone(zone).toInstant().toEpochMilli()
-        val offer = db.offerDao().insert(OfferEntity(seenAt = start, platform = "UBER", fareMxn = 148.0,
+        val offer = db.offerDao().insert(OfferEntity(seenAt = start, platform = platform, fareMxn = 148.0,
             distanceKm = 12.0, durationMin = 24.0, outcome = "ACCEPTED"))
         return db.tripDao().insert(TripEntity(offerId = offer, startedAt = start, endedAt = start + 1_440_000,
-            platform = "UBER", grossMxn = 148.0, distanceKm = 12.0, durationMin = 24.0, lifecycle = "FINISHED"))
+            platform = platform, grossMxn = 148.0, distanceKm = 12.0, durationMin = 24.0, lifecycle = "FINISHED"))
     }
     private fun target() = NoticeTarget.parse(shadowOf(shadowOf(manager).allNotifications.single().contentIntent).savedIntent.data)
 
@@ -58,12 +58,14 @@ class SummaryWorkerTest {
                 NoticeKind.DAY -> DailySummaryWorker(appContext, params, delivery)
                 NoticeKind.WEEK -> WeekCloseWorker(appContext, params, delivery)
                 NoticeKind.MONTH -> FiscalMonthEndWorker(appContext, params, delivery)
+                NoticeKind.IMPORT -> ImportReminderWorker(appContext, params, delivery)
                 else -> error("summary")
             }
         }
         return when (kind) {
             NoticeKind.DAY -> TestListenableWorkerBuilder<DailySummaryWorker>(context).setWorkerFactory(factory).build()
             NoticeKind.WEEK -> TestListenableWorkerBuilder<WeekCloseWorker>(context).setWorkerFactory(factory).build()
+            NoticeKind.IMPORT -> TestListenableWorkerBuilder<ImportReminderWorker>(context).setWorkerFactory(factory).build()
             else -> TestListenableWorkerBuilder<FiscalMonthEndWorker>(context).setWorkerFactory(factory).build()
         }
     }
@@ -143,5 +145,80 @@ class SummaryWorkerTest {
         db.tripDao().insert(TripEntity(startedAt = now - Duration.ofDays(1).toMillis(), platform = "UBER",
             grossMxn = null, distanceKm = null, durationMin = 1.0, lifecycle = "UNKNOWN"))
         assertTrue(SummarySafety(db.offerDao(), db.tripDao()).busy())
+    }
+
+    private suspend fun imported(platform: String = "UBER", end: String = "2026-10-18") {
+        db.importDao().putStatement(mx.kompara.data.imports.ImportStatementEntity(
+            id = platform, platform = platform, start = "2026-10-12", endInclusive = end,
+            payment = "100", trips = 1, km = null, hours = null, source = "PARSED_STATEMENT",
+            uploadType = "pdf", savedAt = now))
+    }
+    @Test fun `import worker uses Monday morning boundary then opens consent once with no amounts`() = runTest {
+        settings.setOnboardingCompleted(true); seed("2026-10-12")
+        now = LocalDate.parse("2026-10-19").atTime(8, 59).atZone(zone).toInstant().toEpochMilli()
+        assertEquals(ListenableWorker.Result.success(), worker(NoticeKind.IMPORT, delivery()).doWork())
+        assertTrue(shadowOf(manager).allNotifications.isEmpty())
+        now += Duration.ofMinutes(1).toMillis()
+        val delivery = delivery()
+        listOf(async { delivery.deliver(NoticeKind.IMPORT) }, async { delivery.deliver(NoticeKind.IMPORT) }).awaitAll()
+        val notice = shadowOf(manager).allNotifications.single()
+        assertEquals("Trae tu resumen", notice.extras.getString(android.app.Notification.EXTRA_TITLE))
+        assertEquals("12 – 18 oct", notice.extras.getString(android.app.Notification.EXTRA_TEXT))
+        assertEquals("import", NoticeNavigation.destination(target()!!))
+        assertNull(notice.publicVersion.extras.getString(android.app.Notification.EXTRA_TEXT))
+        manager.cancelAll()
+        assertEquals(ListenableWorker.Result.success(), worker(NoticeKind.IMPORT, delivery()).doWork())
+        assertTrue(shadowOf(manager).allNotifications.isEmpty())
+    }
+    @Test fun `import retry respects driving permission and newly saved uncertified summaries`() = runTest {
+        settings.setOnboardingCompleted(true); seed("2026-10-12")
+        DrivingActivity.foreground("com.ubercab.driver")
+        assertEquals(ListenableWorker.Result.retry(), worker(NoticeKind.IMPORT, delivery()).doWork())
+        DrivingActivity.foreground(null)
+        shadowOf(manager).setNotificationsEnabled(false)
+        assertEquals(ListenableWorker.Result.retry(), worker(NoticeKind.IMPORT, delivery()).doWork())
+        shadowOf(manager).setNotificationsEnabled(true)
+        // Saving locally is enough; absent server certification must not solicit another import.
+        imported()
+        assertEquals(ListenableWorker.Result.success(), worker(NoticeKind.IMPORT, delivery()).doWork())
+        assertTrue(shadowOf(manager).allNotifications.isEmpty())
+    }
+    @Test fun `import permission and channel recovery delivers the retained week once`() = runTest {
+        settings.setOnboardingCompleted(true); seed("2026-10-12")
+        shadowOf(context as android.app.Application).denyPermissions(android.Manifest.permission.POST_NOTIFICATIONS)
+        assertEquals(ListenableWorker.Result.retry(), worker(NoticeKind.IMPORT, delivery()).doWork())
+        allowNotices(context)
+        manager.deleteNotificationChannel(NoticeChannels.SUMMARIES)
+        manager.createNotificationChannel(android.app.NotificationChannel(NoticeChannels.SUMMARIES, "Resúmenes", NotificationManager.IMPORTANCE_NONE))
+        assertEquals(ListenableWorker.Result.retry(), worker(NoticeKind.IMPORT, delivery()).doWork())
+        // Simulate the driver restoring the channel in Android settings.
+        manager.getNotificationChannel(NoticeChannels.SUMMARIES).importance = NotificationManager.IMPORTANCE_DEFAULT
+        now += Duration.ofDays(7).toMillis()
+        assertEquals(ListenableWorker.Result.success(), worker(NoticeKind.IMPORT, delivery()).doWork())
+        assertEquals(NoticeTarget(NoticeKind.IMPORT, "2026-10-12"), target())
+    }
+    @Test fun `import reminder needs coverage for every driven supported app but never empty weeks`() = runTest {
+        settings.setOnboardingCompleted(true)
+        val window = mx.kompara.data.accounting.PeriodWindow(LocalDate.parse("2026-10-12"), LocalDate.parse("2026-10-18"),
+            Instant.ofEpochMilli(now), zone)
+        val money = PeriodMoneyRepository(db, CostProfileRepository(db.costProfileDao()), CarCostRepository(db.carCostDao()))
+        assertFalse(needsImportReminder(money.weekSnapshot(window)))
+        seed("2026-10-12"); seed("2026-10-13", "DIDI"); imported()
+        assertTrue(needsImportReminder(money.weekSnapshot(window)))
+        imported("DIDI", "2026-10-17")
+        assertTrue(needsImportReminder(money.weekSnapshot(window)))
+        imported("DIDI")
+        assertFalse(needsImportReminder(money.weekSnapshot(window)))
+    }
+    @Test fun `disabled import choice cancels posted notice and suppresses pending retries`() = runTest {
+        settings.setOnboardingCompleted(true); seed("2026-10-12")
+        assertEquals(ListenableWorker.Result.success(), worker(NoticeKind.IMPORT, delivery()).doWork())
+        assertEquals(1, shadowOf(manager).allNotifications.size)
+        settings.setImportReminderEnabled(false)
+        assertEquals(ListenableWorker.Result.success(), worker(NoticeKind.IMPORT, delivery()).doWork())
+        assertTrue(shadowOf(manager).allNotifications.isEmpty())
+        settings.setImportReminderEnabled(true)
+        assertEquals(ListenableWorker.Result.success(), worker(NoticeKind.IMPORT, delivery()).doWork())
+        assertTrue(shadowOf(manager).allNotifications.isEmpty())
     }
 }

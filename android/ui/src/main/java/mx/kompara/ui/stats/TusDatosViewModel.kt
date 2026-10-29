@@ -46,6 +46,7 @@ data class TusDatosState(
     val loaded: Boolean = false, val telemetry: Boolean = true, val contribution: Boolean = false,
     val signedIn: Boolean = false, val playSubscription: Boolean = false,
     val busy: Boolean = false, val result: String? = null, val error: String? = null,
+    val contributionAvailable: Boolean = false,
 )
 
 fun deletionBody(playSubscription: Boolean): String =
@@ -69,7 +70,7 @@ class TusDatosViewModel @Inject constructor(
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val state = refresh.flatMapLatest { combine(settings.settings, auth.sessionState, billing.hasPlaySubscription, action) { prefs, session, play, operation ->
         TusDatosState(true, prefs.telemetryEnabled, prefs.shareAggregates, session is SessionState.Authenticated,
-            play, operation.first, operation.third, operation.second)
+            play, operation.first, operation.third, operation.second, uploads.contributionAvailable)
     } .catch { e ->
         if (e is CancellationException) throw e
         emit(TusDatosState(error = "No pudimos cargar tus datos. Inténtalo otra vez."))

@@ -8,6 +8,8 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.test.*
 import mx.kompara.data.db.KomparaDatabase
+import mx.kompara.data.imports.ImportStatementEntity
+import mx.kompara.metrics.compare.ComparisonMetric
 import mx.kompara.data.settings.*
 import mx.kompara.metrics.PeriodMoneyRepository
 import mx.kompara.ui.export.ExportHarness
@@ -62,6 +64,25 @@ class ShareCardViewModelTest {
         override fun close() { store.clear(); runBlocking { jobs.forEach { it.join() } }; db.close() }
     }
     private suspend fun ShareCardViewModel.ready() = withTimeout(15_000) { state.first { !it.loading && !it.sharing } }
+    @Test fun `share snapshot retains stored proof without promising an unavailable standing`() = runBlocking {
+        Harness().use { h ->
+            val statement = ImportStatementEntity("confirmed", "UBER", "2026-10-12", "2026-10-18",
+                "5062", 34, null, "24", "SERVER_CONFIRMED_STATEMENT", "pdf", h.now,
+                "server-proof", "cdmx", "PAYMENT,TRIPS,HOURS")
+            h.db.importDao().putStatement(statement)
+            val period = SharePeriod.resolve("2026-10-12", null, h.day.date)
+            val snapshot = h.provider.load(period, Instant.ofEpochMilli(h.now), h.zone)
+            val proof = snapshot.statements.single()
+            assertEquals("server-proof", proof.certificationId)
+            assertEquals(148.8823529, proof.value(period.start, "UBER", ComparisonMetric.PER_TRIP)!!.toDouble(), 0.000001)
+            val shown = h.vm(SavedStateHandle(mapOf("weekStart" to "2026-10-12"))).ready()
+            assertEquals("34 viajes esa semana", shown.data!!.finding)
+            assertFalse(shown.data.confirmed)
+            assertTrue(shown.data.bars.isEmpty())
+            assertFalse(shown.data.caption.contains(" %"))
+            assertTrue(h.provider.load(SharePeriod.resolve(null, "2026-10", h.day.date), Instant.ofEpochMilli(h.now), h.zone).statements.isEmpty())
+        }
+    }
     @Test fun `historical week and month route survive recreation without using current month`() = runBlocking {
         Harness().use { h ->
             h.seed()

@@ -89,6 +89,13 @@ class CompareScreenTest {
         compose.onNodeWithText("Ver Premium").assertIsDisplayed().performClick()
         assertEquals(1, upgrade)
     }
+    @Test fun `missing cohort renders its explanation and own data while unsupported contribution stays hidden`() {
+        compose.setContent { KomparaTheme { Host(fixture.state("F4").copy(contributionAvailable = false)) } }
+        compose.onNodeWithText("Aún juntamos conductores de DiDi para compararte").assertExists()
+        compose.onNodeWithTag("compare-chart").assertContentDescriptionEquals("Por viaje: Tú $120/viaje, Tú · 5 – 11 oct $107/viaje, diferencia +12 %")
+        compose.onNodeWithText("Aportar al promedio").assertDoesNotExist()
+        compose.onNodeWithText("Ver Premium").assertDoesNotExist()
+    }
     @Test fun `context provenance and opt in work and restore independently of rank`() {
         val restored = StateRestorationTester(compose)
         var contributed = false

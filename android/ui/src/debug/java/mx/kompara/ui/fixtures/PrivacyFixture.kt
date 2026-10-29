@@ -27,9 +27,9 @@ fun PrivacyFixtureHost(frame: String) {
         "G7", "allowed" -> AvisosContent(AvisosState(Settings.DEFAULT.copy(fiscalMonthlySummaryEnabled = false), frame == "allowed", true))
         "G8" -> HelpContent(initialAnswer = "semaforo", supportAvailable = true)
         "support-gated" -> HelpContent(initialAnswer = "colores")
-        "profile" -> AccountContent(profile)
+        "profile" -> AccountContent(profile, supportAvailable = true)
         "G9" -> Box(Modifier.fillMaxSize()) {
-            AccountContent(profile)
+            AccountContent(profile, supportAvailable = true)
             Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .35f)))
             Surface(Modifier.align(Alignment.BottomCenter).heightIn(max = 360.dp), color = KomparaTheme.colors.paper,
                 shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)) {
@@ -37,7 +37,7 @@ fun PrivacyFixtureHost(frame: String) {
             }
             SettingsConfirmation("¿Cambiar a Monterrey?", cityConfirmation(profile, City.MONTERREY), "Cambiar", {}, {})
         }
-        else -> TusDatosContent(TusDatosState(loaded = true, signedIn = true,
+        else -> TusDatosContent(TusDatosState(loaded = true, signedIn = true, contributionAvailable = true,
             result = if (frame == "deleted") "Cuenta eliminada" else null,
             error = if (frame == "delete-error") "No pudimos eliminarla. Inténtalo otra vez." else null),
             externalDeletion = "https://kompara.mx/borrar", initialDialog = if (frame == "G6b") "account" else null)

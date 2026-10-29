@@ -55,7 +55,7 @@ internal fun TusDatosContent(state: TusDatosState, onBack: () -> Unit = {}, tele
             Spacer(Modifier.height(32.dp))
             SettingsValueRow("Sale del teléfono", "Cuenta y lo encendido", onClick = { sheet = "Sale del teléfono" })
             PrivacyPreferenceRow("Enviar conteos de lectura", "Sin cifras de tus viajes", state.telemetry, !state.busy, telemetry)
-            PrivacyPreferenceRow("Aportar al promedio", checked = state.contribution, enabled = !state.busy,
+            if (state.contributionAvailable) PrivacyPreferenceRow("Aportar al promedio", checked = state.contribution, enabled = !state.busy,
                 change = { if (it) sheet = "Aportar al promedio" else contribution(false) })
             Spacer(Modifier.height(32.dp))
             SettingsValueRow("Datos guardados", onClick = { sheet = "Datos guardados" })
@@ -70,10 +70,10 @@ internal fun TusDatosContent(state: TusDatosState, onBack: () -> Unit = {}, tele
     sheet?.let { title -> SheetScaffold(title, { sheet = null }) {
         when (title) {
             "Sale del teléfono" -> {
-                listOf(
+                listOfNotNull(
                     "Tu WhatsApp y los datos de tu cuenta se envían al entrar con un código.",
                     "Enviar conteos de lectura manda conteos anónimos, sin cifras de tus viajes. Puedes apagarlo en Tus datos.",
-                    "Si eliges Aportar al promedio, se comparten tus totales sin tu nombre. Solo cuentan semanas confirmadas con resumen.",
+                    "Si eliges Aportar al promedio, se comparten tus totales sin tu nombre. Solo cuentan semanas confirmadas con resumen.".takeIf { state.contributionAvailable },
                     "Cuando traes un resumen, tu archivo se sube a Kompara solo para leer tus números. Un reporte se comparte solo cuando lo confirmas.",
                     "Google Play procesa las compras. Kompara recibe el estado de tu plan.",
                     "Uber y DiDi no son parte de Kompara y podrían no permitir apps como esta. Kompara nunca toca su app.",
@@ -85,7 +85,7 @@ internal fun TusDatosContent(state: TusDatosState, onBack: () -> Unit = {}, tele
                 Text("Borrar datos del teléfono quita el historial y las copias para compartir. Conserva tu cuenta, tus costos y tus límites. No borra lo que ya enviaste.", Modifier.padding(top = 16.dp), style = KomparaType.body)
                 Text("Eliminar cuenta borra la cuenta, totales y resúmenes del servidor. Tu historial queda en este teléfono.", Modifier.padding(top = 16.dp), style = KomparaType.body)
             }
-            else -> {
+            "Aportar al promedio" -> if (state.contributionAvailable) {
                 Text("Sumar mis totales, sin mi nombre, al promedio de mi ciudad", style = KomparaType.body)
                 PrivacyPreferenceRow("Aportar al promedio", checked = state.contribution, enabled = !state.busy, change = contribution)
                 Text("Solo cuentan tus semanas confirmadas con resumen; las estimaciones del lector no se suman", style = KomparaType.small, color = KomparaTheme.colors.inkSecondary)

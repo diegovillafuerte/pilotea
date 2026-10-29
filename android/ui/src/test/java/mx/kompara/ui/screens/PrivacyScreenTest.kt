@@ -108,7 +108,7 @@ class PrivacyScreenTest {
         compose.onNodeWithText("No pudimos eliminarla. Inténtalo otra vez.").assertExists()
     }
     @Test fun `contribution opens explanation before opt in and disabling is immediate`() {
-        var state by mutableStateOf(TusDatosState(loaded = true))
+        var state by mutableStateOf(TusDatosState(loaded = true, contributionAvailable = true))
         val changes = mutableListOf<Boolean>()
         compose.setContent { KomparaTheme { TusDatosContent(state, contribution = { changes += it }) } }
         compose.onNodeWithContentDescription("Aportar al promedio").performClick()
@@ -117,19 +117,39 @@ class PrivacyScreenTest {
         compose.onAllNodesWithContentDescription("Aportar al promedio").onLast().performClick()
         assertEquals(listOf(true), changes)
     }
+    @Test fun `unsupported contribution and external deletion stay hidden without hiding local data controls`() {
+        var deletion by mutableStateOf<String?>(null)
+        var opened: String? = null
+        compose.setContent { KomparaTheme {
+            TusDatosContent(TusDatosState(loaded = true, signedIn = true, contribution = true),
+                externalDeletion = deletion, openExternal = { opened = it })
+        } }
+        compose.onNodeWithText("Aportar al promedio").assertDoesNotExist()
+        compose.onNodeWithText("También en kompara.mx/borrar").assertDoesNotExist()
+        compose.onNodeWithText("Borrar datos del teléfono").assertExists()
+        compose.onNodeWithText("Eliminar cuenta").assertExists()
+        compose.onNodeWithText("Sale del teléfono").performClick()
+        compose.onNodeWithText("Eliminar cuenta fuera de la app").assertDoesNotExist()
+        compose.onNodeWithText("Si eliges Aportar al promedio", substring = true).assertDoesNotExist()
+        compose.runOnIdle { deletion = "https://kompara.mx/borrar" }
+        compose.onNodeWithText("Eliminar cuenta fuera de la app").performScrollTo().performClick()
+        assertEquals(deletion, opened)
+    }
+
     @Test fun `profile has no deletion or idle save and city keeps saved goal in confirmation`() {
         var sheet: String? = null
         compose.setContent { KomparaTheme { AccountContent(AccountUiState(loaded = true, phone = "+525512345678"), open = { sheet = it }) } }
         compose.onNodeWithText("Eliminar cuenta").assertDoesNotExist(); compose.onNodeWithText("Guardar").assertDoesNotExist()
+        compose.onNodeWithText("Para cambiarlo, escríbenos").assertDoesNotExist()
         compose.onNodeWithText("Tu ciudad").performClick(); assertEquals("city", sheet)
         assertEquals("Te comparamos con Monterrey desde esta semana. Tu meta sigue en $8.00/km; allá se sugiere $7.70/km.",
             cityConfirmation(AccountUiState(suggestedGoal = "$7.70/km"), City.MONTERREY))
     }
-    @Test fun `unconfigured support is explained and cannot open arbitrary WhatsApp contacts`() {
+    @Test fun `unconfigured support is hidden and cannot open arbitrary WhatsApp contacts`() {
         var clicked = false
         compose.setContent { KomparaTheme { HelpContent(support = { clicked = true }) } }
-        compose.onNodeWithText("Escríbenos por WhatsApp").assertIsNotEnabled()
-        compose.onNodeWithText("El soporte por WhatsApp aún no está disponible.").assertIsDisplayed()
+        compose.onNodeWithText("Escríbenos por WhatsApp").assertDoesNotExist()
+        compose.onNodeWithText("El soporte por WhatsApp aún no está disponible.").assertDoesNotExist()
         assertFalse(clicked)
         assertNull(PrivacyLinks.supportUrl("")); assertNull(PrivacyLinks.supportUrl("javascript:alert(1)"))
         assertEquals("https://wa.me/525512345678", PrivacyLinks.supportUrl("525512345678"))

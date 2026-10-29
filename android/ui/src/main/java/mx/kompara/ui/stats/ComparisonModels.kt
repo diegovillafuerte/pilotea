@@ -45,4 +45,5 @@ data class CompareUiState(
     val weeks: List<LocalDate> = emptyList(),
     val contributing: Boolean = false,
     val saveError: Boolean = false,
+    val contributionAvailable: Boolean = false,
 )

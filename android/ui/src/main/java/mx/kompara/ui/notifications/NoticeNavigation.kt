@@ -23,6 +23,7 @@ class NoticeNavigation @Inject constructor(private val selection: SelectedPeriod
             NoticeKind.DAY -> KomparaDestination.dayRoute(target.period)
             NoticeKind.WEEK -> "${KomparaDestination.WEEK_SUMMARY_ROUTE}/${target.period}"
             NoticeKind.MONTH -> KomparaDestination.MONTH_ROUTE
+            NoticeKind.IMPORT -> KomparaDestination.IMPORT_ROUTE
         }
     }
 }

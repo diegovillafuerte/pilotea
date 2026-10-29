@@ -21,7 +21,7 @@ import java.util.Locale
 import javax.inject.Inject
 
 data class AjustesState(
-    val account: String = "Entrar con WhatsApp", val accountDetail: String? = "Guarda tus costos y tu meta",
+    val account: String = "Entrar con WhatsApp", val accountDetail: String? = null,
     val signedIn: Boolean = false, val plan: String = "Plan gratis", val planDetail: String? = null,
     val limits: String = "", val costs: String = "", val car: String = "Sin agregar",
     val reader: String = "", val glyph: StatusGlyph = StatusGlyph.WAITING,
@@ -75,7 +75,7 @@ class AjustesViewModel @Inject constructor(
         val driver = (session as? SessionState.Authenticated)?.driver
         AjustesState(
             account = driver?.phone?.let { phone -> if (phone.startsWith("+52") && phone.length == 13) "+52 ${phone.substring(3, 5)} ${phone.substring(5, 9)} ${phone.substring(9)}" else phone } ?: "Entrar con WhatsApp",
-            accountDetail = if (driver == null) "Guarda tus costos y tu meta" else City.fromKey(driver.city)?.displayName,
+            accountDetail = driver?.city?.let { City.fromKey(it)?.displayName },
             signedIn = driver != null, plan = if (plan is Entitlement.Premium) "Tu plan" else "Plan gratis",
             planDetail = (plan as? Entitlement.Premium)?.let { p -> p.expiresAt?.let { "Premium hasta ${costDate(Instant.ofEpochMilli(it).atZone(zone).toLocalDate(), ready.date)}" } ?: "Premium" },
             limits = ThresholdEditor.pairLabel(LimitDraft.from(prefs.effectiveThreshold, prefs.preferredMetric)),

@@ -7,6 +7,7 @@ import dagger.hilt.components.SingletonComponent
 import mx.kompara.data.db.dao.LocalDataDao
 import mx.kompara.data.settings.SettingsRepository
 import mx.kompara.sync.aggregate.AggregateSyncScheduler
+import mx.kompara.sync.aggregate.StatementContributionContract
 import mx.kompara.sync.telemetry.TelemetryScheduler
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -24,7 +25,10 @@ class UploadPrivacy @Inject constructor(
     private val telemetry: TelemetryScheduler,
     private val localData: LocalDataDao,
 ) : AccountUploadControl {
+    val contributionAvailable: Boolean get() = StatementContributionContract.canUpload(true)
+
     suspend fun contribution(enabled: Boolean) {
+        if (enabled && !contributionAvailable) return
         settings.setShareAggregates(enabled)
         if (!enabled) aggregate.cancelPending()
         // S11's certified-source gate stays closed; consent alone never enables legacy uploads.

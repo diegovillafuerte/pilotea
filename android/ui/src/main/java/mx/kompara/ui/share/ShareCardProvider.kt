@@ -3,6 +3,7 @@ package mx.kompara.ui.share
 import mx.kompara.data.accounting.PeriodMoney
 import mx.kompara.data.accounting.PeriodWindow
 import mx.kompara.metrics.PeriodMoneyRepository
+import mx.kompara.metrics.compare.ConfirmedStatement
 import mx.kompara.ui.stats.monday
 import java.time.*
 import javax.inject.Inject
@@ -24,11 +25,12 @@ data class SharePeriod(val kind: SharePeriodKind, val start: LocalDate) {
 
 /** One frozen accounting snapshot per preview. A privacy toggle never re-queries a different period. */
 class ShareCardProvider @Inject constructor(private val repository: PeriodMoneyRepository) {
-    suspend fun load(period: SharePeriod, asOf: Instant, zone: ZoneId): PeriodMoney {
+    suspend fun load(period: SharePeriod, asOf: Instant, zone: ZoneId): ShareCardSnapshot {
         val window = PeriodWindow(period.start, period.end, asOf, zone)
-        // The import API cannot yet supply ConfirmedStatement proof. Never promote local imports or
-        // legacy percentile DTOs to a standing; S11/S16's certified seam remains gated in production.
-        return if (period.kind == SharePeriodKind.MONTH) repository.monthSnapshot(window).money
-            else repository.weekSnapshot(window).money
+        return if (period.kind == SharePeriodKind.MONTH) ShareCardSnapshot(repository.monthSnapshot(window).money)
+            else repository.weekSnapshot(window).let { ShareCardSnapshot(it.money, it.confirmedStatements) }
     }
 }
+
+/** Money and confirmation share one snapshot; cohort evidence remains gated on the backend. */
+data class ShareCardSnapshot(val money: PeriodMoney, val statements: List<ConfirmedStatement> = emptyList())

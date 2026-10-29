@@ -35,7 +35,7 @@ object SummaryCalendar {
     val DAY_TIME: LocalTime = LocalTime.of(21, 0)
     fun due(kind: NoticeKind, now: ZonedDateTime): String = when (kind) {
         NoticeKind.DAY -> (if (now.toLocalTime() >= DAY_TIME) now.toLocalDate() else now.toLocalDate().minusDays(1)).toString()
-        NoticeKind.WEEK -> now.toLocalDate().monday().minusWeeks(1).toString()
+        NoticeKind.WEEK, NoticeKind.IMPORT -> now.toLocalDate().monday().minusWeeks(1).toString()
         NoticeKind.MONTH -> YearMonth.from(now).minusMonths(1).toString()
         NoticeKind.READER -> error("Reader incidents are not summaries")
     }
@@ -69,6 +69,9 @@ class SummaryDelivery @Inject constructor(
         val config = settings.settings.first()
         if (!config.onboardingCompleted) return@withLock false
         val now = Instant.ofEpochMilli(clock.nowMs()).atZone(zone)
+        // The import routine starts with the Monday morning check, including app-open catchup.
+        if (kind == NoticeKind.IMPORT && now.dayOfWeek == DayOfWeek.MONDAY &&
+            now.toLocalTime() < mx.kompara.ui.share.WeekCloseScheduler.FIRE_TIME) return@withLock false
         val candidate = SummaryCalendar.due(kind, now)
         val pendingKey = "pending:${kind.name}"
         val handledKey = "handled:${kind.name}"
@@ -93,15 +96,16 @@ class SummaryDelivery @Inject constructor(
         for (period in pending.sorted()) {
             val target = NoticeTarget(kind, period)
             val start = if (kind == NoticeKind.MONTH) YearMonth.parse(period).atDay(1) else LocalDate.parse(period)
-            val end = when (kind) { NoticeKind.MONTH -> YearMonth.parse(period).atEndOfMonth(); NoticeKind.WEEK -> start.plusDays(6); else -> start }
+            val end = when (kind) { NoticeKind.MONTH -> YearMonth.parse(period).atEndOfMonth(); NoticeKind.WEEK, NoticeKind.IMPORT -> start.plusDays(6); else -> start }
             val window = PeriodWindow(start, end, now.toInstant(), zone)
+            val week = if (kind == NoticeKind.WEEK || kind == NoticeKind.IMPORT) money.weekSnapshot(window) else null
             val snapshot = when (kind) {
                 NoticeKind.MONTH -> money.monthSnapshot(window).money
-                NoticeKind.WEEK -> money.weekSnapshot(window).money
+                NoticeKind.WEEK, NoticeKind.IMPORT -> week!!.money
                 else -> money.snapshot(window)
             }
             val records = (snapshot.contributions + snapshot.paymentOnly).map { it.record }
-            val hasData = records.isNotEmpty()
+            val hasData = if (kind == NoticeKind.IMPORT) needsImportReminder(week!!) else records.isNotEmpty()
             val fresh = settings.settings.first()
             if (!hasData && kind == NoticeKind.DAY && start == now.toLocalDate() && enabled(kind, fresh)) return@withLock true
             when (WeekCloseDecision.decide(enabled(kind, fresh), period, handled.firstOrNull { it == period }, hasData,
@@ -123,6 +127,7 @@ class SummaryDelivery @Inject constructor(
         NoticeKind.DAY -> prefs.dailySummaryEnabled
         NoticeKind.WEEK -> prefs.shareWeeklyReminderEnabled
         NoticeKind.MONTH -> prefs.fiscalMonthlySummaryEnabled
+        NoticeKind.IMPORT -> prefs.importReminderEnabled
         NoticeKind.READER -> false
     }
 }
@@ -140,16 +145,26 @@ fun summaryCopy(context: Context, target: NoticeTarget, facts: SummaryFacts, tod
             val duration = context.getString(R.string.notice_shift_duration, mx.kompara.ui.format.Formatters.formatDuration(facts.minutes))
             title to listOfNotNull(count, duration.takeIf { facts.minutes > 0 }).joinToString(" · ")
         }
-        NoticeKind.WEEK -> {
+        NoticeKind.WEEK, NoticeKind.IMPORT -> {
             val start = LocalDate.parse(target.period)
             val end = start.plusDays(6)
             val range = if (start.month == end.month) "${start.dayOfMonth} – ${end.format(dateFormat)}"
                 else "${start.format(dateFormat)} – ${end.format(dateFormat)}"
-            context.getString(R.string.share_week_close_notif_title) to listOfNotNull(count, range).joinToString(" · ")
+            if (target.kind == NoticeKind.IMPORT) context.getString(R.string.notice_import_title) to range
+            else context.getString(R.string.share_week_close_notif_title) to listOfNotNull(count, range).joinToString(" · ")
         }
         NoticeKind.MONTH -> context.getString(R.string.notice_month_title,
             YearMonth.parse(target.period).format(DateTimeFormatter.ofPattern("MMMM", locale)).replaceFirstChar { it.titlecase(locale) }) to
             context.getString(R.string.notice_month_body)
         NoticeKind.READER -> error("Incident copy uses observed cause")
     }
+}
+
+/** A saved local summary already satisfies this reminder, even while server certification is
+ * unavailable. Each supported app needs its own whole-week coverage; a draft is not a save. */
+internal fun needsImportReminder(week: mx.kompara.metrics.WeekMoneySnapshot): Boolean {
+    val captured = week.capturedMoney ?: return false
+    val apps = (captured.contributions + captured.paymentOnly).map { it.record.app }.toSet()
+        .intersect(setOf("UBER", "DIDI"))
+    return apps.any { app -> week.statements.none { it.app == app && it.coverage.contains(week.money.window.coverage) } }
 }

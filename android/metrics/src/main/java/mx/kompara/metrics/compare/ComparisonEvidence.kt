@@ -1,6 +1,7 @@
 package mx.kompara.metrics.compare
 
 import mx.kompara.data.accounting.*
+import mx.kompara.data.imports.ImportStatementEntity
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.time.LocalDate
@@ -8,6 +9,20 @@ import java.time.LocalDate
 /** A denominator's definition is part of the contract, not just its unit. */
 enum class ComparisonMetric(val label: String) { PER_KM("Por km"), PER_TRIP("Por viaje"), PER_HOUR("Por hora") }
 enum class ComparisonBasis { DRIVER_PAYMENT_BEFORE_COSTS, RUNNING_COST_CONTRIBUTION }
+
+/** Project stored proof only. A local Save, session verification or legacy source cannot certify it. */
+fun ImportStatementEntity.confirmedStatement(): ConfirmedStatement? {
+    val id = certificationId?.takeIf { it.isNotBlank() } ?: return null
+    val city = certificationCity?.takeIf { it.isNotBlank() } ?: return null
+    val names = confirmedFields?.takeIf { it.isNotBlank() } ?: return null
+    if (source != MoneySource.SERVER_CONFIRMED_STATEMENT.name) return null
+    val fields = names.split(',').map { name ->
+        MoneyField.entries.firstOrNull { it.name == name } ?: return null
+    }.toSet()
+    val record = income()
+    return ConfirmedStatement(record, city, id, fields,
+        record.minutes.takeIf { MoneyField.HOURS in fields })
+}
 
 /** Only the authenticated import contract may create this proof; IMPORTED/session verification cannot. */
 data class ConfirmedStatement(

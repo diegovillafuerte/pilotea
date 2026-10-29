@@ -22,14 +22,14 @@ fun AccountScreen(onBack: () -> Unit = {}, onSignIn: () -> Unit = {}, onHelp: ()
     viewModel: AccountViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     AccountContent(state, onBack, viewModel::open, viewModel::close, viewModel::chooseCity,
-        viewModel::confirmCity, viewModel::name, viewModel::saveName, viewModel::logout, onSignIn, onHelp, viewModel::retry)
+        viewModel::confirmCity, viewModel::name, viewModel::saveName, viewModel::logout, onSignIn, onHelp, viewModel::retry, supportAvailable = PrivacyLinks.support != null)
 }
 
 @Composable
 internal fun AccountContent(state: AccountUiState, onBack: () -> Unit = {}, open: (String) -> Unit = {},
     close: () -> Unit = {}, chooseCity: (City?) -> Unit = {}, confirmCity: () -> Unit = {},
     changeName: (String) -> Unit = {}, saveName: () -> Unit = {}, logout: () -> Unit = {},
-    signIn: () -> Unit = {}, help: () -> Unit = {}, retry: () -> Unit = {}) {
+    signIn: () -> Unit = {}, help: () -> Unit = {}, retry: () -> Unit = {}, supportAvailable: Boolean = false) {
     ScreenScaffold("Tu perfil", kind = ScreenKind.DRILL, onNavigateUp = onBack,
         footer = { TextButton(if (state.phone.isNotEmpty()) ({ open("logout") }) else signIn,
             Modifier.fillMaxWidth().heightIn(min = 48.dp), enabled = state.loaded && !state.busy) {
@@ -41,7 +41,7 @@ internal fun AccountContent(state: AccountUiState, onBack: () -> Unit = {}, open
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Column {
                     Text("Tu WhatsApp", style = KomparaType.body)
-                    Text("Para cambiarlo, escríbenos", style = KomparaType.small, color = KomparaTheme.colors.inkSecondary)
+                    if (supportAvailable) Text("Para cambiarlo, escríbenos", style = KomparaType.small, color = KomparaTheme.colors.inkSecondary)
                 }
                 Text(if (state.phone.isEmpty()) "Sin agregar" else MxPhone.display(state.phone),
                     Modifier.padding(start = 12.dp), style = KomparaType.bodyStrong)

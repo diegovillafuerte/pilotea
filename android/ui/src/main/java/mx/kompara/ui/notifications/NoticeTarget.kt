@@ -19,14 +19,14 @@ data class NoticeTarget(val kind: NoticeKind, val period: String = "") {
             when (kind) {
                 NoticeKind.READER -> Unit
                 NoticeKind.MONTH -> require(YearMonth.parse(period).toString() == period)
-                NoticeKind.DAY, NoticeKind.WEEK -> {
+                NoticeKind.DAY, NoticeKind.WEEK, NoticeKind.IMPORT -> {
                     val date = LocalDate.parse(period)
                     require(date.toString() == period)
-                    if (kind == NoticeKind.WEEK) require(date.dayOfWeek == DayOfWeek.MONDAY)
+                    if (kind == NoticeKind.WEEK || kind == NoticeKind.IMPORT) require(date.dayOfWeek == DayOfWeek.MONDAY)
                 }
             }
             NoticeTarget(kind, period)
         }.getOrNull()
     }
 }
-enum class NoticeKind { READER, DAY, WEEK, MONTH }
+enum class NoticeKind { READER, DAY, WEEK, MONTH, IMPORT }

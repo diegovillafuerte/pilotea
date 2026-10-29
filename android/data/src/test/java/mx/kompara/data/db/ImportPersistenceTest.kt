@@ -17,6 +17,37 @@ import java.io.File
 @Config(sdk = [34])
 class ImportPersistenceTest {
     private val context: Context = ApplicationProvider.getApplicationContext()
+    @Test fun `v8 upgrade preserves imports selections and drafts without certifying them`() = runTest {
+        val name = "imports-v8"; context.deleteDatabase(name)
+        context.openOrCreateDatabase(name, 0, null).use { sqlite ->
+            val schema = JSONObject(File(System.getProperty("kompara.schemas"), "mx.kompara.data.db.KomparaDatabase/8.json").readText()).getJSONObject("database")
+            val entities = schema.getJSONArray("entities")
+            for (i in 0 until entities.length()) {
+                val e = entities.getJSONObject(i)
+                sqlite.execSQL(e.getString("createSql").replace("\${TABLE_NAME}", e.getString("tableName")))
+                val indices = e.optJSONArray("indices") ?: org.json.JSONArray()
+                for (j in 0 until indices.length()) sqlite.execSQL(indices.getJSONObject(j).getString("createSql").replace("\${TABLE_NAME}", e.getString("tableName")))
+            }
+            sqlite.execSQL("INSERT INTO import_statements VALUES ('saved','UBER','2026-10-12','2026-10-18','5062',34,NULL,'24','USER_CORRECTED_IMPORT','pdf',100)")
+            sqlite.execSQL("INSERT INTO import_selections VALUES ('UBER','2026-10-12','saved','PAYMENT,TRIPS')")
+            sqlite.execSQL("INSERT INTO import_drafts VALUES ('draft','didi','image',101,102,'original','corrected','REVIEW',NULL,NULL)")
+            sqlite.version = 8
+        }
+        fun open() = Room.databaseBuilder(context, KomparaDatabase::class.java, name).addMigrations(*KomparaMigrations.ALL).build()
+        var db = open()
+        try {
+            val original = db.importDao().statements().single()
+            assertEquals("USER_CORRECTED_IMPORT", original.source); assertEquals("5062", original.payment)
+            assertNull(original.certificationId); assertNull(original.certificationCity); assertNull(original.confirmedFields)
+            assertEquals("saved", db.importDao().selections().single().statementId)
+            assertEquals("corrected", db.importDao().pending()!!.correctionJson)
+            val certified = original.copy(source = "SERVER_CONFIRMED_STATEMENT", certificationId = "server-proof",
+                certificationCity = "cdmx", confirmedFields = "PAYMENT,TRIPS,HOURS")
+            db.importDao().putStatement(certified)
+            db.close(); db = open()
+            assertEquals(certified, db.importDao().statements().single())
+        } finally { db.close(); context.deleteDatabase(name) }
+    }
     @Test fun `v7 to v8 keeps legacy imports unknown and preserves captured money`() = runTest {
         val name = "imports-v7"; context.deleteDatabase(name)
         context.openOrCreateDatabase(name, 0, null).use { sqlite ->

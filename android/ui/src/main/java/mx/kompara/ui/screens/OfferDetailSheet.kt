@@ -44,13 +44,13 @@ internal fun openReadingReport(context: Context, report: String): Boolean {
 @Composable
 fun OfferDetailSheet(model: OfferDetailModel, dayIso: String, onDismiss: () -> Unit,
     onCalculation: () -> Unit, onLimits: () -> Unit, onCancel: () -> Unit,
-    message: (@Composable () -> Unit)? = null) {
+    message: (@Composable () -> Unit)? = null, reportAvailable: Boolean = PrivacyLinks.support != null) {
     var confirmCancel by rememberSaveable(model.offerId) { mutableStateOf(false) }
     var consent by rememberSaveable(model.offerId) { mutableStateOf(false) }
     var reportError by rememberSaveable(model.offerId) { mutableStateOf(false) }
     val context = LocalContext.current
     SheetScaffold(model.title, onDismiss, heading = { OfferDetailHeading(model) }) {
-        OfferDetailContent(model, onCalculation, onLimits, { consent = true }, { confirmCancel = true }, message)
+        OfferDetailContent(model, onCalculation, onLimits, { consent = true }, { confirmCancel = true }, message, reportAvailable)
         if (reportError) Text("No pudimos abrir una app para compartir. Inténtalo otra vez.", style = KomparaType.body)
     }
     if (confirmCancel) AlertDialog(onDismissRequest = { confirmCancel = false },
@@ -58,7 +58,7 @@ fun OfferDetailSheet(model: OfferDetailModel, dayIso: String, onDismiss: () -> U
         text = { Text("Se quitará de tu día. La oferta queda en tu historial.") },
         confirmButton = { TextButton({ confirmCancel = false; onCancel() }) { Text("Quitar de mi día") } },
         dismissButton = { TextButton({ confirmCancel = false }) { Text("Volver") } })
-    if (consent) {
+    if (consent && reportAvailable) {
         val report = offerReadingReport(model, dayIso)
         AlertDialog(onDismissRequest = { consent = false }, title = { Text("Avisar que se leyó mal") },
             text = { Column(Modifier.verticalScroll(rememberScrollState())) {
@@ -83,7 +83,7 @@ fun OfferDetailHeading(model: OfferDetailModel) {
 /** Equal padding on all three ledger rows absorbs slack; content grows/scrolls with wrapped text. */
 @Composable
 fun OfferDetailContent(model: OfferDetailModel, onCalculation: () -> Unit, onLimits: () -> Unit,
-    onReport: () -> Unit, onCancel: () -> Unit, message: (@Composable () -> Unit)? = null) {
+    onReport: () -> Unit, onCancel: () -> Unit, message: (@Composable () -> Unit)? = null, reportAvailable: Boolean = true) {
     Spacer(Modifier.height(12.dp))
     model.label?.let { Text(it, style = KomparaType.body, color = KomparaTheme.colors.inkSecondary) }
     model.amount?.let { amount ->
@@ -121,7 +121,7 @@ fun OfferDetailContent(model: OfferDetailModel, onCalculation: () -> Unit, onLim
     }
     Rule()
     OfferAction("Cambiar tu meta y tu mínimo", onLimits, chevron = true)
-    OfferAction("Avisar que se leyó mal", onReport)
+    if (reportAvailable) OfferAction("Avisar que se leyó mal", onReport)
     if (model.cancellableTripId != null) OfferAction("¿Se canceló? Quitar de mi día", onCancel, quiet = true)
 }
 

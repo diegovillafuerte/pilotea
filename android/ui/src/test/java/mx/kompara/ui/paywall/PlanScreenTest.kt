@@ -60,6 +60,7 @@ class PlanScreenTest {
         compose.setContent { KomparaTheme { PaywallContent(state) } }
         compose.onNodeWithText("Empezar mi prueba").assertDoesNotExist()
         compose.onNodeWithText("Términos").assertDoesNotExist()
+        compose.onNodeWithText("Privacidad").assertDoesNotExist()
         compose.runOnIdle { state = PaywallUiState.NoResult }
         compose.onNodeWithText("Tus datos siguen gratis").assertIsDisplayed()
         compose.onNodeWithText("$149").assertDoesNotExist()

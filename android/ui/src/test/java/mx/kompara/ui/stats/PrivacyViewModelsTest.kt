@@ -158,6 +158,18 @@ class PrivacyViewModelsTest {
         assertEquals(1, db.openHelper.readableDatabase.query("SELECT count(*) FROM trips").use { it.moveToFirst(); it.getInt(0) })
     }
 
+    @Test fun `unsupported certified contribution cannot be enabled but existing consent can be revoked`() = runBlocking {
+        val vm = TusDatosViewModel(auth, settings, privacy, eraser, billing, SavedStateHandle()); observe(vm, vm.state)
+        assertFalse(vm.state.await { it.loaded }.contributionAvailable)
+        privacy.contribution(true)
+        assertFalse(settings.isShareAggregatesEnabled())
+        settings.setShareAggregates(true)
+        vm.state.await { it.contribution }
+        vm.contribution(false)
+        vm.state.await { !it.contribution }
+        assertFalse(settings.isShareAggregatesEnabled())
+    }
+
     @Test fun `revocation cancels periodic and immediate aggregate work and deletion cancels telemetry too`() = runBlocking {
         val manager = WorkManager.getInstance(context)
         val names = listOf(AggregateSyncWorker.ONE_OFF_WORK_NAME, AggregateSyncWorker.PERIODIC_WORK_NAME,

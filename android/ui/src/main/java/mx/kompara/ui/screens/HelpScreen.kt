@@ -50,11 +50,9 @@ fun HelpScreen(modifier: Modifier = Modifier, initialAnswer: String? = null, onB
 internal fun HelpContent(modifier: Modifier = Modifier, initialAnswer: String? = null, onBack: () -> Unit = {},
     supportAvailable: Boolean = false, support: () -> Unit = {}, failure: String? = null) {
     var expanded by rememberSaveable { mutableStateOf(initialAnswer?.takeIf { id -> helpAnswers.any { it.id == id } }) }
-    ScreenScaffold("Ayuda", modifier, ScreenKind.DRILL, onBack, footer = {
-        if (!supportAvailable) Text("El soporte por WhatsApp aún no está disponible.", Modifier.padding(bottom = 12.dp),
-            style = KomparaType.small, color = KomparaTheme.colors.inkSecondary)
-        PrimaryButton("Escríbenos por WhatsApp", support, enabled = supportAvailable)
-    }) {
+    ScreenScaffold("Ayuda", modifier, ScreenKind.DRILL, onBack, footer = if (supportAvailable) ({
+        PrimaryButton("Escríbenos por WhatsApp", support)
+    }) else null) {
         Spacer(Modifier.height(24.dp))
         helpAnswers.forEach { answer ->
             val open = expanded == answer.id

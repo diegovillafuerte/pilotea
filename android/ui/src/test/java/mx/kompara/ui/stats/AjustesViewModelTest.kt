@@ -58,7 +58,8 @@ class AjustesViewModelTest {
             collecting = launch { vm.state.collect() }
             suspend fun await(predicate: (AjustesState) -> Boolean) = withTimeout(10000) { vm.state.filterNotNull().first(predicate) }
             val first = await { it.firstPermission }
-            assertEquals("Entrar con WhatsApp", first.account); assertEquals("Plan gratis", first.plan)
+            assertEquals("Entrar con WhatsApp", first.account); assertNull(first.accountDetail)
+            assertEquals("Plan gratis", first.plan)
             assertNull(first.planDetail); assertEquals("Sin agregar", first.car)
             assertTrue(first.costs.endsWith("típicos, sin confirmar"))
             running.saveRunningCosts(RunningCostInputs(RunningCostMode.DIRECT, directPerKm = BigDecimal("3.75")), now.toEpochMilli(), now.toEpochMilli())

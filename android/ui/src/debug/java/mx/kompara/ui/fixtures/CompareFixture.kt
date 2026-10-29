@@ -36,5 +36,5 @@ class CompareFixture(context: Context) {
         else -> ComparisonBuilder.build(current, previous, CompareChoice())
     }
     fun state(frame: String = "F1") = comparison(frame).let { CompareUiState(it.weekStart, it.today, it.choice, false, it,
-        weeks = listOf(it.today.monday(), fixture.weekStart, previous.money.window.start)) }
+        weeks = listOf(it.today.monday(), fixture.weekStart, previous.money.window.start), contributionAvailable = true) }
 }

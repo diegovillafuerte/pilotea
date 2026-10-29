@@ -112,11 +112,20 @@ class DayScreenTest {
         compose.onNodeWithText("$9.81\u2060/\u2060km · arriba de tu meta de $8.00\u2060/\u2060km").assertExists()
     }
 
+    @Test fun `unconfigured support hides offer reporting while keeping local detail actions`() {
+        val day = fixture.day()
+        val model = day.offer(day.at("14:32"))!!
+        compose.setContent { KomparaTheme { OfferDetailSheet(model, day.date.toString(), {}, {}, {}, {}, reportAvailable = false) } }
+        compose.onNodeWithText("Avisar que se leyó mal").assertDoesNotExist()
+        compose.onNodeWithText("Cambiar tu meta y tu mínimo").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("¿Se canceló? Quitar de mi día").performScrollTo().assertIsDisplayed()
+    }
+
     @Test fun `report requires explicit preview consent and cancellation requires its own confirmation`() {
         val day = fixture.day()
         val model = day.offer(day.at("14:32"))!!
         var cancellations = 0
-        compose.setContent { KomparaTheme { OfferDetailSheet(model, day.date.toString(), {}, {}, {}, { cancellations++ }) } }
+        compose.setContent { KomparaTheme { OfferDetailSheet(model, day.date.toString(), {}, {}, {}, { cancellations++ }, reportAvailable = true) } }
         compose.onNodeWithText("Avisar que se leyó mal").performScrollTo().performClick()
         compose.onNodeWithText("Compartir").assertExists()
         compose.onNodeWithText("Se compartirán la fecha", substring = true).assertExists()

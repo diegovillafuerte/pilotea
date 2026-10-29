@@ -37,7 +37,7 @@ fun CompararScreen(modifier: Modifier = Modifier, onUpgrade: (GateSurface) -> Un
     val sheet by viewModel.sheet.collectAsStateWithLifecycle()
     CompararContent(state, viewModel::selectScope, viewModel::openSheet, { viewModel.step(-1) }, { viewModel.step(1) },
         onImport, { onUpgrade(GateSurface.COMPARE) }, viewModel::retry, modifier)
-    sheet?.let { id ->
+    sheet?.takeIf { it != "contribution" || state.contributionAvailable }?.let { id ->
         SheetScaffold(compareSheetTitle(id), viewModel::closeSheet) {
             CompareSheetContent(id, state, viewModel::openSheet, viewModel::selectMetric, viewModel::selectApp,
                 viewModel::selectCity, viewModel::selectWeek, viewModel::setContribution, onImport)
@@ -81,7 +81,7 @@ fun CompararContent(state: CompareUiState, onScope: (CompareScope) -> Unit, onSh
                     }
                 }
                 Text(c.basis, Modifier.padding(top = 20.dp, bottom = 12.dp), style = KomparaType.small, color = KomparaTheme.colors.inkSecondary)
-                if (state.choice.scope == CompareScope.CITY) {
+                if (state.choice.scope == CompareScope.CITY && state.contributionAvailable) {
                     Rule(); ListRow("Aportar al promedio", onClick = { onSheet("contribution") }); Rule()
                 }
                 if (c.status == ComparisonStatus.EMPTY) {
@@ -187,7 +187,7 @@ fun CompareSheetContent(id: String, state: CompareUiState, onSheet: (String) -> 
             Text(weekRange(state.weekStart, state.today), style = KomparaType.bodyStrong)
             c?.details?.forEach { Text(it, Modifier.padding(top = 12.dp), style = KomparaType.body, color = KomparaTheme.colors.inkSecondary) }
         }
-        "contribution" -> {
+        "contribution" -> if (state.contributionAvailable) {
             Text("Sumar mis totales, sin mi nombre, al promedio de ${CompareUiText.cityName(state.choice.city)}", style = KomparaType.body)
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text("Aportar al promedio", Modifier.weight(1f), style = KomparaType.bodyStrong)

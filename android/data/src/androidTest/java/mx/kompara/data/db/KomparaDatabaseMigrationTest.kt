@@ -182,9 +182,9 @@ class KomparaDatabaseMigrationTest {
     }
 
     @Test
-    fun migrate_1_to_7_validatesCompleteUpgradeChain() {
+    fun migrate_1_to_9_validatesCompleteUpgradeChain() {
         helper.createDatabase(TEST_DB, 1).close()
-        helper.runMigrationsAndValidate(TEST_DB, 8, true, *KomparaMigrations.ALL).close()
+        helper.runMigrationsAndValidate(TEST_DB, 9, true, *KomparaMigrations.ALL).close()
     }
 
     @Test
@@ -232,4 +232,13 @@ class KomparaDatabaseMigrationTest {
         db.close()
     }
 
+    @Test fun migrate8To9_preservesImportsWithoutInventingCertification() {
+        helper.createDatabase(TEST_DB, 8).apply {
+            execSQL("INSERT INTO import_statements VALUES ('saved','UBER','2026-10-12','2026-10-18','5062',34,NULL,'24','USER_CORRECTED_IMPORT','pdf',100)")
+            close()
+        }
+        val db = helper.runMigrationsAndValidate(TEST_DB, 9, true, KomparaMigrations.MIGRATION_8_9)
+        assertEquals(1, count(db, "SELECT COUNT(*) FROM import_statements WHERE source='USER_CORRECTED_IMPORT' AND payment='5062' AND certificationId IS NULL AND certificationCity IS NULL AND confirmedFields IS NULL"))
+        db.close()
+    }
 }

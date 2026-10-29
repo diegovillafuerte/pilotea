@@ -62,7 +62,7 @@ import mx.kompara.data.db.entity.WeeklyAggregateEntity
     // v4 (B-081): DATA-ONLY repair — purges phantom zero-value trips + uptime-dated (1970) rows the
     // pre-fix node path wrote. No schema change. See KomparaMigrations.MIGRATION_3_4.
     // v5 (S2): effective cost versions and exact contribution/provenance on rollups.
-    version = 8,
+    version = 9,
     exportSchema = true,
 )
 abstract class KomparaDatabase : RoomDatabase() {

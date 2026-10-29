@@ -43,18 +43,22 @@ object ShareCardComposer {
         val title = if (kind == SharePeriodKind.WEEK) {
             if (open) "Llevas esta semana" else "Te quedaron esa semana"
         } else "${if (open) "Llevas" else "Te quedaron"} en ${monthName(YearMonth.from(start))}"
-        val sources = money.contributions.map { it.record.source }.distinct()
+        // Missing km prevents a net amount, but does not erase a statement's known trip count.
+        val records = (money.contributions + money.paymentOnly).map { it.record }
+        val trips = records.takeIf { rows -> rows.all { it.tripsKnown } }?.sumOf { it.trips }
+        val result = money.periodResult.takeIf { money.paymentOnly.isEmpty() }
+        val sources = records.map { it.source }.distinct()
         val source = when {
             sources.isEmpty() -> "Todavía no hay viajes registrados"
             sources.all { it == MoneySource.CAPTURED_ESTIMATE } -> "Según lo que registró Kompara de tus viajes"
             sources.none { it == MoneySource.CAPTURED_ESTIMATE } -> "Según tus resúmenes importados"
             else -> "Según tus viajes registrados y resúmenes importados"
         }
-        return ShareCardData(period, kind, "${money.trips} ${if (money.trips == 1) "viaje" else "viajes"} $timing", source,
-            if (hide) "" else if (money.periodResult == null) "Faltan datos para calcular lo que te quedó" else
+        return ShareCardData(period, kind, if (trips == null) "Resumen de Kompara" else "$trips ${if (trips == 1) "viaje" else "viajes"} $timing", source,
+            if (hide) "" else if (result == null) "Faltan datos para calcular lo que te quedó" else
                 "Ya restamos ${money.energy()} y desgaste${if (money.carConfigured) " y lo del coche" else ""}. Antes de impuestos.",
-            money.trips.toString(), netLabel = "$title · aprox.",
-            netEarnings = if (hide || money.contributions.isEmpty()) null else money.periodResult?.let(Formatters::formatMxnWhole),
+            trips?.toString() ?: "—", netLabel = "$title · aprox.",
+            netEarnings = if (hide || money.contributions.isEmpty()) null else result?.let(Formatters::formatMxnWhole),
             hoursLabel = "Tiempo en turno", hours = if (hide || money.hoursOnline.signum() == 0) null else shareDuration(money.hoursOnline.multiply(BigDecimal(60))),
             hideAmounts = hide)
     }

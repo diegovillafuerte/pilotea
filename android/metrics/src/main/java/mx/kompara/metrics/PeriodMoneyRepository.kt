@@ -7,6 +7,8 @@ import mx.kompara.data.db.KomparaDatabase
 import mx.kompara.data.rollup.capturedIncomeRecords
 import mx.kompara.data.settings.CarCostRepository
 import mx.kompara.data.settings.CostProfileRepository
+import mx.kompara.metrics.compare.ConfirmedStatement
+import mx.kompara.metrics.compare.confirmedStatement
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -79,7 +81,7 @@ class PeriodMoneyRepository @Inject constructor(
             database.importDao().statements().map { java.time.LocalDate.parse(it.start) }, captured.money,
             database.importDao().selections().map { "statement:${it.statementId}" }.filter { id ->
                 (week.contributions + week.paymentOnly).any { it.record.id == id }
-            }.toSet())
+            }.toSet(), localStatements.mapNotNull { it.confirmedStatement() })
     }
 
     /** Rows, presentations and money come from one transaction and one as-of instant. */
@@ -142,6 +144,8 @@ data class WeekMoneySnapshot(
     val importedWeeks: List<java.time.LocalDate> = emptyList(),
     val capturedMoney: PeriodMoney? = null,
     val selectedStatements: Set<String> = emptySet(),
+    /** Authoritative proof read in the same transaction as the period's money. */
+    val confirmedStatements: List<ConfirmedStatement> = emptyList(),
 )
 
 data class MonthMoneySnapshot(
