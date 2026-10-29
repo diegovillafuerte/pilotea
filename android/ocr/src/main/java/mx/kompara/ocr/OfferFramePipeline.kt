@@ -45,6 +45,14 @@ class OfferFramePipeline(private val readiness: mx.kompara.data.service.ReaderRe
     private var lastOfferPackage: String? = null
     private val diagnostics = OcrDiagnostics()
 
+    /** Start before requesting a frame, so even a burst with no successful screenshots is reported. */
+    fun onCaptureStart() { diagnostics.beginBurst() }
+
+    /** Fixed reason codes and counts only; callers must never pass exception messages or OCR text. */
+    fun captureBlocked(reason: String, consecutive: Int? = null) {
+        diagnostics.blocked(reason, consecutive?.let { "consecutive=$it" } ?: "")
+    }
+
     /**
      * Process one recognized frame. [chipRect] is the overlay chip's on-screen rect at capture time
      * (masked out so our own verdict text isn't re-parsed as the offer fare). [fixtureDir] is the base
@@ -58,6 +66,7 @@ class OfferFramePipeline(private val readiness: mx.kompara.data.service.ReaderRe
         density: Float = 1f,
         accessibility: mx.kompara.capture.HostWindowEvidence? = null,
         appearance: HostAppearanceSamples? = null) {
+        diagnostics.frame(rawBlocks.size, chipRect != null)
         if (readiness?.canRead(token = token) == false) {
             diagnostics.blocked("pipeline readiness/canRead false or stale capture token")
             return
@@ -106,6 +115,7 @@ class OfferFramePipeline(private val readiness: mx.kompara.data.service.ReaderRe
         // shared by the presence tracker (hold the chip) and the lifecycle classifier (hold OFFER).
         val signature = !ownUi &&
             (uberParser.hasCardSignature(blocks) || didiParser.hasCardSignature(blocks))
+        diagnostics.reading(OcrReadingEvidence(blocks.size, ownUi, signature, parsed != null, parsed?.fare != null))
         if (signature && (parsed == null || parsed.fare == null)) {
             diagnostics.blocked("incomplete reading", "parsed=${parsed != null} paymentRead=${parsed?.fare != null}")
         }
@@ -123,6 +133,7 @@ class OfferFramePipeline(private val readiness: mx.kompara.data.service.ReaderRe
             OfferEventBus.tryEmit(
                 OfferEvent.Parsed(shownCard.platform, System.currentTimeMillis(), shownCard),
             )
+            diagnostics.publishedOffer()
             lastOfferPackage = shownCard.platform
             val key = "${shownCard.platform}_${shownCard.fare}_${shownCard.pickupDistanceKm}_${shownCard.tripDistanceKm}"
             if (key != lastOfferKey) {
@@ -201,6 +212,7 @@ class OfferFramePipeline(private val readiness: mx.kompara.data.service.ReaderRe
         presence.reset()
         fareStabilizer.reset()
         frameOutlierGuard.reset()
+        diagnostics.endBurst()
     }
 
     private fun looksLikeOffer(text: String): Boolean =

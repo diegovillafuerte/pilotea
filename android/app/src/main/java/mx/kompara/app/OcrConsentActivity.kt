@@ -2,7 +2,6 @@ package mx.kompara.app
 
 import android.media.projection.MediaProjectionManager
 import android.os.Bundle
-import android.os.Build
 import mx.kompara.data.service.ReaderDeviceEnvironment
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
@@ -29,10 +28,9 @@ class OcrConsentActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // The silent lane already owns capture on 30+ — don't stack a MediaProjection session on top.
+        // Suppress redundant consent only while a capture lane actually owns the reader.
         if (!ReaderDeviceEnvironment.permissionGranted(this) ||
-            ScreenReaderState.silentLaneActive.value || ScreenReaderState.running.value ||
-            (Build.VERSION.SDK_INT >= 30 && !ScreenReaderState.silentLaneFailed.value)) {
+            ScreenReaderState.silentLaneActive.value || ScreenReaderState.running.value) {
             finish()
             return
         }

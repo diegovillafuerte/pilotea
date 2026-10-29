@@ -30,9 +30,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.isActive
 import mx.kompara.data.service.ScreenReaderState
 import mx.kompara.data.service.ScreenRect
 import java.util.concurrent.atomic.AtomicBoolean
@@ -63,6 +61,11 @@ class OcrCaptureService : Service() {
     // All parse → verdict → ledger logic lives in the shared, capture-source-agnostic pipeline so this
     // MediaProjection lane and the API 30+ [SilentScreenshotLane] can never drift (B-091).
     @javax.inject.Inject lateinit var readiness: mx.kompara.data.service.ReaderReadinessRepository
+    @javax.inject.Inject lateinit var coordinator: CaptureCoordinator
+    private val ownership get() = coordinator.ownership
+    private var captureSession: CaptureSession? = null
+    private var burstHost: String? = null
+    private var burstGeneration = 0L
     private val pipeline by lazy { OfferFramePipeline(readiness) }
     private var projection: MediaProjection? = null
     private var virtualDisplay: VirtualDisplay? = null
@@ -80,26 +83,24 @@ class OcrCaptureService : Service() {
         onUndeliveredElement = { it.bitmap.recycle() },
     )
     private var consumerStarted = false
-    // A frame is tagged with the capture generation it was grabbed in. teardown bumps the generation
-    // (under [stateMutex]) so any frame already queued or mid-recognition from before is DROPPED at
-    // its generation check instead of mutating the overlay/ledger after the session was reset.
-    @Volatile private var captureGeneration = 0
-    // Serializes each frame's state mutation with teardown's close+reset. Recognition runs OUTSIDE
-    // the lock (it's the slow part and touches no shared state), so the lock is held only for the
-    // brief parse+emit, and teardown's runBlocking can't stall the lifecycle callback for long.
-    private val stateMutex = Mutex()
+    // Session/permit checks and pipeline publication share the arbiter's monitor with both lanes.
+    // Slow recognition remains outside the monitor; an obsolete completion cannot publish.
 
     // chipRect is snapshotted at CAPTURE time so the mask matches THESE pixels: OCR is async, and a
     // drag/attach/detach between capture and parse would otherwise misalign the live rect with the
     // frame (leak the old chip block, or blank host text at the new spot). See [ChipMask].
-    private data class CapturedFrame(val generation: Int, val bitmap: Bitmap, val chipRect: ScreenRect?, val token: Long,
+    private data class CapturedFrame(val permit: CapturePermit, val host: String, val burst: Long, val bitmap: Bitmap, val chipRect: ScreenRect?, val token: Long,
         val capturedAtMs: Long, val density: Float, val accessibility: mx.kompara.capture.HostWindowEvidence?)
 
     override fun onCreate() {
         super.onCreate()
         scope.launch(CoroutineName("MediaProjection readiness")) {
             readiness.state.collect { state ->
-                if (!state.canRead) stateMutex.withLock { pipeline.onCaptureEnd(System.currentTimeMillis()) }
+                if (!state.canRead) ownership.serialized {
+                    if (!readiness.canRead()) captureSession?.let { ownership.permit(it) }?.let { permit ->
+                        ownership.withOwner(permit) { closePipeline() }
+                    }
+                }
             }
         }
     }
@@ -130,8 +131,6 @@ class OcrCaptureService : Service() {
 
         try {
             startProjection(resultCode, data)
-        } catch (cancellation: CancellationException) {
-            throw cancellation
         } catch (error: Throwable) {
             stopAfterFailure("MediaProjection start", error)
         }
@@ -139,43 +138,62 @@ class OcrCaptureService : Service() {
     }
 
     private fun startProjection(resultCode: Int, data: Intent) {
-        startAsForeground()
-
-        // Re-consent while already capturing (Lector "reiniciar"): drop the old projection first.
-        if (projection != null) teardown(restarting = true)
-
-        val mpm = getSystemService(MediaProjectionManager::class.java)
-        val mp = mpm.getMediaProjection(resultCode, data)
-        if (mp == null) {
-            onProjectionLost()
-            return
-        }
-        projection = mp
-        // Android 14+ requires a registered callback. It fires for OUR teardown() too (restart,
-        // onDestroy) — by then `projection` no longer points at mp, so only an external revocation
-        // (keyguard, the system screen-cast chip) takes the recovery path.
-        mp.registerCallback(object : MediaProjection.Callback() {
-            override fun onStop() {
-                if (projection !== mp) return
-                onProjectionLost()
-            }
-        }, null)
-
-        startCapture(mp)
+        lateinit var mp: MediaProjection
+        lateinit var surface: CaptureSurface
+        var session: CaptureSession? = null
+        val started = ProjectionStartup().start(
+            prepare = {
+                startAsForeground()
+                // Re-consent drops the old one-shot grant before preparing its replacement.
+                if (projection != null) teardown(restarting = true)
+                mp = checkNotNull(getSystemService(MediaProjectionManager::class.java).getMediaProjection(resultCode, data))
+                projection = mp
+                // Android 14+ requires this callback. Our teardown clears projection before stop().
+                mp.registerCallback(object : MediaProjection.Callback() {
+                    override fun onStop() {
+                        if (projection !== mp) return
+                        onProjectionLost()
+                    }
+                }, null)
+                surface = createCaptureSurface()
+            },
+            createDisplay = {
+                mp.createVirtualDisplay(
+                    "kompara-ocr",
+                    surface.width, surface.height, surface.density,
+                    DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
+                    surface.reader.surface,
+                    null, null,
+                ).also { virtualDisplay = it }
+            },
+            wireReader = {
+                wireReader(surface) { session }
+                startFrameConsumer()
+            },
+            register = {
+                ownership.serialized {
+                    // An immediately exited consumer must never become a retained fallback.
+                    check(!failureStopped.get() && scope.isActive)
+                    session = ownership.start(CaptureLane.PROJECTION, ::closePipeline).also { captureSession = it }
+                }
+            },
+            failure = { stopAfterFailure("MediaProjection start", it) },
+        )
+        if (!started) return
         // The reader may have been restarted from the Lector tab rather than the stopped
         // notification — clear it so it can't claim "detenido" while capture runs.
         getSystemService(NotificationManager::class.java).cancel(STOPPED_NOTIF_ID)
-        readiness.captureRunning(true)
-        ScreenReaderState.setRunning(true)
         val reason = when {
             Build.VERSION.SDK_INT < Build.VERSION_CODES.R -> "API below 30"
             ScreenReaderState.silentLaneFailed.value -> "silent lane unavailable"
             else -> "driver granted screen capture"
         }
-        Log.i(TAG, "MediaProjection lane active: $reason")
+        Log.i(TAG, "MediaProjection session available: $reason; silent capture has priority")
     }
 
-    private fun startCapture(mp: MediaProjection) {
+    private data class CaptureSurface(val reader: ImageReader, val width: Int, val height: Int, val density: Int)
+
+    private fun createCaptureSurface(): CaptureSurface {
         val wm = getSystemService(WindowManager::class.java)
         // minSdk is 26, but currentWindowMetrics is API 30+. Mirror OverlayController.screenWidth/
         // screenHeight: WindowMetrics on R+, the deprecated getRealSize fallback on API 26–29.
@@ -195,14 +213,10 @@ class OcrCaptureService : Service() {
 
         val reader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2)
         imageReader = reader
-        virtualDisplay = mp.createVirtualDisplay(
-            "kompara-ocr",
-            width, height, density,
-            DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
-            reader.surface,
-            null, null,
-        )
+        return CaptureSurface(reader, width, height, density)
+    }
 
+    private fun startFrameConsumer() {
         // Launch the single frame consumer once for the service's lifetime; a re-consent reuses it
         // (the scope outlives teardown). Processing frames one at a time, in order, is what serializes
         // the whole stateful pipeline.
@@ -210,39 +224,52 @@ class OcrCaptureService : Service() {
             consumerStarted = true
             scope.launch(CoroutineName("MediaProjection frame pipeline")) {
                 for (frame in frameChannel) runOcr(frame)
+            }.invokeOnCompletion { error ->
+                // A cancelled OCR continuation need not cancel the supervisor. Never retain a
+                // supposedly available fallback after its only consumer has exited (even before
+                // the body started). This service owns the consumer across projection sessions.
+                if (scope.isActive) stopAfterFailure("MediaProjection frame consumer exited", error ?: IllegalStateException())
             }
         }
+    }
 
-        // Bind this capture session to an IMMUTABLE generation. teardown bumps captureGeneration, so a
-        // callback from THIS (now-old) reader that resumes after teardown still tags its frame with
-        // `generation` — not the post-teardown value — and is dropped by the consumer's in-lock check.
-        // (Reading the live field per frame would let a late callback adopt the new generation.)
-        val generation = ++captureGeneration
-
+    private fun wireReader(surface: CaptureSurface, session: () -> CaptureSession?) {
+        val (reader, width, height) = surface
         reader.setOnImageAvailableListener({ r ->
             if (imageReader !== r || failureStopped.get()) return@setOnImageAvailableListener
             try {
                 val image = r.acquireLatestImage() ?: return@setOnImageAvailableListener
                 try {
-                    if (!readiness.canRead()) {
-                        diagnostics.blocked("MediaProjection readiness/canRead false")
+                    // A parked projection drains images without allocating bitmaps or doing OCR.
+                    // Keep the one-shot platform grant intact for automatic fallback after stand-down.
+                    val currentSession = session() ?: return@setOnImageAvailableListener
+                    val permit = ownership.permit(currentSession) ?: return@setOnImageAvailableListener
+                    val now = SystemClock.elapsedRealtime()
+                    val host = ScreenReaderState.freshForegroundHost(now, HOST_FRESHNESS_MS)
+                    if (host == null || !readiness.canRead(host)) {
+                        diagnostics.blocked(if (host == null) "HOST_NOT_FOREGROUND" else "READINESS")
+                        ownership.withOwner(permit) { closePipeline() }
                         return@setOnImageAvailableListener
                     }
+                    val burst = ownership.serialized {
+                        if (!ownership.withOwner(permit) {
+                            if (burstHost != null && burstHost != host) closePipeline()
+                            pipeline.onCaptureStart()
+                            burstHost = host
+                        }) null else burstGeneration
+                    } ?: return@setOnImageAvailableListener
                     val token = readiness.captureToken()
-                    val now = SystemClock.elapsedRealtime()
                     if (now - lastOcrAt < THROTTLE_MS) return@setOnImageAvailableListener
                     lastOcrAt = now
                     // Hand off to the sequential consumer, tagged with this session's generation; CONFLATED
                     // replaces any unprocessed frame. Recycle if the channel is closed (teardown race).
-                    val frame = CapturedFrame(generation, image.toBitmap(width, height), ScreenReaderState.overlayChipRect, token,
+                    val frame = CapturedFrame(permit, host, burst, image.toBitmap(width, height), ScreenReaderState.overlayChipRect, token,
                         System.currentTimeMillis(), resources.displayMetrics.density,
                         mx.kompara.capture.HostGeometryEvidence.state.value)
                     if (frameChannel.trySend(frame).isFailure) frame.bitmap.recycle()
                 } finally {
                     image.close()
                 }
-            } catch (cancellation: CancellationException) {
-                throw cancellation
             } catch (error: Throwable) {
                 stopAfterFailure("MediaProjection image callback", error)
             }
@@ -250,7 +277,7 @@ class OcrCaptureService : Service() {
     }
 
     private suspend fun runOcr(frame: CapturedFrame) {
-        if (!readiness.canRead(token = frame.token)) {
+        if (ownership.permit(frame.permit.session) != frame.permit || !readiness.canRead(token = frame.token)) {
             diagnostics.blocked("MediaProjection readiness/canRead false or stale capture token")
             frame.bitmap.recycle()
             return
@@ -265,6 +292,7 @@ class OcrCaptureService : Service() {
             throw cancellation
         } catch (t: Throwable) {
             Log.e(TAG, "OCR failed (${t.javaClass.simpleName})")
+            ownership.withOwner(frame.permit) { pipeline.captureBlocked("OCR_FAILURE") }
             frame.bitmap.recycle() // ML Kit finished (with an error) — safe to free.
             return
         }
@@ -274,12 +302,11 @@ class OcrCaptureService : Service() {
         } finally {
             frame.bitmap.recycle()
         }
-        // Serialize the state mutation with teardown and drop frames from a superseded capture
-        // generation, so a stale pre-teardown frame can never publish to the overlay/ledger after the
-        // session was closed and reset. The generation check is INSIDE the lock, so it can't race the
-        // bump in teardown. Delegates the whole parse → verdict → ledger step to the shared pipeline.
-        stateMutex.withLock {
-            if (frame.generation == captureGeneration && readiness.canRead(token = frame.token)) {
+        // Ownership is checked inside the shared monitor: teardown/handoff cannot race publication.
+        // A resumed projection gets a fresh permit, so even its own pre-handoff frames are dropped.
+        ownership.withOwner(frame.permit) {
+            if (burstGeneration == frame.burst && burstHost == frame.host && readiness.canRead(token = frame.token) &&
+                ScreenReaderState.freshForegroundHost(SystemClock.elapsedRealtime(), HOST_FRESHNESS_MS) == frame.host) {
                 pipeline.process(blocks, frame.chipRect, if (BuildConfig.DEBUG) getExternalFilesDir(null) else null,
                     capturedAtMs = frame.capturedAtMs, token = frame.token, displayBounds = display,
                     density = frame.density, accessibility = frame.accessibility, appearance = appearance)
@@ -312,31 +339,48 @@ class OcrCaptureService : Service() {
     private fun onProjectionLost() {
         // One shared incident owner handles this and permission loss. Paused/denied notifications
         // must not bypass that owner through a second OCR-specific notification path.
-        teardown()
+        teardown(failed = true)
         cleanup("foreground notification") { stopForeground(STOP_FOREGROUND_REMOVE) }
         cleanup("capture service") { stopSelf() }
     }
 
     /** A failed supervised child still needs a handler: otherwise Android kills the shared process. */
     private fun stopAfterFailure(component: String, error: Throwable) {
-        if (error is CancellationException || !failureStopped.compareAndSet(false, true)) return
+        if (!ownership.serialized { failureStopped.compareAndSet(false, true) }) return
         Log.e(TAG, "$component failed; stopping MediaProjection lane (${error.javaClass.simpleName})")
         scope.cancel()
-        // Service/window callbacks stay on main. The failed child has already released stateMutex.
-        mainHandler.post { onProjectionLost() }
+        // Service/window callbacks stay on main. The failed child has released the ownership monitor.
+        if (Looper.myLooper() == mainHandler.looper) onProjectionLost()
+        else mainHandler.post { onProjectionLost() }
     }
 
     private inline fun cleanup(component: String, block: () -> Unit) {
         try {
             block()
-        } catch (cancellation: CancellationException) {
-            throw cancellation
         } catch (error: Throwable) {
+            // Every platform resource still needs its release attempt, including on cancellation.
             Log.e(TAG, "$component cleanup failed (${error.javaClass.simpleName})")
         }
     }
 
-    private fun teardown(restarting: Boolean = false) {
+    private fun closePipeline() {
+        burstGeneration++
+        burstHost = null
+        try {
+            pipeline.onCaptureEnd(System.currentTimeMillis())
+        } catch (error: Throwable) {
+            // A cleanup failure cannot skip ownership release or take down the replacement lane.
+            Log.e(TAG, "frame pipeline cleanup failed (${error.javaClass.simpleName})")
+        }
+    }
+
+    private fun teardown(restarting: Boolean = false, failed: Boolean = false) {
+        ownership.serialized {
+            val session = captureSession
+            if (session != null) ownership.stop(session, failed = failed, intentional = restarting)
+            else if (failed) ownership.startupFailed()
+            captureSession = null
+        }
         val oldDisplay = virtualDisplay
         virtualDisplay = null
         cleanup("virtual display") { oldDisplay?.release() }
@@ -346,27 +390,6 @@ class OcrCaptureService : Service() {
         val oldProjection = projection
         projection = null
         cleanup("projection") { oldProjection?.stop() }
-        ScreenReaderState.setRunning(false)
-        cleanup("reader state") {
-            readiness.captureRunning(false, intentionalStop = restarting)
-            if (failureStopped.get()) readiness.captureFailed()
-        }
-        // Close the session under the state lock, serialized with the frame consumer. Bumping the
-        // capture generation FIRST means any frame still queued or mid-recognition is dropped at its
-        // (in-lock) generation check — nothing can re-create a verdict or ledger offer after the
-        // reset. runBlocking waits for at most one in-flight processFrame (recognition runs outside
-        // the lock); teardown is infrequent (re-consent / screen lock / destroy).
-        cleanup("frame pipeline") {
-            runBlocking {
-                stateMutex.withLock {
-                    captureGeneration++
-                    // Close the session under the state lock: emit a trailing NoCard so no verdict is
-                    // stranded, resolve/close the OCR ledger, and reset every stateful collaborator so a
-                    // re-consent restart begins clean. All handled by the shared pipeline.
-                    pipeline.onCaptureEnd(System.currentTimeMillis())
-                }
-            }
-        }
     }
 
     override fun onDestroy() {
@@ -387,6 +410,7 @@ class OcrCaptureService : Service() {
         // 300 ms bounds the offer→verdict latency (plus ML Kit time); ~3 fps full-screen OCR is
         // fine on the target devices and only runs while the driver has the reader on.
         private const val THROTTLE_MS = 300L
+        private const val HOST_FRESHNESS_MS = 1_500L
         const val ACTION_STOP = "mx.kompara.action.STOP_SCREEN_READER"
         const val EXTRA_RESULT_CODE = "result_code"
         const val EXTRA_DATA = "data"

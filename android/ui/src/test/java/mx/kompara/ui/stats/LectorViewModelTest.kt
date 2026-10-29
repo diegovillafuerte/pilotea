@@ -25,8 +25,8 @@ import java.time.*
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class LectorViewModelTest {
-    @Before fun before() { Dispatchers.setMain(Dispatchers.Unconfined); ScreenReaderState.setSilentLaneFailed(false) }
-    @After fun after() { Dispatchers.resetMain(); ScreenReaderState.setSilentLaneFailed(false) }
+    @Before fun before() { Dispatchers.setMain(Dispatchers.Unconfined); ScreenReaderState.setSilentLaneFailed(false); ScreenReaderState.setRunning(false) }
+    @After fun after() { Dispatchers.resetMain(); ScreenReaderState.setSilentLaneFailed(false); ScreenReaderState.setRunning(false) }
     private class Memory : DataStore<Preferences> {
         override val data = MutableStateFlow(emptyPreferences())
         override suspend fun updateData(transform: suspend (Preferences) -> Preferences) = transform(data.value).also { data.value = it }
@@ -43,6 +43,7 @@ class LectorViewModelTest {
             override fun save(memory: ReaderMemory) { value = memory }
         }, Clock.fixed(day.money.window.asOf, f.fixture.zone))
         reader.observeEnvironment(true, false); reader.supportedApps(setOf(ReaderReadinessReducer.UBER, ReaderReadinessReducer.DIDI)); reader.bound(); reader.captureRunning(true)
+        ScreenReaderState.setRunning(true)
         reader.readOffer(ReaderReadinessReducer.UBER, "live", at("14:32"), reader.captureToken())
         val vm = LectorViewModel(reader, prefs, db.offerPresentationDao(), WeekClock(f.fixture.zone))
         val store = ViewModelStore(); store.put("reader", vm)
@@ -61,6 +62,12 @@ class LectorViewModelTest {
             assertEquals("$8.00/km · $6.50/km", await { it.limits.contains("6.50") }.limits)
             vm.pause(); assertTrue(await { it.primary == SemaforoAction.RESUME }.suppressed.isEmpty())
             vm.resume(); assertEquals(row.id, await { it.primary == null }.suppressed.single().offerId)
+            // A manual retry follows the actual owner even before a silent failure is reported.
+            ScreenReaderState.setRunning(false)
+            assertFalse(ScreenReaderState.silentLaneFailed.value)
+            assertEquals(SemaforoAction.CAPTURE, await { it.primary == SemaforoAction.CAPTURE }.primary)
+            ScreenReaderState.setRunning(true)
+            assertNull(await { it.primary == null }.primary)
             ScreenReaderState.setRunning(false); ScreenReaderState.setSilentLaneFailed(true)
             assertEquals(SemaforoAction.CAPTURE, await { it.primary == SemaforoAction.CAPTURE }.primary)
             reader.observeEnvironment(false, false)

@@ -57,11 +57,8 @@ class KomparaAccessibilityService : AccessibilityService() {
         // The failed job/start has already stopped. Clear its state without stopping siblings.
         runCatching {
             when (component) {
-                "silent-lane" -> {
-                    ScreenReaderState.setSilentLaneFailed(true)
-                    screenReaderLane.stop()
-                    if (!ScreenReaderState.running.value) readiness.captureFailed()
-                }
+                // Silent capture owns its session cleanup. A supervisor callback carries no token
+                // and may arrive after reconnect, so it must never stop or mark a replacement failed.
                 "host-poll" -> {
                     foregroundOcrOwnedApp.value = null
                     HostGeometryEvidence.publish(null)
@@ -143,6 +140,7 @@ class KomparaAccessibilityService : AccessibilityService() {
                 else mx.kompara.data.service.DrivingActivity.foreground(current.takeIf { interactive })
                 foregroundOcrOwnedApp.value = current.takeIf { interactive && it in OCR_OWNED_PACKAGES }
                 val host = foregroundOcrOwnedApp.value
+                ScreenReaderState.setForegroundHost(host, android.os.SystemClock.elapsedRealtime())
                 if (host != null && (readiness.canRead(host) || readiness.state.value.canShowStoppedTab)) {
                     val snapshot = snapshotSource.read(host, System.currentTimeMillis())
                     if (snapshot?.hostWindow == null) HostGeometryEvidence.publish(null)
@@ -202,6 +200,7 @@ class KomparaAccessibilityService : AccessibilityService() {
 
     override fun onDestroy() {
         mx.kompara.data.service.DrivingActivity.unknown()
+        ScreenReaderState.setForegroundHost(null, android.os.SystemClock.elapsedRealtime())
         serviceState.setConnected(false, ReaderEnvironment.permissionGranted(this))
         snapshotSource.detach()
         overlayPresenter.stop()

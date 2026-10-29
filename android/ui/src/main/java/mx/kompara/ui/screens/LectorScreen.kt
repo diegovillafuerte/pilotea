@@ -1,7 +1,6 @@
 package mx.kompara.ui.screens
 
 import android.content.Intent
-import android.os.Build
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -43,8 +42,8 @@ class LectorViewModel @Inject constructor(
     private val failure = MutableStateFlow<String?>(null)
     val error = failure.asStateFlow()
     fun retry() { failure.value = null; refresh.value++ }
-    val state = refresh.flatMapLatest { combine(reader.state, settings.settings, records, ScreenReaderState.silentLaneFailed, ScreenReaderState.running) { readiness, prefs, offers, failed, running ->
-        semaforoState(readiness, prefs, offers, weekClock.zone, (Build.VERSION.SDK_INT < 30 || failed) && !running && readiness.permission == true)
+    val state = refresh.flatMapLatest { combine(reader.state, settings.settings, records, ScreenReaderState.running) { readiness, prefs, offers, running ->
+        semaforoState(readiness, prefs, offers, weekClock.zone, !running && readiness.permission == true)
     }.map<SemaforoState, SemaforoState?> { it }.catch { e ->
         if (e is kotlinx.coroutines.CancellationException) throw e
         failure.value = "No pudimos cargar el estado del semáforo. Inténtalo otra vez."

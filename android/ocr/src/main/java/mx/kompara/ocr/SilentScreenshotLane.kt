@@ -9,18 +9,17 @@ import android.view.Display
 import androidx.annotation.RequiresApi
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.suspendCancellableCoroutine
 import mx.kompara.capture.KomparaAccessibilityService
 import mx.kompara.capture.ScreenReaderLane
 import mx.kompara.data.service.ScreenReaderState
 import mx.kompara.data.service.ScreenRect
 import java.util.concurrent.Executor
-import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * The **primary, Play-clean capture lane** on API 30+ (B-091): it reads the host app's trip-offer
@@ -39,122 +38,149 @@ import java.util.concurrent.atomic.AtomicBoolean
  * that broke it), the lane disables itself and clears [ScreenReaderState.silentLaneActive], which
  * re-enables the manual MediaProjection path (the reader-down banner / Lector "Iniciar" CTA).
  */
-class SilentScreenshotLane(private val readiness: mx.kompara.data.service.ReaderReadinessRepository) : ScreenReaderLane {
+class SilentScreenshotLane(
+    private val readiness: mx.kompara.data.service.ReaderReadinessRepository,
+    coordinator: CaptureCoordinator,
+) : ScreenReaderLane {
 
     private val engine = OcrEngine()
+    private val ownership = coordinator.ownership
+    // Both fields, all ownership changes, and all pipeline publications use the same monitor.
     private var loop: Job? = null
-    // True only while THIS lane owns ScreenReaderState.running (started on 30+ and not yet stood down).
-    // Guards stop()/teardown from clobbering the MediaProjection fallback's running state on <30 or
-    // after a self-disable.
-    private val owningRunning = AtomicBoolean(false)
-    private val diagnosticTimes = mutableMapOf<String, Long>()
+    private var activeSession: CaptureSession? = null
 
-    override fun start(scope: CoroutineScope, service: AccessibilityService): Boolean {
+    override fun start(scope: CoroutineScope, service: AccessibilityService): Boolean = ownership.serialized {
+        // Every bind resets readiness, including devices where this lane can never start.
+        ownership.reaffirm()
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
             Log.i(TAG, "silent lane unavailable: API below 30; MediaProjection required")
-            return false
+            return@serialized false
         }
-        if (loop?.isActive == true) return true
-        val capabilities = service.serviceInfo?.capabilities ?: 0
+        if (loop?.isActive == true && activeSession?.let { ownership.permit(it) } != null) return@serialized true
+        stop()
+        val capabilities = try {
+            service.serviceInfo?.capabilities ?: 0
+        } catch (error: Throwable) {
+            ownership.silentUnavailable()
+            Log.e(TAG, "silent lane setup failed (${error.javaClass.simpleName})")
+            return@serialized false
+        }
         if (!canStartSilentLane(Build.VERSION.SDK_INT, capabilities)) {
-            standDown("screenshot capability missing (capabilities=$capabilities); toggle Accessibility to refresh a stale grant")
-            return false
+            ownership.silentUnavailable()
+            Log.e(TAG, "silent lane unavailable: screenshot capability missing capabilities=$capabilities")
+            return@serialized false
         }
-        ScreenReaderState.setSilentLaneFailed(false)
-        ScreenReaderState.setSilentLaneActive(true)
-        // On 30+ the reader is live for the whole time the a11y service is enabled — no per-session
-        // projection to lose — so it reports "running" for the lane's lifetime, not per capture burst.
-        owningRunning.set(true)
-        readiness.captureRunning(true)
-        ScreenReaderState.setRunning(true)
-        // Each capture loop owns a FRESH pipeline: if a service reconnect launches a replacement loop
-        // while a cancelled one is still unwinding, the old loop's teardown resets its OWN (orphaned)
-        // pipeline, never the new session's — no shared-state race across loop generations.
-        diagnosticTimes.clear()
+        val pipeline = OfferFramePipeline(readiness)
+        val session = ownership.start(CaptureLane.SILENT) {
+            try {
+                pipeline.onCaptureEnd(System.currentTimeMillis())
+            } catch (error: Throwable) {
+                Log.e(TAG, "capture cleanup failed (${error.javaClass.simpleName})")
+            }
+        }
+        activeSession = session
+        // Lazy launch lets us register cleanup before even an already-cancelled scope can finish.
+        val job = scope.launch(start = CoroutineStart.LAZY) { captureLoop(service, session, pipeline) }
+        loop = job
+        job.invokeOnCompletion {
+            ownership.serialized {
+                ownership.stop(session)
+                if (activeSession == session) {
+                    activeSession = null
+                    loop = null
+                }
+            }
+        }
         Log.i(TAG, "silent lane active: API 30+ screenshot capability granted")
-        loop = scope.launch { captureLoop(service) }
-        return true
+        job.start()
+        true
     }
 
-    override fun stop() {
-        loop?.cancel()
+    override fun stop() = ownership.serialized {
+        val oldJob = loop
+        val oldSession = activeSession
+        activeSession = null
         loop = null
-        ScreenReaderState.setSilentLaneActive(false)
-        releaseRunning()
+        // Invalidate and close before cancellation; the old loop's finally cannot touch a successor.
+        oldSession?.let { ownership.stop(it) }
+        oldJob?.cancel()
+        Unit
     }
 
-    private fun releaseRunning() {
-        // Only clear running if this lane actually owns it — never stomp a MediaProjection fallback.
-        if (owningRunning.compareAndSet(true, false)) {
-            ScreenReaderState.setRunning(false)
-            readiness.captureRunning(false)
+    private fun standDown(session: CaptureSession, reason: String) = ownership.serialized {
+        if (ownership.stop(session, failed = true)) {
+            Log.e(TAG, "silent screenshot lane disabled: $reason; MediaProjection fallback")
         }
-    }
-
-    private fun standDown(reason: String) {
-        Log.e(TAG, "silent screenshot lane disabled: $reason; MediaProjection fallback")
-        ScreenReaderState.setSilentLaneFailed(true)
-        ScreenReaderState.setSilentLaneActive(false)
-        val ownedRunning = owningRunning.get()
-        releaseRunning()
-        // A missing grant can prevent our first capture entirely. Surface that failure too, but
-        // never replace a live MediaProjection fallback's readiness/running state.
-        if (!ownedRunning && !ScreenReaderState.running.value) readiness.captureFailed()
     }
 
     @RequiresApi(Build.VERSION_CODES.R)
-    private suspend fun captureLoop(service: AccessibilityService) {
-        var pipeline: OfferFramePipeline? = null
+    private suspend fun captureLoop(service: AccessibilityService, session: CaptureSession, pipeline: OfferFramePipeline) {
+        val diagnostics = OcrDiagnostics()
+        val rateLimits = ScreenshotRateLimits()
         var capturing = false
+        var hostPackage: String? = null
         try {
-            val session = OfferFramePipeline(readiness)
-            pipeline = session
             val power = service.getSystemService(PowerManager::class.java)
             var hardFailures = 0
             while (currentCoroutineContext().isActive) {
-                val hostForeground = targetAppForeground(service)
+                val permit = ownership.permit(session) ?: return
+                val host = targetAppForeground(service)
                 val screenInteractive = power?.isInteractive != false
                 val readingAllowed = readiness.canRead()
-                when (SilentLaneGate.decide(hostForeground, screenInteractive, hardFailures, MAX_HARD_FAILURES, readingAllowed)) {
+                when (SilentLaneGate.decide(host != null, screenInteractive, hardFailures, MAX_HARD_FAILURES, readingAllowed)) {
                     LaneAction.DISABLE -> {
-                        standDown("$hardFailures consecutive screenshot hard failures")
+                        standDown(session, "$hardFailures consecutive screenshot hard failures")
                         return
                     }
                     LaneAction.IDLE -> {
                         val reason = when {
-                            !readingAllowed -> "readiness/canRead=false"
-                            !hostForeground -> "host not in foreground or not enabled for reading"
-                            else -> "screenInteractive=false"
+                            !readingAllowed -> "READINESS"
+                            host == null -> "HOST_NOT_FOREGROUND"
+                            else -> "SCREEN_NOT_INTERACTIVE"
                         }
-                        logSuppressed("idle:$reason", "chip hidden: gate=IDLE reason=$reason")
-                        // Left the host app / screen off: close the session so the chip hides and the
-                        // ledger doesn't dangle, then poll cheaply for the next host-foreground window.
-                        if (capturing) {
-                            session.onCaptureEnd(System.currentTimeMillis())
-                            capturing = false
+                        diagnostics.blocked(reason)
+                        ownership.withOwner(permit) {
+                            if (capturing) pipeline.onCaptureEnd(System.currentTimeMillis())
                         }
+                        capturing = false
+                        hostPackage = null
+                        rateLimits.reset()
                         delay(IDLE_POLL_MS)
                     }
                     LaneAction.CAPTURE -> {
+                        if (!ownership.withOwner(permit) {
+                            if (capturing && hostPackage != host) {
+                                pipeline.onCaptureEnd(System.currentTimeMillis())
+                                rateLimits.reset()
+                            }
+                            pipeline.onCaptureStart()
+                        }) return
                         capturing = true
+                        hostPackage = host
                         val token = readiness.captureToken()
                         when (val shot = takeScreenshot(service)) {
                             is ShotResult.Ok -> {
                                 hardFailures = 0
-                                // Snapshot the chip rect at CAPTURE time so the mask matches THESE
-                                // pixels — the chip may move/hide while ML Kit runs (parity with the
-                                // MediaProjection lane's CapturedFrame.chipRect).
+                                rateLimits.reset()
                                 val chipRect = ScreenReaderState.overlayChipRect
-                                processShot(shot.bitmap, chipRect, session, token, service.resources.displayMetrics.density)
+                                processShot(shot.bitmap, chipRect, pipeline, permit, token,
+                                    service.resources.displayMetrics.density, diagnostics)
                                 delay(THROTTLE_MS)
                             }
                             ShotResult.NoCapability -> {
-                                standDown("takeScreenshot denied screenshot capability (SecurityException)")
+                                ownership.withOwner(permit) { pipeline.captureBlocked("SCREENSHOT_NO_CAPABILITY") }
+                                standDown(session, "takeScreenshot denied screenshot capability (SecurityException)")
                                 return
                             }
-                            ShotResult.RateLimited -> delay(RATE_LIMIT_BACKOFF_MS)
+                            ShotResult.RateLimited -> {
+                                val count = rateLimits.onRateLimited()
+                                ownership.withOwner(permit) { pipeline.captureBlocked("SCREENSHOT_RATE_LIMIT", count) }
+                                delay(RATE_LIMIT_BACKOFF_MS)
+                            }
                             ShotResult.HardError -> {
+                                rateLimits.reset()
                                 hardFailures++
+                                ownership.withOwner(permit) { pipeline.captureBlocked("SCREENSHOT_HARD_ERROR") }
                                 delay(RATE_LIMIT_BACKOFF_MS)
                             }
                         }
@@ -162,35 +188,15 @@ class SilentScreenshotLane(private val readiness: mx.kompara.data.service.Reader
                 }
             }
         } catch (cancellation: CancellationException) {
+            // A platform adapter/OCR can cancel its continuation without cancelling this job.
+            // Release a still-current owner in either case; only unexpected cancellation is failure.
+            if (currentCoroutineContext().isActive) standDown(session, "unexpected capture cancellation")
             throw cancellation
         } catch (error: Throwable) {
-            if (currentCoroutineContext().isActive) standDown("capture loop failed (${error.javaClass.simpleName})")
-            else Log.e(TAG, "stopped capture loop failed (${error.javaClass.simpleName})")
+            standDown(session, "capture loop failed (${error.javaClass.simpleName})")
         } finally {
-            // Service destroyed / scope cancelled mid-offer: never strand a verdict or leave the OCR
-            // ledger session open. onCaptureEnd only publishes to non-suspending buses + resets the
-            // (singleton) pipeline state, so a later service reconnect starts clean. tryEmit is safe
-            // to run from a cancelled context's finally.
-            if (capturing) {
-                try {
-                    pipeline?.onCaptureEnd(System.currentTimeMillis())
-                } catch (cancellation: CancellationException) {
-                    throw cancellation
-                } catch (error: Throwable) {
-                    // A cancelled session may be unwinding after a replacement/fallback started.
-                    if (currentCoroutineContext().isActive) standDown("capture cleanup failed (${error.javaClass.simpleName})")
-                    else Log.e(TAG, "stopped capture cleanup failed (${error.javaClass.simpleName})")
-                }
-            }
-        }
-    }
-
-    private fun logSuppressed(key: String, message: String) {
-        val now = android.os.SystemClock.elapsedRealtime()
-        val last = diagnosticTimes[key]
-        if (last == null || now - last >= DIAGNOSTIC_INTERVAL_MS) {
-            diagnosticTimes[key] = now
-            Log.d("KomparaOCR", message)
+            // Also handles parent cancellation, even with no captured frames. A stale token is inert.
+            ownership.stop(session)
         }
     }
 
@@ -199,18 +205,18 @@ class SilentScreenshotLane(private val readiness: mx.kompara.data.service.Reader
      * authoritative "what's in front", unlike the a11y event stream which never fires when the driver
      * leaves a target app — packageNames filter), and recycles the node where that still matters (<33).
      */
-    private fun targetAppForeground(service: AccessibilityService): Boolean {
-        val root = service.rootInActiveWindow ?: return false
+    private fun targetAppForeground(service: AccessibilityService): String? {
+        val root = service.rootInActiveWindow ?: return null
         return try {
-            root.packageName?.toString()?.let { it in KomparaAccessibilityService.OCR_OWNED_PACKAGES && readiness.canRead(it) } == true
+            root.packageName?.toString()?.takeIf { it in KomparaAccessibilityService.OCR_OWNED_PACKAGES && readiness.canRead(it) }
         } finally {
             if (Build.VERSION.SDK_INT < 33) @Suppress("DEPRECATION") root.recycle()
         }
     }
 
-    private suspend fun processShot(bitmap: Bitmap, chipRect: ScreenRect?, pipeline: OfferFramePipeline, token: Long, density: Float) {
-        if (!readiness.canRead(token = token)) {
-            logSuppressed("readiness", "chip hidden: screenshot discarded; readiness/canRead=false or stale capture token")
+    private suspend fun processShot(bitmap: Bitmap, chipRect: ScreenRect?, pipeline: OfferFramePipeline, permit: CapturePermit, token: Long, density: Float, diagnostics: OcrDiagnostics) {
+        if (ownership.permit(permit.session) != permit || !readiness.canRead(token = token)) {
+            diagnostics.blocked("SCREENSHOT_STALE_OR_READINESS")
             bitmap.recycle()
             return
         }
@@ -227,6 +233,7 @@ class SilentScreenshotLane(private val readiness: mx.kompara.data.service.Reader
         } catch (t: Throwable) {
             // An OCR failure is not a capture-capability failure — log and free the frame.
             Log.e(TAG, "OCR failed on screenshot frame (${t.javaClass.simpleName})")
+            ownership.withOwner(permit) { pipeline.captureBlocked("OCR_FAILURE") }
             bitmap.recycle()
             return
         }
@@ -236,8 +243,10 @@ class SilentScreenshotLane(private val readiness: mx.kompara.data.service.Reader
         } finally {
             bitmap.recycle()
         }
-        pipeline.process(blocks, chipRect, null, capturedAtMs = capturedAtMs, token = token,
-            displayBounds = display, density = density, accessibility = accessibility, appearance = appearance)
+        ownership.withOwner(permit) {
+            pipeline.process(blocks, chipRect, null, capturedAtMs = capturedAtMs, token = token,
+                displayBounds = display, density = density, accessibility = accessibility, appearance = appearance)
+        }
     }
 
     private sealed interface ShotResult {
@@ -249,56 +258,42 @@ class SilentScreenshotLane(private val readiness: mx.kompara.data.service.Reader
 
     @RequiresApi(Build.VERSION_CODES.R)
     private suspend fun takeScreenshot(service: AccessibilityService): ShotResult =
-        suspendCancellableCoroutine { cont ->
-            // A vendor may invoke a callback inline and then throw. Only the first result wins;
-            // any subsequent successful frame is recycled without a second continuation resume.
-            val completed = AtomicBoolean(false)
-            fun complete(result: ShotResult) {
-                if (!completed.compareAndSet(false, true)) {
-                    (result as? ShotResult.Ok)?.bitmap?.recycle()
-                    return
-                }
-                cont.resume(result) { _, discarded, _ ->
-                    (discarded as? ShotResult.Ok)?.bitmap?.recycle()
-                }
-            }
-            val executor = Executor { it.run() }
-            try {
-                service.takeScreenshot(
-                    Display.DEFAULT_DISPLAY,
-                    executor,
-                    object : AccessibilityService.TakeScreenshotCallback {
-                        override fun onSuccess(screenshot: AccessibilityService.ScreenshotResult) {
-                            try {
-                                val bitmap = toSoftwareBitmap(screenshot)
-                                complete(bitmap?.let { ShotResult.Ok(it) } ?: ShotResult.HardError)
-                            } catch (cancellation: CancellationException) {
-                                cont.cancel(cancellation)
-                            } catch (error: Throwable) {
-                                // Callback work runs on the supplied executor, outside captureLoop's
-                                // catch. A buffer/conversion failure must not crash the service either.
-                                Log.e(TAG, "screenshot conversion failed (${error.javaClass.simpleName})")
-                                complete(ShotResult.HardError)
-                            }
-                        }
-
-                        override fun onFailure(errorCode: Int) {
-                            complete(
-                                if (errorCode == AccessibilityService.ERROR_TAKE_SCREENSHOT_INTERVAL_TIME_SHORT) {
-                                    ShotResult.RateLimited
-                                } else {
-                                    ShotResult.HardError
-                                },
-                            )
-                        }
-                    },
-                )
-            } catch (error: RuntimeException) {
-                complete(when (classifyScreenshotFailure(error)) {
+        awaitScreenshotResult(
+            discard = { result: ShotResult -> (result as? ShotResult.Ok)?.bitmap?.recycle() },
+            failureResult = { error ->
+                when (classifyScreenshotFailure(error)) {
                     ScreenshotFailure.NO_CAPABILITY -> ShotResult.NoCapability
                     ScreenshotFailure.HARD_ERROR -> ShotResult.HardError
-                })
-            }
+                }
+            },
+        ) { completion ->
+            service.takeScreenshot(
+                Display.DEFAULT_DISPLAY,
+                Executor { it.run() },
+                object : AccessibilityService.TakeScreenshotCallback {
+                    override fun onSuccess(screenshot: AccessibilityService.ScreenshotResult) {
+                        try {
+                            val bitmap = toSoftwareBitmap(screenshot)
+                            completion.complete(bitmap?.let { ShotResult.Ok(it) } ?: ShotResult.HardError)
+                        } catch (cancellation: CancellationException) {
+                            completion.cancel(cancellation)
+                        } catch (error: Throwable) {
+                            Log.e(TAG, "screenshot conversion failed (${error.javaClass.simpleName})")
+                            completion.complete(ShotResult.HardError)
+                        }
+                    }
+
+                    override fun onFailure(errorCode: Int) {
+                        completion.complete(
+                            if (errorCode == AccessibilityService.ERROR_TAKE_SCREENSHOT_INTERVAL_TIME_SHORT) {
+                                ShotResult.RateLimited
+                            } else {
+                                ShotResult.HardError
+                            },
+                        )
+                    }
+                },
+            )
         }
 
     /**
@@ -334,7 +329,6 @@ class SilentScreenshotLane(private val readiness: mx.kompara.data.service.Reader
         private const val THROTTLE_MS = 700L
         private const val IDLE_POLL_MS = 750L
         private const val RATE_LIMIT_BACKOFF_MS = 1_000L
-        private const val DIAGNOSTIC_INTERVAL_MS = 10_000L
         // How many consecutive HARD (non-rate-limit) takeScreenshot failures before we conclude the
         // device's screenshot path is broken and fall back to MediaProjection.
         private const val MAX_HARD_FAILURES = 5

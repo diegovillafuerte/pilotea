@@ -21,7 +21,7 @@ object ScreenReaderState {
 
     private val _running = MutableStateFlow(false)
 
-    /** True while the OCR capture service holds a live MediaProjection. */
+    /** True while the capture coordinator has a live OCR owner. */
     val running: StateFlow<Boolean> = _running.asStateFlow()
 
     fun setRunning(running: Boolean) {
@@ -67,9 +67,9 @@ object ScreenReaderState {
     @Volatile
     private var foregroundHost: ForegroundHost? = null
 
-    /** Called by the accessibility service on every target-app event. */
-    fun setForegroundHost(packageName: String, seenAtMs: Long) {
-        foregroundHost = ForegroundHost(packageName, seenAtMs)
+    /** Refreshed by target-app events and live foreground polling; null clears a departed host. */
+    fun setForegroundHost(packageName: String?, seenAtMs: Long) {
+        foregroundHost = packageName?.let { ForegroundHost(it, seenAtMs) }
     }
 
     /**
