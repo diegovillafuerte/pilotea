@@ -1,6 +1,8 @@
 package mx.kompara.metrics
 
 import mx.kompara.data.db.entity.CostProfileEntity
+import mx.kompara.data.accounting.RunningCostVersion
+import mx.kompara.data.accounting.RunningCostMode
 
 /**
  * Bridges `:data`'s persisted [CostProfileEntity] to the engine's pure [CostProfile]. Lives in
@@ -33,7 +35,14 @@ object CostProfileMapper {
         )
     }
 
-    /** Null-safe convenience: a null entity (no profile saved yet) maps to [CostProfile.ZERO]. */
+    /** Decimal version adapter. Invalid inputs stay unavailable rather than becoming free costs. */
+    fun toCostProfile(version: RunningCostVersion): CostProfile? {
+        val rate = version.inputs.costPerKm ?: return null
+        val wear = if (version.inputs.mode == RunningCostMode.DIRECT) 0.0 else version.inputs.wearPerKm.toDouble()
+        return CostProfile(rate.toDouble() - wear, wear)
+    }
+
+    /** Compatibility name: absence now uses [CostProfile.TYPICAL], never an optimistic zero. */
     fun toCostProfileOrZero(entity: CostProfileEntity?): CostProfile =
-        entity?.let { toCostProfile(it) } ?: CostProfile.ZERO
+        entity?.let { toCostProfile(it) } ?: CostProfile.TYPICAL
 }

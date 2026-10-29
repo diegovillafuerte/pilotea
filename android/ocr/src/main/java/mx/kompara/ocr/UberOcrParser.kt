@@ -69,6 +69,9 @@ class UberOcrParser {
             platform = UBER_PACKAGE,
             variant = variant,
             fare = fareHit.value,
+            captureSource = "OCR",
+            // The existing bare-fare parser does not certify driver vs passenger payment.
+            paymentBasis = "UNCONFIRMED",
             pickupDistanceKm = pickup?.km,
             pickupEtaMin = pickup?.min,
             tripDistanceKm = trip.km,

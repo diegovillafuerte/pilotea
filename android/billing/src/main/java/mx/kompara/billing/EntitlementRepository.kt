@@ -1,6 +1,9 @@
 package mx.kompara.billing
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,7 +21,7 @@ import javax.inject.Singleton
  * Derivation rules (purchase lifecycle → entitlement):
  *  - PURCHASED / GRACE_PERIOD → PREMIUM (trial flag from the purchase). Grace keeps the driver
  *    entitled while a renewal payment retries.
- *  - PENDING → not yet entitled (FREE) until the payment completes and flips to PURCHASED.
+ *  - PENDING → no new entitlement; preserve previous access until payment completes.
  *  - ON_HOLD / EXPIRED → FREE (account hold suspends entitlement).
  *  - The server's view ([ServerSubscription]), when present, overrides the client guess (it has
  *    verified the token and seen RTDN state the client may not have).
@@ -43,6 +46,30 @@ class EntitlementRepository @Inject constructor(
     private val logger: BillingLogger,
     private val grantSource: PremiumGrantSource = PremiumGrantSource.NONE,
 ) {
+    private val mutex = Mutex()
+    private var hydrated = false
+    private val _plan = MutableStateFlow(PlanStatus())
+    val plan: StateFlow<PlanStatus> = _plan.asStateFlow()
+    private suspend fun hydrate() {
+        if (!hydrated) {
+            _entitlement.value = applyGrace(store.read())
+            _plan.value = store.readPlan()
+            _hasPlaySubscription.value = _plan.value.hasSubscription
+            hydrated = true
+        }
+    }
+    private suspend fun savePlan(value: PlanStatus) {
+        _plan.value = value
+        _hasPlaySubscription.value = value.hasSubscription
+        try { store.writePlan(value) } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            logger.w("Plan cache write failed", e)
+        }
+    }
+
+    private val _hasPlaySubscription = MutableStateFlow(false)
+    val hasPlaySubscription: StateFlow<Boolean> = _hasPlaySubscription.asStateFlow()
+
     private val _entitlement = MutableStateFlow<Entitlement>(Entitlement.Free)
 
     /** Reactive entitlement. Starts FREE, hydrates from last-known, then tracks live purchases. */
@@ -65,7 +92,7 @@ class EntitlementRepository @Inject constructor(
         scope.launch {
             // 1) Offline grace: show last-known immediately so premium isn't briefly lost on a cold,
             //    offline launch. A live update below overwrites it once Play/backend answers.
-            _entitlement.value = applyGrace(store.read())
+            mutex.withLock { hydrate() }
 
             // 2) Track live purchase updates (also (re)connects + queries on first collection).
             //    When Play is unavailable we deliberately do NOT collect updates — an empty update
@@ -75,7 +102,7 @@ class EntitlementRepository @Inject constructor(
                     logger.w("Play Billing unavailable (${conn.reason}); staying on last-known entitlement")
                     // A backend grant (B-056) can still entitle premium without Play — merge it onto
                     // the last-known so a referral grant unlocks premium even with no billing.
-                    updateEntitlement(mergeGrant(_entitlement.value))
+                    mutex.withLock { updateEntitlement(mergeGrant(_entitlement.value)) }
                     return@launch
                 }
                 BillingConnectionResult.Connected -> Unit
@@ -89,10 +116,11 @@ class EntitlementRepository @Inject constructor(
      * the resulting entitlement.
      */
     suspend fun restore(): Entitlement {
+        mutex.withLock { hydrate() }
         when (val conn = billing.ensureConnected()) {
             is BillingConnectionResult.Unavailable -> {
                 logger.w("restore(): billing unavailable (${conn.reason}); last-known retained")
-                return _entitlement.value
+                throw IllegalStateException("Play unavailable; cached access retained")
             }
             BillingConnectionResult.Connected -> Unit
         }
@@ -105,12 +133,22 @@ class EntitlementRepository @Inject constructor(
      * (B-056). Call after a successful referral redemption so premium unlocks immediately without a
      * Play purchase. No-ops gracefully (keeps the current entitlement) when there is no live grant.
      */
-    suspend fun refreshGrant() {
+    suspend fun refreshGrant() = mutex.withLock {
+        hydrate()
         updateEntitlement(mergeGrant(_entitlement.value))
     }
 
+    /** Called only after the explicit server start succeeds, never after authentication. */
+    suspend fun acceptPromotionalTrial(grant: PromotionalGrant) = mutex.withLock {
+        hydrate()
+        require(grant.expiresAt > System.currentTimeMillis())
+        savePlan(_plan.value.copy(grantUntil = grant.expiresAt, promotionalTrialUntil = grant.expiresAt))
+        updateEntitlement(Entitlement.Premium(false, grant.expiresAt))
+    }
+
     /** Process a fresh set of purchases: acknowledge, sync to backend, derive + persist. */
-    private suspend fun onPurchases(purchases: List<BillingPurchase>) {
+    private suspend fun onPurchases(purchases: List<BillingPurchase>) = mutex.withLock {
+        hydrate()
         val premiumPurchase = purchases
             .filter { it.productId == BillingProducts.PREMIUM_SUBSCRIPTION }
             // Prefer the most-entitled purchase if Play returns more than one.
@@ -118,8 +156,16 @@ class EntitlementRepository @Inject constructor(
 
         if (premiumPurchase == null) {
             // No owned purchase — a backend grant can still entitle premium (B-056).
-            updateEntitlement(mergeGrant(Entitlement.Free))
-            return
+            savePlan(_plan.value.copy(payment = PaymentStatus.NONE, paidUntil = null))
+            updateEntitlement(mergeGrant(Entitlement.Free, retainOnFailure = true))
+            return@withLock
+        }
+
+        if (premiumPurchase.state == PurchaseState.PENDING) {
+            savePlan(_plan.value.copy(payment = PaymentStatus.PENDING))
+            // Pending is neither a new grant nor a revocation of existing access.
+            updateEntitlement(mergeGrant(applyGrace(_entitlement.value), retainOnFailure = true))
+            return@withLock
         }
 
         // Acknowledge within the flow so Play doesn't auto-refund (only for entitled, owned states).
@@ -128,6 +174,7 @@ class EntitlementRepository @Inject constructor(
         ) {
             val ok = runCatching { billing.acknowledgePurchase(premiumPurchase.purchaseToken) }
                 .getOrElse { e ->
+                    if (e is CancellationException) throw e
                     logger.e("acknowledgePurchase failed", e)
                     false
                 }
@@ -137,11 +184,30 @@ class EntitlementRepository @Inject constructor(
         // Best-effort server sync (records the token; server-side verification = techdebt B-053).
         val server = runCatching { backend.syncPurchase(premiumPurchase) }
             .getOrElse { e ->
+                if (e is CancellationException) throw e
                 logger.w("Subscription backend sync failed; using client-derived entitlement", e)
                 null
             }
 
-        updateEntitlement(mergeGrant(deriveEntitlement(premiumPurchase, server)))
+        val payment = when (server?.status) {
+            ServerSubscriptionStatus.ACTIVE -> PaymentStatus.ACTIVE
+            ServerSubscriptionStatus.CANCELED -> PaymentStatus.CANCELED
+            ServerSubscriptionStatus.GRACE -> PaymentStatus.GRACE
+            ServerSubscriptionStatus.HOLD -> PaymentStatus.HOLD
+            ServerSubscriptionStatus.EXPIRED -> PaymentStatus.EXPIRED
+            null -> when (premiumPurchase.state) {
+                PurchaseState.PURCHASED -> if (premiumPurchase.autoRenewing) PaymentStatus.ACTIVE else PaymentStatus.CANCELED
+                PurchaseState.GRACE_PERIOD -> PaymentStatus.GRACE
+                PurchaseState.ON_HOLD -> PaymentStatus.HOLD
+                PurchaseState.EXPIRED -> PaymentStatus.EXPIRED
+                PurchaseState.PENDING -> PaymentStatus.PENDING
+            }
+        }
+        savePlan(_plan.value.copy(payment = payment, paidUntil = server?.expiresAtMillis ?: premiumPurchase.expiryTimeMillis ?: _plan.value.paidUntil))
+        val derived = deriveEntitlement(premiumPurchase, server)
+        val dated = if (derived is Entitlement.Premium && derived.expiresAt == null && server == null)
+            derived.copy(expiresAt = _plan.value.paidUntil) else derived
+        updateEntitlement(mergeGrant(dated))
     }
 
     /**
@@ -153,21 +219,21 @@ class EntitlementRepository @Inject constructor(
      *    top of a paid sub shouldn't shorten coverage; a paid sub outlasting a grant keeps its expiry).
      *  - No grant (or the source failed / returned null) leaves [playEntitlement] untouched.
      */
-    private suspend fun mergeGrant(playEntitlement: Entitlement): Entitlement {
-        val grantUntil = runCatching { grantSource.premiumUntilMillis() }
-            .getOrElse { e ->
-                logger.w("Premium-grant source failed; using Play-derived entitlement", e)
-                null
+    private suspend fun mergeGrant(playEntitlement: Entitlement, retainOnFailure: Boolean = false): Entitlement {
+        val grantUntil = try {
+            grantSource.premiumUntilMillis().also { value ->
+                savePlan(_plan.value.copy(grantUntil = value))
             }
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            logger.w("Grant refresh failed; retaining known access", e)
+            val cached = _plan.value.grantUntil
+            if (cached == null && retainOnFailure && playEntitlement == Entitlement.Free) return applyGrace(_entitlement.value)
+            cached
+        }
         if (grantUntil == null || grantUntil <= System.currentTimeMillis()) return playEntitlement
-
         return when (playEntitlement) {
-            is Entitlement.Premium -> {
-                val playExpiry = playEntitlement.expiresAt
-                // A null Play expiry means "unknown / open-ended" — keep it (don't clamp to the grant).
-                val merged = if (playExpiry == null) null else maxOf(playExpiry, grantUntil)
-                playEntitlement.copy(expiresAt = merged)
-            }
+            is Entitlement.Premium -> playEntitlement.copy(expiresAt = playEntitlement.expiresAt?.let { maxOf(it, grantUntil) })
             Entitlement.Free -> Entitlement.Premium(trial = false, expiresAt = grantUntil)
         }
     }
@@ -198,6 +264,7 @@ class EntitlementRepository @Inject constructor(
             server: ServerSubscription?,
         ): Entitlement {
             if (server != null) {
+                if (server.expiresAtMillis != null && server.expiresAtMillis <= System.currentTimeMillis()) return Entitlement.Free
                 return when (server.status) {
                     ServerSubscriptionStatus.ACTIVE,
                     ServerSubscriptionStatus.GRACE,
@@ -209,6 +276,7 @@ class EntitlementRepository @Inject constructor(
                     -> Entitlement.Free
                 }
             }
+            if (purchase.expiryTimeMillis != null && purchase.expiryTimeMillis <= System.currentTimeMillis()) return Entitlement.Free
             return when (purchase.state) {
                 PurchaseState.PURCHASED,
                 PurchaseState.GRACE_PERIOD,

@@ -63,6 +63,11 @@ class TelemetryScheduler @Inject constructor(
         )
     }
 
+    suspend fun cancelPending() = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        workManager.cancelUniqueWork(TelemetryUploadWorker.ONE_OFF_WORK_NAME).result.get()
+        workManager.cancelUniqueWork(TelemetryUploadWorker.PERIODIC_WORK_NAME).result.get()
+    }
+
     private companion object {
         val PERIOD: Duration = Duration.ofHours(12)
         val BACKOFF: Duration = Duration.ofMinutes(5)

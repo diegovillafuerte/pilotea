@@ -22,7 +22,7 @@ class BestHours(private val zone: ZoneId, private val marginalCostPerKm: Double)
     fun blocks(trips: List<TripEntity>): List<HourBlock> {
         val byHour = sortedMapOf<Int, Accumulator>()
         for (trip in trips) {
-            if (trip.endedAt == null) continue
+            if (trip.endedAt == null || trip.lifecycle != "FINISHED" || trip.grossMxn == null || trip.distanceKm == null || trip.paymentBasis != "DRIVER_PAYMENT") continue
             val hour = Instant.ofEpochMilli(trip.startedAt).atZone(zone).hour
             byHour.getOrPut(hour) { Accumulator() }.add(trip)
         }
@@ -40,8 +40,8 @@ class BestHours(private val zone: ZoneId, private val marginalCostPerKm: Double)
         var km = 0.0
         var trips = 0
         fun add(trip: TripEntity) {
-            gross += trip.grossMxn
-            km += trip.distanceKm
+            gross += requireNotNull(trip.grossMxn)
+            km += requireNotNull(trip.distanceKm)
             trips++
         }
     }

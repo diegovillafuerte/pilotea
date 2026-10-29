@@ -1,77 +1,41 @@
 package mx.kompara.ui.stats
 
-import mx.kompara.metrics.fiscal.FiscalMonthSummary
-import mx.kompara.metrics.fiscal.FiscalTotals
-import mx.kompara.metrics.fiscal.PlatformFiscalSummary
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
+import androidx.test.core.app.ApplicationProvider
+import mx.kompara.ui.fixtures.MonthFixture
+import org.junit.Assert.*
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import java.time.YearMonth
 
-/**
- * Render-state contract for the Fiscal tab (B-052): the export-availability and emptiness derivations
- * the screen reads to enable/disable the "Exportar PDF" button and choose month vs. YTD totals. Pure
- * data assertions — the calculator/mapper/composer paths are covered by their own suites.
- */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34])
 class FiscalUiStateTest {
-
-    private fun summary(platforms: List<PlatformFiscalSummary>) = FiscalMonthSummary(
-        month = "2026-06",
-        year = 2026,
-        ratesYear = 2026,
-        platforms = platforms,
-        monthTotals = FiscalTotals(10_000.0, 7_500.0, 210.0, 800.0),
-        ytdTotals = FiscalTotals(60_000.0, 45_000.0, 1_260.0, 4_800.0),
-    )
-
-    private fun platform() = PlatformFiscalSummary(
-        platform = "UBER", grossMxn = 10_000.0, fiscalNetMxn = 7_500.0, commissionMxn = 2_500.0,
-        commissionApproximated = false, estimatedIsrMxn = 210.0, estimatedIvaMxn = 800.0,
-    )
-
-    private fun state(summary: FiscalMonthSummary?, exporting: Boolean = false, ytd: Boolean = false) =
-        FiscalUiState(
-            loading = false,
-            monthOffset = 0,
-            monthLabel = "Junio 2026",
-            availableMonthOffsets = listOf(0),
-            monthLabels = listOf("Junio 2026"),
-            thresholdMxn = 8364.0,
-            usingDefaultConfig = false,
-            sections = emptyList(),
-            fiscalSummary = summary,
-            ytdView = ytd,
-            exporting = exporting,
-        )
-
-    @Test
-    fun `canExport is true when the summary has at least one platform`() {
-        assertTrue(state(summary(listOf(platform()))).canExport)
+    @Test fun `loading and absent payments cannot export`() {
+        val state = FiscalUiState(YearMonth.of(2026, 10))
+        assertFalse(state.canExport)
+        assertTrue(state.isEmpty)
+        assertFalse(state.copy(loading = false).canExport)
     }
-
-    @Test
-    fun `canExport is false for an empty summary`() {
-        assertFalse(state(summary(emptyList())).canExport)
+    @Test fun `factual statements can export without kilometers or any legal calculation`() {
+        val month = MonthFixture(ApplicationProvider.getApplicationContext()).month("E3b")
+        val state = FiscalUiState(month.month, false, month)
+        assertTrue(state.canExport)
+        assertFalse(state.isEmpty)
+        assertEquals("5340", state.payments.single().amount!!.toPlainString())
+        assertFalse(state.payments.single().estimated)
+        assertNull(month.money.periodResult)
     }
-
-    @Test
-    fun `canExport is false while the summary is still loading (null)`() {
-        assertFalse(state(summary = null).canExport)
-    }
-
-    @Test
-    fun `loading state cannot export`() {
-        assertFalse(FiscalUiState.LOADING.canExport)
-    }
-
-    @Test
-    fun `ytd toggle selects the right totals to display`() {
-        val s = summary(listOf(platform()))
-        // The screen picks ytdTotals when ytdView, else monthTotals.
-        val monthView = state(s, ytd = false)
-        val ytdView = state(s, ytd = true)
-        assertFalse(monthView.ytdView)
-        assertTrue(ytdView.ytdView)
-        // Sanity: the two totals differ so the toggle is meaningful.
-        assertTrue(s.ytdTotals.grossMxn > s.monthTotals.grossMxn)
+    @Test fun `captured payments are estimates and unknown basis retains qualification`() {
+        val month = MonthFixture(ApplicationProvider.getApplicationContext()).month()
+        val state = FiscalUiState(month.month, false, month)
+        assertTrue(state.payments.all { it.estimated })
+        assertFalse(state.copy(error = true).canExport)
+        val raw = month.money.contributions.first().record.copy(paymentBasis = mx.kompara.data.accounting.PaymentBasis.UNCONFIRMED)
+        val payment = ImssTracker.payments(month.money.copy(contributions = listOf(month.money.contributions.first().copy(record = raw)), paymentOnly = emptyList())).single()
+        assertTrue(payment.unconfirmed)
+        assertEquals("No confirmamos que sea tu pago", payment.sourceNote)
+        assertNotNull(payment.amount)
     }
 }

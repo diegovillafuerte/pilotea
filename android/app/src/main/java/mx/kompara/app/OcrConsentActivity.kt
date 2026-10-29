@@ -2,6 +2,8 @@ package mx.kompara.app
 
 import android.media.projection.MediaProjectionManager
 import android.os.Bundle
+import android.os.Build
+import mx.kompara.data.service.ReaderDeviceEnvironment
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import mx.kompara.data.service.ScreenReaderState
@@ -28,11 +30,14 @@ class OcrConsentActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // The silent lane already owns capture on 30+ — don't stack a MediaProjection session on top.
-        if (ScreenReaderState.silentLaneActive.value) {
+        if (!ReaderDeviceEnvironment.permissionGranted(this) ||
+            ScreenReaderState.silentLaneActive.value || ScreenReaderState.running.value ||
+            (Build.VERSION.SDK_INT >= 30 && !ScreenReaderState.silentLaneFailed.value)) {
             finish()
             return
         }
         val mpm = getSystemService(MediaProjectionManager::class.java)
-        launcher.launch(mpm.createScreenCaptureIntent())
+        // The Activity Result registry redelivers the existing prompt after recreation.
+        if (savedInstanceState == null) launcher.launch(mpm.createScreenCaptureIntent())
     }
 }

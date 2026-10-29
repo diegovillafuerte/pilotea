@@ -62,6 +62,11 @@ class AggregateSyncScheduler @Inject constructor(
         )
     }
 
+    suspend fun cancelPending() = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        workManager.cancelUniqueWork(AggregateSyncWorker.ONE_OFF_WORK_NAME).result.get()
+        workManager.cancelUniqueWork(AggregateSyncWorker.PERIODIC_WORK_NAME).result.get()
+    }
+
     private companion object {
         val PERIOD: Duration = Duration.ofHours(12)
         val BACKOFF: Duration = Duration.ofMinutes(5)

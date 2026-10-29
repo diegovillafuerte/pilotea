@@ -29,7 +29,9 @@ internal object SilentLaneGate {
         screenInteractive: Boolean,
         consecutiveHardFailures: Int,
         maxHardFailures: Int,
+        readingAllowed: Boolean = true,
     ): LaneAction = when {
+        !readingAllowed -> LaneAction.IDLE
         consecutiveHardFailures >= maxHardFailures -> LaneAction.DISABLE
         hostForeground && screenInteractive -> LaneAction.CAPTURE
         else -> LaneAction.IDLE

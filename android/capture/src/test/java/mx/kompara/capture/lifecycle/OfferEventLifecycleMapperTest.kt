@@ -92,7 +92,7 @@ class OfferEventLifecycleMapperTest {
     }
 
     @Test
-    fun `a non-card screen with no trip marker maps to IdleStateEntered`() {
+    fun `a non-card screen with no lifecycle marker stays unknown`() {
         val snapshot = ScreenSnapshot(
             packageName = uber,
             timestampMs = 30L,
@@ -101,6 +101,6 @@ class OfferEventLifecycleMapperTest {
             ),
         )
         val signal = mapper().classify(snapshot)
-        assertTrue(signal is LifecycleSignal.IdleStateEntered)
+        assertTrue(signal is LifecycleSignal.ObservationLost)
     }
 }

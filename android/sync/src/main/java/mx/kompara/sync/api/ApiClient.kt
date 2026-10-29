@@ -95,8 +95,9 @@ class ApiClient @Inject constructor(
     }
 
     /** POST /v1/auth/logout — revoke the current session (bearer). */
-    suspend fun logout() {
-        val sent = tokenProvider.currentToken()
+    suspend fun logout() = logout(tokenProvider.currentToken())
+
+    internal suspend fun logout(sent: String?) {
         ensureOk(
             http.post("$baseUrl/v1/auth/logout") {
                 bearer(sent)
@@ -190,8 +191,9 @@ class ApiClient @Inject constructor(
     }
 
     /** DELETE /v1/me — permanently delete the driver account (bearer). Play data-safety (B-069). */
-    suspend fun deleteMe() {
-        val sent = tokenProvider.currentToken()
+    suspend fun deleteMe() = deleteMe(tokenProvider.currentToken())
+
+    internal suspend fun deleteMe(sent: String?) {
         ensureOkAuthed(http.delete("$baseUrl/v1/me") { bearer(sent) }, sent)
     }
 

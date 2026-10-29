@@ -1,53 +1,49 @@
 package mx.kompara.ui.theme
 
+import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 
-/**
- * Kompara brand palette. The product is a traffic-light: every screen is glanceable in a moving
- * car, often at night and often in direct sunlight. Colours are therefore highly saturated with
- * strong luminance contrast so the verde/amarillo/rojo verdict reads instantly on a phone propped
- * on the dashboard.
- *
- * The palette is the canonical Kompara design system, shared with the marketing website: emerald
- * brand primary + slate neutrals (the website's Tailwind `@theme` tokens). The verdict triple
- * ([VerdictGreen]/[VerdictYellow]/[VerdictRed]) is the heart of the system and is shared by
- * [mx.kompara.ui.components.VerdictBadge], metric accents and progress fills. Values are tuned to
- * keep ~4.5:1 contrast against white text (green/red) and dark text (yellow).
- */
-
-// --- Verdict (semáforo) ----------------------------------------------------
-/** Verde — el viaje conviene. */
-val VerdictGreen = Color(0xFF1B8A3A)
-/** Amarillo — viaje regular / marginal. Texto oscuro encima para contraste. */
+// Semantic tokens from base-v3.css, including its final Brand block. Never wallpaper-derived.
+val BrandGreen = Color(0xFF187A36)
+val OnBrand = Color.White
+val VerdictGreen = Color(0xFF187A36)
 val VerdictYellow = Color(0xFFF2B705)
-/** Rojo — el viaje no conviene. */
 val VerdictRed = Color(0xFFD32F2F)
-
-/** "On" colours: el texto/icono que va encima de cada color de veredicto. */
-val OnVerdictGreen = Color(0xFFFFFFFF)
+val OnVerdictGreen = Color.White
 val OnVerdictYellow = Color(0xFF1A1300)
-val OnVerdictRed = Color(0xFFFFFFFF)
+val OnVerdictRed = Color.White
 
-// --- Brand primary (emerald) -----------------------------------------------
-// The brand green = the website's emerald primary (the canonical design system). One token, used as
-// the Material primary AND the verdict chip's brand strip, so the app and the website read as one.
-val BrandGreen = Color(0xFF059669) // website primary-600 — dark-theme primary + chip brand strip
-val BrandGreenDark = Color(0xFF047857) // website primary-700 — light-theme primary
-val BrandGreenLight = Color(0xFF10B981) // website emerald-500 — the bright end of the share-hero gradient
-val BrandGreenContainerDark = Color(0xFF064E3B) // website primary-900
-val BrandGreenContainerLight = Color(0xFFD1FAE5) // website primary-100
+@Immutable
+data class KomparaColors(
+    val paper: Color,
+    val paperSecondary: Color,
+    val ink: Color,
+    val inkSecondary: Color,
+    val inkTertiary: Color,
+    val rule: Color,
+    val activeNavigation: Color,
+    val brand: Color = BrandGreen,
+    val onBrand: Color = OnBrand,
+    val verde: Color = VerdictGreen,
+    val amarillo: Color = VerdictYellow,
+    val rojo: Color = VerdictRed,
+    val chipInk: Color = Color(0xFF0E0F10),
+    val onChip: Color = Color(0xFFEDEDEA),
+    val chipGrey: Color = Color(0xFF2A2C2F),
+    val trayGreen: Color = Color(0xFF2FB35A),
+    val trayYellow: Color = Color(0xFFF2B705),
+    val trayRed: Color = Color(0xFFFF5C5C),
+    val chipEdge: Color = Color.White.copy(alpha = .12f),
+    val chipGreyEdge: Color = Color.White.copy(alpha = .20f),
+)
 
-// --- Neutrals: the website's slate scale (modo oscuro por defecto: choferes de noche) -----------
-val SurfaceDark = Color(0xFF0F172A) // slate-900
-val SurfaceContainerDark = Color(0xFF1E293B) // slate-800
-val SurfaceVariantDark = Color(0xFF334155) // slate-700
-val OnSurfaceDark = Color(0xFFF8FAFC) // slate-50
-val OnSurfaceVariantDark = Color(0xFFCBD5E1) // slate-300
-val OutlineDark = Color(0xFF475569) // slate-600
-
-val SurfaceLight = Color(0xFFF8FAFC) // slate-50
-val SurfaceContainerLight = Color(0xFFFFFFFF) // white
-val SurfaceVariantLight = Color(0xFFE2E8F0) // slate-200
-val OnSurfaceLight = Color(0xFF0F172A) // slate-900
-val OnSurfaceVariantLight = Color(0xFF475569) // slate-600
-val OutlineLight = Color(0xFFCBD5E1) // slate-300
+val DayColors = KomparaColors(
+    paper = Color.White, paperSecondary = Color(0xFFF2F2F0),
+    ink = Color(0xFF111110), inkSecondary = Color(0xFF5C5B57), inkTertiary = Color(0xFF8A8984),
+    rule = Color(0xFFE8E7E3), activeNavigation = BrandGreen,
+)
+val NightColors = KomparaColors(
+    paper = Color(0xFF121211), paperSecondary = Color(0xFF262624),
+    ink = Color(0xFFF2F1EC), inkSecondary = Color(0xFFA8A7A1), inkTertiary = Color(0xFF74736E),
+    rule = Color(0xFF2C2C29), activeNavigation = Color(0xFF3FB565),
+)

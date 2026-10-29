@@ -1,64 +1,41 @@
 package mx.kompara.ui.stats
 
-import org.junit.Assert.assertEquals
+import mx.kompara.data.accounting.*
+import org.junit.Assert.*
 import org.junit.Test
+import java.math.BigDecimal
 
-/** Live cost-per-km computation for [CostPreview] (B-040 req 4). */
 class CostPreviewTest {
-
-    @Test
-    fun `gas cost per km is gas price over rendimiento plus maintenance`() {
-        // 24.50 MXN/L ÷ 14 km/L = 1.75 $/km fuel; + 0.80 maintenance = 2.55 $/km.
-        val r = CostPreview.compute(
-            isEv = false,
-            rendimientoKmPerLitre = 14.0,
-            gasPricePerLitreMxn = 24.5,
-            kwhPer100Km = 0.0,
-            costPerKwhMxn = 0.0,
-            maintenancePerKmMxn = 0.8,
-        )
-        assertEquals(1.75, r.energyPerKmMxn, 0.001)
-        assertEquals(2.55, r.marginalCostPerKmMxn, 0.001)
-        // Sample trip: 120 fare, 12 km → cost 12*2.55 = 30.6 → net 89.4.
-        assertEquals(12.0 * 2.55, r.sampleCostMxn, 0.001)
-        assertEquals(120.0 - 12.0 * 2.55, r.sampleNetMxn, 0.001)
+    private val gas = CostProfileInputs.from(RunningCostInputs.TYPICAL)
+    @Test fun `formula and sample use full decimal inputs`() {
+        val result = CostPreview.compute(gas)!!
+        assertEquals("$2.84", mx.kompara.ui.format.Formatters.formatMxn(result.perKm))
+        assertEquals("$34", mx.kompara.ui.format.Formatters.formatMxnWhole(result.sampleCost))
+        assertEquals(34.10, result.sampleCost.toDouble(), 1e-12)
+        assertEquals(24.5 / 12 + .8, result.perKm.toDouble(), 1e-14)
     }
-
-    @Test
-    fun `EV cost per km uses kWh consumption and tariff`() {
-        // 18 kWh/100km ÷ 100 × 3.50 $/kWh = 0.63 $/km energy; + 0.50 maintenance = 1.13 $/km.
-        val r = CostPreview.compute(
-            isEv = true,
-            rendimientoKmPerLitre = 0.0,
-            gasPricePerLitreMxn = 0.0,
-            kwhPer100Km = 18.0,
-            costPerKwhMxn = 3.5,
-            maintenancePerKmMxn = 0.5,
-        )
-        assertEquals(0.63, r.energyPerKmMxn, 0.001)
-        assertEquals(1.13, r.marginalCostPerKmMxn, 0.001)
+    @Test fun `gas limits include four and forty but empty garbage and out of range are unavailable`() {
+        for (value in listOf("", "0", "3.99", "40.01", "-12", "NaN", "1e9")) assertNull(value, CostPreview.compute(gas.copy(rendimientoKmPerLitre = value)))
+        for (value in listOf("4", "12,5", "40")) assertNotNull(value, CostPreview.compute(gas.copy(rendimientoKmPerLitre = value)))
+        assertNull(CostPreview.compute(gas.copy(maintenancePerKmMxn = "bad")))
     }
-
-    @Test
-    fun `zero or unknown rendimiento does not divide by zero`() {
-        val r = CostPreview.compute(
-            isEv = false,
-            rendimientoKmPerLitre = 0.0,
-            gasPricePerLitreMxn = 24.5,
-            kwhPer100Km = 0.0,
-            costPerKwhMxn = 0.0,
-            maintenancePerKmMxn = 0.0,
-        )
-        assertEquals(0.0, r.energyPerKmMxn, 0.0)
-        assertEquals(0.0, r.marginalCostPerKmMxn, 0.0)
-        assertEquals(CostPreview.SAMPLE_FARE_MXN, r.sampleNetMxn, 0.0)
+    @Test fun `electric and direct modes preserve inactive inputs and a legitimate zero`() {
+        val electric = gas.copy(isEv = true, kwhPer100Km = "18", costPerKwhMxn = "3,50", maintenancePerKmMxn = "0.5")
+        assertEquals(1.13, CostPreview.compute(electric)!!.perKm.toDouble(), 1e-12)
+        assertEquals(electric.runningCosts(), CostProfileInputs.from(electric.runningCosts()!!).runningCosts())
+        val direct = electric.copy(direct = true, directPerKm = "$0")
+        assertEquals(BigDecimal.ZERO, CostPreview.compute(direct)!!.perKm)
+        assertEquals(BigDecimal.ZERO, CostPreview.compute(direct)!!.sampleCost)
+        assertNull(CostPreview.compute(direct.copy(directPerKm = "")))
     }
-
-    @Test
-    fun `string parser tolerates commas, blanks and garbage`() {
-        assertEquals(1.75, "1,75".toDoubleOrZero(), 0.001)
-        assertEquals(0.0, "".toDoubleOrZero(), 0.0)
-        assertEquals(0.0, "abc".toDoubleOrZero(), 0.0)
-        assertEquals(24.5, " 24.5 ".toDoubleOrZero(), 0.001)
+    @Test fun `localized inputs never conflate grouping decimal zero and absence`() {
+        assertEquals(BigDecimal("6.50"), costDecimal(" $6,50 "))
+        assertEquals(BigDecimal.ZERO, costDecimal("0"))
+        for (v in listOf("", "abc", "1,500.00", "-1", "1.2.3", "Infinity")) assertNull(v, costDecimal(v))
+        assertEquals(gas, CostProfileInputs.decode(gas.encode()))
+        assertEquals(BigDecimal("1500"), carCostDecimal("$1,500"))
+        assertEquals(BigDecimal("1500.50"), carCostDecimal("1,500.50"))
+        assertEquals(BigDecimal("1.50"), carCostDecimal("1,50"))
+        assertEquals(BigDecimal("0.500"), carCostDecimal("0,500"))
     }
 }

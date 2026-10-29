@@ -1,5 +1,7 @@
 package mx.kompara.metrics
 
+import mx.kompara.data.accounting.RunningCostInputs
+
 /**
  * The driver's cost structure, expressed the way the engine consumes it: marginal per-km costs
  * (fuel + maintenance) and prorated fixed costs (insurance, vehicle rent/financing) spread over a
@@ -29,9 +31,14 @@ data class CostProfile(
         /** A common Mexican ride-hail schedule (Mon–Sat) used when the driver hasn't said. */
         const val DEFAULT_WORK_DAYS_PER_WEEK: Int = 6
 
+        /** Labelled initial estimate for compatibility callers until their v3 state migration. */
+        val TYPICAL = CostProfile(
+            fuelCostPerKm = RunningCostInputs.TYPICAL.costPerKm!!.subtract(RunningCostInputs.TYPICAL.wearPerKm).toDouble(),
+            maintenancePerKm = RunningCostInputs.TYPICAL.wearPerKm.toDouble(),
+        )
+
         /**
-         * Profile with all costs zero — net == gross. Used as a safe fallback when the driver has
-         * not configured a profile yet, so verdicts still render (just optimistically).
+         * Explicit profile with all costs zero — net == gross. Only for a known, legitimate zero; absence uses TYPICAL.
          */
         val ZERO = CostProfile(
             fuelCostPerKm = 0.0,

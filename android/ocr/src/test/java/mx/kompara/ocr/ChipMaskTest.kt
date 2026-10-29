@@ -75,4 +75,17 @@ class ChipMaskTest {
         assertTrue("fare must survive the lifted-chip mask", kept.contains(fare))
         assertTrue("trip leg must survive", kept.contains(tripLeg))
     }
+
+    @Test fun `measured full compact grown and dragged screen bounds mask every limit without losing host card`() {
+        // Final physical screen bounds, after window-origin conversion. No assumed 48px inset.
+        for (chip in listOf(ScreenRect(282,834,762,1058), ScreenRect(24,295,504,519),
+            ScreenRect(282,486,762,710), ScreenRect(138,615,762,906), ScreenRect(282,492,762,652),
+            ScreenRect(24,600,504,760))) {
+            val rate=block("$9.49 /km neto",chip.left+30,chip.top+8,chip.right-10,chip.top+40)
+            val limits=block("tu mínimo $6",chip.left+12,chip.bottom-30,chip.right-10,chip.bottom-8)
+            val hostFare=block("MXN148.00",40,chip.bottom+32,400,chip.bottom+80)
+            assertEquals(listOf(hostFare),ChipMask.maskOwnChip(listOf(rate,limits,hostFare),chip))
+            assertEquals(listOf(rate,limits,hostFare),ChipMask.maskOwnChip(listOf(rate,limits,hostFare),null))
+        }
+    }
 }

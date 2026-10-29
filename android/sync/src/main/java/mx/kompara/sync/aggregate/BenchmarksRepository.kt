@@ -57,6 +57,14 @@ class BenchmarksRepository @Inject constructor(
     fun observe(city: City): Flow<List<PopulationStat>> =
         dao.observeForCity(city.key).map { rows -> rows.map(PopulationStat::from) }
 
+    /**
+     * Legacy DTO/cache rows have no certified source, exact week or field coverage. Even a real
+     * sample cannot be relabelled as statement payment. S16's API/cache contract must supply all
+     * StatementCohort fields before this adapter can return evidence (including offline).
+     */
+    fun observeComparisonCohorts(city: City): Flow<List<mx.kompara.metrics.compare.StatementCohort>> =
+        observe(city).map { emptyList() }
+
     /** Cached benchmarks for one [city] × [platform] — the shape B-046 percentiles consume. */
     fun observeForPlatform(city: City, platform: String): Flow<List<PopulationStat>> =
         dao.observeForCityPlatform(city.key, platform.lowercase())
@@ -111,7 +119,11 @@ class BenchmarksRepository @Inject constructor(
                         if (rows.isNotEmpty()) dao.upsert(rows)
                         fetchedAny = true
                     },
-                    onFailure = { anyFailed = true },
+                    onFailure = {
+                        // collectLatest / ViewModel teardown must not continue through other cells.
+                        if (it is kotlinx.coroutines.CancellationException) throw it
+                        anyFailed = true
+                    },
                 )
             }
         }

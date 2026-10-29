@@ -59,7 +59,45 @@ class SettingsRepository @Inject constructor(
     private val preferredMetricKey =
         stringPreferencesKey(SettingsSerialization.KEY_PREFERRED_METRIC)
 
+    suspend fun setReaderDisclosureAccepted(accepted: Boolean) {
+        dataStore.edit { it[booleanPreferencesKey("reader_disclosure_v3")] = accepted }
+    }
+
+    suspend fun setReaderAlertsEnabled(enabled: Boolean) {
+        dataStore.edit { it[booleanPreferencesKey("reader_alerts_enabled")] = enabled }
+    }
+    suspend fun setDailySummaryEnabled(enabled: Boolean) {
+        dataStore.edit { it[booleanPreferencesKey("daily_summary_enabled")] = enabled }
+    }
+    suspend fun setImportReminderEnabled(enabled: Boolean) {
+        dataStore.edit { it[booleanPreferencesKey("import_reminder_enabled")] = enabled }
+    }
+
+    suspend fun setThemePreference(preference: ThemePreference) {
+        dataStore.edit { it[stringPreferencesKey(SettingsSerialization.KEY_THEME)] = preference.name }
+    }
+
     val settings: Flow<Settings> = dataStore.data.map { prefs -> prefs.toSettings() }
+
+    /** Shared Ganancias/Comparar selection; null follows the current calendar week. */
+    val selectedWeekStart: Flow<String?> = dataStore.data.map { it[stringPreferencesKey("selected_week_start")] }
+
+    val selectedMonth: Flow<String?> = dataStore.data.map { it[stringPreferencesKey("selected_month")] }
+
+    suspend fun selectMonth(month: String?, comparisonWeek: String) {
+        dataStore.edit { prefs ->
+            val key = stringPreferencesKey("selected_month")
+            if (month == null) prefs.remove(key) else prefs[key] = month
+            prefs[stringPreferencesKey("selected_week_start")] = comparisonWeek
+        }
+    }
+
+    suspend fun selectWeekStart(week: String?) {
+        dataStore.edit { prefs ->
+            val key = stringPreferencesKey("selected_week_start")
+            if (week == null) prefs.remove(key) else prefs[key] = week
+        }
+    }
 
     /** Snapshot read of whether anonymous telemetry upload is currently allowed. */
     suspend fun isTelemetryEnabled(): Boolean = settings.first().telemetryEnabled
@@ -132,11 +170,7 @@ class SettingsRepository @Inject constructor(
     /** Snapshot read of the share-card hide-amounts default (B-055). */
     suspend fun isShareHideAmounts(): Boolean = settings.first().shareHideAmounts
 
-    /**
-     * Set the share-card hide-amounts default (B-055). When ON the card redacts peso earnings,
-     * showing only the percentile flex, streak and trip count. Remembered as the default the next
-     * share-preview opens with; the preview screen can still flip it per-share.
-     */
+    /** Legacy preference writer, retained for migration; v3 uses per-preview disclosure. */
     suspend fun setShareHideAmounts(hide: Boolean) {
         dataStore.edit { prefs -> prefs[shareHideAmountsKey] = hide }
     }
@@ -192,7 +226,7 @@ class SettingsRepository @Inject constructor(
      * (the caller — BenchmarksRepository — keys its cache on city and re-fetches on change).
      */
     suspend fun setCity(city: City) {
-        dataStore.edit { prefs -> prefs[cityKey] = city.name }
+        dataStore.edit { prefs -> prefs[cityKey] = city.name; prefs[booleanPreferencesKey("city_chosen")] = true }
     }
 
     /**
@@ -231,6 +265,20 @@ class SettingsRepository @Inject constructor(
     /** Set which net rate decides the semáforo (B-079): IPK (net $/km) or IPH (net $/hr). */
     suspend fun setPreferredMetric(metric: PreferredMetric) {
         dataStore.edit { prefs -> prefs[preferredMetricKey] = metric.name }
+    }
+
+    /** One DataStore transaction: capture can never observe a new pair with the old unit. */
+    suspend fun saveLimits(threshold: PlatformThreshold, metric: PreferredMetric) {
+        require(listOf(threshold.minPerKmMxn, threshold.redPerKmMxn, threshold.minPerHourMxn, threshold.redPerHourMxn).all { it.isFinite() && it >= 0 })
+        require(threshold.minPerKmMxn > threshold.redPerKmMxn && threshold.minPerKmMxn <= 99.99)
+        require(threshold.minPerHourMxn > threshold.redPerHourMxn)
+        dataStore.edit { prefs ->
+            prefs[doublePreferencesKey(SettingsSerialization.KEY_THRESHOLD_PER_KM)] = threshold.minPerKmMxn
+            prefs[doublePreferencesKey(SettingsSerialization.KEY_THRESHOLD_PER_KM_RED)] = threshold.redPerKmMxn
+            prefs[doublePreferencesKey(SettingsSerialization.KEY_THRESHOLD_PER_HOUR)] = threshold.minPerHourMxn
+            prefs[doublePreferencesKey(SettingsSerialization.KEY_THRESHOLD_PER_HOUR_RED)] = threshold.redPerHourMxn
+            prefs[preferredMetricKey] = metric.name
+        }
     }
 
     /** Set the shared acceptance thresholds (B-076: one semáforo for every platform). */

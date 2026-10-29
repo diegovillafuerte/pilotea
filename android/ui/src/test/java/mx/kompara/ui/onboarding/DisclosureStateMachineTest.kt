@@ -13,7 +13,7 @@ class DisclosureStateMachineTest {
         val sm = DisclosureStateMachine()
         assertEquals(DisclosureDecision.PENDING, sm.decision)
         assertFalse(sm.mayProceedToAccessibility)
-        assertFalse(sm.shouldShowLimitedInfo)
+        assertFalse(sm.shouldContinueWithoutReader)
     }
 
     @Test
@@ -22,7 +22,7 @@ class DisclosureStateMachineTest {
         assertTrue(sm.accept())
         assertEquals(DisclosureDecision.ACCEPTED, sm.decision)
         assertTrue(sm.mayProceedToAccessibility)
-        assertFalse(sm.shouldShowLimitedInfo)
+        assertFalse(sm.shouldContinueWithoutReader)
     }
 
     @Test
@@ -34,12 +34,12 @@ class DisclosureStateMachineTest {
     }
 
     @Test
-    fun `decline routes to limited info and never unlocks the grant`() {
+    fun `decline routes to Hoy without reading and never unlocks the grant`() {
         val sm = DisclosureStateMachine()
         assertTrue(sm.decline())
         assertEquals(DisclosureDecision.DECLINED, sm.decision)
         assertFalse(sm.mayProceedToAccessibility)
-        assertTrue(sm.shouldShowLimitedInfo)
+        assertTrue(sm.shouldContinueWithoutReader)
     }
 
     @Test
@@ -55,6 +55,6 @@ class DisclosureStateMachineTest {
         sm.decline()
         assertTrue(sm.accept())
         assertTrue(sm.mayProceedToAccessibility)
-        assertFalse(sm.shouldShowLimitedInfo)
+        assertFalse(sm.shouldContinueWithoutReader)
     }
 }

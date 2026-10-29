@@ -87,16 +87,16 @@ class TierGatekeeperTest {
     }
 
     @Test
-    fun `a free unverified driver sees LOCKED not NEEDS_VERIFICATION (pay first)`() {
-        // Verification only becomes the gate AFTER the driver pays — a free driver hits the paywall.
+    fun `a free unverified driver must verify before any sale`() {
+        // Missing population evidence cannot be sold to a free driver.
         val states = GateStates.derive(
             premium = false,
             debugOverride = false,
             paywallEnabled = true,
             driverVerified = false,
         )
-        assertEquals(GateState.LOCKED, states.stateFor(Capability.BENCHMARKS))
-        assertEquals(GateState.LOCKED, states.stateFor(Capability.COMPARE))
+        assertEquals(GateState.NEEDS_VERIFICATION, states.stateFor(Capability.BENCHMARKS))
+        assertEquals(GateState.NEEDS_VERIFICATION, states.stateFor(Capability.COMPARE))
     }
 
     @Test

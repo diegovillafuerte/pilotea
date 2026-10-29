@@ -1,155 +1,98 @@
 package mx.kompara.ui.stats
 
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
 import mx.kompara.billing.Capability
 import mx.kompara.billing.TierGatekeeper
-import mx.kompara.data.db.dao.AggregateDao
-import mx.kompara.data.db.entity.AggregateSource
-import mx.kompara.data.db.entity.WeeklyAggregateEntity
-import mx.kompara.data.model.Platform
-import mx.kompara.data.settings.SettingsRepository
-import mx.kompara.sync.aggregate.PercentileRepository
+import mx.kompara.data.accounting.PeriodWindow
+import mx.kompara.metrics.PeriodMoneyRepository
+import java.time.LocalDate
+import java.time.ZoneId
 import javax.inject.Inject
 
-/**
- * Backs the week-summary screen reached by tapping a history week (B-040 req 3): the same five
- * MetricCards as Inicio, but for the chosen [ARG_WEEK_START] (ISO Monday), with platform chips. B-046
- * adds the percentile bars/badges on those cards when benchmarks are available.
- *
- * Reactive over the weekly table so an import or recompute of that exact week updates the summary.
- */
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class WeekSummaryViewModel @Inject constructor(
-    savedStateHandle: SavedStateHandle,
-    aggregateDao: AggregateDao,
-    settingsRepository: SettingsRepository,
-    percentileRepository: PercentileRepository,
+    private val savedStateHandle: SavedStateHandle,
+    private val selectedPeriod: SelectedPeriod,
+    private val snapshots: TodaySnapshots,
+    repository: PeriodMoneyRepository,
     tierGatekeeper: TierGatekeeper,
+    clock: AppClock,
+    zone: ZoneId,
+    connectivity: EarningsConnectivity,
 ) : ViewModel() {
-
-    private val weekStart: String = savedStateHandle.get<String>(ARG_WEEK_START).orEmpty()
-    private val selectedPlatform = MutableStateFlow<Platform?>(null)
-
-    private val baseState: StateFlow<WeekSummaryUiState> = combine(
-        aggregateDao.observeWeekly().map { rows -> rowsForWeek(rows) },
-        selectedPlatform,
-    ) { rows, selected ->
-        buildState(rows, selected)
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = WeekSummaryUiState.loading(weekStart),
-    )
-
-    /**
-     * The percentile overlay (B-046) for this week's resolved platform + metric values. Same shape as
-     * the Inicio dashboard: only a concrete platform benchmarks; "Todas" shows none.
-     */
-    private val percentiles: StateFlow<PercentilesUiState> = combine(
-        baseState.map { PercentileInputs(it.selectedPlatform, it.period) }.distinctUntilChanged(),
-        settingsRepository.settings.map { it.city }.distinctUntilChanged(),
-        // B-050: the single source of truth for gating — entitlement + debug + remote kill switch.
-        tierGatekeeper.gateFor(Capability.BENCHMARKS),
-    ) { inputs, city, gate ->
-        Triple(inputs, city, gate)
-    }.flatMapLatest { (inputs, city, gate) ->
-        val platform = inputs.platform
-        if (platform == null || platform == Platform.UNKNOWN) {
-            flowOf(PercentilesUiState(byMetric = emptyMap(), gateState = gate))
-        } else {
-            percentileRepository
-                .observe(city, platform.name.lowercase(), MetricPercentiles.metricValues(inputs.period))
-                .map { results -> PercentilesUiState(MetricPercentiles.byMetric(results), gateState = gate) }
+    val sheet = savedStateHandle.getStateFlow<String?>("weekSheet", null)
+    private val initialWeek = SelectedPeriod.resolve(savedStateHandle[ARG_WEEK_START], java.time.Instant.ofEpochMilli(clock.nowMs()).atZone(zone).toLocalDate())
+    init {
+        // Consume legacy dated routes once; later visits to another root retain the shared choice.
+        if (savedStateHandle.get<String>(ARG_WEEK_START) != null && savedStateHandle.get<Boolean>("weekArgConsumed") != true) {
+            viewModelScope.launch { selectedPeriod.select(initialWeek); savedStateHandle["weekArgConsumed"] = true }
         }
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = PercentilesUiState.EMPTY,
-    )
-
-    val uiState: StateFlow<WeekSummaryUiState> = combine(baseState, percentiles) { base, pct ->
-        base.copy(percentiles = pct)
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = WeekSummaryUiState.loading(weekStart),
-    )
-
-    fun selectPlatform(platform: Platform?) {
-        selectedPlatform.value = platform
     }
-
-    private fun rowsForWeek(rows: List<WeeklyAggregateEntity>): List<WeeklyAggregateEntity> {
-        val forWeek = rows.filter { it.weekStart == weekStart }
-        // Prefer imported (realized) rows when present; otherwise the captured estimate.
-        val imported = forWeek.filter { it.source == AggregateSource.IMPORTED.name }
-        return if (imported.isNotEmpty()) imported else forWeek.filter { it.source == AggregateSource.CAPTURED.name }
-    }
-
-    private fun buildState(
-        rows: List<WeeklyAggregateEntity>,
-        selected: Platform?,
-    ): WeekSummaryUiState {
-        val chips = PlatformSelection.chips(rows)
-        val resolved = PlatformSelection.resolve(rows, selected)
-        val source = if (rows.any { it.source == AggregateSource.IMPORTED.name }) {
-            WeekSourceBadge.IMPORTADO
-        } else {
-            WeekSourceBadge.CAPTURADO
+    private val data: Flow<WeekSummaryUiState> = combine(selectedPeriod.week, snapshots.state,
+        tierGatekeeper.gateFor(Capability.HISTORY)) { selected, today, gate -> Triple(selected, today, gate) }
+        .flatMapLatest { (selected, today, gate) ->
+            val window = today.getOrNull()?.today?.money?.window
+                ?: return@flatMapLatest flowOf(WeekSummaryUiState(initialWeek, loading = false, error = true))
+            val start = SelectedPeriod.resolve(selected, window.start)
+            repository.observeWeek(PeriodWindow(start, start.plusDays(6), window.asOf, window.zone))
+                .map { WeekSummaryUiState(start, loading = false, week = WeekPresentation(it, premium = !gate.isLocked)) }
+                .onStart { emit(WeekSummaryUiState(start)) }
+                .catch { emit(WeekSummaryUiState(start, loading = false, error = true)) }
         }
-        return WeekSummaryUiState(
-            loading = false,
-            weekStart = weekStart,
-            source = source,
-            period = PeriodStats.fromWeekly(rows, resolved),
-            chips = chips,
-            selectedPlatform = resolved,
-            hasData = rows.isNotEmpty(),
-        )
-    }
+    // Do not flash a skeleton for every clock tick/Room invalidation. Changing period clears values.
+    val uiState: StateFlow<WeekSummaryUiState> = combine(data.scan(WeekSummaryUiState(initialWeek)) { previous, next ->
+        if (next.loading && previous.weekStart == next.weekStart && previous.week != null) previous else next
+    }, connectivity.offline) { state, offline -> state.copy(offline = offline) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), WeekSummaryUiState(initialWeek))
 
-    companion object {
-        /** Nav argument key: the ISO Monday (yyyy-MM-dd) of the week to summarise. */
-        const val ARG_WEEK_START = "weekStart"
+    fun selectWeek(date: LocalDate) { viewModelScope.launch { selectedPeriod.select(date); closeSheet() } }
+    fun step(offset: Long) {
+        val state = uiState.value
+        val next = state.weekStart.plusWeeks(offset)
+        if (state.week?.today?.monday()?.let { next > it } != true) selectWeek(next)
     }
+    fun openSheet(value: String) {
+        val week = uiState.value.week
+        if (value == "picker" || week != null && (value == "calculation" || !week.locked)) savedStateHandle["weekSheet"] = value
+    }
+    fun closeSheet() { savedStateHandle["weekSheet"] = null }
+    fun retry() = snapshots.retry()
+    companion object { const val ARG_WEEK_START = "weekStart" }
 }
 
-/** Render state for the week-summary screen. */
 data class WeekSummaryUiState(
-    val loading: Boolean,
-    val weekStart: String,
-    val source: WeekSourceBadge,
-    val period: PeriodStats,
-    val chips: List<Platform?>,
-    val selectedPlatform: Platform?,
-    val hasData: Boolean,
-    /** Per-card percentile standings + gate (B-046); empty until benchmarks are cached. */
-    val percentiles: PercentilesUiState = PercentilesUiState.EMPTY,
-) {
-    companion object {
-        fun loading(weekStart: String) = WeekSummaryUiState(
-            loading = true,
-            weekStart = weekStart,
-            source = WeekSourceBadge.CAPTURADO,
-            period = PeriodStats.EMPTY,
-            chips = emptyList(),
-            selectedPlatform = null,
-            hasData = false,
-            percentiles = PercentilesUiState.EMPTY,
-        )
-    }
+    val weekStart: LocalDate,
+    val loading: Boolean = true,
+    val week: WeekPresentation? = null,
+    val error: Boolean = false,
+    val offline: Boolean = false,
+)
+
+/** Connectivity qualifies local data; it never controls its query or availability. */
+class EarningsConnectivity @Inject constructor(@ApplicationContext context: Context) {
+    private val manager = context.getSystemService(ConnectivityManager::class.java)
+    val offline: Flow<Boolean> = callbackFlow {
+        fun update() { trySend(manager.getNetworkCapabilities(manager.activeNetwork)?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) != true) }
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) = update()
+            override fun onLost(network: Network) = update()
+            override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) = update()
+        }
+        manager.registerDefaultNetworkCallback(callback)
+        update()
+        awaitClose { manager.unregisterNetworkCallback(callback) }
+    }.distinctUntilChanged()
 }

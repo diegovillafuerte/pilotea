@@ -1,0 +1,5 @@
+<resources>
+    <string name="capture_channel">Captura de pantalla</string>
+    <string name="capture_active">Semáforo de Kompara activo</string>
+    <string name="capture_stop">Detener</string>
+</resources>

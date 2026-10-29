@@ -25,7 +25,7 @@ class BestHourFinder(private val zone: ZoneId, private val marginalCostPerKm: Do
     fun best(trips: List<TripEntity>): BestHourBlock? {
         val byBucket = HashMap<Pair<Int, Int>, Accumulator>()
         for (trip in trips) {
-            if (trip.endedAt == null) continue
+            if (trip.endedAt == null || trip.lifecycle != "FINISHED" || trip.grossMxn == null || trip.distanceKm == null || trip.paymentBasis != "DRIVER_PAYMENT") continue
             val zoned = Instant.ofEpochMilli(trip.startedAt).atZone(zone)
             val key = zoned.dayOfWeek.value to zoned.hour
             byBucket.getOrPut(key) { Accumulator() }.add(trip)
@@ -52,8 +52,8 @@ class BestHourFinder(private val zone: ZoneId, private val marginalCostPerKm: Do
         var km = 0.0
         var trips = 0
         fun add(trip: TripEntity) {
-            gross += trip.grossMxn
-            km += trip.distanceKm
+            gross += requireNotNull(trip.grossMxn)
+            km += requireNotNull(trip.distanceKm)
             trips++
         }
     }

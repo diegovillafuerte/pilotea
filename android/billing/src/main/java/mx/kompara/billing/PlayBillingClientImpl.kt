@@ -18,6 +18,8 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+import kotlinx.coroutines.CancellationException
 
 /**
  * Real Play Billing Library ([BillingClient]) implementation of [BillingClientFacade].
@@ -67,7 +69,10 @@ class PlayBillingClientImpl(
     override val purchaseUpdates: Flow<List<BillingPurchase>> = purchaseFlow.onStart {
         // A fresh collector should see current ownership without waiting for a callback.
         if (ensureConnected() is BillingConnectionResult.Connected) {
-            emit(queryPurchases())
+            try { emit(queryPurchases()) } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                logger.w("Purchase query failed; retain cached access", e)
+            }
         }
     }
 
@@ -162,6 +167,7 @@ class PlayBillingClientImpl(
                     priceCurrencyCode = recurring.priceCurrencyCode,
                     priceAmountMicros = recurring.priceAmountMicros,
                     hasFreeTrial = hasFreeTrial,
+                    billingPeriod = recurring.billingPeriod,
                 )
             }
         }
@@ -180,6 +186,14 @@ class PlayBillingClientImpl(
         val details = queryRawProductDetails().firstOrNull { it.productId == product.productId }
             ?: return LaunchResult.Error(code = -1, message = "Product details unavailable")
 
+        val fresh = details.subscriptionOfferDetails.orEmpty().firstOrNull { it.offerToken == product.offerToken }
+            ?: return LaunchResult.Error(-1, "Offer no longer available")
+        val phase = fresh.pricingPhases.pricingPhaseList.singleOrNull()
+            ?: return LaunchResult.Error(-1, "Pricing changed; reload offer")
+        if (fresh.offerId != null || fresh.basePlanId != product.basePlanId || phase.formattedPrice != product.formattedPrice ||
+            phase.priceAmountMicros != product.priceAmountMicros || phase.priceCurrencyCode != product.priceCurrencyCode || phase.billingPeriod != product.billingPeriod) {
+            return LaunchResult.Error(-1, "Pricing changed; reload offer")
+        }
         val params = BillingFlowParams.newBuilder()
             .setProductDetailsParamsList(
                 listOf(
@@ -203,7 +217,7 @@ class PlayBillingClientImpl(
     }
 
     override suspend fun queryPurchases(): List<BillingPurchase> {
-        if (ensureConnected() !is BillingConnectionResult.Connected) return emptyList()
+        check(ensureConnected() is BillingConnectionResult.Connected) { "Play unavailable" }
 
         val params = QueryPurchasesParams.newBuilder()
             .setProductType(BillingClient.ProductType.SUBS)
@@ -217,7 +231,7 @@ class PlayBillingClientImpl(
                     cont.resume(purchases.map { it.toBillingPurchase() })
                 } else {
                     logger.w("queryPurchases failed ${result.responseCode}: ${result.debugMessage}")
-                    cont.resume(emptyList())
+                    cont.resumeWithException(IllegalStateException("Purchase query failed: ${result.responseCode}"))
                 }
             }
         }

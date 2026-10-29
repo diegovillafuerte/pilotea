@@ -7,27 +7,13 @@ import mx.kompara.data.db.dao.OfferDao
 import mx.kompara.data.db.dao.ShiftDao
 import mx.kompara.data.db.dao.TripDao
 import mx.kompara.data.rollup.RollupCalculator
+import mx.kompara.metrics.withTripEvidence
 import mx.kompara.data.settings.CostProfileRepository
-import mx.kompara.metrics.CostProfileMapper
 import java.time.Clock
-import java.time.ZoneId
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/**
- * Orchestrates a rollup recompute (B-039): reads the captured offers/trips/shifts and the active cost
- * profile, runs the pure [RollupCalculator], and writes the resulting CAPTURED daily/weekly rows.
- *
- * Lives in `:metrics` (not `:data`) because it needs [CostProfileMapper] to turn the persisted cost
- * profile into a marginal $/km for the net math — and `:metrics` may depend on `:data`, never the
- * reverse. The actual math is the pure `:data` [RollupCalculator]; this is just the IO shell, so it's
- * thin and the interesting logic stays unit-tested without Android.
- *
- * **Recompute window:** by default it rebuilds the trailing [WINDOW_DAYS] days of captured aggregates
- * (covers the on-trip-close incremental case and the daily worker). It deletes the captured rows in
- * the recomputed buckets before re-inserting, so a recompute is idempotent and never double-counts.
- * IMPORTED rows are untouched (see [mx.kompara.data.db.entity.AggregateSource]).
- */
+/** Transactional, affected-period rollup; imported source records remain untouched. */
 @Singleton
 class RollupRecomputer @Inject constructor(
     private val database: KomparaDatabase,
@@ -39,51 +25,61 @@ class RollupRecomputer @Inject constructor(
     private val clock: Clock = Clock.systemDefaultZone(),
 ) {
 
-    /** Recompute the trailing [windowDays] days of captured daily + weekly aggregates. */
-    suspend fun recompute(windowDays: Long = WINDOW_DAYS) {
-        val zone: ZoneId = clock.zone
-        val now = clock.millis()
-        // Widen the read window to the Monday of the oldest day we recompute, so weekly buckets are
-        // complete even when the window starts mid-week.
-        val calc = RollupCalculator(
-            zone = zone,
-            marginalCostPerKm = CostProfileMapper
-                .toCostProfileOrZero(costProfileRepository.get())
-                .marginalCostPerKm,
-        )
-        val from = clock.instant()
-            .atZone(zone)
-            .toLocalDate()
-            .minusDays(windowDays)
-            .with(java.time.DayOfWeek.MONDAY.let { java.time.temporal.TemporalAdjusters.previousOrSame(it) })
-            .atStartOfDay(zone)
-            .toInstant()
-            .toEpochMilli()
-        val until = clock.instant()
-            .atZone(zone)
-            .toLocalDate()
-            .plusDays(1)
-            .atStartOfDay(zone)
-            .toInstant()
-            .toEpochMilli()
-
-        val trips = tripDao.completedStartedBetween(from, until)
-        val shifts = shiftDao.overlapping(from, until)
-        val offers = offerDao.seenBetween(from, until)
-
-        val result = calc.rollup(trips = trips, shifts = shifts, offers = offers, computedAt = now)
-
-        // Clear the captured rows in every recomputed bucket, then write the fresh ones, so a bucket
-        // that went to zero (all trips deleted) doesn't leave a stale row behind. ATOMIC (review
-        // finding): the delete+upsert commit as ONE transaction, so an observeWeekly/observeDaily
-        // reader never sees the mid-delete gap (a transient $0 week on Home) and two overlapping
-        // recomputes (the daily periodic racing the on-trip-close one-off) can't interleave
-        // delete/upsert into a bucket that reflects neither run.
+    /** A cost edit and its affected summaries commit together, or neither does. */
+    suspend fun editCosts(effectiveDate: java.time.LocalDate, persist: suspend () -> Unit) {
         database.withTransaction {
-            result.daily.map { it.day }.toSet().forEach { aggregateDao.deleteCapturedDay(it) }
-            result.weekly.map { it.weekStart }.toSet().forEach { aggregateDao.deleteCapturedWeek(it) }
-            aggregateDao.upsertDaily(result.daily)
-            aggregateDao.upsertWeekly(result.weekly)
+            persist()
+            recomputeFrom(effectiveDate)
+        }
+    }
+
+    suspend fun recompute(windowDays: Long = WINDOW_DAYS) {
+        recomputeFrom(clock.instant().atZone(clock.zone).toLocalDate().minusDays(windowDays))
+    }
+
+    /** Cost edits call this with their effective local date, never a blanket 730-day rewrite. */
+    suspend fun recomputeFrom(effectiveDate: java.time.LocalDate) {
+        val zone = clock.zone
+        val now = clock.instant()
+        val today = now.atZone(zone).toLocalDate()
+        if (effectiveDate > today) return
+        val first = effectiveDate.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
+        recomputeRange(first, today, now.toEpochMilli() + 1)
+    }
+
+    /** A single corrected trip changes only its calendar week, including its daily bucket. */
+    suspend fun recomputeWeek(date: java.time.LocalDate) {
+        val first = date.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
+        val now = clock.instant()
+        val last = minOf(first.plusDays(6), now.atZone(clock.zone).toLocalDate())
+        if (first > last) return
+        recomputeRange(first, last, minOf(last.plusDays(1).atStartOfDay(clock.zone).toInstant().toEpochMilli(), now.toEpochMilli() + 1))
+    }
+
+    private suspend fun recomputeRange(first: java.time.LocalDate, today: java.time.LocalDate, until: Long) {
+        val zone = clock.zone
+        val from = first.atStartOfDay(zone).toInstant().toEpochMilli()
+        database.withTransaction {
+            val calc = RollupCalculator(zone, mx.kompara.data.accounting.CostSchedule(costProfileRepository.runningVersions()))
+            val trips = tripDao.startedBetween(from, until)
+            val offers = offerDao.withTripEvidence(offerDao.seenBetween(from, until), trips)
+            val result = calc.rollup(trips, shiftDao.overlapping(from, until), offers, until - 1)
+            // Clear every affected bucket, including one that lost its last trip. Preserve legacy
+            // numeric evidence when no attributable cost exists; its known flag remains false.
+            val previousDaily = aggregateDao.capturedDays(first.toString(), today.toString()).associateBy { it.platform to it.day }
+            val previousWeekly = aggregateDao.capturedWeeks(first.toString(), today.toString()).associateBy { it.platform to it.weekStart }
+            var day = first
+            while (day <= today) {
+                aggregateDao.deleteCapturedDay(day.toString())
+                if (day.dayOfWeek == java.time.DayOfWeek.MONDAY) aggregateDao.deleteCapturedWeek(day.toString())
+                day = day.plusDays(1)
+            }
+            aggregateDao.upsertDaily(result.daily.map { row ->
+                if (row.runningCostKnown) row else row.copy(netEarningsMxn = previousDaily[row.platform to row.day]?.netEarningsMxn ?: row.netEarningsMxn)
+            })
+            aggregateDao.upsertWeekly(result.weekly.map { row ->
+                if (row.runningCostKnown) row else row.copy(netEarningsMxn = previousWeekly[row.platform to row.weekStart]?.netEarningsMxn ?: row.netEarningsMxn)
+            })
         }
     }
 

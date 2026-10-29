@@ -1,94 +1,42 @@
 package mx.kompara.ui.stats
 
 import mx.kompara.data.model.Platform
-import mx.kompara.metrics.compare.CompareMetric
-import mx.kompara.metrics.compare.CompareVerdict
-import mx.kompara.metrics.compare.CompareWinner
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
+import mx.kompara.metrics.compare.ComparisonMetric
+import org.junit.Assert.*
 import org.junit.Test
 
-/** es-MX presentation for the Comparar tab (B-047): the verdict sentence and per-metric formatting. */
 class CompareUiTextTest {
-
-    private val resolve: (String) -> Platform? = { name ->
-        runCatching { Platform.valueOf(name) }.getOrNull()
+    private fun pair(a: String, b: String) = listOf(ComparisonValue("Uber", a.toBigDecimal()), ComparisonValue("DiDi", b.toBigDecimal()))
+    @Test fun `difference names winning app and after running costs verb`() {
+        assertEquals("DiDi te dejó $1.21 más por km", CompareUiText.appFinding(pair("9.1300", "10.3410"), ComparisonMetric.PER_KM))
     }
-
-    @Test
-    fun `verdict sentence reads the headline example`() {
-        val verdict = CompareVerdict(
-            metric = CompareMetric.EARNINGS_PER_KM,
-            winner = CompareWinner.B,
-            winnerPlatform = "DIDI",
-            loserPlatform = "UBER",
-            pctDifference = 0.12,
-        )
-        assertEquals(
-            "Esta semana DiDi te pagó 12 % más por km que Uber.",
-            CompareUiText.verdictSentence(verdict, resolve),
-        )
+    @Test fun `hour finding preserves its chosen unit and whole pesos`() {
+        assertEquals("Uber te dejó $32 más por hora", CompareUiText.appFinding(pair("211.6", "180"), ComparisonMetric.PER_HOUR))
     }
-
-    @Test
-    fun `verdict rounds the percent`() {
-        val verdict = CompareVerdict(
-            metric = CompareMetric.EARNINGS_PER_HOUR,
-            winner = CompareWinner.A,
-            winnerPlatform = "UBER",
-            loserPlatform = "DIDI",
-            pctDifference = 0.176,
-        )
-        assertTrue(
-            CompareUiText.verdictSentence(verdict, resolve).contains("18 % más por hora"),
-        )
+    @Test fun `zero loser is absolute difference with no infinite percent`() {
+        assertEquals("DiDi te dejó $10.00 más por km", CompareUiText.appFinding(pair("0", "10"), ComparisonMetric.PER_KM))
     }
-
-    @Test
-    fun `verdict with no percent states the win without a misleading number`() {
-        val verdict = CompareVerdict(
-            metric = CompareMetric.NET_EARNINGS,
-            winner = CompareWinner.B,
-            winnerPlatform = "DIDI",
-            loserPlatform = "UBER",
-            pctDifference = null,
-        )
-        val s = CompareUiText.verdictSentence(verdict, resolve)
-        assertTrue(s.contains("DiDi te pagó más"))
-        assertTrue(!s.contains("%"))
+    @Test fun `ties after display rounding name neither app`() {
+        assertEquals("Las dos apps te dejaron lo mismo por km", CompareUiText.appFinding(pair("8.001", "8.004"), ComparisonMetric.PER_KM))
     }
-
-    @Test
-    fun `tie verdict names neither platform`() {
-        val verdict = CompareVerdict(
-            metric = CompareMetric.EARNINGS_PER_KM,
-            winner = CompareWinner.TIE,
-            winnerPlatform = null,
-            loserPlatform = null,
-            pctDifference = 0.0,
-        )
-        val s = CompareUiText.verdictSentence(verdict, resolve)
-        assertTrue(s.contains("casi lo mismo"))
+    @Test fun `metric formatting preserves negative signs km cents and whole hour and trip pay`() {
+        assertEquals("$8.40/km", CompareUiText.rate("8.4".toBigDecimal(), ComparisonMetric.PER_KM))
+        assertEquals("$186/h", CompareUiText.rate("185.5".toBigDecimal(), ComparisonMetric.PER_HOUR))
+        assertEquals("$149/viaje", CompareUiText.rate("148.88235".toBigDecimal(), ComparisonMetric.PER_TRIP))
+        assertEquals("−$1.05/km", CompareUiText.rate("-1.05".toBigDecimal(), ComparisonMetric.PER_KM))
     }
-
-    @Test
-    fun `metric values format per metric type`() {
-        assertEquals("$8.40/km", CompareUiText.metricValue(CompareMetric.EARNINGS_PER_KM, 8.4))
-        assertEquals("$185.50/h", CompareUiText.metricValue(CompareMetric.EARNINGS_PER_HOUR, 185.5))
-        assertEquals("83 %", CompareUiText.metricValue(CompareMetric.ACCEPTANCE_RATE, 0.834))
-        assertEquals("42", CompareUiText.metricValue(CompareMetric.TOTAL_TRIPS, 42.0))
+    @Test fun `platform names and cohort counts`() {
+        assertEquals("Uber", CompareUiText.platformName(Platform.UBER)); assertEquals("DiDi", CompareUiText.platformName(Platform.DIDI))
+        assertEquals("inDrive", CompareUiText.platformName(Platform.INDRIVE)); assertEquals("1,240", CompareUiText.count(1240))
     }
-
-    @Test
-    fun `platform names are proper nouns`() {
-        assertEquals("Uber", CompareUiText.platformName(Platform.UBER))
-        assertEquals("DiDi", CompareUiText.platformName(Platform.DIDI))
-        assertEquals("inDrive", CompareUiText.platformName(Platform.INDRIVE))
+    @Test fun `self difference uses printed figures never zero or negative divisor`() {
+        assertEquals("+12 %", CompareUiText.selfDifference("120.42857".toBigDecimal(), "106.89655".toBigDecimal()))
+        assertNull(CompareUiText.selfDifference("120".toBigDecimal(), "0".toBigDecimal()))
+        assertNull(CompareUiText.selfDifference("120".toBigDecimal(), "-10".toBigDecimal()))
+        assertEquals("−50 %", CompareUiText.selfDifference("50".toBigDecimal(), "100".toBigDecimal()))
     }
-
-    @Test
-    fun `pct label rounds to whole percent`() {
-        assertEquals("12 %", CompareUiText.pctLabel(0.124))
-        assertEquals("13 %", CompareUiText.pctLabel(0.125))
+    @Test fun `rank sentences specify actual app city and metric including below median`() {
+        assertEquals("Te pagan más por viaje que al 78 % de los de Uber en CDMX", CompareUiText.rankFinding(78, "UBER", "CDMX", ComparisonMetric.PER_TRIP))
+        assertEquals("Te pagan menos por viaje que al 70 % de los de DiDi en Monterrey", CompareUiText.rankFinding(30, "DIDI", "Monterrey", ComparisonMetric.PER_TRIP))
     }
 }

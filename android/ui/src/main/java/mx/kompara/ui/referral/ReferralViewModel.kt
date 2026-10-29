@@ -34,7 +34,7 @@ import javax.inject.Inject
 class ReferralViewModel @Inject constructor(
     private val referrals: Referrals,
     private val entitlements: EntitlementRepository,
-    savedStateHandle: SavedStateHandle,
+    private val savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<ReferralUiState>(ReferralUiState.Loading)
@@ -42,7 +42,7 @@ class ReferralViewModel @Inject constructor(
 
     /** A code passed via deep link (`kompara://referral?code=X`), prefilled once the Ready state loads. */
     private var pendingDeepLinkCode: String? =
-        savedStateHandle.get<String>(ARG_CODE)?.trim()?.takeIf { it.isNotEmpty() }
+        (savedStateHandle.get<String>("redeemInput") ?: savedStateHandle.get<String>(ARG_CODE))?.trim()?.takeIf { it.isNotEmpty() }
 
     init {
         load()
@@ -61,16 +61,31 @@ class ReferralViewModel @Inject constructor(
                     code = res.value.code,
                     redemptionsCount = res.value.redemptionsCount,
                     premiumDaysEarned = res.value.premiumDaysEarned,
-                    redeemInput = pendingDeepLinkCode.orEmpty(),
+                    redeemInput = savedStateHandle.get<String>("redeemInput") ?: pendingDeepLinkCode.orEmpty(),
+                    rewardDaysReferrer = res.value.rewardDaysReferrer,
+                    rewardDaysRedeemer = res.value.rewardDaysRedeemer,
+                    expanded = savedStateHandle["redeemExpanded"] ?: !pendingDeepLinkCode.isNullOrBlank(),
                 )
                 is ReferralResult.Failure -> ReferralUiState.LoadError(res.message)
             }
-            pendingDeepLinkCode = null
+            if (_uiState.value is ReferralUiState.Ready) {
+                savedStateHandle["redeemInput"] = (_uiState.value as ReferralUiState.Ready).redeemInput
+                pendingDeepLinkCode = null
+            }
         }
     }
 
     /** Edit the redeem-code field (clears any prior error). */
+    fun toggleRedemption() {
+        val current = _uiState.value as? ReferralUiState.Ready ?: return
+        if (current.redeem is RedeemPhase.Submitting) return
+        savedStateHandle["redeemExpanded"] = !current.expanded
+        _uiState.value = current.copy(expanded = !current.expanded)
+    }
     fun onRedeemInputChange(value: String) {
+        val current = _uiState.value as? ReferralUiState.Ready ?: return
+        if (current.redeem is RedeemPhase.Submitting || current.redeem is RedeemPhase.Success) return
+        savedStateHandle["redeemInput"] = value
         _uiState.update { state ->
             if (state is ReferralUiState.Ready) {
                 state.copy(redeemInput = value, redeem = RedeemPhase.Idle)
@@ -83,7 +98,7 @@ class ReferralViewModel @Inject constructor(
     /** Submit the entered code for redemption. No-ops unless on a Ready state with a non-blank code. */
     fun redeem() {
         val ready = _uiState.value as? ReferralUiState.Ready ?: return
-        if (ready.redeemInput.isBlank() || ready.redeem is RedeemPhase.Submitting) return
+        if (ready.redeemInput.isBlank() || ready.redeem is RedeemPhase.Submitting || ready.redeem is RedeemPhase.Success) return
 
         _uiState.value = ready.copy(redeem = RedeemPhase.Submitting)
         viewModelScope.launch {

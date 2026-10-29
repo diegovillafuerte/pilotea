@@ -168,6 +168,49 @@ class KomparaDatabaseMigrationTest {
         db.close()
     }
 
+    @Test
+    fun migrate_4_to_5_preservesLegacyCostsWithoutInventingCarHistory() {
+        helper.createDatabase(TEST_DB, 4).apply {
+            execSQL("INSERT INTO cost_profile VALUES (1, 1790000000000, 2.0, 0.8, 50.0, 200.0, 12.0, 24.5, 6)")
+            close()
+        }
+        val db = helper.runMigrationsAndValidate(TEST_DB, 5, true, KomparaMigrations.MIGRATION_4_5)
+        assertEquals(1, count(db, "SELECT COUNT(*) FROM running_cost_versions WHERE mode = 'LEGACY' AND confirmation = 'LEGACY_CONFIRMED' AND effectiveFrom = 1790000000000"))
+        assertEquals(0, count(db, "SELECT COUNT(*) FROM car_cost_versions"))
+        assertEquals(250.0, scalarDouble(db, "SELECT insurancePerDayMxn + rentPerDayMxn FROM cost_profile"), 0.0)
+        db.close()
+    }
+
+    @Test
+    fun migrate_1_to_7_validatesCompleteUpgradeChain() {
+        helper.createDatabase(TEST_DB, 1).close()
+        helper.runMigrationsAndValidate(TEST_DB, 8, true, *KomparaMigrations.ALL).close()
+    }
+
+    @Test
+    fun migrate_5_to_6_preservesLegacyZeroAndVerdictWithoutInventingLimits() {
+        helper.createDatabase(TEST_DB, 5).apply {
+            execSQL("INSERT INTO offers (id,seenAt,platform,fareMxn,distanceKm,durationMin,surge,accepted,outcome,verdict) VALUES (1,1790000000000,'UBER',0,0,0,0,0,'EXPIRED','RED')")
+            execSQL("INSERT INTO trips (id,startedAt,platform,grossMxn,distanceKm,durationMin,estimated) VALUES (1,1790000000000,'UBER',0,0,0,1)")
+            close()
+        }
+        val db = helper.runMigrationsAndValidate(TEST_DB, 6, true, KomparaMigrations.MIGRATION_5_6)
+        assertEquals(1, count(db, "SELECT COUNT(*) FROM offers WHERE fareMxn = 0 AND verdict = 'RED' AND evaluation_goal IS NULL AND inputProvenance = 'LEGACY_UNSPECIFIED'"))
+        assertEquals(1, count(db, "SELECT COUNT(*) FROM trips WHERE grossMxn = 0 AND lifecycle = 'UNKNOWN' AND confirmationEvidenceId IS NULL"))
+        db.close()
+    }
+
+    @Test
+    fun migrate_6_to_7_keepsOriginalCostsWithoutInventingCorrections() {
+        helper.createDatabase(TEST_DB, 6).apply {
+            execSQL("INSERT INTO running_cost_versions (id,effectiveFrom,recordedAt,mode,confirmation,wearPerKm,kmPerLitre,fuelPricePerLitre) VALUES (1,1790000000000,1790000000000,'GAS','TYPICAL','0.80','12','24.50')")
+            close()
+        }
+        val db = helper.runMigrationsAndValidate(TEST_DB, 7, true, KomparaMigrations.MIGRATION_6_7)
+        assertEquals(1, count(db, "SELECT COUNT(*) FROM running_cost_versions WHERE id=1 AND correctsVersionId IS NULL AND kmPerLitre='12'"))
+        db.close()
+    }
+
     private fun count(db: SupportSQLiteDatabase, sql: String): Int =
         db.query(sql).use { it.moveToFirst(); it.getInt(0) }
 
@@ -177,4 +220,16 @@ class KomparaDatabaseMigrationTest {
     companion object {
         private const val TEST_DB = "kompara-migration-test"
     }
+    @Test fun migrate7To8_preservesLegacyAndCreatesEmptyDraftTables() {
+        helper.createDatabase(TEST_DB, 7).apply {
+            execSQL("INSERT INTO weekly_aggregates (platform,weekStart,source,netEarningsMxn,grossEarningsMxn,totalTrips,totalKm,hoursOnline,computedAt) VALUES ('UBER','2026-09-14','IMPORTED',5000,5340,29,0,26,100)")
+            close()
+        }
+        val db = helper.runMigrationsAndValidate(TEST_DB, 8, true, KomparaMigrations.MIGRATION_7_8)
+        assertEquals(1, count(db, "SELECT COUNT(*) FROM weekly_aggregates WHERE source='IMPORTED' AND grossEarningsMxn=5340"))
+        assertEquals(0, count(db, "SELECT COUNT(*) FROM import_statements"))
+        assertEquals(0, count(db, "SELECT COUNT(*) FROM import_drafts"))
+        db.close()
+    }
+
 }

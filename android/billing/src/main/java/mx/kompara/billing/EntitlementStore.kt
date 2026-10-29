@@ -16,6 +16,8 @@ import javax.inject.Inject
 interface EntitlementCache {
     suspend fun read(): Entitlement
     suspend fun write(entitlement: Entitlement)
+    suspend fun readPlan(): PlanStatus = PlanStatus()
+    suspend fun writePlan(plan: PlanStatus) {}
 }
 
 /**
@@ -58,6 +60,24 @@ class EntitlementStore @Inject constructor(
                     prefs.remove(trialKey)
                     prefs.remove(expiresAtKey)
                 }
+            }
+        }
+    }
+
+    override suspend fun readPlan(): PlanStatus {
+        val p = dataStore.data.first()
+        return PlanStatus(
+            payment = runCatching { PaymentStatus.valueOf(p[stringPreferencesKey("payment_status")] ?: "NONE") }.getOrDefault(PaymentStatus.NONE),
+            paidUntil = p[longPreferencesKey("paid_until")], grantUntil = p[longPreferencesKey("grant_until")],
+            promotionalTrialUntil = p[longPreferencesKey("promo_trial_until")],
+        )
+    }
+    override suspend fun writePlan(plan: PlanStatus) {
+        dataStore.edit { p ->
+            p[stringPreferencesKey("payment_status")] = plan.payment.name
+            listOf("paid_until" to plan.paidUntil, "grant_until" to plan.grantUntil, "promo_trial_until" to plan.promotionalTrialUntil).forEach { (name, value) ->
+                val key = longPreferencesKey(name)
+                if (value == null) p.remove(key) else p[key] = value
             }
         }
     }

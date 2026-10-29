@@ -35,6 +35,18 @@ data class OcrTripMarkers(
         excludedMarkers.none { text.contains(it, ignoreCase = true) } &&
             tripMarkers.any { text.contains(it, ignoreCase = true) }
 
+    fun isUnderWay(text: String): Boolean = isTripLike(text) &&
+        listOf("Viaje en curso", "Finalizar viaje", "Terminar viaje").any { text.contains(it, ignoreCase = true) }
+
+    fun isCancelled(text: String): Boolean = listOf("Viaje cancelado", "cancelaste el viaje").any {
+        text.contains(it, ignoreCase = true)
+    }
+
+    fun isIdle(text: String): Boolean = excludedMarkers.none { text.contains(it, true) } &&
+        listOf("Buscando viajes", "Buscando solicitudes", "Esperando solicitudes", "Estás desconectado", "Viaje finalizado").any {
+            text.contains(it, ignoreCase = true)
+        }
+
     companion object {
         /** Trip-screen phrases (es-MX). The first block is confirmed from real captures (B-084). */
         val DEFAULT_TRIP_MARKERS: List<String> = listOf(

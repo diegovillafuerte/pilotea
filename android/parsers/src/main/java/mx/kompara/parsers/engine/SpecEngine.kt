@@ -160,6 +160,7 @@ class SpecEngine {
             surge = surgeFromVariant,
             paymentType = raw[FieldNames.PAYMENT_TYPE],
             raw = raw,
+            paymentBasis = spec.paymentBasis,
         )
     }
 

@@ -44,8 +44,8 @@ import javax.inject.Inject
  *  - Exported (it must be, to appear in the share sheet) but does NOTHING privileged: it only reads the
  *    bytes the user explicitly shared, never the other app's screen, and **never** the MediaProjection /
  *    [OcrConsentActivity] path.
- *  - **Signed-out short-circuit:** the session is checked FIRST; a signed-out share never touches the
- *    untrusted streams at all — we just open the app to sign up.
+ *  - Files are retained locally before shell launch. Consent and sign-in are required by the
+ *    import screen before any upload, including signed-out shares.
  *  - **URI provenance:** only `content://` URIs from a *foreign* authority are read; non-content schemes
  *    and our own package / FileProvider authorities are rejected, so a direct caller can't make us read
  *    arbitrary URIs the process can resolve (incl. our own files).
@@ -74,18 +74,12 @@ class ShareImportActivity : ComponentActivity() {
         val sourceIntent = intent
         lifecycleScope.launch {
             try {
-                if (!importer.isSignedIn()) {
-                    // Never touch the untrusted streams when signed-out — just open the app to sign up.
-                    Toast.makeText(this@ShareImportActivity, R.string.share_import_needs_account, Toast.LENGTH_LONG).show()
-                    startActivity(Intent(this@ShareImportActivity, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                    return@launch
-                }
-
                 val pending = withContext(Dispatchers.IO) { readShareWithDeadline(sourceIntent) }
 
                 if (pending == null) {
                     Toast.makeText(this@ShareImportActivity, R.string.share_import_unsupported, Toast.LENGTH_LONG).show()
                 } else {
+                    importer.retain(pending.platform.wire, pending.platform.uploadType, pending.files)
                     sharedImportBuffer.set(pending)
                     // Fresh-root the shell so onCreate runs and the import-route deep link is honoured even
                     // when the app is already open; the share is an intentional new entry point, so

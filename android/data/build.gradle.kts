@@ -18,6 +18,8 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    testOptions { unitTests.isIncludeAndroidResources = true }
+
     // Ship the exported Room schemas (room.schemaLocation below) into the androidTest APK's assets so
     // MigrationTestHelper can load KomparaDatabase/<v>.json on-device. Without this the instrumented
     // KomparaDatabaseMigrationTest fails at setup with "Cannot find the schema file in the assets folder".
@@ -43,6 +45,8 @@ dependencies {
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
 
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.ext.junit)
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
 
@@ -50,4 +54,9 @@ dependencies {
     androidTestImplementation(libs.androidx.room.testing)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.ext.junit)
+}
+
+// Same exported migration schema exercised on the JVM when hardware is unavailable.
+tasks.withType<Test>().configureEach {
+    systemProperty("kompara.schemas", layout.projectDirectory.dir("schemas").asFile.absolutePath)
 }

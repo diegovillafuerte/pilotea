@@ -14,6 +14,7 @@ enum class GateSurface(val key: String) {
 
     /** History rows older than the free window. */
     HISTORY("history"),
+    MONTH_HISTORY("month_history"),
 
     /** The Fiscal / IMSS tab. */
     FISCAL("fiscal"),
@@ -35,6 +36,7 @@ enum class GateEvent(val key: String) {
     GATE_SHOWN("gate_shown"),
     PAYWALL_OPENED("paywall_opened"),
     TRIAL_STARTED("trial_started"),
+    PURCHASE_STARTED("purchase_started"),
 }
 
 /**

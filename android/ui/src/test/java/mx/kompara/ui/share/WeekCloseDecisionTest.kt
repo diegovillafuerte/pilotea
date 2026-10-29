@@ -52,4 +52,10 @@ class WeekCloseDecisionTest {
             ),
         )
     }
+    @Test fun `busy or blocked delivery defers without stamping and later posts`() {
+        assertEquals(WeekCloseAction.DEFER, WeekCloseDecision.decide(true, week, null, true, busy = true))
+        assertEquals(WeekCloseAction.DEFER, WeekCloseDecision.decide(true, week, null, true, allowed = false))
+        assertEquals(WeekCloseAction.POST, WeekCloseDecision.decide(true, week, null, true))
+        assertEquals(WeekCloseAction.STAMP_ONLY, WeekCloseDecision.decide(false, week, null, true, busy = true))
+    }
 }

@@ -43,6 +43,25 @@ class PeriodStatsTest {
     )
 
     @Test
+    fun `source selection is per app and preserves captured until explicit reconciliation`() {
+        val uber = weekly(Platform.UBER, 100.0, 120.0, 2, 10.0, 1.0, null)
+        val pdf = uber.copy(source = "IMPORTED", netEarningsMxn = 130.0, grossEarningsMxn = 150.0)
+        val didi = weekly(Platform.DIDI, 80.0, 100.0, 2, 10.0, 1.0, null)
+        val result = PeriodStats.fromWeekly(listOf(uber, pdf, didi), null)
+        assertEquals(180.0, result.netEarningsMxn, 0.0)
+        assertEquals(4, result.totalTrips)
+    }
+
+    @Test
+    fun `unknown historic cost retains legacy evidence but not computable rates`() {
+        val old = weekly(Platform.UBER, 100.0, 120.0, 2, 10.0, 1.0, null).copy(runningCostKnown = false)
+        val result = PeriodStats.fromWeekly(listOf(old), null)
+        assertTrue(!result.runningCostKnown)
+        assertNull(result.earningsPerKm)
+        assertNull(result.earningsPerHour)
+    }
+
+    @Test
     fun `single platform fold matches the row`() {
         val rows = listOf(weekly(Platform.UBER, net = 1000.0, gross = 1200.0, trips = 10, km = 100.0, hours = 5.0, acceptance = 0.5))
         val s = PeriodStats.fromWeekly(rows, Platform.UBER)

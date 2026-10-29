@@ -11,9 +11,9 @@ package mx.kompara.metrics
  * duration.
  *
  * @property grossMxn the advertised fare (null if unknown)
- * @property netMxn fare minus marginal cost over total distance (null if fare unknown)
- * @property totalKm pickup km + trip km (null if neither leg known)
- * @property totalMin pickup min + trip min (null if neither leg known)
+ * @property netMxn fare minus marginal cost over total distance (null if payment basis, fare, distance or running cost is unknown)
+ * @property totalKm pickup km + trip km (null unless both legs known)
+ * @property totalMin pickup min + trip min (null unless both legs known)
  * @property grossPerKm grossMxn / totalKm (null if either unknown)
  * @property grossPerMin grossMxn / totalMin (null if either unknown)
  * @property netPerKm netMxn / totalKm (null if either unknown)
@@ -32,4 +32,7 @@ data class OfferMetrics(
     val netPerMin: Double?,
     val netPerHour: Double?,
     val verdict: Verdict,
+    val contributionDecimal: String? = netMxn?.toString(),
+    val perKmDecimal: String? = netPerKm?.toString(),
+    val perHourDecimal: String? = netPerHour?.toString(),
 )

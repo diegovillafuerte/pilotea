@@ -67,6 +67,16 @@ class FiscalConfigRepositoryTest {
     }
 
     @Test
+    fun `fresh threshold config cannot authorize a statutory base or coverage claim`() = runTest {
+        val repo = FiscalConfigRepository(FakeFiscalConfigDao(),
+            api(intArrayOf(0)) { configJson(2026, 9582.0, 319.4) to HttpStatusCode.OK }, fixedClock(10_000L))
+        assertFalse(repo.regulatoryEnabled)
+        assertEquals(FiscalConfigRepository.RefreshResult.FETCHED, repo.refresh())
+        assertFalse(repo.current().isDefault)
+        assertFalse(repo.regulatoryEnabled)
+    }
+
+    @Test
     fun `observe falls back to the compile-time default when the cache is empty`() = runTest {
         val repo = FiscalConfigRepository(
             dao = FakeFiscalConfigDao(),

@@ -1,206 +1,114 @@
 package mx.kompara.ui.share
 
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.LinearGradient
-import android.graphics.Paint
-import android.graphics.RectF
-import android.graphics.Shader
-import android.graphics.Typeface
+import android.content.Context
+import android.graphics.*
+import android.text.Layout
+import android.text.StaticLayout
+import android.text.TextPaint
+import dagger.hilt.android.qualifiers.ApplicationContext
+import mx.kompara.ui.export.ExportFonts
+import javax.inject.Inject
 
-/**
- * Renders a [ShareCardData] to a deterministic offscreen [Bitmap] (B-055) with the Android [Canvas]
- * drawing API directly — no Compose-to-bitmap, which is fragile to host-window/measurement state.
- * The brand look mirrors [mx.kompara.ui.theme] (dark surface + verde accents), with the net number as
- * the dominant element, a percentile-flex pill, the streak, and a "Kompara · Descárgala gratis"
- * footer CTA.
- *
- * All positioning is the pure [ShareCardLayout] math fed real `Paint.measureText` widths, so the
- * geometry is unit-tested without a device and the bitmap itself only needs a smoke test (renders,
- * right dimensions).
- */
-object ShareCardRenderer {
-
-    // Brand palette as ARGB ints (KomparaTheme: SurfaceDark, BrandGreen/Dark, OnSurfaceDark, etc.).
-    private const val BG_TOP = 0xFF121417.toInt() // SurfaceDark
-    private const val BG_BOTTOM = 0xFF06351C.toInt() // BrandGreenContainerDark (verde accent)
-    private const val BRAND_GREEN = 0xFF059669.toInt() // BrandGreen (website emerald — matches theme/Color.kt)
-    private const val ON_SURFACE = 0xFFF2F3F5.toInt() // OnSurfaceDark
-    private const val ON_SURFACE_VARIANT = 0xFFBFC4CA.toInt() // OnSurfaceVariantDark
-    private const val ON_BRAND = 0xFFFFFFFF.toInt() // OnVerdictGreen
-
-    /**
-     * Render [data] to a fresh [Bitmap] for [variant]. The bitmap is `ARGB_8888` at the variant's
-     * exact pixel size. Deterministic: same input ⇒ same pixels (no time, no randomness).
-     */
-    fun render(data: ShareCardData, variant: ShareCardVariant): Bitmap {
-        val bitmap = Bitmap.createBitmap(variant.width, variant.height, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bitmap)
-        draw(canvas, data, variant)
-        return bitmap
+/** This bitmap is displayed as an Image and encoded unchanged on Share. No second Compose card. */
+class ShareCardRenderer @Inject constructor(@ApplicationContext context: Context) {
+    private val fonts = ExportFonts(context)
+    private val ink = Color.rgb(0x11, 0x11, 0x10)
+    private val secondary = Color.rgb(0x5c, 0x5b, 0x57)
+    private val tertiary = Color.rgb(0x8a, 0x89, 0x84)
+    private fun paint(size: Float, face: Typeface = fonts.body, color: Int = ink) = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+        textSize = size; typeface = face; this.color = color; fontFeatureSettings = "tnum, lnum"
     }
-
-    /** Draw [data] onto [canvas] for [variant]. Split out so a test can target a stub canvas. */
-    fun draw(canvas: Canvas, data: ShareCardData, variant: ShareCardVariant) {
-        val w = variant.width
-        val h = variant.height
-        // Scale the STORY-tuned reference sizes down for the shorter LANDSCAPE card.
-        val scale = if (variant == ShareCardVariant.STORY) 1f else h / ShareCardVariant.STORY.height.toFloat()
-
-        drawBackground(canvas, w, h)
-
-        val sideMargin = ShareCardLayout.sideMargin(w)
-        val contentWidth = ShareCardLayout.contentWidth(w)
-        val gap = ShareCardLayout.blockGap(h)
-        var cursorTop = h * if (variant == ShareCardVariant.STORY) 0.16f else 0.12f
-
-        val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = ON_SURFACE }
-
-        // Period label (e.g. "Semana del 1–7 jun").
-        cursorTop = drawLine(
-            canvas, data.periodLabel, sideMargin, cursorTop,
-            ShareCardLayout.RefSizes.PERIOD_LABEL * scale, ON_SURFACE_VARIANT, Typeface.NORMAL, textPaint,
-        ) + gap
-
-        // Headline ("Mi semana manejando" / "Mi mes manejando").
-        val headline = when (data.periodKind) {
-            SharePeriodKind.WEEK -> "Mi semana manejando"
-            SharePeriodKind.MONTH -> "Mi mes manejando"
-        }
-        cursorTop = drawLine(
-            canvas, headline, sideMargin, cursorTop,
-            ShareCardLayout.RefSizes.HEADLINE * scale, ON_SURFACE, Typeface.BOLD, textPaint,
-        ) + gap * 1.5f
-
-        // Net number — the dominant element, auto-fit to the content width. Redacted when hidden.
-        cursorTop = if (data.netEarnings != null) {
-            drawNetNumber(canvas, data.netEarnings, sideMargin, contentWidth, cursorTop, scale, textPaint) + gap
-        } else {
-            drawLine(
-                canvas, "Ganancias ocultas", sideMargin, cursorTop,
-                ShareCardLayout.RefSizes.SECONDARY * scale, ON_SURFACE_VARIANT, Typeface.ITALIC, textPaint,
-            ) + gap
-        }
-
-        // Secondary metrics: trips · hours.
-        val secondary = listOfNotNull(data.trips, data.hours).joinToString("  ·  ")
-        if (secondary.isNotEmpty()) {
-            cursorTop = drawLine(
-                canvas, secondary, sideMargin, cursorTop,
-                ShareCardLayout.RefSizes.SECONDARY * scale, ON_SURFACE, Typeface.NORMAL, textPaint,
-            ) + gap * 1.5f
-        }
-
-        // Percentile flex pill ("Top 22% en CDMX 🚀").
-        if (data.percentileFlex != null) {
-            cursorTop = drawFlexPill(canvas, data.percentileFlex, sideMargin, cursorTop, scale, textPaint) + gap
-        }
-
-        // Streak ("🔥 4 semanas seguidas").
-        if (data.streakLine != null) {
-            cursorTop = drawLine(
-                canvas, data.streakLine, sideMargin, cursorTop,
-                ShareCardLayout.RefSizes.STREAK * scale, ON_SURFACE, Typeface.BOLD, textPaint,
-            ) + gap
-        }
-
-        drawFooter(canvas, w, h, scale, textPaint)
+    private fun paragraph(text: String, width: Float, size: Float, line: Float, face: Typeface = fonts.body, color: Int = ink): StaticLayout {
+        val p = paint(size, face, color)
+        return StaticLayout.Builder.obtain(text, 0, text.length, p, width.toInt())
+            .setIncludePad(false).setBreakStrategy(Layout.BREAK_STRATEGY_SIMPLE)
+            .setLineSpacing(line - (p.fontMetrics.descent - p.fontMetrics.ascent), 1f).build()
     }
-
-    private fun drawBackground(canvas: Canvas, w: Int, h: Int) {
-        val bg = Paint().apply {
-            shader = LinearGradient(
-                0f, 0f, 0f, h.toFloat(),
-                BG_TOP, BG_BOTTOM, Shader.TileMode.CLAMP,
-            )
+    fun render(data: ShareCardData): Bitmap {
+        // Long dates/copy can enlarge the layout, preserving the artefact's 4:5 ratio.
+        var width = 353f
+        while (!draw(null, data, width)) width += 32f
+        return Bitmap.createBitmap(ShareCardLayout.WIDTH, ShareCardLayout.HEIGHT, Bitmap.Config.ARGB_8888).also {
+            val canvas = Canvas(it)
+            canvas.scale(it.width / width, it.height / ShareCardLayout.height(width))
+            check(draw(canvas, data, width))
         }
-        canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), bg)
     }
-
-    /** Draw a single left-aligned line at [top]; returns the bottom y of the line. */
-    private fun drawLine(
-        canvas: Canvas,
-        text: String,
-        x: Float,
-        top: Float,
-        size: Float,
-        color: Int,
-        style: Int,
-        paint: Paint,
-    ): Float {
-        paint.textSize = size
-        paint.color = color
-        paint.typeface = Typeface.create(Typeface.DEFAULT, style)
-        val baseline = top - paint.fontMetrics.ascent
-        canvas.drawText(text, x, baseline, paint)
-        return baseline + paint.fontMetrics.descent
-    }
-
-    private fun drawNetNumber(
-        canvas: Canvas,
-        text: String,
-        x: Float,
-        maxWidth: Float,
-        top: Float,
-        scale: Float,
-        paint: Paint,
-    ): Float {
-        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-        val ref = ShareCardLayout.RefSizes.NET_NUMBER * scale
-        paint.textSize = ref
-        val measured = paint.measureText(text)
-        val size = ShareCardLayout.fitFontSize(
-            widthAtRefSize = measured,
-            refSize = ref,
-            maxWidth = maxWidth,
-            maxSize = ref,
-            minSize = 48f * scale,
-        )
-        paint.textSize = size
-        paint.color = BRAND_GREEN
-        val baseline = top - paint.fontMetrics.ascent
-        canvas.drawText(text, x, baseline, paint)
-        return baseline + paint.fontMetrics.descent
-    }
-
-    private fun drawFlexPill(
-        canvas: Canvas,
-        text: String,
-        x: Float,
-        top: Float,
-        scale: Float,
-        paint: Paint,
-    ): Float {
-        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-        paint.textSize = ShareCardLayout.RefSizes.FLEX * scale
-        val textWidth = paint.measureText(text)
-        val padH = 36f * scale
-        val padV = 24f * scale
-        val fm = paint.fontMetrics
-        val pillHeight = (fm.descent - fm.ascent) + 2 * padV
-        val pill = RectF(x, top, x + textWidth + 2 * padH, top + pillHeight)
-        val pillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = BRAND_GREEN }
-        val radius = pillHeight / 2f
-        canvas.drawRoundRect(pill, radius, radius, pillPaint)
-        paint.color = ON_BRAND
-        val baseline = top + padV - fm.ascent
-        canvas.drawText(text, x + padH, baseline, paint)
-        return top + pillHeight
-    }
-
-    private fun drawFooter(canvas: Canvas, w: Int, h: Int, scale: Float, paint: Paint) {
-        val sideMargin = ShareCardLayout.sideMargin(w)
-        // Wordmark.
-        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-        paint.textSize = ShareCardLayout.RefSizes.WORDMARK * scale
-        paint.color = ON_SURFACE
-        val wordmarkBaseline = h - h * 0.10f
-        canvas.drawText("Kompara", sideMargin, wordmarkBaseline, paint)
-        // CTA under the wordmark.
-        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
-        paint.textSize = ShareCardLayout.RefSizes.CTA * scale
-        paint.color = BRAND_GREEN
-        val ctaBaseline = wordmarkBaseline + (ShareCardLayout.RefSizes.CTA * scale) + (12f * scale)
-        canvas.drawText("Descárgala gratis · kompara.mx", sideMargin, ctaBaseline, paint)
+    /** Measure and draw through the exact same path; facts stay clear of all flowing content. */
+    private fun draw(canvas: Canvas?, data: ShareCardData, width: Float): Boolean {
+        val height = ShareCardLayout.height(width)
+        val left = ShareCardLayout.INSET
+        val content = width - left * 2
+        canvas?.drawRoundRect(0f, 0f, width, height, ShareCardLayout.RADIUS, ShareCardLayout.RADIUS, paint(1f, color = Color.WHITE))
+        canvas?.drawRoundRect(.5f, .5f, width - .5f, height - .5f, ShareCardLayout.RADIUS, ShareCardLayout.RADIUS,
+            paint(1f, color = Color.rgb(0xe8, 0xe7, 0xe3)).apply { style = Paint.Style.STROKE; strokeWidth = 1f })
+        var y = left
+        fun text(value: String, size: Float, line: Float, face: Typeface = fonts.body, color: Int = ink, available: Float = content): Float {
+            val layout = paragraph(value, available, size, line, face, color)
+            canvas?.save(); canvas?.translate(left, y); canvas?.let(layout::draw); canvas?.restore()
+            y += layout.height
+            return layout.height.toFloat()
+        }
+        val k = paint(18f, fonts.headline, Color.rgb(0x18, 0x7a, 0x36))
+        val header = paint(13f, fonts.strong)
+        val small = paint(13f, color = secondary)
+        val site = "kompara.mx"
+        val baseline = y - k.fontMetrics.ascent
+        canvas?.drawText("K", left, baseline, k)
+        val start = left + k.measureText("K") + 6f
+        val headerWidth = content - (start - left) - small.measureText(site) - 8f
+        canvas?.drawText("Kompara", start, baseline, header)
+        val period = " · ${data.periodLabel}"
+        val fits = header.measureText("Kompara") + small.measureText(period) <= headerWidth
+        var headerHeight = 22f
+        if (fits) canvas?.drawText(period, start + header.measureText("Kompara"), baseline, small)
+        else {
+            val heading = paragraph(data.periodLabel, headerWidth, 13f, 18f, color = secondary)
+            canvas?.save(); canvas?.translate(start, y + 22f); canvas?.let(heading::draw); canvas?.restore()
+            headerHeight += heading.height
+        }
+        canvas?.drawText(site, width - left - small.measureText(site), baseline, small)
+        y += headerHeight
+        y += if (data.hideAmounts) 84f else 12f
+        text(data.finding, 24f, 30f, fonts.headline)
+        y += if (data.hideAmounts) 16f else 8f
+        text(data.source, 16f, 22f, color = secondary)
+        if (data.netEarnings != null) {
+            y += 16f; text(requireNotNull(data.netLabel), 13f, 18f, color = secondary)
+            y += 4f; text(data.netEarnings, 32f, 36f, fonts.number)
+        }
+        for (bar in data.bars) {
+            y += 12f
+            val p = paint(17f, fonts.number, if (bar.own) ink else secondary)
+            val base = y - p.fontMetrics.ascent
+            canvas?.drawText(bar.label, left, base, p)
+            canvas?.drawText(bar.amount, width - left - p.measureText(bar.amount), base, p)
+            y += 26f
+            canvas?.drawRect(left, y, left + content * bar.fraction, y + 16f, paint(1f, color = if (bar.own) ink else tertiary))
+            y += 16f
+        }
+        if (data.basis.isNotEmpty()) { y += if (data.hideAmounts) 16f else 8f; text(data.basis, 13f, 18f, color = secondary) }
+        val rows = 1 + (if (data.hours != null) 1 else 0) + (if (data.confirmed) 1 else 0)
+        val foot = ShareCardLayout.factTop(height, rows)
+        if (y + 20f > foot) return false
+        y = foot
+        fun fact(label: String, value: String) {
+            val p = paint(16f); val v = paint(16f, fonts.strong)
+            val baselineY = y - p.fontMetrics.ascent
+            canvas?.drawText(label, left, baselineY, p)
+            canvas?.drawText(value, width - left - v.measureText(value), baselineY, v)
+            y += 32f
+        }
+        fact("Viajes", data.trips)
+        data.hours?.let { fact(requireNotNull(data.hoursLabel), it) }
+        if (data.confirmed) {
+            val p = paint(16f, fonts.strong)
+            val label = "Semana confirmada con mi resumen"
+            if (p.measureText(label) > content - 22f) return false
+            val mark = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = ink; strokeWidth = 1.8f; style = Paint.Style.STROKE; strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND }
+            canvas?.drawPath(Path().apply { moveTo(left + 2f, y + 11f); lineTo(left + 6f, y + 15f); lineTo(left + 14f, y + 6f) }, mark)
+            canvas?.drawText(label, left + 22f, y - p.fontMetrics.ascent, p)
+        }
+        return true
     }
 }

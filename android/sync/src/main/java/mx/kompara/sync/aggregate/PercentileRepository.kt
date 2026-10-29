@@ -35,6 +35,11 @@ class PercentileRepository @Inject constructor(
     private val benchmarks: BenchmarksRepository,
 ) {
 
+    /** V3 never invokes the unscoped legacy percentile fallback. */
+    fun comparisonRank(statement: mx.kompara.metrics.compare.ConfirmedStatement?,
+        cohort: mx.kompara.metrics.compare.StatementCohort?): Int? =
+        mx.kompara.metrics.compare.ComparisonEligibility.rank(statement, cohort)
+
     /**
      * Reactive per-metric percentiles for the driver's [metricValues] on [city] × [platform]. Emits
      * an empty list while benchmarks aren't cached yet (the UI hides percentile elements then). The

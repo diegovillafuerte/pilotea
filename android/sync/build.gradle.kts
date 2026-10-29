@@ -39,6 +39,7 @@ android {
 
 dependencies {
     implementation(project(":data"))
+    implementation(libs.androidx.room.ktx)
     // :parsers for the ParserSpec/SpecBundle model + signature verifier (B-033 OTA specs) and the
     // ParserSnapshot deserialized when rebuilding a fixture-report payload (B-034).
     implementation(project(":parsers"))

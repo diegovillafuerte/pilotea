@@ -1,12 +1,15 @@
 package mx.kompara.overlay
 
+import android.content.ComponentCallbacks
 import android.content.Context
-import android.content.Intent
+import android.content.res.Configuration
 import android.graphics.PixelFormat
 import android.os.Build
 import android.view.Gravity
 import android.view.View
+import android.view.WindowInsets
 import android.view.WindowManager
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -16,10 +19,19 @@ import androidx.lifecycle.setViewTreeViewModelStoreOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -30,292 +42,360 @@ import mx.kompara.data.service.ScreenRect
 import mx.kompara.data.settings.PlatformThreshold
 import mx.kompara.data.settings.PreferredMetric
 import mx.kompara.data.settings.SettingsRepository
-import mx.kompara.metrics.CostProfile
-import mx.kompara.metrics.CostProfileMapper
-import mx.kompara.metrics.NetProfitEngine
-import mx.kompara.metrics.OfferMetrics
-import mx.kompara.data.settings.CostProfileRepository
+import mx.kompara.metrics.recordedMetrics
+import mx.kompara.parsers.model.HostGeometry
+import mx.kompara.parsers.model.HostOrientation
+import mx.kompara.parsers.model.HostRect
+import mx.kompara.ui.components.ReglaBand
+import mx.kompara.ui.components.ReglaModel
 import mx.kompara.ui.theme.KomparaTheme
-import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/**
- * Owns the single `TYPE_ACCESSIBILITY_OVERLAY` window that hosts the Compose verdict chip, and
- * drives it from the [OfferEvent] stream the accessibility service collects.
- *
- * The service is the *only* place allowed to attach this window (it has the accessibility window
- * token), so the service calls [start] from its scope and [stop] on destroy; the controller never
- * touches the window on its own.
- *
- * ## Lifecycle & leaks
- * Attach/detach are idempotent and always run on the main thread. A fresh [OverlayLifecycleOwner] is
- * built per attach so a service restart can never resurrect a DESTROYED lifecycle, and detach moves
- * it to DESTROYED + removes the view so the composition disposes cleanly (acceptance criterion: no
- * leaks on service restart).
- *
- * ## Positioning
- * Window position is `Gravity.TOP or START` with explicit (x, y) so our pure
- * [OverlayPositioning] math owns clamping and snap-to-edge; the bottom safe zone keeps the chip off
- * the host's Accept button. Dragging updates the LayoutParams live; release snaps to the nearer
- * edge and persists via [OverlayPrefs].
- */
+/** One measured accessibility window. All decisions use display pixels; only WindowManager sees
+ * window-relative coordinates. Unknown layouts retain the offer but never attach a guessed plate. */
 @Singleton
 class OverlayController @Inject constructor(
-    private val engine: NetProfitEngine,
-    private val costProfiles: CostProfileRepository,
+    private val recorder: mx.kompara.metrics.OfferRecorder,
     private val settings: SettingsRepository,
     private val prefs: OverlayPrefs,
+    private val presentations: PresentationRecorder,
+    private val readiness: mx.kompara.data.service.ReaderReadinessRepository,
 ) : OverlayPresenter {
-    /**
-     * The accessibility service, set in [start]. A `TYPE_ACCESSIBILITY_OVERLAY` window can only be
-     * added through the service's own WindowManager (it carries the accessibility window token), so
-     * everything window-related resolves from here — never the application context.
-     */
     private var overlayContext: Context? = null
-
-    private val windowManager: WindowManager
-        get() = requireNotNull(overlayContext) { "OverlayController.start() not called yet" }
-            .getSystemService(WindowManager::class.java)
-
+    private val windowManager get() = requireNotNull(overlayContext).getSystemService(WindowManager::class.java)
     private var composeView: ComposeView? = null
     private var lifecycleOwner: OverlayLifecycleOwner? = null
     private var layoutParams: WindowManager.LayoutParams? = null
-
-    /** Live state the composition observes; updated as offers arrive. */
-    private var chipState by mutableStateOf<VerdictChipState?>(null)
-    private var currentThreshold by mutableStateOf(PlatformThreshold.DEFAULT)
-
-    /** Measured once per attach so the pure positioning math has concrete pixel bounds. */
-    private var chipWidthPx: Int = DEFAULT_CHIP_WIDTH_PX
-    private var chipHeightPx: Int = DEFAULT_CHIP_HEIGHT_PX
-
-    /**
-     * The current offer's fare/leg region the chip must not cover (from `OfferCard.contentBounds`),
-     * captured in [evaluate] and read once per show-session in [startPosition] so the chip is lifted
-     * off the fare when the driver has parked it there — the fix for the OCR-occlusion blink. Null
-     * when bounds are unavailable (node path) → positioning is unchanged. @Volatile: written on the
-     * offer flow, read on the main thread at attach.
-     */
-    @Volatile private var currentContentRect: ContentRect? = null
-
-    /**
-     * Vertical offset (px) between the overlay window's `params.y` and the chip's ACTUAL on-screen y
-     * (= the status-bar inset: the window is laid out below the status bar, but the OCR capture is
-     * full-screen with y=0 at the physical top). So `screenY = params.y + chipScreenOffsetY`. The
-     * fare's [currentContentRect] is in capture/screen space, so the positioning math must convert it
-     * into params space (subtract this) before constraining `params.y`; without it the chip is pinned
-     * `chipScreenOffsetY` px too low and lands on the fare when dragged down (on-device 2026-06-15).
-     * Seeded from the status-bar height (correct before first layout), then refined from a settled
-     * getLocationOnScreen. @Volatile: written on layout/drag (main), read on the offer flow.
-     */
-    @Volatile private var chipScreenOffsetY = 0
-
-    /**
-     * Begin driving the overlay from [events]. Collected on [scope] (the service's scope). Each
-     * `Parsed` evaluates the offer and shows the chip; `NoCard` hides it after a short grace.
-     */
-    override fun start(
-        scope: CoroutineScope,
-        events: Flow<OfferEvent>,
-        overlayContext: Context,
-        foregroundOcrOwnedApp: Flow<Boolean>,
-    ) {
-        this.overlayContext = overlayContext
-        // Seed the params↔screen offset from the status-bar height so the very first attach (e.g. a
-        // persisted low position) already converts the fare rect correctly, before any layout pass
-        // can refine it from getLocationOnScreen.
-        chipScreenOffsetY = statusBarHeightPx(overlayContext)
-        scope.launch {
-            // Prime the snapshots BEFORE arming the offer pipeline, then keep them warm for the
-            // service's lifetime. evaluate() is synchronous and runs before render()'s refresh,
-            // so arming the pipeline first could grade the very first offer with default floors,
-            // default metric (B-079), or zero costs (B-032 "changes reflect instantly"). The
-            // offer sources re-emit continuously (a11y ticks / OCR frames), so the one-read
-            // delay cannot cost more than a beat — unlike a wrong verdict, which costs trust.
-            settingsSnapshot = settings.settings.first()
-            costProfileSnapshot = costProfiles.get()
-            settings.settings.onEach { settingsSnapshot = it }.launchIn(scope)
-            costProfiles.profile.onEach { costProfileSnapshot = it }.launchIn(scope)
-            val machine = OverlayStateMachine(evaluate = ::evaluate)
-            machine.visibility(events)
-                .onEach { visibility -> render(scope, visibility) }
-                .launchIn(scope)
-        }
-        // Reader-down banner (B-078): visible exactly while the driver sits in an OCR-owned app
-        // with the screen reader dead — the silent-miss state the stopped notification can't cover
-        // (it fires at lock time, when nobody is looking). Gated on hasRunThisSession: the banner
-        // is a recovery affordance, never an onboarding nag for drivers who haven't enabled the
-        // reader. Tap relaunches the consent flow. Independent of the chip pipeline above, so it
-        // needs none of the snapshot priming.
-        combine(
-            ScreenReaderState.running,
-            ScreenReaderState.hasRunThisSession,
-            foregroundOcrOwnedApp,
-        ) { running, hasRun, inApp ->
-            hasRun && !running && inApp
-        }
-            .distinctUntilChanged()
-            .onEach { show ->
-                withContext(Dispatchers.Main) { if (show) attachBanner() else detachBanner() }
-            }
-            .launchIn(scope)
-    }
-
-    /** Evaluate a parsed offer into full metrics, applying the driver's cost profile + threshold. */
-    private fun evaluate(event: OfferEvent.Parsed): OfferMetrics {
-        // Remember where the offer's fare/legs sit so attach() can lift the chip off them.
-        currentContentRect = event.card.contentBounds?.let {
-            ContentRect(it.left, it.top, it.right, it.bottom)
-        }
-        val tripOffer = OfferMapping.toTripOffer(event.card)
-        val costProfile: CostProfile = CostProfileMapper.toCostProfileOrZero(costProfileSnapshot)
-        currentThreshold = thresholdSnapshot()
-        return engine.evaluate(tripOffer, costProfile, currentThreshold, preferredMetricSnapshot())
-    }
-
-    // Kept current by [start]'s collectors (and refreshed again in [render] as a belt-and-braces
-    // re-read), so the synchronous evaluate() path always sees the latest persisted values.
-    @Volatile private var costProfileSnapshot: mx.kompara.data.db.entity.CostProfileEntity? = null
+    private var serviceScope: CoroutineScope? = null
+    private var geometryExpiry: Job? = null
+    private var event: OfferEvent.Parsed? = null
+    private var evaluated = false
+    private var chipState by mutableStateOf<ReglaModel?>(null)
+    private var chipVisible by mutableStateOf(false)
+    private var geometry by mutableStateOf<HostGeometry?>(null)
+    private var viewport by mutableStateOf<OverlayViewport?>(null)
+    private var savedPosition by mutableStateOf<OverlayPosition?>(null)
+    private val savedPositions = mutableMapOf<OverlayPositionKey, OverlayPosition?>()
+    private var placement: OverlayPlacement.Displayed? = null
+    private var windowOrigin = OverlayPosition(0, 0)
     @Volatile private var settingsSnapshot: mx.kompara.data.settings.Settings? = null
+    private var configurationCallbacks: ComponentCallbacks? = null
+    private var generation = 0
 
-    private fun thresholdSnapshot(): PlatformThreshold =
-        settingsSnapshot?.effectiveThreshold ?: PlatformThreshold.DEFAULT
-
-    private fun preferredMetricSnapshot(): PreferredMetric =
-        settingsSnapshot?.preferredMetric ?: PreferredMetric.DEFAULT
-
-    private suspend fun render(scope: CoroutineScope, visibility: OverlayVisibility) {
-        // Refresh persisted snapshots so the next evaluate() and the threshold sheet are current,
-        // and warm the persisted drag position so the first attach lands where the driver left it.
-        costProfileSnapshot = costProfiles.get()
-        settingsSnapshot = settings.settings.first()
-        persistedPositionSnapshot = prefs.getPosition()
-        withContext(Dispatchers.Main) {
-            when (visibility) {
-                is OverlayVisibility.Showing -> {
-                    chipState = VerdictChipState.from(visibility.metrics)
-                    currentThreshold = thresholdSnapshot()
-                    attach(scope)
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    override fun start(scope: CoroutineScope, events: Flow<OfferEvent>, overlayContext: Context,
+        foregroundOcrOwnedApp: Flow<String?>) {
+        this.overlayContext = overlayContext
+        serviceScope = scope
+        configurationCallbacks = object : ComponentCallbacks {
+            override fun onConfigurationChanged(newConfig: Configuration) {
+                // Remeasure on font/inset/orientation changes, including while no window is attached.
+                detach(); detachBanner()
+                event?.let { show(scope, it) }
+            }
+            override fun onLowMemory() = Unit
+        }.also { overlayContext.registerComponentCallbacks(it) }
+        scope.launch {
+            settingsSnapshot = settings.settings.first()
+            settings.settings.onEach { settingsSnapshot = it }.launchIn(scope)
+            // Tiny scoped preference set; never block a parse on DataStore IO.
+            for (host in mx.kompara.parsers.model.HostGeometryAdapter.SUPPORTED_HOSTS)
+                for (orientation in HostOrientation.entries) {
+                    val key = OverlayPositionKey(host, orientation)
+                    savedPositions[key] = prefs.getPosition(key)
                 }
-                OverlayVisibility.Hidden -> detach()
+            readiness.state.map { reader ->
+                (reader.canRead && reader.captureRunning) to reader.apps.filterValues { it.supported }.keys
+            }.distinctUntilChanged().flatMapLatest { (allowed, _) ->
+                if (allowed) OverlayStateMachine(evaluate = ::evaluate)
+                    .visibility(events.filter { readiness.canRead(it.packageName) })
+                    .onStart { emit(OverlayVisibility.Hidden) }
+                else flowOf(OverlayVisibility.Hidden)
+            }.onEach { render(scope, it) }.launchIn(scope)
+        }
+        val tabGate = ReaderStoppedTabGate()
+        scope.launch {
+            combine(readiness.state, foregroundOcrOwnedApp) { reader, host ->
+                host to (reader.canShowStoppedTab && reader.apps[host]?.supported == true)
+            }.distinctUntilChanged().collectLatest { (host, eligible) ->
+                val show = tabGate.visible(host, eligible, android.os.SystemClock.elapsedRealtime())
+                withContext(Dispatchers.Main) { if (show) attachBanner(host!!) else detachBanner() }
+                if (show) {
+                    delay(5_000)
+                    withContext(Dispatchers.Main) { detachBanner() }
+                }
             }
         }
     }
 
-    /** Build and add the overlay window if not already attached. Main-thread only. Idempotent. */
-    private fun attach(scope: CoroutineScope) {
-        if (composeView != null) return
+    private suspend fun evaluate(event: OfferEvent.Parsed): VerdictChipState {
+        val row = recorder.record(sessionId(event), event.card.sessionStartedAt ?: event.timestampMs,
+            OfferMapping.toTripOffer(event.card), event.card.captureSource, event.card.surge, event.timestampMs)
+        val evaluation = requireNotNull(row.evaluation)
+        val threshold = if (evaluation.unit == PreferredMetric.IPK.name)
+            thresholdSnapshot().copy(minPerKmMxn = evaluation.goal.toDouble(), redPerKmMxn = evaluation.minimum.toDouble())
+        else thresholdSnapshot().copy(minPerHourMxn = evaluation.goal.toDouble(), redPerHourMxn = evaluation.minimum.toDouble())
+        return VerdictChipState.from(row.recordedMetrics(), threshold)
+    }
 
+    private fun sessionId(event: OfferEvent.Parsed) = event.card.sessionId ?: "${event.packageName}:${event.timestampMs}"
+    private fun thresholdSnapshot() = settingsSnapshot?.effectiveThreshold ?: PlatformThreshold.DEFAULT
+
+    private suspend fun render(scope: CoroutineScope, visibility: OverlayVisibility) = withContext(Dispatchers.Main.immediate) {
+        if (!readiness.state.value.canRead || !readiness.state.value.captureRunning) {
+            event = null; chipVisible = false; chipState = null; detach(); return@withContext
+        }
+        when (visibility) {
+            is OverlayVisibility.Reading -> {
+                detach(); evaluated = false
+                chipState = VerdictChipState.reading(thresholdSnapshot(), settingsSnapshot?.preferredMetric ?: PreferredMetric.DEFAULT)
+                chipVisible = true
+                show(scope, visibility.event)
+            }
+            is OverlayVisibility.Showing -> {
+                if (chipState != visibility.state.regla) {
+                    hideUntilSettled(); placement = null
+                }
+                chipState = visibility.state.regla; evaluated = true; chipVisible = true
+                show(scope, visibility.event)
+            }
+            OverlayVisibility.Exiting -> chipVisible = false
+            OverlayVisibility.Hidden -> { event = null; chipVisible = false; chipState = null; detach() }
+        }
+    }
+
+    private fun show(scope: CoroutineScope, next: OfferEvent.Parsed) {
+        if (!readiness.canRead(next.packageName) || !readiness.state.value.captureRunning) { detach(); return }
+        event = next
+        val v = readViewport()
+        val g = next.card.hostGeometry
+        geometryExpiry?.cancel()
+        val problem = OverlayPositioning.geometryProblem(g, next.packageName, v, System.currentTimeMillis())
+        if (problem != null) {
+            detach()
+            record(OverlayPlacement.Unsupported(problem))
+            return
+        }
+        if (geometry != g || viewport != v) { hideUntilSettled(); placement = null }
+        geometry = g; viewport = v
+        savedPosition = savedPositions[OverlayPositionKey(next.packageName, v.orientation)]
+        attach()
+        geometryExpiry = scope.launch(Dispatchers.Main) {
+            delay((g!!.capturedAtMs + OverlayPositioning.MAX_GEOMETRY_AGE_MS - System.currentTimeMillis() + 1).coerceAtLeast(1))
+            detach()
+            record(OverlayPlacement.Unsupported("STALE_GEOMETRY"))
+        }
+    }
+
+    private fun attach() {
+        if (composeView != null) return
+        val context = requireNotNull(overlayContext)
         val owner = OverlayLifecycleOwner().apply { onCreate() }
         lifecycleOwner = owner
-
-        val view = ComposeView(requireNotNull(overlayContext)).apply {
-            setViewTreeLifecycleOwner(owner)
-            setViewTreeSavedStateRegistryOwner(owner)
-            setViewTreeViewModelStoreOwner(owner)
+        val view = ComposeView(context).apply {
+            alpha = 0f // measure invisibly; never flash at an unsafe provisional position
+            setViewTreeLifecycleOwner(owner); setViewTreeSavedStateRegistryOwner(owner); setViewTreeViewModelStoreOwner(owner)
             setContent {
                 KomparaTheme {
-                    val s = chipState ?: return@KomparaTheme
-                    VerdictChipUi(
-                        state = s,
-                        threshold = currentThreshold,
-                        callbacks = VerdictChipCallbacks(
-                            onDrag = { dx, dy -> onDrag(dx, dy) },
-                            onDragEnd = { scope.launch { onDragEnd() } },
-                            onThresholdChange = { updated -> scope.launch { onThresholdChange(updated) } },
-                        ),
-                    )
+                    val state = chipState ?: return@KomparaTheme
+                    val g = geometry ?: return@KomparaTheme
+                    val v = viewport ?: return@KomparaTheme
+                    val reduced = android.provider.Settings.Global.getFloat(context.contentResolver,
+                        android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
+                    MeasuredVerdictChip(state, g, v, g.capturedAtMs, savedPosition, chipVisible, reduced,
+                        isSystemInDarkTheme(), VerdictChipCallbacks(::onDrag) { onDragEnd() }) { decision ->
+                        // No IO or Compose mutation during measurement. Identity guards reject work
+                        // posted by a disposed composition or an older frame of this offer.
+                        val frameGeneration = generation
+                        post {
+                            if (composeView === this && frameGeneration == generation && geometry == g && chipState == state)
+                                applyPlacement(decision)
+                        }
+                    }
                 }
             }
         }
-
-        val params = newLayoutParams()
-        layoutParams = params
         composeView = view
-        owner.onResume()
-        // Never let an overlay attach failure crash the accessibility service process — that would
-        // take the reader and fixture recording down with it. Log, reset, and let the next offer
-        // retry. (The TYPE_ACCESSIBILITY_OVERLAY token comes from the service context set in start.)
-        runCatching { windowManager.addView(view, params) }
-            .onSuccess {
-                // Publish the chip's rect so :ocr masks it out of the capture (the $0 self-capture
-                // fix). The view isn't measured yet at addView, so republish once it lays out and on
-                // any later size change; drag handlers republish on move.
-                view.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> publishChipRect() }
-                publishChipRect()
-            }
-            .onFailure { error ->
-                android.util.Log.e("OverlayController", "overlay attach failed", error)
-                owner.onDestroy()
-                composeView = null
-                lifecycleOwner = null
-                layoutParams = null
-            }
-    }
-
-    /**
-     * Publish the chip's current SCREEN-space rect to [ScreenReaderState] so the OCR capture service
-     * masks the chip's own pixels out of each frame — without it the chip's "MXN…"/"$…" text is parsed
-     * as the offer fare (the $0 self-capture loop). The window's `params.y` is offset DOWN from the
-     * capture's full-screen origin by the status-bar inset, so the screen rect is `params + offset`
-     * ([chipScreenOffsetY]). We also refine that offset here from a SETTLED getLocationOnScreen
-     * (reliable post-layout; it reads transiently as 0 right after a move, which we ignore).
-     */
-    private fun publishChipRect() {
-        val params = layoutParams ?: return
-        val view = composeView ?: return
-        val w = view.width.takeIf { it > 0 } ?: chipWidthPx
-        val h = view.height.takeIf { it > 0 } ?: chipHeightPx
-        // Refine the offset from the actual on-screen location, but only a settled, sane reading (the
-        // value jumps to 0 for a frame right after updateViewLayout, before the window settles).
-        if (view.isLaidOut && view.width > 0) {
-            val loc = IntArray(2)
-            view.getLocationOnScreen(loc)
-            val measured = loc[1] - params.y
-            if (measured in 1..MAX_SANE_TOP_INSET_PX) chipScreenOffsetY = measured
+        windowOrigin = OverlayPosition(0, 0)
+        val params = WindowManager.LayoutParams(WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            PixelFormat.TRANSLUCENT).apply {
+            gravity = Gravity.TOP or Gravity.LEFT
+            if (Build.VERSION.SDK_INT >= 30) setFitInsetsTypes(0)
+            if (Build.VERSION.SDK_INT >= 28) layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
         }
-        val top = params.y + chipScreenOffsetY
-        ScreenReaderState.setOverlayChipRect(ScreenRect(params.x, top, params.x + w, top + h))
+        layoutParams = params
+        view.setOnApplyWindowInsetsListener { _, insets ->
+            val current = readViewport(insets)
+            if (viewport != current) { hideUntilSettled(); placement = null; viewport = current }
+            insets
+        }
+        view.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> settleWindow() }
+        view.viewTreeObserver.addOnPreDrawListener { settleWindow(); true }
+        owner.onResume()
+        runCatching { windowManager.addView(view, params) }.onFailure {
+            android.util.Log.e("OverlayController", "overlay attach failed", it)
+            detach(); record(OverlayPlacement.Unsupported("WINDOW_UNAVAILABLE"))
+        }
     }
 
-    /** Status-bar inset (px) — the params↔screen vertical offset, available before the first layout. */
-    private fun statusBarHeightPx(context: Context): Int {
-        val id = context.resources.getIdentifier("status_bar_height", "dimen", "android")
-        return if (id > 0) context.resources.getDimensionPixelSize(id) else 0
-    }
-
-    /**
-     * [currentContentRect] (the fare/leg region) is in capture/screen space, but the positioning math
-     * constrains `params.y`, which is offset down by [chipScreenOffsetY]. Convert the rect into params
-     * space so "keep the chip above the fare" actually keeps its ON-SCREEN footprint above the fare.
-     */
-    private fun contentRectInParamsSpace(): ContentRect? {
-        val c = currentContentRect ?: return null
-        val o = chipScreenOffsetY
-        return ContentRect(c.left, c.top - o, c.right, c.bottom - o)
-    }
-
-    /** Remove the overlay window if attached. Main-thread only. Idempotent. */
-    private fun detach() {
+    private fun applyPlacement(decision: OverlayPlacement) {
+        if (decision !is OverlayPlacement.Displayed) {
+            record(decision); detach(); return
+        }
+        val g = geometry ?: return
+        val v = viewport ?: return
+        if (!readiness.canRead(g.packageName) || !readiness.state.value.captureRunning) { detach(); return }
+        if (OverlayPositioning.geometryProblem(g, event?.packageName.orEmpty(), v, System.currentTimeMillis()) != null) {
+            detach(); return
+        }
         val view = composeView ?: return
-        runCatching { windowManager.removeView(view) }
+        val params = layoutParams ?: return
+        val target = decision.position.inWindow(windowOrigin)
+        if (placement != decision || params.x != target.x || params.y != target.y) {
+            hideUntilSettled()
+            placement = decision
+            params.x = target.x; params.y = target.y
+            runCatching { windowManager.updateViewLayout(view, params) }.onFailure { detach() }
+            return // wait for WindowManager's traversal; immediate location reads are stale
+        }
+        settleWindow()
+    }
+
+    /** Actual location/size must agree before visibility, touch or displayed history is published. */
+    private fun settleWindow() {
+        val view = composeView ?: return
+        val params = layoutParams ?: return
+        val shown = placement ?: return
+        if (!view.isLaidOut) return
+        if (view.width != shown.size.width || view.height != shown.size.height) {
+            hideUntilSettled() // a larger phrase/limit must not paint once at the old position
+            return
+        }
+        val g = geometry ?: return
+        val v = viewport ?: return
+        if (OverlayPositioning.geometryProblem(g, event?.packageName.orEmpty(), v, System.currentTimeMillis()) != null) {
+            detach(); return
+        }
+        val location = IntArray(2); view.getLocationOnScreen(location)
+        val actual = OverlayPosition(location[0], location[1])
+        if (actual != shown.position) {
+            // Only refine from a completed layout; getLocationOnScreen can lag updateViewLayout.
+            if (view.isLayoutRequested) return
+            windowOrigin = OverlayPosition(actual.x - params.x, actual.y - params.y)
+            val target = shown.position.inWindow(windowOrigin)
+            params.x = target.x; params.y = target.y
+            runCatching { windowManager.updateViewLayout(view, params) }.onFailure { detach() }
+            return
+        }
+        if (!OverlayPositioning.valid(actual, shown.size, g, v, shown.overMarker)) { hideUntilSettled(); return }
+        view.alpha = 1f
+        if (params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE != 0) {
+            params.flags = params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+            runCatching { windowManager.updateViewLayout(view, params) }.onFailure { detach() }
+        }
+        val rect = actual.bounds(shown.size)
+        ScreenReaderState.setOverlayChipRect(ScreenRect(rect.left, rect.top, rect.right, rect.bottom))
+        record(shown)
+    }
+
+    private var lastRecord: Triple<String, OverlayPlacement, Boolean>? = null
+    private fun record(decision: OverlayPlacement) {
+        if (!evaluated) return // Leyendo is transitional, never evidence that the judged offer was seen.
+        val current = event ?: return
+        val rated = chipState?.band is ReglaBand.Rated
+        val key = Triple(sessionId(current), decision, rated)
+        if (lastRecord == key) return
+        lastRecord = key
+        val at = System.currentTimeMillis()
+        serviceScope?.launch { presentations.record(key.first, decision, rated, at) }
+    }
+
+    private fun hideUntilSettled() {
+        composeView?.alpha = 0f
+        val params = layoutParams
+        val view = composeView
+        if (params != null && view != null && params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE == 0) {
+            params.flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+            runCatching { windowManager.updateViewLayout(view, params) }
+        }
+        // Keep the last visible footprint masked until the window settles or detaches. The
+        // compositor may still contain those pixels while the transparent update is in flight.
+    }
+
+    private fun detach() {
+        generation++
+        geometryExpiry?.cancel(); geometryExpiry = null
+        composeView?.let { runCatching { windowManager.removeView(it) } }
         lifecycleOwner?.onDestroy()
-        composeView = null
-        lifecycleOwner = null
-        layoutParams = null
+        composeView = null; lifecycleOwner = null; layoutParams = null; placement = null
         ScreenReaderState.clearOverlayChipRect()
     }
 
+    private fun onDrag(dx: Float, dy: Float) {
+        val current = placement ?: return
+        val g = geometry ?: return
+        val v = viewport ?: return
+        val proposed = OverlayPosition(current.position.x + dx.toInt(), current.position.y + dy.toInt())
+        val resolved = OverlayPositioning.drag(current, proposed, g, v)
+        savedPosition = resolved // holds through remeasure, persisted only on release
+        applyPlacement(current.copy(position = resolved))
+    }
+
+    private fun onDragEnd() {
+        val current = placement ?: return
+        val g = geometry ?: return
+        val v = viewport ?: return
+        val resolved = OverlayPositioning.snapToEdge(current, g, v)
+        val key = OverlayPositionKey(g.packageName, v.orientation)
+        savedPositions[key] = resolved; savedPosition = resolved
+        applyPlacement(current.copy(position = resolved))
+        serviceScope?.launch { prefs.savePosition(key, resolved) }
+    }
+
+    private fun readViewport(applied: WindowInsets? = composeView?.rootWindowInsets): OverlayViewport {
+        val context = requireNotNull(overlayContext)
+        val bounds = if (Build.VERSION.SDK_INT >= 30) windowManager.currentWindowMetrics.bounds else {
+            @Suppress("DEPRECATION")
+            val size = android.graphics.Point().also { windowManager.defaultDisplay.getRealSize(it) }
+            android.graphics.Rect(0, 0, size.x, size.y)
+        }
+        val insets = if (Build.VERSION.SDK_INT >= 30) windowManager.currentWindowMetrics.windowInsets else applied
+        val system = if (Build.VERSION.SDK_INT >= 30 && insets != null) {
+            insets.getInsetsIgnoringVisibility(WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout())
+                .let { OverlayInsets(it.left, it.top, it.right, it.bottom) }
+        } else if (insets != null) {
+            @Suppress("DEPRECATION")
+            OverlayInsets(insets.systemWindowInsetLeft, insets.systemWindowInsetTop, insets.systemWindowInsetRight, insets.systemWindowInsetBottom)
+        } else OverlayInsets()
+        val back = if (Build.VERSION.SDK_INT >= 29 && insets != null) {
+            @Suppress("DEPRECATION")
+            insets.systemGestureInsets.let { OverlayInsets(left = it.left, right = it.right) }
+        } else OverlayInsets()
+        return OverlayViewport(HostRect(bounds.left, bounds.top, bounds.right, bounds.bottom),
+            context.resources.displayMetrics.density,
+            if (bounds.width() > bounds.height()) HostOrientation.LANDSCAPE else HostOrientation.PORTRAIT, system, back)
+    }
     // ─── Reader-down banner (B-078) ──────────────────────────────────────────────────────────────
 
     private var bannerView: ComposeView? = null
     private var bannerOwner: OverlayLifecycleOwner? = null
+    private var bannerHost: String? = null
 
     /** Add the reader-down banner window if not already attached. Main-thread only. Idempotent. */
-    private fun attachBanner() {
-        if (bannerView != null) return
+    private fun attachBanner(host: String) {
+        if (bannerView != null) {
+            if (bannerHost == host) return
+            // A new foreground host must earn its own geometry; never retain the old host's tab.
+            detachBanner()
+        }
         val context = overlayContext ?: return
+        val g = geometry ?: return // same validated host geometry as la regla; never guess a card top
+        val v = readViewport()
+        if (OverlayPositioning.geometryProblem(g, host, v, System.currentTimeMillis()) != null) return
 
         val owner = OverlayLifecycleOwner().apply { onCreate() }
         bannerOwner = owner
@@ -325,24 +405,59 @@ class OverlayController @Inject constructor(
             setViewTreeViewModelStoreOwner(owner)
             setContent {
                 KomparaTheme {
-                    ReaderDownBannerUi(onTap = ::relaunchConsent)
+                    ReaderStoppedTab()
                 }
             }
         }
 
-        // Top-center, clear of both the chip's top-right slot and the host's bottom Aceptar zone.
+        // Measure first. C6's foot follows the same safe slot as la regla; no drag or touch region.
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT,
         ).apply {
-            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-            y = (BANNER_TOP_OFFSET_DP * context.resources.displayMetrics.density).toInt()
+            gravity = Gravity.TOP or Gravity.LEFT
+            if (Build.VERSION.SDK_INT >= 30) setFitInsetsTypes(0)
         }
 
         bannerView = view
+        bannerHost = host
+        view.alpha = 0f
+        view.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+        var lastMoveFrom: OverlayPosition? = null
+        fun settleBanner() {
+            if (bannerView !== view || view.width == 0 || view.height == 0) return
+            if (!readiness.state.value.canShowStoppedTab) { detachBanner(); return }
+            val location = IntArray(2).also(view::getLocationOnScreen)
+            val actual = OverlayPosition(location[0], location[1])
+            if (lastMoveFrom != actual) lastMoveFrom = null
+            val decision = stoppedTabWindowDecision(g, host, readViewport(view.rootWindowInsets),
+                ChipSize(view.width, view.height), actual, OverlayPosition(params.x, params.y),
+                view.isLayoutRequested, lastMoveFrom)
+            view.alpha = if (decision == StoppedTabWindowDecision.Show) 1f else 0f
+            view.importantForAccessibility = if (decision == StoppedTabWindowDecision.Show)
+                View.IMPORTANT_FOR_ACCESSIBILITY_AUTO else View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+            when (decision) {
+                StoppedTabWindowDecision.Hide -> detachBanner()
+                is StoppedTabWindowDecision.Move -> {
+                    lastMoveFrom = actual
+                    params.x = decision.windowPosition.x; params.y = decision.windowPosition.y
+                    runCatching { windowManager.updateViewLayout(view, params) }.onFailure { detachBanner() }
+                }
+                else -> Unit
+            }
+        }
+        view.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> settleBanner() }
+        view.viewTreeObserver.addOnPreDrawListener { settleBanner(); true }
+        view.setOnApplyWindowInsetsListener { _, insets ->
+            view.alpha = 0f
+            view.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+            view.post { settleBanner() }
+            insets
+        }
         owner.onResume()
         // Same crash posture as the chip: an attach failure must never take the service down.
         runCatching { windowManager.addView(view, params) }.onFailure { error ->
@@ -350,11 +465,13 @@ class OverlayController @Inject constructor(
             owner.onDestroy()
             bannerView = null
             bannerOwner = null
+            bannerHost = null
         }
     }
 
     /** Remove the banner window if attached. Main-thread only. Idempotent. */
     private fun detachBanner() {
+        bannerHost = null
         val view = bannerView ?: return
         runCatching { windowManager.removeView(view) }
         bannerOwner?.onDestroy()
@@ -362,152 +479,13 @@ class OverlayController @Inject constructor(
         bannerOwner = null
     }
 
-    /**
-     * Relaunch the screen-capture consent flow from the banner tap. Allowed from the background:
-     * the host process runs a system-bound accessibility service, which exempts it from
-     * background-activity-launch restrictions.
-     */
-    private fun relaunchConsent() {
-        val context = overlayContext ?: return
-        // Same crash posture as the window ops: a launch failure must never take the service down.
-        runCatching {
-            context.startActivity(
-                Intent(ScreenReaderState.ACTION_START)
-                    .setPackage(context.packageName)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            )
-        }.onFailure { android.util.Log.e("OverlayController", "consent relaunch failed", it) }
-    }
-
-    /** Tear everything down on service destroy. Safe to call when nothing is attached. */
     override fun stop() {
-        composeView?.let { runCatching { windowManager.removeView(it) } }
-        lifecycleOwner?.onDestroy()
-        composeView = null
-        lifecycleOwner = null
-        layoutParams = null
-        chipState = null
-        ScreenReaderState.clearOverlayChipRect()
-        bannerView?.let { runCatching { windowManager.removeView(it) } }
-        bannerOwner?.onDestroy()
-        bannerView = null
-        bannerOwner = null
-        overlayContext = null
+        configurationCallbacks?.let { overlayContext?.unregisterComponentCallbacks(it) }
+        configurationCallbacks = null
+        detach(); detachBanner()
+        event = null; chipState = null; chipVisible = false; geometry = null; viewport = null
+        evaluated = false; lastRecord = null; savedPositions.clear(); savedPosition = null
+        serviceScope = null; overlayContext = null
     }
 
-    private fun onDrag(dxPx: Float, dyPx: Float) {
-        val params = layoutParams ?: return
-        val view = composeView ?: return
-        val sw = screenWidth()
-        val sh = screenHeight()
-        val w = view.width.takeIf { it > 0 } ?: chipWidthPx
-        val h = view.height.takeIf { it > 0 } ?: chipHeightPx
-        val proposed = OverlayPosition(params.x + dxPx.toInt(), params.y + dyPx.toInt())
-        val clamped = OverlayPositioning.clamp(proposed, sw, sh, w, h)
-        // The chip only shows while an offer is on screen, so every drag happens over a live fare:
-        // pin it above the offer content even mid-drag so a downward drag can't park it back on the
-        // card and re-occlude the fare from the OCR (the flicker). No-op when there's no content rect.
-        val resolved = OverlayPositioning.avoid(clamped, contentRectInParamsSpace(), sw, sh, w, h)
-        params.x = resolved.x
-        params.y = resolved.y
-        runCatching { windowManager.updateViewLayout(view, params) }
-        publishChipRect() // keep the OCR mask aligned with the chip as it moves
-    }
-
-    private suspend fun onDragEnd() {
-        val params = layoutParams ?: return
-        val view = composeView ?: return
-        val sw = screenWidth()
-        val sh = screenHeight()
-        val w = view.width.takeIf { it > 0 } ?: chipWidthPx
-        val h = view.height.takeIf { it > 0 } ?: chipHeightPx
-        val snapped = OverlayPositioning.snapToEdge(OverlayPosition(params.x, params.y), sw, sh, w, h)
-        // Same guard on release: snap to the edge, then keep it above the fare before persisting, so
-        // the saved slot the next offer restores is never one that sits on the card.
-        val resolved = OverlayPositioning.avoid(snapped, contentRectInParamsSpace(), sw, sh, w, h)
-        withContext(Dispatchers.Main) {
-            params.x = resolved.x
-            params.y = resolved.y
-            runCatching { windowManager.updateViewLayout(view, params) }
-            publishChipRect() // re-align the OCR mask to the snapped resting position
-        }
-        prefs.savePosition(resolved)
-    }
-
-    private suspend fun onThresholdChange(updated: PlatformThreshold) {
-        currentThreshold = updated
-        // Persist via the shared SettingsRepository so the engine + Ajustes share one floor (B-076:
-        // a single semáforo for every platform).
-        settings.setThreshold(updated)
-    }
-
-    private fun newLayoutParams(): WindowManager.LayoutParams {
-        val type = WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
-        val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            type,
-            // NOT_FOCUSABLE: never steal IME/back focus from the host. The window only receives
-            // touches inside its own bounds (WRAP_CONTENT sizing), so touches over the host app —
-            // including the Accept button below the safe zone — pass straight through.
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
-            PixelFormat.TRANSLUCENT,
-        )
-        params.gravity = Gravity.TOP or Gravity.START
-        val start = startPosition()
-        params.x = start.x
-        params.y = start.y
-        return params
-    }
-
-    /** Restored position if the driver moved the chip, else the default top-right slot — then nudged
-     *  off the offer's fare so the chip never occludes it from the screen-capture OCR (the blink). */
-    private fun startPosition(): OverlayPosition {
-        val saved = persistedPositionSnapshot
-        val w = chipWidthPx
-        val h = chipHeightPx
-        val base = OverlayPositioning.clamp(
-            saved ?: OverlayPositioning.defaultPosition(screenWidth(), screenHeight(), w, h),
-            screenWidth(), screenHeight(), w, h,
-        )
-        // avoid() is a no-op when bounds are absent or the chip already sits entirely above the fare,
-        // so the collision-free default slot and any high drag are preserved; it lifts the chip above
-        // the fare whenever it would otherwise overlap or sit in the card body below it (below blinks
-        // — the chip occludes a leg the OCR must re-read). Computed once per attach (idempotent) ⇒ no
-        // per-frame churn, and NOT persisted ⇒ a later above-the-fare offer keeps the driver's slot.
-        return OverlayPositioning.avoid(base, contentRectInParamsSpace(), screenWidth(), screenHeight(), w, h)
-    }
-
-    @Volatile private var persistedPositionSnapshot: OverlayPosition? = null
-
-    private fun screenWidth(): Int =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            windowManager.currentWindowMetrics.bounds.width()
-        } else {
-            @Suppress("DEPRECATION")
-            android.graphics.Point().also { windowManager.defaultDisplay.getRealSize(it) }.x
-        }
-
-    private fun screenHeight(): Int =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            windowManager.currentWindowMetrics.bounds.height()
-        } else {
-            @Suppress("DEPRECATION")
-            android.graphics.Point().also { windowManager.defaultDisplay.getRealSize(it) }.y
-        }
-
-    companion object {
-        // Fallback chip footprint (px) used for positioning before the view has measured. Slight
-        // OVER-estimates of the real measured chip (~530x340 with the brand strip, S25) so the
-        // pre-measure default stays on-screen and avoid()'s lift clears the fare even before layout.
-        const val DEFAULT_CHIP_WIDTH_PX = 540
-        const val DEFAULT_CHIP_HEIGHT_PX = 360
-
-        /** Upper bound (px) for a believable params↔screen offset (status bar / cutout), so a transient
-         *  getLocationOnScreen glitch can't poison [chipScreenOffsetY] with an absurd value. */
-        private const val MAX_SANE_TOP_INSET_PX = 400
-
-        /** Reader-down banner offset below the top edge (dp) — clears the host's status/app bar. */
-        private const val BANNER_TOP_OFFSET_DP = 56
-    }
 }

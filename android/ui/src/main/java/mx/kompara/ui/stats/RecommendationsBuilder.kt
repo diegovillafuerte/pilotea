@@ -17,7 +17,7 @@ import mx.kompara.metrics.recommendation.RecommendationEngine
  * [mx.kompara.metrics.recommendation.Recommendation]s.
  *
  * Extracted from the viewmodel so the "what feeds which rule" mapping is unit-testable with fake data
- * and no Room/Compose — mirroring [InicioStats]/[MetricPercentiles]. The viewmodel just supplies the
+ * and no Room/Compose — mirroring [InicioStats]. The viewmodel just supplies the
  * already-loaded inputs.
  */
 object RecommendationsBuilder {
@@ -59,7 +59,7 @@ object RecommendationsBuilder {
             // Commission isn't on the captured path (WeeklyAggregateEntity omits it); a future import
             // merge can supply it. Passed null here so the high-commission rule stays silent.
             commissionPct = null,
-            offers = offers.map { it.toSummary() },
+            offers = offers.filter { it.fareMxn != null && it.paymentBasis == "DRIVER_PAYMENT" }.map { it.toSummary() },
             acceptanceRate = period.acceptanceRate,
             bestHour = bestHour,
             crossPlatform = crossPlatform,
@@ -71,7 +71,7 @@ object RecommendationsBuilder {
     private fun OfferEntity.toSummary(): OfferSummary {
         val outcome = runCatching { OfferOutcome.valueOf(outcome) }.getOrDefault(OfferOutcome.PENDING)
         return OfferSummary(
-            fareMxn = fareMxn,
+            fareMxn = requireNotNull(fareMxn),
             verdictGreen = verdict == VerdictLevel.GREEN.name,
             accepted = outcome == OfferOutcome.ACCEPTED,
             // DECLINED + EXPIRED both count as "not taken" for the offer rules.

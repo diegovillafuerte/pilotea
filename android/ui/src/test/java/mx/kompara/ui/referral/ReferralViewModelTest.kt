@@ -181,6 +181,20 @@ class ReferralViewModelTest {
         val vm = viewModel(FakeReferrals(signedIn = false), deepLinkCode = "FRIEND12")
         assertTrue(vm.settle() is ReferralUiState.SignedOut)
     }
+    @Test fun `draft and collapsed redemption restore while successful redemption cannot submit twice`() = runTest {
+        val handle = SavedStateHandle()
+        val fake = FakeReferrals(mine = ReferralMineResponse("CODE2345", rewardDaysReferrer = 14, rewardDaysRedeemer = 14),
+            redeemResult = ReferralResult.Success(ReferralRedeemResponse(grantedDaysRedeemer = 14)))
+        val first = ReferralViewModel(fake, entitlements(), handle)
+        assertFalse((first.settle() as ReferralUiState.Ready).expanded)
+        first.toggleRedemption(); first.onRedeemInputChange("FRIEND12")
+        val restored = ReferralViewModel(fake, entitlements(), SavedStateHandle(handle.keys().associateWith { handle.get<Any?>(it) }))
+        val ready = restored.settle() as ReferralUiState.Ready
+        assertTrue(ready.expanded); assertEquals("FRIEND12", ready.redeemInput); assertEquals(14, ready.rewardDaysReferrer)
+        restored.redeem(); restored.redeem(); restored.onRedeemInputChange("AGAIN"); restored.redeem()
+        assertEquals(listOf("FRIEND12"), fake.redeemedCodes)
+    }
+
 }
 
 /** A plain fake [Referrals] for the `:ui` test classpath (no Ktor). */

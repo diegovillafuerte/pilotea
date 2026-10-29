@@ -7,6 +7,16 @@ import org.junit.Test
 class CostProfileMapperTest {
 
     @Test
+    fun `version mapping keeps raw precision fixed costs excluded and invalid unavailable`() {
+        val version = mx.kompara.data.accounting.RunningCostVersion(1, 0, 0,
+            mx.kompara.data.accounting.RunningCostInputs.TYPICAL, mx.kompara.data.accounting.CostConfirmation.TYPICAL)
+        val mapped = CostProfileMapper.toCostProfile(version)!!
+        assertEquals(24.5 / 12 + 0.8, mapped.marginalCostPerKm, 1e-14)
+        assertEquals(0.0, mapped.dailyFixedCosts, 0.0)
+        org.junit.Assert.assertNull(CostProfileMapper.toCostProfile(version.copy(inputs = version.inputs.copy(kmPerLitre = null))))
+    }
+
+    @Test
     fun `explicit fuel per km wins over derivation`() {
         val entity = CostProfileEntity(
             updatedAt = 0L,
@@ -52,8 +62,8 @@ class CostProfileMapperTest {
     }
 
     @Test
-    fun `null entity maps to ZERO profile`() {
-        assertEquals(CostProfile.ZERO, CostProfileMapper.toCostProfileOrZero(null))
+    fun `null entity uses typical estimate and explicit zero remains zero`() {
+        assertEquals(CostProfile.TYPICAL, CostProfileMapper.toCostProfileOrZero(null))
     }
 
     @Test

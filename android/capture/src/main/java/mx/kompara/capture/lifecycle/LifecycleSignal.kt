@@ -26,6 +26,12 @@ sealed interface LifecycleSignal {
         val card: OfferCard,
     ) : LifecycleSignal
 
+    /** No readable lifecycle evidence. Never synonymous with idle or completion. */
+    data class ObservationLost(override val packageName: String, override val timestampMs: Long) : LifecycleSignal
+
+    /** A completed cancellation, not a cancel button or confirmation dialog. */
+    data class TripCancelled(override val packageName: String, override val timestampMs: Long) : LifecycleSignal
+
     /**
      * The host is showing a **trip-like** screen (navigation/active-trip), per the heuristic markers.
      * Used to confirm an acceptance and to keep an open trip alive.
@@ -33,6 +39,7 @@ sealed interface LifecycleSignal {
     data class TripStateEntered(
         override val packageName: String,
         override val timestampMs: Long,
+        val inProgress: Boolean = false,
     ) : LifecycleSignal
 
     /**

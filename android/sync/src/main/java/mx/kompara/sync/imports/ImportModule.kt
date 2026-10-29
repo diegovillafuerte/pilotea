@@ -17,5 +17,9 @@ object ImportModule {
 
     @Provides
     @Singleton
+    fun provideStore(store: RoomLocalImportStore): LocalImportStore = store
+
+    @Provides
+    @Singleton
     fun provideImporter(repository: ImportRepository): Importer = repository
 }

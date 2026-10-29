@@ -10,10 +10,12 @@ import dagger.hilt.components.SingletonComponent
 import mx.kompara.data.db.KomparaDatabase
 import mx.kompara.data.db.KomparaMigrations
 import mx.kompara.data.db.dao.AggregateDao
+import mx.kompara.data.db.dao.CarCostDao
 import mx.kompara.data.db.dao.CostProfileDao
 import mx.kompara.data.db.dao.FiscalConfigDao
 import mx.kompara.data.db.dao.FixtureReportDao
 import mx.kompara.data.db.dao.OfferDao
+import mx.kompara.data.db.dao.OfferPresentationDao
 import mx.kompara.data.db.dao.PopulationStatDao
 import mx.kompara.data.db.dao.ShiftDao
 import mx.kompara.data.db.dao.TelemetryCounterDao
@@ -35,13 +37,22 @@ object DatabaseModule {
             .build()
 
     @Provides
+    fun provideLocalDataDao(db: KomparaDatabase): mx.kompara.data.db.dao.LocalDataDao = db.localDataDao()
+
+    @Provides
     fun provideOfferDao(db: KomparaDatabase): OfferDao = db.offerDao()
+
+    @Provides
+    fun provideOfferPresentationDao(db: KomparaDatabase): OfferPresentationDao = db.offerPresentationDao()
 
     @Provides
     fun provideTripDao(db: KomparaDatabase): TripDao = db.tripDao()
 
     @Provides
     fun provideShiftDao(db: KomparaDatabase): ShiftDao = db.shiftDao()
+
+    @Provides
+    fun provideCarCostDao(db: KomparaDatabase): CarCostDao = db.carCostDao()
 
     @Provides
     fun provideCostProfileDao(db: KomparaDatabase): CostProfileDao = db.costProfileDao()

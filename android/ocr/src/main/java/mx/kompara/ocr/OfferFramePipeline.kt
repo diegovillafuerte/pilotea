@@ -29,19 +29,18 @@ import java.io.File
  * (both lanes already do — the MediaProjection lane via its generation-tagged mutex, the screenshot
  * lane via its sequential capture loop).
  */
-class OfferFramePipeline {
+class OfferFramePipeline(private val readiness: mx.kompara.data.service.ReaderReadinessRepository? = null) {
 
     private val didiParser = DidiOcrParser()
     private val uberParser = UberOcrParser()
     private val presence = CardPresenceTracker()
-    // Smooths the OCR fare across frames of one offer so a single garbled frame (MXN137.28→37.28)
-    // can't flip the chip's number/colour. Feeds ONLY the overlay chip; the B-039 ledger gets the raw
-    // card so a stabilized value can't spawn a duplicate trip record.
+    // Smooth the parsed fare before assigning the shared overlay/ledger session identity.
     private val fareStabilizer = FareStabilizer()
     // Drops a single gross OCR-outlier frame (a ×10 distance that slipped past decimal recovery, or a
     // gross fare garble) before it can reach the chip, the stabilizer, OR the B-039 ledger.
     private val frameOutlierGuard = FrameOutlierGuard()
     // B-039 OCR ledger: classifies each frame into offer/trip/idle lifecycle signals.
+    private val sessions = mx.kompara.parsers.model.OfferSessionTracker()
     private val lifecycleClassifier = OcrLifecycleClassifier()
     private var lastOfferKey: String? = null
     private var lastOfferPackage: String? = null
@@ -51,7 +50,11 @@ class OfferFramePipeline {
      * (masked out so our own verdict text isn't re-parsed as the offer fare). [fixtureDir] is the base
      * dir for debug OCR fixtures, or null in release (no screen content is ever written then).
      */
-    fun process(rawBlocks: List<OcrBlock>, chipRect: ScreenRect?, fixtureDir: File?) {
+    fun process(rawBlocks: List<OcrBlock>, chipRect: ScreenRect?, fixtureDir: File?,
+        capturedAtMs: Long = System.currentTimeMillis(),
+        hostObservation: mx.kompara.parsers.model.HostLayoutObservation? = null,
+        token: Long = readiness?.captureToken() ?: 0L) {
+        if (readiness?.canRead(token = token) == false) return
         // Strip our own chip's text FIRST: the capture mirrors the whole screen including the floating
         // verdict chip, whose "MXN…"/"$…" amount otherwise gets parsed as the offer fare — the
         // self-capture loop that collapsed the live verdict to $0. [chipRect] is the rect snapshotted
@@ -73,18 +76,20 @@ class OfferFramePipeline {
         val now = SystemClock.elapsedRealtime()
         // Pick the card (and the platform) for this frame; see [selectOfferCard] — Uber first, with a
         // cross-app hold so a garbled Uber frame can't be mis-attributed to DiDi via a "$0.00" pill.
-        val parsed = if (ownUi) null else selectOfferCard(uberParser, didiParser, blocks)
+        val parsed = if (ownUi) null else selectOfferCard(uberParser, didiParser, blocks, capturedAtMs, hostObservation)
         // Drop a single gross OCR outlier (a ×10 distance, a gross fare garble) before it reaches the
         // chip OR the ledger; the signature below still holds the verdict across it, as for any garble.
-        val card = parsed?.takeIf { frameOutlierGuard.accept(it, now) }
+        val card = parsed?.takeIf { readiness?.canRead(it.platform, token) != false && frameOutlierGuard.accept(it, now) }
         // The offer-card signature (fare + leg) survives the OCR garble that fails a full parse;
         // shared by the presence tracker (hold the chip) and the lifecycle classifier (hold OFFER).
         val signature = !ownUi &&
             (uberParser.hasCardSignature(blocks) || didiParser.hasCardSignature(blocks))
         // Replace the raw parsed fare with the stabilized one so a one-frame OCR garble can't flip
         // the verdict. Keyed on the trip leg (stable), not the fare. Null when no card this frame.
-        val shownCard = card?.let { fareStabilizer.onParsed(it, System.currentTimeMillis()) }
+        val shownCard = card?.let { sessions.parsed(fareStabilizer.onParsed(it, System.currentTimeMillis()), System.currentTimeMillis()) }
         if (shownCard != null) {
+            if (shownCard.fare != null) readiness?.readOffer(shownCard.platform,
+                shownCard.sessionId ?: "${shownCard.platform}:$capturedAtMs", capturedAtMs, token)
             presence.onParsed(now)
             // Re-assert on EVERY successful parse, not only on a new offer: a Parsed on the bus
             // cancels any in-flight hide, so a stray NoCard from any other source can blank the
@@ -110,6 +115,7 @@ class OfferFramePipeline {
                 lastOfferPackage = null
                 // Card truly gone → forget the session so the next offer paints fresh and is judged
                 // only against itself.
+                sessions.reset()
                 fareStabilizer.reset()
                 frameOutlierGuard.reset()
                 OfferEventBus.tryEmit(
@@ -131,11 +137,14 @@ class OfferFramePipeline {
         // (B-039 §7.1). Null → a non-host screen → skip.
         val hostPackage = card?.platform
             ?: ScreenReaderState.freshForegroundHost(SystemClock.elapsedRealtime(), HOST_FOREGROUND_FRESHNESS_MS)
-        if (!ownUi && hostPackage != null) {
+        if (signature && (shownCard == null || shownCard.fare == null) && hostPackage != null) {
+            readiness?.failedOffer(hostPackage, token)
+        }
+        if (!ownUi && hostPackage != null && readiness?.canRead(hostPackage, token) != false) {
             // presence.isPresent() is the DEBOUNCED "card on screen" state (held through garble),
             // so the offer session doesn't split on a single OCR dropout — same policy as the chip.
-            // The ledger gets the RAW card — fare-stabilization is a chip-display concern.
-            lifecycleClassifier.onFrame(joined, card, presence.isPresent(), hostPackage, System.currentTimeMillis())
+            // Both consumers receive the same stabilized card and immutable session identity.
+            lifecycleClassifier.onFrame(joined, shownCard, presence.isPresent(), hostPackage, System.currentTimeMillis())
                 ?.let { OcrLifecycleBus.tryEmit(it) }
         }
 
@@ -165,6 +174,7 @@ class OfferFramePipeline {
             )
         }
         lifecycleClassifier.onCaptureEnd(nowWallMs)?.let { OcrLifecycleBus.tryEmit(it) }
+        sessions.reset()
         presence.reset()
         fareStabilizer.reset()
         frameOutlierGuard.reset()

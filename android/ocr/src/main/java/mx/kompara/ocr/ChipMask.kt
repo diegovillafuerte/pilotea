@@ -11,7 +11,7 @@ import mx.kompara.data.service.ScreenRect
  * feedback loop that drove the live verdict to $0 (the displayed value feeds back in as the next
  * frame's fare and collapses). [mx.kompara.overlay] publishes the chip's current rect to
  * [mx.kompara.data.service.ScreenReaderState.overlayChipRect]; this drops every OCR line that
- * overlaps that rect (inflated by a small margin for the brand strip + drop shadow) so the parsers
+ * overlaps that rect (inflated by a small margin for antialiasing) so the parsers
  * never see the chip.
  *
  * Works because the chip is positioned (and drag-constrained) to sit ABOVE the fare — so its rect
@@ -21,7 +21,7 @@ import mx.kompara.data.service.ScreenRect
  * repositioned off it.
  *
  * Why not `FLAG_SECURE` on the overlay window: that would blank the chip from ALL screen capture —
- * including the DRIVER's own screenshots, which the brand strip exists to enable. Masking only OUR
+ * including the driver's own screenshots. Masking only OUR
  * capture keeps the chip fully shareable. Pure + JVM-testable.
  */
 object ChipMask {

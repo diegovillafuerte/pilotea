@@ -332,6 +332,29 @@ class AuthRepositoryTest {
     }
 
     @Test
+    fun `deletion uses the confirmed session and does not clear a newer login`() = runTest {
+        dataStore = newDataStore()
+        val tokenKey = androidx.datastore.preferences.core.stringPreferencesKey("session_token")
+        val tokenProvider = TokenProvider { dataStore.data.first()[tokenKey] }
+        val api = buildApi(tokenProvider) { req ->
+            if (req.url.encodedPath.endsWith("/v1/auth/otp/verify")) jsonResponse(
+                """{"token":"old-token","driver":{"id":"d-1","phone":"+521","tier":"free"}}""")
+            else jsonResponse("""{"ok":true}""")
+        }
+        val uploads = object : mx.kompara.sync.privacy.AccountUploadControl {
+            override suspend fun revoke(deleting: Boolean) {
+                assertTrue(deleting)
+                dataStore.edit { it[tokenKey] = "new-token" }
+            }
+        }
+        val repo = AuthRepository(dataStore, api, json, devBypassEnabled = false, uploads = uploads)
+        repo.verifyOtp("+521", "123456")
+        repo.deleteAccount()
+        assertEquals("new-token", repo.currentToken())
+        assertEquals("Bearer old-token", recorded.last { it.method.value == "DELETE" }.headers[HttpHeaders.Authorization])
+    }
+
+    @Test
     fun `deleteAccount calls DELETE me and clears the session, keeping the device id`() = runTest {
         dataStore = newDataStore()
         val tokenProvider = TokenProvider { dataStore.data.first()[

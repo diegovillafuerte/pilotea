@@ -90,6 +90,29 @@ class EventPipelineTest {
         job.cancel()
     }
 
+    @Test fun `pause discards queued snapshot and resume never revives a pre-pause event`() = runTest {
+        val reader = CountingReader()
+        val dispatcher = UnconfinedTestDispatcher(testScheduler)
+        var token = 0L
+        var allowed = true
+        val pipeline = EventPipeline(reader, dispatcher, debounceMs, { token }, { _, captured -> allowed && captured == token })
+        val collected = mutableListOf<ScreenSnapshot>()
+        val job = launch(dispatcher) { pipeline.debouncedSnapshots.toList(collected) }
+        pipeline.submit(CaptureEvent("com.ubercab.driver", 1))
+        allowed = false; token++
+        advanceTimeByVirtual(debounceMs + 1)
+        assertEquals(0, reader.reads.get())
+        allowed = true
+        pipeline.submit(CaptureEvent("com.ubercab.driver", 2))
+        token++ // rebind before debounced capture
+        advanceTimeByVirtual(debounceMs + 1)
+        assertEquals(0, reader.reads.get())
+        pipeline.submit(CaptureEvent("com.ubercab.driver", 3))
+        advanceTimeByVirtual(debounceMs + 1)
+        assertEquals(3L, collected.single().timestampMs)
+        job.cancel()
+    }
+
     private fun kotlinx.coroutines.test.TestScope.advanceTimeByVirtual(ms: Long) {
         testScheduler.advanceTimeBy(ms)
         testScheduler.runCurrent()

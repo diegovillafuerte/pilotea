@@ -43,7 +43,7 @@ class DayDetailBuilderTest {
         assertEquals(2, detail.offers.declined) // declined + expired
         assertEquals(1, detail.offers.pending)
         // Verdicts carried through and rows sorted by seenAt.
-        assertEquals(VerdictLevel.GREEN, detail.offers.rows.first().verdict)
+        assertEquals(VerdictLevel.GREEN, detail.offers.rows.last().verdict)
     }
 
     @Test
@@ -83,4 +83,40 @@ class DayDetailBuilderTest {
         )
         assertEquals(2, detail.shifts.first().tripCount)
     }
+    @Test fun `in progress finished unknown not taken and cancelled keep distinct tenses`() {
+        val row = OfferRowModel(1, 1, "UBER", 148.0, OfferOutcome.ACCEPTED, VerdictLevel.GREEN,
+            mx.kompara.data.db.entity.TripLifecycle.ACCEPTED_ESTIMATE,
+            evaluation = mx.kompara.data.db.entity.OfferEvaluation(1, "IPK", "8", "6", 1, "OCR", "DRIVER_PAYMENT", "114", "9.49", "285", null))
+        assertEquals("En curso", row.outcomeLabel)
+        assertEquals("Te deja · aprox.", row.contributionLabel)
+        assertEquals("Te dejó · aprox.", row.copy(lifecycle = mx.kompara.data.db.entity.TripLifecycle.FINISHED).contributionLabel)
+        assertEquals("Te habría dejado · aprox.", row.copy(lifecycle = null, outcome = OfferOutcome.NOT_TAKEN).contributionLabel)
+        assertEquals("Sin confirmar", row.copy(lifecycle = mx.kompara.data.db.entity.TripLifecycle.UNKNOWN).outcomeLabel)
+        assertEquals("Se canceló", row.copy(lifecycle = mx.kompara.data.db.entity.TripLifecycle.CANCELLED).outcomeLabel)
+        org.junit.Assert.assertNull(row.copy(lifecycle = mx.kompara.data.db.entity.TripLifecycle.CANCELLED).contributionLabel)
+    }
+
+    @Test fun `historical suffix compares only the named limit in its saved unit`() {
+        val snapshot = mx.kompara.data.db.entity.OfferEvaluation(1, "IPK", "8.0", "6.00", 1, "OCR",
+            "DRIVER_PAYMENT", "114", "9.49", "285", null)
+        val row = OfferRowModel(1, 1, "UBER", 148.0, OfferOutcome.ACCEPTED, VerdictLevel.GREEN, evaluation = snapshot)
+        val limits = mx.kompara.data.settings.PlatformThreshold(8.0, 200.0, 6.5, 150.0)
+        assertEquals("", row.historicalLimitSuffix(limits))
+        assertEquals(" a esa hora", row.copy(verdict = VerdictLevel.YELLOW).historicalLimitSuffix(limits))
+        assertEquals(" a esa hora", row.historicalLimitSuffix(limits.copy(minPerKmMxn = 9.5)))
+        org.junit.Assert.assertNull(row.copy(evaluation = null).historicalLimitSuffix(limits))
+        val hourly = row.copy(evaluation = snapshot.copy(unit = "IPH", goal = "200", minimum = "150"))
+        assertEquals("", hourly.historicalLimitSuffix(limits.copy(minPerKmMxn = 99.0)))
+        assertEquals(" a esa hora", hourly.historicalLimitSuffix(limits.copy(minPerHourMxn = 210.0)))
+    }
+
+    @Test fun `legacy zero and stored verdict survive without invented monetary explanation`() {
+        val legacy = offer(1, 0.0, OfferOutcome.ACCEPTED, VerdictLevel.RED).copy(inputProvenance = "LEGACY_UNSPECIFIED")
+        val row = DayDetailBuilder.build("2026-10-19", PeriodStats.EMPTY, emptyList(), emptyList(), listOf(legacy), emptyList()).offers.rows.single()
+        assertEquals(VerdictLevel.RED, row.verdict)
+        org.junit.Assert.assertNull(row.fareMxn)
+        org.junit.Assert.assertNull(row.evaluation)
+        assertEquals("Sin confirmar", row.outcomeLabel)
+    }
+
 }

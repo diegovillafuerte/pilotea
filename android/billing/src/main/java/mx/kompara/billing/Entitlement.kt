@@ -78,6 +78,6 @@ object BillingProducts {
     /** The monthly recurring base plan under [PREMIUM_SUBSCRIPTION]. */
     const val MONTHLY_BASE_PLAN = "monthly"
 
-    /** The card-free free-trial offer (7 days) attached to the monthly base plan. */
+    /** The card-required Play free-trial offer (7 days) attached to the monthly base plan. */
     const val TRIAL_OFFER = "trial-7d"
 }

@@ -5,7 +5,7 @@ import android.view.accessibility.AccessibilityEvent
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.filterNot
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
@@ -37,18 +37,14 @@ class KomparaAccessibilityService : AccessibilityService() {
 
     @Inject lateinit var overlayPresenter: OverlayPresenter
 
+    @Inject lateinit var readiness: mx.kompara.data.service.ReaderReadinessRepository
+
     @Inject lateinit var screenReaderLane: ScreenReaderLane
 
     private val scope = pipelineScope(kotlinx.coroutines.Dispatchers.Default)
 
-    /**
-     * Live "the driver is in an OCR-owned app right now" signal feeding the reader-down banner
-     * (B-078). RISE edge: armed instantly by accessibility events (and only when the banner could
-     * actually show — reader previously ran this session but is down now). FALL edge:
-     * [pollToClearForeground] — the packageNames filter means no event ever fires for non-target
-     * apps, so exit is invisible to the event stream and must be polled, but ONLY while armed.
-     */
-    private val foregroundOcrOwnedApp = MutableStateFlow(false)
+    /** Host identity makes C6 once per foreground visit, including direct Uber → DiDi switches. */
+    private val foregroundOcrOwnedApp = MutableStateFlow<String?>(null)
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -90,61 +86,26 @@ class KomparaAccessibilityService : AccessibilityService() {
         // Primary capture lane on API 30+ (B-091): silent AccessibilityService.takeScreenshot → OCR,
         // no MediaProjection consent/indicator, survives screen lock. Returns false below API 30,
         // where the MediaProjection OcrCaptureService stays the only lane (started from the Lector tab).
+        serviceState.setConnected(true)
         screenReaderLane.start(scope, this)
         pollToClearForeground()
-        serviceState.setConnected(true)
     }
 
-    /**
-     * Maintain the FALL edge of [foregroundOcrOwnedApp] (B-078). Polling exists ONLY to notice the
-     * driver leaving the host app, so it runs exclusively while the signal is armed — i.e. exactly
-     * while the banner is visible — and the coroutine sits suspended in every other state
-     * (off-shift, reader running, other apps foreground). Never an always-on poll: an enabled
-     * accessibility service lives 24/7, and reader-down is its DEFAULT state, so gating on reader
-     * state alone would mean polling forever.
-     *
-     * Two consecutive non-relevant reads (~6 s) clear the signal, so a transient non-app window
-     * (notification shade, volume dialog) can't churn the banner window.
-     */
+    /** Root package only, never content. Poll even outside a host visit so a static map cannot
+     * time out into safety and leaving Kompara does not strand the summary gate as unknown. */
     private fun pollToClearForeground() {
-        // The reader starting makes the banner moot — clear immediately so a stale "in DiDi" can
-        // never resurface the banner over a different app after the NEXT projection death.
         scope.launch {
-            ScreenReaderState.running.collect { running ->
-                if (running) foregroundOcrOwnedApp.value = false
-            }
-        }
-        scope.launch {
-            foregroundOcrOwnedApp.collectLatest { armed ->
-                if (!armed) return@collectLatest
-                var misses = 0
-                while (true) {
-                    delay(FOREGROUND_POLL_MS)
-                    if (bannerStillRelevant()) {
-                        misses = 0
-                    } else if (++misses >= FOREGROUND_CLEAR_READS) {
-                        foregroundOcrOwnedApp.value = false
-                        return@collectLatest
-                    }
+            while (kotlinx.coroutines.currentCoroutineContext().isActive) {
+                val root = rootInActiveWindow
+                val current = try { root?.packageName?.toString() } finally {
+                    if (android.os.Build.VERSION.SDK_INT < 33) @Suppress("DEPRECATION") root?.recycle()
                 }
+                val interactive = getSystemService(android.os.PowerManager::class.java)?.isInteractive != false
+                if (interactive && current == null) mx.kompara.data.service.DrivingActivity.unknown()
+                else mx.kompara.data.service.DrivingActivity.foreground(current.takeIf { interactive })
+                foregroundOcrOwnedApp.value = current.takeIf { interactive && it in OCR_OWNED_PACKAGES }
+                delay(750)
             }
-        }
-    }
-
-    /**
-     * One cheap relevance read for the armed poll: reader still down, screen interactive, and an
-     * OCR-owned app still holding the active window. Reads only the root's PACKAGE — never node
-     * content — and recycles the node where that still matters (< API 33).
-     */
-    private fun bannerStillRelevant(): Boolean {
-        if (ScreenReaderState.running.value) return false
-        val pm = getSystemService(android.os.PowerManager::class.java)
-        if (pm != null && !pm.isInteractive) return false
-        val root = rootInActiveWindow ?: return false
-        return try {
-            root.packageName?.toString() in OCR_OWNED_PACKAGES
-        } finally {
-            if (android.os.Build.VERSION.SDK_INT < 33) @Suppress("DEPRECATION") root.recycle()
         }
     }
 
@@ -160,18 +121,9 @@ class KomparaAccessibilityService : AccessibilityService() {
         // is exactly that signal. Monotonic clock — must match the OCR service's freshness check.
         ScreenReaderState.setForegroundHost(pkg, android.os.SystemClock.elapsedRealtime())
 
-        // Reader-down banner edges (B-078) — flag reads only; nothing measurable on the hot path.
-        // RISE: an OCR-owned event arms the signal, but only when the banner could actually show
-        // (reader ran this session — recovery affordance, not an onboarding nag — and is down now).
-        // Instant FALL: an event from a non-OCR target app (Uber) means the driver switched away;
-        // don't keep the banner over the wrong app waiting out the poll's two-miss grace.
-        if (pkg in OCR_OWNED_PACKAGES) {
-            if (ScreenReaderState.hasRunThisSession.value && !ScreenReaderState.running.value) {
-                foregroundOcrOwnedApp.value = true
-            }
-        } else {
-            foregroundOcrOwnedApp.value = false
-        }
+        mx.kompara.data.service.DrivingActivity.foreground(pkg)
+        foregroundOcrOwnedApp.value = pkg.takeIf { it in OCR_OWNED_PACKAGES }
+        if (!readiness.canRead(pkg)) return
 
         // Wall-clock, NOT event.eventTime: this timestamp flows through ScreenSnapshot into the B-039
         // ledger (OfferEntity.seenAt, TripEntity.startedAt) and is merged with the OCR path's signals
@@ -187,7 +139,8 @@ class KomparaAccessibilityService : AccessibilityService() {
     }
 
     override fun onDestroy() {
-        serviceState.setConnected(false)
+        mx.kompara.data.service.DrivingActivity.unknown()
+        serviceState.setConnected(false, ReaderEnvironment.permissionGranted(this))
         snapshotSource.detach()
         overlayPresenter.stop()
         screenReaderLane.stop()
@@ -223,10 +176,5 @@ class KomparaAccessibilityService : AccessibilityService() {
             INDRIVE_DRIVER_PACKAGE,
         )
 
-        /** Armed-poll cadence for the reader-down banner; runs ONLY while the banner shows. */
-        private const val FOREGROUND_POLL_MS = 3_000L
-
-        /** Consecutive non-relevant reads before the banner signal clears (shade-pull immunity). */
-        private const val FOREGROUND_CLEAR_READS = 2
     }
 }

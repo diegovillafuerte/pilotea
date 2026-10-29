@@ -17,9 +17,9 @@ import javax.inject.Singleton
  *  - [ensureScheduled] enqueues a unique **daily** periodic check (KEEP, so calling it on every app
  *    start is idempotent). A daily cadence reliably catches day 1 of a new month without needing a
  *    precise alarm, and the worker itself only posts once per month (watermark) — so an extra daily
- *    run is a cheap no-op. No network constraint: it reads local rollups + cached config.
+ *    run is a cheap no-op. No network constraint: it reads local period records.
  *  - [runNow] enqueues a one-off check for the **next app open** path (the task's "or next app open"),
- *    REPLACE so repeated opens coalesce. Combined with the watermark this can't double-post.
+ *    KEEP so repeated opens preserve pending retries. Combined with the watermark this can't double-post.
  */
 @Singleton
 class FiscalMonthEndScheduler @Inject constructor(
@@ -29,7 +29,8 @@ class FiscalMonthEndScheduler @Inject constructor(
 
     /** Enqueue (or keep) the daily month-end check. Idempotent. */
     fun ensureScheduled() {
-        val request = PeriodicWorkRequestBuilder<FiscalMonthEndWorker>(PERIOD).build()
+        val request = PeriodicWorkRequestBuilder<FiscalMonthEndWorker>(PERIOD).setBackoffCriteria(androidx.work.BackoffPolicy.LINEAR, Duration.ofMinutes(15))
+            .build()
         workManager.enqueueUniquePeriodicWork(
             FiscalMonthEndWorker.PERIODIC_WORK_NAME,
             ExistingPeriodicWorkPolicy.KEEP,
@@ -39,10 +40,11 @@ class FiscalMonthEndScheduler @Inject constructor(
 
     /** Run an immediate month-end check (the "next app open" path). Coalesces with any pending one. */
     fun runNow() {
-        val request = OneTimeWorkRequestBuilder<FiscalMonthEndWorker>().build()
+        val request = OneTimeWorkRequestBuilder<FiscalMonthEndWorker>().setBackoffCriteria(androidx.work.BackoffPolicy.LINEAR, Duration.ofMinutes(15))
+            .build()
         workManager.enqueueUniqueWork(
             FiscalMonthEndWorker.ONE_OFF_WORK_NAME,
-            ExistingWorkPolicy.REPLACE,
+            ExistingWorkPolicy.KEEP,
             request,
         )
     }

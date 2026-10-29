@@ -2,18 +2,17 @@ package mx.kompara.ui.onboarding
 
 /**
  * The driver's response to the prominent disclosure screen. The disclosure is a hard gate: nothing
- * deep-links to Settings until the driver has explicitly [ACCEPTED]; [DECLINED] routes to a limited
- * info screen and never proceeds to the accessibility grant (Play prominent-disclosure standard,
+ * deep-links to Settings until the driver has explicitly [ACCEPTED]; [DECLINED] routes to Hoy with the reader off and never proceeds to the accessibility grant (Play prominent-disclosure standard,
  * B-036 / legal posture B-038).
  */
 enum class DisclosureDecision {
     /** No choice made yet — show the disclosure, both buttons live. */
     PENDING,
 
-    /** "Aceptar y continuar" — proceed to the accessibility-grant walkthrough. */
+    /** "Acepto" — proceed to the accessibility-grant walkthrough. */
     ACCEPTED,
 
-    /** "No acepto" — route to the limited info screen; do NOT deep-link to Settings. */
+    /** "No acepto" — route to Hoy with the reader off; do NOT deep-link to Settings. */
     DECLINED,
 }
 
@@ -46,7 +45,7 @@ class DisclosureStateMachine(initial: DisclosureDecision = DisclosureDecision.PE
     val mayProceedToAccessibility: Boolean
         get() = decision == DisclosureDecision.ACCEPTED
 
-    /** Whether the driver should be shown the limited info screen instead of proceeding. */
-    val shouldShowLimitedInfo: Boolean
+    /** Whether the driver should be shown Hoy with the reader off instead of proceeding. */
+    val shouldContinueWithoutReader: Boolean
         get() = decision == DisclosureDecision.DECLINED
 }

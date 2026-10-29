@@ -3,58 +3,42 @@ package mx.kompara.ui.onboarding
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import android.os.Build
 import android.provider.Settings
+import android.widget.Toast
+import mx.kompara.data.service.ReaderDeviceEnvironment
 
-/**
- * Deep-links into the system Settings screens the onboarding funnel needs. All are read-only
- * navigations — Kompara never requests a permission programmatically here, it only takes the driver
- * to the right screen and lets them flip the switch themselves (legal/Play posture, B-036).
- */
+/** Capability resolution AND successful launch are required. No SDK-only promise about an OEM. */
 object AccessibilitySettings {
-
-    /** Open the system Accessibility settings list (where the driver enables the Kompara reader). */
-    fun open(context: Context) {
-        launch(context, Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+    // AOSP Settings supports this optional action; it is not in the public SDK. Resolve first.
+    const val DETAILS_ACTION = "android.settings.ACCESSIBILITY_DETAILS_SETTINGS"
+    fun candidates(context: Context): List<Intent> = buildList {
+        if (Build.VERSION.SDK_INT >= 26) add(Intent(DETAILS_ACTION)
+            .putExtra(Intent.EXTRA_COMPONENT_NAME, ReaderDeviceEnvironment.component(context).flattenToString()))
+        add(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
     }
-
-    /** A [PendingIntent] that opens Accessibility settings — used by the watchdog notification. */
-    fun pendingIntent(context: Context): PendingIntent {
-        val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-        return PendingIntent.getActivity(
-            context,
-            0,
-            intent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-        )
+    fun open(context: Context): Boolean {
+        val opened = launchFirst(context, candidates(context)) ?: return false
+        Toast.makeText(context, if (opened.action == DETAILS_ACTION)
+            "Activa el interruptor" else "Busca «Kompara» y activa el interruptor", Toast.LENGTH_LONG).show()
+        return true
     }
-
-    private fun launch(context: Context, intent: Intent) {
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        runCatching { context.startActivity(intent) }
-    }
+    fun pendingIntent(context: Context): PendingIntent = PendingIntent.getActivity(context, 0,
+        Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
 }
 
-/**
- * Battery-optimization settings deep-link for the OEM survival kit. We open the *informational*
- * [Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS] list and let the driver pick Kompara —
- * we deliberately do NOT fire `ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`, which would request the
- * exemption directly and is a Play-policy-restricted action (B-036).
- */
+/** Background restriction belongs to the app's battery settings, not the Doze exemption list. */
 object BatterySettings {
+    fun candidates(context: Context): List<Intent> = listOf(
+        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null)),
+        Intent(Settings.ACTION_APPLICATION_SETTINGS),
+    )
+    fun open(context: Context): Boolean = launchFirst(context, candidates(context)) != null
+}
 
-    /** Open the battery-optimization list (info only — never requests the exemption). */
-    fun open(context: Context) {
-        val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-        // Fall back to the generic app-details screen if the OEM doesn't expose the list activity.
-        val fallback = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-            data = android.net.Uri.fromParts("package", context.packageName, null)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-        runCatching { context.startActivity(intent) }
-            .recoverCatching { context.startActivity(fallback) }
-    }
+internal fun launchFirst(context: Context, candidates: List<Intent>): Intent? = candidates.firstOrNull { intent ->
+    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    intent.resolveActivity(context.packageManager) != null && runCatching { context.startActivity(intent) }.isSuccess
 }

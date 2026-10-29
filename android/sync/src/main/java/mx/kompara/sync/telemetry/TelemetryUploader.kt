@@ -1,6 +1,7 @@
 package mx.kompara.sync.telemetry
 
 import kotlinx.serialization.json.Json
+import kotlinx.coroutines.ensureActive
 import mx.kompara.data.db.dao.FixtureReportDao
 import mx.kompara.data.db.dao.TelemetryCounterDao
 import mx.kompara.data.db.entity.FixtureReportEntity
@@ -72,9 +73,12 @@ class TelemetryUploader @Inject constructor(
             val rows = counterDao.all()
             val acked = mutableListOf<TelemetryCounterEntity>()
             for (row in rows) {
+                kotlinx.coroutines.currentCoroutineContext().ensureActive()
+                if (!consent.isEnabled()) break
                 val sent = runCatching {
                     api.uploadTelemetryCounter(row.toBody())
                 }
+                sent.exceptionOrNull()?.let { if (it is kotlinx.coroutines.CancellationException) throw it }
                 if (sent.isSuccess) {
                     acked += row
                     counters++
@@ -94,12 +98,13 @@ class TelemetryUploader @Inject constructor(
         // Fixture reports always attempt (own per-report consent), oldest first.
         val reports = fixtureDao.oldest(FIXTURE_BATCH)
         for (report in reports) {
+            kotlinx.coroutines.currentCoroutineContext().ensureActive()
             if (!report.consented) {
                 // Defensive: a row should never lack consent, but never upload one that does.
                 fixtureDao.delete(report)
                 continue
             }
-            val sent = runCatching { api.uploadFixtureReport(report.toBody()) }
+            val sent = runCatching { api.uploadFixtureReport(report.toBody()) }.onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
             if (sent.isSuccess) {
                 fixtureDao.delete(report)
                 fixtures++

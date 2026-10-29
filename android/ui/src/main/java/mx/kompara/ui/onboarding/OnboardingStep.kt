@@ -7,10 +7,10 @@ package mx.kompara.ui.onboarding
  * (so renaming an enum constant never silently resets a counter).
  */
 enum class OnboardingStep(val key: String) {
-    /** Funnel started — first value-pitch page shown. */
+    /** Funnel started — interactive demo shown. */
     PITCH("pitch"),
 
-    /** Signup flow shown (phone → WhatsApp code → profile). */
+    /** Signup flow shown (phone → WhatsApp code, optional). */
     SIGNUP("signup"),
 
     /** OTP verified — the account exists and the session is live. */
@@ -19,21 +19,21 @@ enum class OnboardingStep(val key: String) {
     /** Prominent disclosure screen shown (Play-policy + legal posture). */
     DISCLOSURE("disclosure"),
 
-    /** Driver tapped "Aceptar y continuar" on the disclosure. */
+    /** Driver tapped "Acepto" on the disclosure. */
     DISCLOSURE_ACCEPTED("disclosure_accepted"),
 
-    /** Driver tapped "No acepto" — routed to the limited info screen. */
+    /** Driver tapped "No acepto" — continues to Hoy with the reader off. */
     DISCLOSURE_DECLINED("disclosure_declined"),
 
     /** Accessibility-grant walkthrough shown. */
     ACCESSIBILITY("accessibility"),
 
-    /** The accessibility service flipped connected — grant succeeded. */
+    /** Android reports permission granted; service binding is separate. */
     ACCESSIBILITY_GRANTED("accessibility_granted"),
 
     /** OEM survival-kit screen shown. */
     OEM("oem"),
 
-    /** Final "ready" screen reached and onboarding marked complete. */
+    /** Onboarding completed or skipped; Hoy is available. */
     DONE("done"),
 }

@@ -65,4 +65,24 @@ class OfferMappingTest {
         assertEquals(Platform.INDRIVE, OfferMapping.platformOf("sinet.startup.inDriver"))
         assertEquals(Platform.UNKNOWN, OfferMapping.platformOf("com.example.notarideapp"))
     }
+    @Test fun `fare basis passes through and never assumes commission`() {
+        val unknown = OfferMapping.toTripOffer(OfferCard("uber", fare = 100.0))
+        assertEquals("UNCONFIRMED", unknown.paymentBasis)
+        val supported = OfferMapping.toTripOffer(OfferCard("uber", fare = 100.0, paymentBasis = "DRIVER_PAYMENT"))
+        assertEquals("DRIVER_PAYMENT", supported.paymentBasis)
+        assertEquals(100.0, supported.fareMxn!!, 0.0)
+    }
+
+    @Test fun `unknown chosen hour never displays substitute km money`() {
+        val card = OfferCard("uber", fare = 100.0, pickupDistanceKm = 0.0, tripDistanceKm = 10.0,
+            paymentBasis = "DRIVER_PAYMENT")
+        val result = mx.kompara.metrics.NetProfitEngine().evaluate(OfferMapping.toTripOffer(card),
+            mx.kompara.metrics.CostProfile.ZERO, mx.kompara.data.settings.PlatformThreshold.DEFAULT,
+            mx.kompara.data.settings.PreferredMetric.IPH)
+        val state = VerdictChipState.from(result, mx.kompara.data.settings.PlatformThreshold.DEFAULT)
+        assertEquals("Falta tiempo", state.heroRate)
+        assertEquals("Falta tiempo: sin cálculo", state.regla.spokenBand)
+        org.junit.Assert.assertNull(state.regla.rateText)
+    }
+
 }

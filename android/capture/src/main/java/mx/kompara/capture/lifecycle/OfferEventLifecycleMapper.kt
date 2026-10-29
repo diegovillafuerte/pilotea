@@ -69,8 +69,10 @@ class OfferEventLifecycleMapper @Inject constructor(
                     .toList()
                 if (markers.isTripLike(snapshot.packageName, hints)) {
                     LifecycleSignal.TripStateEntered(snapshot.packageName, snapshot.timestampMs)
-                } else {
+                } else if (markers.isIdle(snapshot.packageName, hints)) {
                     LifecycleSignal.IdleStateEntered(snapshot.packageName, snapshot.timestampMs)
+                } else {
+                    LifecycleSignal.ObservationLost(snapshot.packageName, snapshot.timestampMs)
                 }
             }
         }

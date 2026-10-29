@@ -1,175 +1,97 @@
 package mx.kompara.ui.share
 
+import androidx.test.core.app.ApplicationProvider
+import mx.kompara.data.accounting.*
 import mx.kompara.data.model.City
-import mx.kompara.metrics.percentile.PercentileResult
-import mx.kompara.ui.stats.PeriodStats
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
+import mx.kompara.metrics.compare.*
+import mx.kompara.ui.fixtures.ShareFixture
+import org.junit.Assert.*
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
-/**
- * The pure share-card composition logic (B-055): hide-amounts redaction, best-percentile selection
- * including display inversion, streak/period/trip formatting, and missing-data variants.
- */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34])
 class ShareCardComposerTest {
-
-    private val fullWeek = PeriodStats(
-        netEarningsMxn = 3450.0,
-        grossEarningsMxn = 4200.0,
-        totalTrips = 38,
-        totalKm = 410.0,
-        hoursOnline = 22.5,
-        earningsPerTrip = 90.8,
-        earningsPerKm = 8.4,
-        earningsPerHour = 153.3,
-        tripsPerHour = 1.7,
-        acceptanceRate = 0.62,
-    )
-
-    private fun result(
-        metric: String,
-        displayPercentile: Int,
-        percentile: Int = displayPercentile,
-    ) = PercentileResult(
-        metric = metric,
-        value = 100.0,
-        percentile = percentile,
-        displayPercentile = displayPercentile,
-        sampleSize = 200,
-        isNationalFallback = false,
-        isSynthetic = false,
-    )
-
-    @Test
-    fun `amounts visible builds a net line`() {
-        val card = ShareCardComposer.compose(
-            stats = fullWeek,
-            periodKind = SharePeriodKind.WEEK,
-            periodLabel = "Semana del 1–7 jun",
-            streakWeeks = 4,
-            city = City.CDMX,
-            percentiles = emptyList(),
-            hideAmounts = false,
-        )
-        assertEquals("$3,450.00", card.netEarnings)
-        assertFalse(card.hideAmounts)
-        assertTrue(card.hasHighlight)
+    private val fixture get() = ShareFixture(ApplicationProvider.getApplicationContext())
+    @Test fun `H3 uses only its certified statement count standing hours and payment basis`() {
+        val hidden = fixture.card()
+        assertTrue(hidden.finding.contains("78\u00a0%")); assertEquals("34", hidden.trips)
+        assertEquals("Antes de gastos", hidden.basis); assertTrue(hidden.confirmed)
+        assertTrue(hidden.source.contains("1,240")); assertEquals("12 – 18 oct", hidden.periodLabel)
+        assertNull(hidden.netEarnings); assertNull(hidden.hours); assertTrue(hidden.bars.isEmpty())
+        val shown = fixture.card(hide = false)
+        assertEquals(listOf("$149/viaje", "$131/viaje"), shown.bars.map { it.amount })
+        assertEquals("24\u00a0h", shown.hours)
+        assertEquals(1f, shown.bars.first().fraction, .00001f)
+        assertEquals(131f / (5062f / 34), shown.bars.last().fraction, .00001f)
     }
-
-    @Test
-    fun `hide amounts fully redacts net earnings`() {
-        val card = ShareCardComposer.compose(
-            stats = fullWeek,
-            periodKind = SharePeriodKind.WEEK,
-            periodLabel = "Semana del 1–7 jun",
-            streakWeeks = 4,
-            city = City.CDMX,
-            percentiles = listOf(result("earnings_per_hour", displayPercentile = 78)),
-            hideAmounts = true,
-        )
-        assertNull(card.netEarnings)
-        assertTrue(card.hideAmounts)
-        // Trips, hours, percentile and streak still survive a redaction.
-        assertEquals("38 viajes", card.trips)
-        assertEquals("22.5 h", card.hours)
-        assertEquals("Top 22% en CDMX 🚀", card.percentileFlex)
-        assertEquals("🔥 4 semanas seguidas", card.streakLine)
+    @Test fun `redaction removes every amount hour and proportional bar from all outgoing content`() {
+        for (frame in listOf("H3", "week", "month", "historical")) {
+            val hidden = fixture.card(frame)
+            assertFalse(hidden.description.contains('$')); assertFalse(hidden.caption.contains('$'))
+            assertFalse(hidden.caption.contains("Horas")); assertFalse(hidden.description.contains("Tiempo"))
+            assertFalse(hidden.caption.contains("24 h")); assertTrue(hidden.bars.isEmpty())
+            assertNull(hidden.hours); assertNull(hidden.netEarnings)
+        }
     }
-
-    @Test
-    fun `picks the best favorable percentile as the flex`() {
-        // 78th display ⇒ top 22; 92nd display ⇒ top 8 — the stronger one wins.
-        val flex = ShareCardComposer.bestFlex(
-            listOf(
-                result("earnings_per_hour", displayPercentile = 78),
-                result("earnings_per_km", displayPercentile = 92),
-                result("trips_per_hour", displayPercentile = 60),
-            ),
-            City.CDMX,
-        )
-        assertEquals("Top 8% en CDMX 🚀", flex)
+    @Test fun `wrong week app city source field coverage and synthetic cohorts cannot grant a rank`() {
+        val f = fixture
+        val p = f.proof; val c = f.comparison.cohort
+        val invalid = listOf(p.copy(certificationId = ""), p.copy(city = "monterrey"),
+            p.copy(record = p.record.copy(app = "DIDI")),
+            p.copy(record = p.record.copy(source = MoneySource.PARSED_STATEMENT)),
+            p.copy(record = p.record.copy(paymentBasis = PaymentBasis.UNCONFIRMED)),
+            p.copy(record = p.record.copy(coverage = p.record.coverage.copy(start = p.record.coverage.start.minusWeeks(1)))),
+            p.copy(confirmedFields = setOf(MoneyField.PAYMENT)),
+            p.copy(record = p.record.copy(fieldSources = emptyMap())))
+        invalid.forEach { proof ->
+            val card = ShareCardComposer.compose(f.comparison.current.money, SharePeriodKind.WEEK, statements = listOf(proof), cohorts = listOf(c))
+            assertFalse(card.confirmed); assertFalse(card.finding.contains('%')); assertEquals("62", card.trips)
+        }
+        listOf(c.copy(synthetic = true), c.copy(week = c.week.minusWeeks(1)), c.copy(app = "DIDI"), c.copy(city = "monterrey"),
+            c.copy(basis = ComparisonBasis.RUNNING_COST_CONTRIBUTION), c.copy(completeCoverage = false)).forEach { cohort ->
+            assertFalse(ShareCardComposer.compose(f.comparison.current.money, SharePeriodKind.WEEK, statements = listOf(p), cohorts = listOf(cohort)).confirmed)
+        }
     }
-
-    @Test
-    fun `inverted metric uses display percentile not raw`() {
-        // commission %: raw is low (good driver = low commission), but displayPercentile is already
-        // inverted to be high/favorable. We must read displayPercentile, so this qualifies as a flex.
-        val flex = ShareCardComposer.bestFlex(
-            listOf(result("platform_commission_pct", percentile = 12, displayPercentile = 88)),
-            City.MONTERREY,
-        )
-        assertEquals("Top 12% en Monterrey 🚀", flex)
+    @Test fun `no standing has truthful own counts and rounded after-car money no streak or best app`() {
+        val card = fixture.card("week", false)
+        assertEquals("62 viajes esa semana", card.finding); assertEquals("$4,980", card.netEarnings)
+        assertTrue(card.netLabel!!.startsWith("Te quedaron")); assertFalse(card.confirmed)
+        assertFalse(card.caption.contains('%')); assertFalse(card.caption.contains("Mejor app")); assertFalse(card.caption.contains("Racha"))
+        assertTrue(card.basis.contains("lo del coche")); assertTrue(card.basis.contains("Antes de impuestos"))
     }
-
-    @Test
-    fun `unfavorable percentiles produce no flex`() {
-        // Exactly 50 is not strictly above the median ⇒ not favorable; below 50 ⇒ not favorable.
-        assertNull(ShareCardComposer.bestFlex(listOf(result("earnings_per_hour", 50)), City.CDMX))
-        assertNull(ShareCardComposer.bestFlex(listOf(result("earnings_per_hour", 33)), City.CDMX))
-        assertNull(ShareCardComposer.bestFlex(emptyList(), City.CDMX))
+    @Test fun `month is its own scope never a borrowed weekly rank`() {
+        val card = fixture.card("month", false)
+        assertEquals(SharePeriodKind.MONTH, card.periodKind); assertEquals("Octubre 2026", card.periodLabel)
+        assertEquals("$11,692", card.netEarnings); assertEquals("155", card.trips)
+        assertTrue(card.netLabel!!.startsWith("Llevas en octubre")); assertFalse(card.confirmed)
     }
-
-    @Test
-    fun `top percent never renders zero`() {
-        // displayPercentile 99 ⇒ topPercent coerced to >= 1.
-        val flex = ShareCardComposer.bestFlex(listOf(result("earnings_per_hour", 99)), City.CDMX)
-        assertEquals("Top 1% en CDMX 🚀", flex)
+    @Test fun `historical period and negative or missing money never become current-month zero`() {
+        assertEquals("5 – 11 oct", fixture.card("historical").periodLabel)
+        val money = fixture.comparison.current.money
+        val negative = ShareCardComposer.compose(money.copy(periodResult = "-100.49".toBigDecimal()), SharePeriodKind.WEEK, false)
+        assertEquals("−$100", negative.netEarnings)
+        assertNull(ShareCardComposer.compose(money.copy(periodResult = null), SharePeriodKind.WEEK, false).netEarnings)
     }
-
-    @Test
-    fun `streak line singular vs plural vs none`() {
-        assertEquals("🔥 1 semana seguida", ShareCardComposer.streakLine(1))
-        assertEquals("🔥 6 semanas seguidas", ShareCardComposer.streakLine(6))
-        assertNull(ShareCardComposer.streakLine(0))
-        assertNull(ShareCardComposer.streakLine(-2))
+    @Test fun `same-day open week cannot claim statement confirmation and uncertified hours stay absent`() {
+        val f = fixture
+        val money = f.comparison.current.money
+        val open = money.copy(window = money.window.copy(asOf = money.window.endInclusive.atStartOfDay(money.window.zone).toInstant()))
+        assertFalse(ShareCardComposer.compose(open, SharePeriodKind.WEEK, statements = listOf(f.proof), cohorts = listOf(f.comparison.cohort)).confirmed)
+        val noHours = ShareCardComposer.compose(money, SharePeriodKind.WEEK, false,
+            statements = listOf(f.proof.copy(confirmedFields = setOf(MoneyField.PAYMENT, MoneyField.TRIPS))), cohorts = listOf(f.comparison.cohort))
+        assertTrue(noHours.confirmed); assertNull(noHours.hours)
     }
-
-    @Test
-    fun `trips singular vs plural`() {
-        assertEquals("1 viaje", ShareCardComposer.formatTrips(1))
-        assertEquals("0 viajes", ShareCardComposer.formatTrips(0))
-        assertEquals("38 viajes", ShareCardComposer.formatTrips(38))
+    @Test fun `hours omit zero minutes preserve fractional time and round only at display`() {
+        assertEquals("24\u00a0h", shareDuration("1440".toBigDecimal()))
+        assertEquals("4\u00a0h\u00a050\u00a0min", shareDuration("290".toBigDecimal()))
+        assertEquals("5\u00a0h", shareDuration("299.9".toBigDecimal()))
     }
-
-    @Test
-    fun `month card carries the month period kind and label`() {
-        val card = ShareCardComposer.compose(
-            stats = fullWeek,
-            periodKind = SharePeriodKind.MONTH,
-            periodLabel = "Junio 2026",
-            streakWeeks = 0,
-            city = City.CDMX,
-            percentiles = emptyList(),
-            hideAmounts = false,
-        )
-        assertEquals(SharePeriodKind.MONTH, card.periodKind)
-        assertEquals("Junio 2026", card.periodLabel)
-        assertNull(card.streakLine)
-    }
-
-    @Test
-    fun `empty period with no streak and no percentile has no highlight`() {
-        val card = ShareCardComposer.compose(
-            stats = PeriodStats.EMPTY,
-            periodKind = SharePeriodKind.WEEK,
-            periodLabel = "Semana del 1–7 jun",
-            streakWeeks = 0,
-            city = City.CDMX,
-            percentiles = emptyList(),
-            hideAmounts = true,
-        )
-        assertNull(card.netEarnings)
-        assertNull(card.hours) // 0 hours ⇒ no line.
-        assertEquals("0 viajes", card.trips)
-        assertFalse(card.hasHighlight)
-    }
-
-    @Test
-    fun `cdmx uses the short share label not the verbose Ajustes name`() {
-        assertEquals("CDMX", ShareCardComposer.shareCityLabel(City.CDMX))
-        assertEquals("Puebla", ShareCardComposer.shareCityLabel(City.PUEBLA))
-        assertEquals("Monterrey", ShareCardComposer.shareCityLabel(City.MONTERREY))
+    @Test fun `renderer input rejects a private value marked as hidden`() {
+        assertThrows(IllegalArgumentException::class.java) { fixture.card().copy(hours = "24 h") }
+        assertThrows(IllegalArgumentException::class.java) { fixture.card().copy(netEarnings = "$99") }
+        assertThrows(IllegalArgumentException::class.java) { fixture.card().copy(bars = fixture.card(hide = false).bars) }
     }
 }

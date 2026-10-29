@@ -33,14 +33,15 @@ data class OfferCard(
      * normalization) text. Useful for debugging spec regressions in the fixture harness.
      */
     val raw: Map<String, String> = emptyMap(),
-    /**
-     * Screen-pixel union (top-left origin) of the offer's fare + leg blocks, when the card was read
-     * via OCR — otherwise null (node-path / simulator cards, or a frame whose blocks had no bounds).
-     * The overlay uses it to keep the chip from covering the fare: a chip parked over the fare
-     * occludes it from the MediaProjection screen-capture, breaking the read and making the chip
-     * blink. Same full-display pixel space as the OCR capture, so it maps 1:1 onto the chip's window.
-     */
+    /** OCR fare/leg union for diagnostics only; never a full-card placement boundary. */
     val contentBounds: OfferContentBounds? = null,
+    /** Unlabelled fares are retained, never treated as settled driver payment. */
+    val paymentBasis: String = "UNCONFIRMED",
+    val captureSource: String = "ACCESSIBILITY",
+    val sessionId: String? = null,
+    val sessionStartedAt: Long? = null,
+    /** Replay-validated, complete host layout for this frame; null gates the overlay only. */
+    val hostGeometry: HostGeometry? = null,
 )
 
 /**

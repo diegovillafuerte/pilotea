@@ -45,6 +45,7 @@ data class ImportFile(
 @Serializable
 data class ImportMetrics(
     @SerialName("week_start") val weekStart: String,
+    /** Legacy wire name: driver payment ("Tus ganancias"), before own running/car costs. Not v3 net. */
     @SerialName("net_earnings") val netEarnings: Double? = null,
     @SerialName("gross_earnings") val grossEarnings: Double? = null,
     @SerialName("total_trips") val totalTrips: Int? = null,

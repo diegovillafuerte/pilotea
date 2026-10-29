@@ -11,8 +11,23 @@ import mx.kompara.data.db.entity.OfferEntity
 @Dao
 interface OfferDao {
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Query("SELECT EXISTS(SELECT 1 FROM offers WHERE seenAt < :before)")
+    suspend fun hasSeenBefore(before: Long): Boolean
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(offer: OfferEntity): Long
+
+    @Query("SELECT * FROM offers WHERE sessionId = :sessionId")
+    suspend fun forSession(sessionId: String): OfferEntity?
+
+    @Query("UPDATE offers SET lastSeenAt = MAX(lastSeenAt, :at) WHERE id = :id")
+    suspend fun touch(id: Long, at: Long)
+
+    @Query("UPDATE offers SET shiftId = :shiftId WHERE id = :id AND shiftId IS NULL")
+    suspend fun attachShift(id: Long, shiftId: Long?)
+
+    @Query("UPDATE offers SET outcome = 'UNKNOWN', resolvedAt = :at WHERE platform = :platform AND outcome = 'PENDING' AND seenAt < :before AND lastSeenAt <= :at")
+    suspend fun retireOlderPending(platform: String, before: Long, at: Long)
 
     @Update
     suspend fun update(offer: OfferEntity)
@@ -30,8 +45,8 @@ interface OfferDao {
      * The most recent still-PENDING offer — the candidate the lifecycle state machine resolves when a
      * card disappears (B-039). One pending offer at a time is the norm (cards are modal).
      */
-    @Query("SELECT * FROM offers WHERE outcome = 'PENDING' ORDER BY seenAt DESC LIMIT 1")
-    suspend fun latestPending(): OfferEntity?
+    @Query("SELECT * FROM offers WHERE outcome = 'PENDING' AND (:platform IS NULL OR platform = :platform) ORDER BY seenAt DESC LIMIT 1")
+    suspend fun latestPending(platform: String? = null): OfferEntity?
 
     /** All offers seen in `[from, until)` (used by the rollup acceptance-rate math). */
     @Query("SELECT * FROM offers WHERE seenAt >= :from AND seenAt < :until ORDER BY seenAt ASC")

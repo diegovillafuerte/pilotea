@@ -97,6 +97,17 @@ class TelemetryUploaderTest {
     )
 
     @Test
+    fun `turning telemetry off stops the remaining counters in a running batch`() = runTest {
+        var consent = true
+        val counters = FakeCounterDao().apply { put(uberCounter()); put(uberCounter().copy(dayUtc = "2026-06-02")) }
+        val bodies = mutableListOf<String>()
+        val uploader = TelemetryUploader(counters, FakeFixtureDao(), api({ consent = false; ok() }, bodies), { consent }, json)
+        val result = uploader.flush()
+        assertEquals(1, bodies.size); assertEquals(1, result.countersUploaded)
+        assertEquals(1, counters.count())
+    }
+
+    @Test
     fun `consent off short-circuits counter upload but still sends fixture reports`() = runTest {
         val counters = FakeCounterDao().apply { put(uberCounter()) }
         val fixtures = FakeFixtureDao().apply { add(reportRow()) }

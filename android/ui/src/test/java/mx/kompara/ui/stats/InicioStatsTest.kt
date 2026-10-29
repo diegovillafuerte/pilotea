@@ -1,113 +1,110 @@
 package mx.kompara.ui.stats
 
-import mx.kompara.data.db.entity.AggregateSource
-import mx.kompara.data.db.entity.WeeklyAggregateEntity
-import mx.kompara.data.model.Platform
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
+import androidx.test.core.app.ApplicationProvider
+import mx.kompara.data.service.ReaderPhase
+import mx.kompara.data.settings.Settings
+import mx.kompara.data.settings.PlatformThreshold
+import mx.kompara.ui.fixtures.HoyFixture
+import org.junit.Assert.*
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
-/**
- * The dashboard's current-week pick + platform-filter + totals logic ([InicioStats]), the pure core
- * of [InicioDashboardViewModel]. Exercised with fake aggregate rows (B-040 test requirement).
- */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34])
 class InicioStatsTest {
+    private val fixture get() = HoyFixture(ApplicationProvider.getApplicationContext())
 
-    private val thisWeek = "2026-06-08"
-    private val lastWeek = "2026-06-01"
-
-    private fun weekly(
-        weekStart: String,
-        platform: Platform,
-        net: Double,
-        trips: Int,
-        hours: Double,
-        source: AggregateSource = AggregateSource.CAPTURED,
-    ) = WeeklyAggregateEntity(
-        platform = platform.name,
-        weekStart = weekStart,
-        source = source.name,
-        netEarningsMxn = net,
-        grossEarningsMxn = net + 100,
-        totalTrips = trips,
-        totalKm = trips * 10.0,
-        hoursOnline = hours,
-        earningsPerTrip = if (trips == 0) null else net / trips,
-        earningsPerKm = if (trips == 0) null else net / (trips * 10.0),
-        earningsPerHour = if (hours <= 0) null else net / hours,
-        tripsPerHour = if (hours <= 0) null else trips / hours,
-        acceptanceRate = 0.5,
-        computedAt = 0L,
-    )
-
-    @Test
-    fun `picks only the current week's captured rows`() {
-        val rows = listOf(
-            weekly(thisWeek, Platform.UBER, net = 1000.0, trips = 10, hours = 5.0),
-            weekly(lastWeek, Platform.UBER, net = 9999.0, trips = 99, hours = 50.0), // must be ignored
-        )
-        val state = InicioStats.forCurrentWeek(
-            allWeekly = rows,
-            currentWeekStart = thisWeek,
-            weeklyNetGoalMxn = null,
-            selectedPlatform = null,
-            costProfileSet = true,
-        )
-        assertEquals(1000.0, state.period.netEarningsMxn, 0.001)
-        assertEquals(10, state.period.totalTrips)
-        assertTrue(state.hasData)
+    @Test fun `unknown permission is loading rather than permission ready`() {
+        val state = fixture.state("B3")
+        assertTrue(InicioStats.today(state.snapshot!!, state.reader!!.copy(permission = null), Settings.DEFAULT).loading)
     }
-
-    @Test
-    fun `ignores imported rows for the current-week dashboard (captured only)`() {
-        val rows = listOf(
-            weekly(thisWeek, Platform.UBER, net = 1000.0, trips = 10, hours = 5.0, source = AggregateSource.CAPTURED),
-            weekly(thisWeek, Platform.UBER, net = 8000.0, trips = 80, hours = 5.0, source = AggregateSource.IMPORTED),
-        )
-        val state = InicioStats.forCurrentWeek(rows, thisWeek, null, null, true)
-        assertEquals(1000.0, state.period.netEarningsMxn, 0.001)
+    @Test fun `teaching offer changes verdict with the saved limits and chosen unit`() {
+        val state = fixture.state("B3")
+        val yellow = InicioStats.today(state.snapshot!!, state.reader!!,
+            Settings.DEFAULT.copy(threshold = PlatformThreshold.DEFAULT.copy(minPerKmMxn = 9.50)))
+        assertEquals(mx.kompara.ui.components.ReglaPosition.MEETS, (yellow.example!!.band as mx.kompara.ui.components.ReglaBand.Rated).position)
+        assertEquals("$9.49", yellow.example!!.rateText)
+        val hourly = InicioStats.today(state.snapshot!!, state.reader!!,
+            Settings.DEFAULT.copy(preferredMetric = mx.kompara.data.settings.PreferredMetric.IPH))
+        assertEquals(mx.kompara.ui.components.ReglaUnit.HOUR, hourly.example!!.unit)
+        assertEquals("$285", hourly.example!!.rateText)
     }
-
-    @Test
-    fun `Todas sums platforms, single-platform selection filters`() {
-        val rows = listOf(
-            weekly(thisWeek, Platform.UBER, net = 1000.0, trips = 10, hours = 5.0),
-            weekly(thisWeek, Platform.DIDI, net = 500.0, trips = 5, hours = 5.0),
-        )
-        val todas = InicioStats.forCurrentWeek(rows, thisWeek, null, null, true)
-        assertEquals(1500.0, todas.period.netEarningsMxn, 0.001)
-        assertEquals(15, todas.period.totalTrips)
-        assertEquals(listOf(null, Platform.UBER, Platform.DIDI), todas.chips)
-
-        val onlyDidi = InicioStats.forCurrentWeek(rows, thisWeek, null, Platform.DIDI, true)
-        assertEquals(500.0, onlyDidi.period.netEarningsMxn, 0.001)
-        assertEquals(Platform.DIDI, onlyDidi.selectedPlatform)
+    @Test fun `today contains six trips and one in progress not this week's money`() {
+        val state = fixture.state("B1")
+        assertEquals("$548", state.amount)
+        assertEquals("6 viajes tomados (1 en curso),\nya restamos gasolina, desgaste y coche", state.quietLine)
+        assertEquals(listOf("En curso", "Se fue sin tomar", "Sin lectura"), state.offers.map { it.outcome })
+        assertEquals(listOf("$9.49/km", "$2.20/km", null), state.offers.map { it.rate })
+        assertTrue(state.offers[0].detail.startsWith("14:32"))
+        assertNull(state.yesterday)
     }
-
-    @Test
-    fun `empty week shows the empty state and no cost nudge flag is independent`() {
-        val state = InicioStats.forCurrentWeek(emptyList(), thisWeek, null, null, costProfileSet = false)
-        assertFalse(state.hasData)
-        assertFalse(state.costProfileSet) // drives the first-run nudge
+    @Test fun `pause partial support and one trip use same accounting`() {
+        assertEquals("$434", fixture.state("B5").amount)
+        assertTrue(fixture.state("B5").quietLine.replace('\u00a0', ' ').contains("4 h 30 min"))
+        val partial = fixture.state("B6")
+        assertEquals("$166", partial.amount)
+        assertEquals("Llevas hoy sin contar DiDi · aprox.", partial.label)
+        val negative = fixture.state("B8")
+        assertEquals("−$100", negative.amount)
+        assertTrue(negative.quietLine.contains("1 viaje tomado (en curso)"))
+        assertTrue(negative.quietLine.contains("($214 por día)"))
     }
-
-    @Test
-    fun `streak counts consecutive weeks across all data, goal reflects current net`() {
-        val rows = listOf(
-            weekly(thisWeek, Platform.UBER, net = 1000.0, trips = 10, hours = 5.0),
-            weekly(lastWeek, Platform.UBER, net = 800.0, trips = 8, hours = 4.0),
-        )
-        val state = InicioStats.forCurrentWeek(
-            allWeekly = rows,
-            currentWeekStart = thisWeek,
-            weeklyNetGoalMxn = 2000.0,
-            selectedPlatform = null,
-            costProfileSet = true,
-        )
-        assertEquals(2, state.streak.weeks) // two consecutive weeks of data
-        assertTrue(state.goal.hasGoal)
-        assertEquals(0.5f, state.goal.fraction, 0.001f) // 1000/2000
-        assertFalse(state.goal.reached)
+    @Test fun `no trips never displays accrued car or zero as a hero`() {
+        for (id in listOf("B2", "B2r", "B3", "B3n", "B4")) assertNull(id, fixture.state(id).amount)
+        assertEquals(HoyMode.FIRST_OFF, fixture.state("B3n").mode)
+        assertEquals(HoyMode.FIRST_PREPARED, fixture.state("B3").mode)
+        assertFalse(fixture.state("B3").snapshot!!.hasHistory)
+    }
+    @Test fun `yesterday date and amount stay paired in both morning worlds`() {
+        assertEquals("Ayer, lunes 19 oct, te quedaron $1,026 aprox.", fixture.state("B2").yesterday)
+        assertEquals("Ayer, domingo 18 oct, te quedaron $284 aprox.", fixture.state("B4").yesterday)
+        assertEquals(fixture.state("B2").yesterday, fixture.state("B2r").yesterday)
+    }
+    @Test fun `permission recovery keeps history without claiming functioning`() {
+        val off = fixture.state("B2")
+        assertEquals("· desde ayer 20:31", off.statusDetail)
+        val restored = fixture.state("B2r")
+        assertEquals(HoyMode.PREPARED, restored.mode)
+        assertEquals(ReaderPhase.PREPARED, restored.reader!!.phase)
+        assertEquals("permiso listo", restored.statusDetail)
+        assertTrue(restored.offers.isEmpty())
+    }
+    @Test fun `no room is positive presentation evidence never unread fare`() {
+        val normal = fixture.state("B1")
+        assertFalse(normal.statusDetail.contains("no cupo"))
+        val suppressed = fixture.state("B9")
+        assertEquals("no cupo el semáforo en 1 oferta hoy", suppressed.statusDetail)
+        assertEquals("12:10 · sin semáforo en pantalla", suppressed.offers[1].detail)
+        assertEquals("11:48 · No pudimos leer la tarifa", suppressed.offers[2].detail)
+        assertEquals(normal.amount, suppressed.amount)
+    }
+    @Test fun `battery attention and night never change money`() {
+        assertEquals(fixture.state("B1").amount, fixture.state("B7").amount)
+        assertEquals(ReaderPhase.ATTENTION, fixture.state("B7").reader!!.phase)
+        assertEquals(fixture.state("B1"), fixture.state("N1"))
+        assertEquals(fixture.state("B2"), fixture.state("N2"))
+    }
+    @Test fun `changing limits updates status with cents without recoloring history`() {
+        val before = fixture.state("B1")
+        val after = InicioStats.today(before.snapshot!!, before.reader!!,
+            Settings.DEFAULT.copy(threshold = PlatformThreshold.DEFAULT.copy(redPerKmMxn = 6.50)))
+        assertEquals("tu meta $8.00 · tu mínimo $6.50", after.statusDetail)
+        assertEquals(before.offers, after.offers)
+        assertEquals(before.amount, after.amount)
+    }
+    @Test fun `typical cost confirmation is independent of first day empty state`() {
+        assertNotNull(fixture.state("B3").typicalCost)
+        assertEquals(HoyMode.COSTS, fixture.state("B4").mode)
+        assertEquals("última lectura ayer 20:10", fixture.state("B4").statusDetail)
+        assertNull(fixture.state("B1").typicalCost)
+    }
+    @Test fun `unknown amount remains absent even with a taken trip`() {
+        val original = fixture.state("B1")
+        val snapshot = original.snapshot!!
+        val state = InicioStats.today(snapshot.copy(today = snapshot.today.copy(money = snapshot.today.money.copy(periodResult = null))), original.reader!!, Settings.DEFAULT)
+        assertEquals(HoyMode.MONEY, state.mode)
+        assertNull(state.amount)
     }
 }

@@ -1,72 +1,78 @@
 package mx.kompara.overlay
 
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.transformLatest
 import mx.kompara.capture.OfferEvent
-import mx.kompara.metrics.OfferMetrics
+import mx.kompara.ui.components.ReglaMotion
 
-/**
- * What the overlay should currently be rendering. The controller maps each state onto attach /
- * update / detach of the window, but the *decision* of what to show lives here so it can be tested
- * with virtual time and no Android.
- */
 sealed interface OverlayVisibility {
-
-    /** No card on screen (or never shown yet): the window should be detached. */
     data object Hidden : OverlayVisibility
-
-    /** A card is on screen: show the chip for [metrics]. */
-    data class Showing(val metrics: OfferMetrics) : OverlayVisibility
+    /** Clear the prior offer before any suspendable evaluation/persistence. */
+    data class Reading(val offerKey: String, val event: OfferEvent.Parsed) : OverlayVisibility
+    data class Showing(val state: VerdictChipState, val offerKey: String, val event: OfferEvent.Parsed) : OverlayVisibility
+    /** Same-offer absence has survived the grace; fade before detaching the window. */
+    data object Exiting : OverlayVisibility
 }
 
-/**
- * Turns the raw [OfferEvent] stream into an [OverlayVisibility] stream, applying the show/hide
- * policy:
- *  - `Parsed` → evaluate the offer and **show immediately** (latency matters; the card is up now).
- *  - `NoCard` → don't hide instantly. Wait [graceMs] before hiding so a momentary mis-parse or a
- *    one-frame `NoCard` between two `Parsed` events doesn't make the chip flicker. A `Parsed`
- *    arriving inside the grace window cancels the pending hide.
- *
- * Implemented with [transformLatest] + a [delay]: each new upstream event cancels the previous
- * collector, so a fresh `Parsed` during the grace simply restarts in the "show" branch and the
- * delayed-hide of the prior `NoCard` never fires. [distinctUntilChanged] collapses repeats so the
- * controller only re-renders on real changes.
- *
- * [evaluate] is the injected `OfferCard -> OfferMetrics` step (mapping + engine); kept as a
- * parameter so the state machine itself is pure and the engine wiring is tested separately.
- */
+/** Same-offer reparses swap atomically; a new session/host can never inherit an old judgement. */
 class OverlayStateMachine(
     private val graceMs: Long = DEFAULT_GRACE_MS,
-    private val evaluate: (OfferEvent.Parsed) -> OfferMetrics,
+    private val evaluate: suspend (OfferEvent.Parsed) -> VerdictChipState,
 ) {
-
     @OptIn(ExperimentalCoroutinesApi::class)
-    fun visibility(events: Flow<OfferEvent>): Flow<OverlayVisibility> =
+    fun visibility(events: Flow<OfferEvent>): Flow<OverlayVisibility> = flow {
+        // State belongs to this collection, not the reusable machine instance.
+        var host: String? = null
+        var key: String? = null
         events
+            // A stream of missing OCR frames must not restart the 500ms timer indefinitely.
+            .distinctUntilChanged { old, new ->
+                old is OfferEvent.NoCard && new is OfferEvent.NoCard &&
+                    old.packageName == new.packageName && old.reason == new.reason
+            }
             .transformLatest { event ->
                 when (event) {
-                    is OfferEvent.Parsed -> emit(OverlayVisibility.Showing(evaluate(event)))
+                    is OfferEvent.Parsed -> {
+                        val next = "${event.packageName}:${event.card.sessionId ?: event.card.sessionStartedAt ?: event.card.fare}"
+                        if (key != next) {
+                            key = next
+                            host = event.packageName
+                            emit(OverlayVisibility.Reading(next, event))
+                        }
+                        emit(OverlayVisibility.Showing(evaluate(event), next, event))
+                    }
                     is OfferEvent.NoCard -> {
-                        // Hold the current state for the grace window; if a new event arrives,
-                        // transformLatest cancels this block before the delay completes.
-                        kotlinx.coroutines.delay(graceMs)
-                        emit(OverlayVisibility.Hidden)
+                        if (event.packageName != host || event.reason == OfferEvent.Reason.NO_SPEC) {
+                            key = null; host = null
+                            emit(OverlayVisibility.Hidden)
+                        } else if (key != null) {
+                            delay(graceMs)
+                            emit(OverlayVisibility.Exiting)
+                            delay(ReglaMotion.EXIT_MS.toLong())
+                            key = null; host = null
+                            emit(OverlayVisibility.Hidden)
+                        }
                     }
                     is OfferEvent.SpecDisabled -> {
-                        // The platform's parser was remotely kill-switched (B-033). There's no
-                        // verdict to show — hide the chip. A dedicated "actualizando soporte para
-                        // Uber/DiDi" overlay state can layer on later (owned by the overlay task);
-                        // hiding immediately is the safe default so we never show a stale verdict.
+                        key = null; host = null
                         emit(OverlayVisibility.Hidden)
                     }
                 }
             }
-            .distinctUntilChanged()
-
-    companion object {
-        /** Grace period before hiding on a [OfferEvent.NoCard], to absorb one-frame flicker. */
-        const val DEFAULT_GRACE_MS: Long = 500L
+            .distinctUntilChanged { old, new ->
+                // Refresh measured bounds even when the money is identical. Timestamp-only refreshes
+                // with no geometry still dedupe; measured frames carry their own freshness timestamp.
+                if (old is OverlayVisibility.Showing && new is OverlayVisibility.Showing)
+                    old.offerKey == new.offerKey && old.state == new.state &&
+                        old.event.card.hostGeometry == new.event.card.hostGeometry
+                else old == new
+            }
+            .collect { emit(it) }
     }
+
+    companion object { const val DEFAULT_GRACE_MS: Long = 500L }
 }

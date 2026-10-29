@@ -12,13 +12,13 @@ enum class Capability {
     /** City percentile bars/badges on the metric cards (B-046). */
     BENCHMARKS,
 
-    /** The Uber/DiDi comparison surface (Comparar tab — built next wave; gate hook only for now). */
+    /** The city counterpart; own-app comparison and the driver’s own figures stay free. */
     COMPARE,
 
-    /** Full history beyond the free window (current + previous week). */
+    /** Full history beyond the free window (current week + previous three). */
     HISTORY,
 
-    /** The fiscal / IMSS tracker tab content (B-051). */
+    /** The accountant PDF export; factual IMSS payments are always free (B-051). */
     FISCAL,
 
     /** Advanced recommendations slot (hook for a future wave). */
@@ -109,8 +109,8 @@ data class GateStates(
             val states = Capability.entries.associateWith { cap ->
                 when {
                     bypass -> GateState.UNLOCKED
-                    !premium -> GateState.LOCKED // not paying → the paywall, regardless of verification
                     cap in VERIFICATION_REQUIRED && !driverVerified -> GateState.NEEDS_VERIFICATION
+                    !premium -> GateState.LOCKED
                     else -> GateState.UNLOCKED // premium and (not population-dependent, or verified)
                 }
             }

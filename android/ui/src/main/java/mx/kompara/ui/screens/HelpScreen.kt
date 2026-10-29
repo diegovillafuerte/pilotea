@@ -1,111 +1,75 @@
 package mx.kompara.ui.screens
 
-import androidx.annotation.StringRes
-import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.draw.rotate
+import mx.kompara.ui.R
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
-import mx.kompara.ui.components.KomparaCard
+import mx.kompara.ui.components.*
+import mx.kompara.ui.theme.KomparaTheme
+import mx.kompara.ui.theme.KomparaType
 
-/**
- * Ajustes → "Ayuda" (B-071): the in-app help center — expandable FAQ entries covering the reader,
- * the semáforo, OEM battery kills, data/privacy, and the account. Static content (no network) so
- * it works offline, where a driver mid-shift actually reads it.
- */
+internal data class HelpAnswer(val id: String, val question: String, val lines: List<String>)
+internal val helpAnswers = listOf(
+    HelpAnswer("semaforo", "¿Por qué no me sale el semáforo?", listOf(
+        "Falta el permiso de Accesibilidad: Ajustes › Semáforo › Volver a dar el permiso.",
+        "La batería lo apagó: quita la restricción.",
+        "No cupo en la pantalla (navegación, oferta alta): no tienes que hacer nada; queda en Tu día.",
+        "Lo pausaste: Reanudar el semáforo en Hoy.")),
+    HelpAnswer("colores", "¿Qué significan los colores?", listOf(
+        "Verde: arriba de tu meta.", "Amarillo: cumple tu mínimo.", "Rojo: abajo de tu mínimo.",
+        "Gris: faltó un dato, como la tarifa (te decimos cuál).")),
+    HelpAnswer("lectura", "¿Qué lee Kompara?", listOf(
+        "Lee cada oferta con el permiso de accesibilidad de Android: toma tarifa, distancia y tiempo de una captura de pantalla y la borra.",
+        "Guarda tus cifras en este teléfono, nunca imágenes ni datos del pasajero.",
+        "Manda conteos de lectura (apágalos en Tus datos) y, si tú eliges, totales, tu aporte al promedio, archivos o reportes.")),
+    HelpAnswer("apps", "¿Me pueden bloquear Uber o DiDi?", listOf(
+        "Uber y DiDi no son parte de Kompara y podrían no permitir apps como esta. Kompara nunca toca su app.")),
+    HelpAnswer("precio", "¿Cuánto cuesta?", listOf(
+        "El semáforo, tus límites, tus costos y tus totales son gratis. Consulta el precio de Premium en Tu plan.")),
+)
+
 @Composable
-fun HelpScreen(modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Text(
-            text = stringResource(mx.kompara.ui.R.string.help_title),
-            style = MaterialTheme.typography.headlineSmall,
-        )
-        Text(
-            text = stringResource(mx.kompara.ui.R.string.help_intro),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(8.dp))
-        HELP_ITEMS.forEach { item -> HelpItemCard(item) }
-    }
+fun HelpScreen(modifier: Modifier = Modifier, initialAnswer: String? = null, onBack: (() -> Unit)? = null) {
+    val context = LocalContext.current
+    var failure by rememberSaveable { mutableStateOf<String?>(null) }
+    HelpContent(modifier, initialAnswer, onBack ?: {}, PrivacyLinks.support != null, support = {
+        PrivacyLinks.support?.let { if (!PrivacyLinks.open(context, it)) failure = "No pudimos abrir WhatsApp. Inténtalo otra vez." }
+    }, failure = failure)
 }
 
-private data class HelpItem(
-    @param:StringRes val questionRes: Int,
-    @param:StringRes val answerRes: Int,
-)
-
-private val HELP_ITEMS = listOf(
-    HelpItem(mx.kompara.ui.R.string.help_q_reader, mx.kompara.ui.R.string.help_a_reader),
-    HelpItem(mx.kompara.ui.R.string.help_q_verdict, mx.kompara.ui.R.string.help_a_verdict),
-    HelpItem(mx.kompara.ui.R.string.help_q_battery, mx.kompara.ui.R.string.help_a_battery),
-    HelpItem(mx.kompara.ui.R.string.help_q_privacy, mx.kompara.ui.R.string.help_a_privacy),
-    HelpItem(mx.kompara.ui.R.string.help_q_account, mx.kompara.ui.R.string.help_a_account),
-    HelpItem(mx.kompara.ui.R.string.help_q_price, mx.kompara.ui.R.string.help_a_price),
-    HelpItem(mx.kompara.ui.R.string.help_q_broken, mx.kompara.ui.R.string.help_a_broken),
-)
-
 @Composable
-private fun HelpItemCard(item: HelpItem) {
-    var expanded by remember { mutableStateOf(false) }
-    KomparaCard(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { expanded = !expanded }
-            .animateContentSize(),
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = stringResource(item.questionRes),
-                    style = MaterialTheme.typography.titleSmall,
-                    modifier = Modifier.padding(end = 8.dp),
-                )
-                Icon(
-                    imageVector = if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
-                    contentDescription = null,
-                )
+internal fun HelpContent(modifier: Modifier = Modifier, initialAnswer: String? = null, onBack: () -> Unit = {},
+    supportAvailable: Boolean = false, support: () -> Unit = {}, failure: String? = null) {
+    var expanded by rememberSaveable { mutableStateOf(initialAnswer?.takeIf { id -> helpAnswers.any { it.id == id } }) }
+    ScreenScaffold("Ayuda", modifier, ScreenKind.DRILL, onBack, footer = {
+        if (!supportAvailable) Text("El soporte por WhatsApp aún no está disponible.", Modifier.padding(bottom = 12.dp),
+            style = KomparaType.small, color = KomparaTheme.colors.inkSecondary)
+        PrimaryButton("Escríbenos por WhatsApp", support, enabled = supportAvailable)
+    }) {
+        Spacer(Modifier.height(24.dp))
+        helpAnswers.forEach { answer ->
+            val open = expanded == answer.id
+            Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable { expanded = if (open) null else answer.id }
+                .semantics(mergeDescendants = true) { stateDescription = if (open) "Abierta" else "Cerrada" }
+                .padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(answer.question, Modifier.weight(1f), style = KomparaType.body)
+                DrawnIcon(R.drawable.v3_chev, Modifier.rotate(if (open) -90f else 90f))
             }
-            if (expanded) {
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = stringResource(item.answerRes),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+            if (open) Column(Modifier.padding(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                answer.lines.forEach { Text(it, style = KomparaType.body, color = KomparaTheme.colors.inkSecondary) }
             }
+            Rule()
         }
+        failure?.let { InkNotice(it) }
     }
 }

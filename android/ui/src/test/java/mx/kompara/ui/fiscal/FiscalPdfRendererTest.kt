@@ -17,7 +17,44 @@ import java.io.ByteArrayOutputStream
  * page-sized bitmap. The thin PdfDocument wrapper ([FiscalPdfRenderer.render]) is verified on-device.
  */
 @RunWith(AndroidJUnit4::class)
+@org.robolectric.annotation.Config(sdk = [34])
+@org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
 class FiscalPdfRendererTest {
+    private val renderer get() = FiscalPdfRenderer(androidx.test.core.app.ApplicationProvider.getApplicationContext())
+
+    @Test
+    fun `recorded report renders sources without legacy legal fields and paginates long imports`() {
+        val fixture = mx.kompara.ui.fixtures.MonthFixture(androidx.test.core.app.ApplicationProvider.getApplicationContext())
+        val report = FiscalReportComposer.recorded(fixture.month("E3c"), "Generado hoy")
+        val (bitmap, canvas) = pageCanvas()
+        canvas.drawColor(android.graphics.Color.WHITE)
+        renderer.drawPage(canvas, report)
+        val output = java.io.File("build/outputs/v3-screenshots/month_factual_pdf.png").apply { parentFile!!.mkdirs() }
+        output.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        val long = report.copy(sourceNotes = List(50) { index -> "Resumen $index: " + report.sourceNotes.joinToString(" ") })
+        val pages = renderer.recordedPages(long)
+        assertTrue(pages.size > 1)
+        pages.forEach { page -> assertTrue(FiscalPdfLayout.contentTopY() + 20f + page.sumOf { it.height.toDouble() } <= FiscalPdfLayout.PAGE_HEIGHT - FiscalPdfLayout.MARGIN) }
+        val text = pages.flatten().joinToString(" ") { it.text }
+        assertTrue(text.contains("Resumen 49:"))
+        assertFalse(text.contains("retenciones"))
+        assertFalse(text.contains("cubierto"))
+    }
+
+    @Test fun `failed PDF encoding leaves no private partial file and expiry removes cached exports`() {
+        val h = mx.kompara.ui.export.ExportHarness()
+        org.junit.Assert.assertThrows(java.io.IOException::class.java) {
+            h.cache.write("fiscal_reports", "pdf") { it.write(byteArrayOf(1, 2)); throw java.io.IOException("Disk full") }
+        }
+        assertTrue(java.io.File(h.context.cacheDir, "fiscal_reports").listFiles()!!.isEmpty())
+        // Cache expiry is independent of the encoded format. Actual PdfDocument is instrumented.
+        val uri = h.cache.write("fiscal_reports", "pdf") { it.write(byteArrayOf(1, 2, 3)) }
+        val file = java.io.File(h.context.cacheDir, "fiscal_reports").listFiles()!!.single()
+        file.setLastModified(System.currentTimeMillis() - mx.kompara.ui.export.ExportCache.MAX_AGE_MS)
+        mx.kompara.ui.export.ExportCache.prune(h.context)
+        assertFalse(file.exists())
+        org.junit.Assert.assertThrows(java.io.FileNotFoundException::class.java) { h.provider.openFile(uri, "r") }
+    }
 
     private fun row(label: String) = FiscalReportRow(label, "$10,000.00", "$7,500.00", "$210.00", "$800.00")
 
@@ -50,7 +87,7 @@ class FiscalPdfRendererTest {
     @Test
     fun `full report draws onto a page canvas without crashing`() {
         val (bmp, canvas) = pageCanvas()
-        FiscalPdfRenderer.drawPage(canvas, fullReport())
+        renderer.drawPage(canvas, fullReport())
         assertTrue(bmp.width > 0 && bmp.height > 0)
         assertFalse(bmp.isRecycled)
     }
@@ -64,7 +101,7 @@ class FiscalPdfRendererTest {
             imssCoverageLine = "IMSS: sin actividad registrada este mes.",
         )
         val (bmp, canvas) = pageCanvas()
-        FiscalPdfRenderer.drawPage(canvas, sparse)
+        renderer.drawPage(canvas, sparse)
         assertFalse(bmp.isRecycled)
     }
 
@@ -72,7 +109,7 @@ class FiscalPdfRendererTest {
     fun `empty rows still draws header and footer without crashing`() {
         val noRows = fullReport().copy(rows = emptyList())
         val (_, canvas) = pageCanvas()
-        FiscalPdfRenderer.drawPage(canvas, noRows)
+        renderer.drawPage(canvas, noRows)
     }
 
     /**
@@ -83,7 +120,7 @@ class FiscalPdfRendererTest {
     @Test
     fun `render writes a pdf stream when a native PdfDocument is available`() {
         val out = ByteArrayOutputStream()
-        val produced = runCatching { FiscalPdfRenderer.render(fullReport(), out) }.isSuccess
+        val produced = runCatching { renderer.render(fullReport(), out) }.isSuccess
         if (produced) {
             val bytes = out.toByteArray()
             assertTrue("pdf must have bytes", bytes.isNotEmpty())

@@ -116,5 +116,14 @@ val verifyReadOnlyCapture = tasks.register("verifyReadOnlyCapture") {
 }
 
 subprojects {
+    // Robolectric writes its download lock and Maven cache under user.home. Keep both in the
+    // worktree so JVM tests also run when the real home is read-only (sandbox/CI). This only
+    // changes forked test JVMs; the Gradle daemon and the shell retain their normal home.
+    val testHome = rootProject.layout.projectDirectory.dir(".gradle/test-home").asFile
+    tasks.withType<Test>().configureEach {
+        systemProperty("user.home", testHome.absolutePath)
+        doFirst { testHome.mkdirs() }
+    }
+
     tasks.matching { it.name == "check" }.configureEach { dependsOn(verifyReadOnlyCapture) }
 }

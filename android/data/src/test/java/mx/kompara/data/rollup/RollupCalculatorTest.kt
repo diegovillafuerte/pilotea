@@ -38,7 +38,11 @@ class RollupCalculatorTest {
         durationMin: Double = 0.0,
         platform: String = uber,
     ) = TripEntity(
+        id = startedAt,
         offerId = null,
+        confirmationEvidenceId = if (endedAt != null) "item:$startedAt" else null,
+        confirmationSource = if (endedAt != null) "ITEMIZED_PAYMENT" else null,
+        confirmedAt = endedAt,
         startedAt = startedAt,
         endedAt = endedAt,
         platform = platform,
@@ -67,7 +71,7 @@ class RollupCalculatorTest {
             offer(at(2026, 6, 11, 12), OfferOutcome.DECLINED),
         )
 
-        val result = calc().rollup(trips, shifts, offers, computedAt = 0L)
+        val result = calc().rollup(trips, shifts, offers, computedAt = at(2026, 6, 30, 23))
         val week = result.weekly.single()
 
         assertEquals("2026-06-08", week.weekStart) // Monday
@@ -92,7 +96,7 @@ class RollupCalculatorTest {
         val sundayTrip = trip(at(2026, 6, 14, 23), at(2026, 6, 14, 23, 30), gross = 50.0, km = 5.0)
         val mondayTrip = trip(at(2026, 6, 15, 1), at(2026, 6, 15, 2), gross = 70.0, km = 7.0)
 
-        val result = calc().rollup(listOf(sundayTrip, mondayTrip), emptyList(), emptyList(), 0L)
+        val result = calc().rollup(listOf(sundayTrip, mondayTrip), emptyList(), emptyList(), at(2026, 6, 30, 23))
         val byWeek = result.weekly.associateBy { it.weekStart }
 
         assertTrue("Sunday's week should start 2026-06-08", byWeek.containsKey("2026-06-08"))
@@ -107,7 +111,7 @@ class RollupCalculatorTest {
             trip(at(2026, 6, 10, 9), at(2026, 6, 10, 10), gross = 100.0, km = 10.0),
             trip(at(2026, 6, 11, 9), at(2026, 6, 11, 10), gross = 200.0, km = 20.0),
         )
-        val result = calc().rollup(trips, emptyList(), emptyList(), 0L)
+        val result = calc().rollup(trips, emptyList(), emptyList(), at(2026, 6, 30, 23))
         val byDay = result.daily.associateBy { it.day }
         assertEquals(2, byDay.size)
         assertEquals(100.0, byDay.getValue("2026-06-10").grossEarningsMxn, 1e-9)
@@ -124,7 +128,7 @@ class RollupCalculatorTest {
             offer(at(2026, 6, 10, 9), OfferOutcome.PENDING), // pending ⇒ not counted
             offer(at(2026, 6, 10, 11), OfferOutcome.ACCEPTED),
         )
-        val result = calc().rollup(trips, emptyList(), offers, 0L)
+        val result = calc().rollup(trips, emptyList(), offers, at(2026, 6, 30, 23))
         val day = result.daily.single()
         assertEquals(1, day.totalTrips)
         assertEquals(80.0, day.grossEarningsMxn, 1e-9)
@@ -139,7 +143,7 @@ class RollupCalculatorTest {
             offer(at(2026, 6, 10, 9, 5), OfferOutcome.DECLINED),
             offer(at(2026, 6, 10, 9, 6), OfferOutcome.EXPIRED),
         )
-        val result = calc().rollup(trips, emptyList(), offers, 0L)
+        val result = calc().rollup(trips, emptyList(), offers, at(2026, 6, 30, 23))
         val day = result.daily.single()
         assertEquals(100.0, day.grossEarningsMxn, 1e-9) // declined/expired add no earnings
         assertEquals(1, day.totalTrips)
@@ -150,7 +154,7 @@ class RollupCalculatorTest {
     fun `rates are null when their denominator is zero`() {
         // A completed trip with zero km, no shift hours.
         val trips = listOf(trip(at(2026, 6, 10, 9), at(2026, 6, 10, 10), gross = 0.0, km = 0.0))
-        val result = calc().rollup(trips, emptyList(), emptyList(), 0L)
+        val result = calc().rollup(trips, emptyList(), emptyList(), at(2026, 6, 30, 23))
         val day = result.daily.single()
         assertNull(day.earningsPerKm) // km == 0
         assertNull(day.earningsPerHour) // hours == 0
@@ -167,10 +171,40 @@ class RollupCalculatorTest {
             trip(at(2026, 6, 11, 1), at(2026, 6, 11, 1, 30), gross = 10.0, km = 1.0),
         )
         val shift = ShiftEntity(startedAt = at(2026, 6, 10, 22), endedAt = at(2026, 6, 11, 2))
-        val result = calc().rollup(trips, listOf(shift), emptyList(), 0L)
+        val result = calc().rollup(trips, listOf(shift), emptyList(), at(2026, 6, 30, 23))
         val byDay = result.daily.associateBy { it.day }
         assertEquals(2.0, byDay.getValue("2026-06-10").hoursOnline, 1e-9)
         assertEquals(2.0, byDay.getValue("2026-06-11").hoursOnline, 1e-9)
+    }
+
+    @Test
+    fun `accepted linked open trip contributes once and shifts stop at as of`() {
+        val now = at(2026, 6, 10, 10)
+        val accepted = offer(at(2026, 6, 10, 9), OfferOutcome.ACCEPTED).copy(id = 12)
+        val open = trip(accepted.seenAt, null, 100.0, 10.0).copy(id = 1, offerId = 12)
+        val shift = ShiftEntity(startedAt = at(2026, 6, 10, 8))
+        val day = calc().rollup(listOf(open, open), listOf(shift, shift), listOf(accepted), now).daily.single()
+        assertEquals(1, day.totalTrips)
+        assertEquals(80.0, day.netEarningsMxn, 1e-9)
+        assertEquals(2.0, day.hoursOnline, 1e-9)
+        assertTrue(day.runningCostKnown)
+    }
+
+    @Test
+    fun `dated costs preserve earlier contribution and mark unknown legacy cost`() {
+        val changedAt = at(2026, 6, 11, 0)
+        val version = mx.kompara.data.accounting.RunningCostVersion(1, changedAt, changedAt,
+            mx.kompara.data.accounting.RunningCostInputs(mx.kompara.data.accounting.RunningCostMode.DIRECT,
+                directPerKm = java.math.BigDecimal("3")), mx.kompara.data.accounting.CostConfirmation.CONFIRMED)
+        val dated = RollupCalculator(zone, mx.kompara.data.accounting.CostSchedule(listOf(version)))
+        val rows = dated.rollup(listOf(
+            trip(at(2026, 6, 10, 9), at(2026, 6, 10, 10), 100.0, 10.0),
+            trip(at(2026, 6, 11, 9), at(2026, 6, 11, 10), 100.0, 10.0)
+        ), emptyList(), emptyList(), at(2026, 6, 12, 0)).daily.associateBy { it.day }
+        assertTrue(!rows.getValue("2026-06-10").runningCostKnown)
+        assertNull(rows.getValue("2026-06-10").earningsPerKm)
+        assertEquals("70.0", rows.getValue("2026-06-11").contributionDecimal)
+        assertEquals("1", rows.getValue("2026-06-11").costVersionIds)
     }
 
     private fun offer(seenAt: Long, outcome: OfferOutcome, platform: String = uber) = OfferEntity(

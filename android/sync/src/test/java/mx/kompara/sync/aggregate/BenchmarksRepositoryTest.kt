@@ -10,6 +10,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -97,6 +98,40 @@ class BenchmarksRepositoryTest {
         isSynthetic = synthetic,
         fetchedAt = fetchedAt,
     )
+
+    @Test fun `cancelled refresh stops before querying or requesting another cell`() = runTest {
+        val entered = kotlinx.coroutines.CompletableDeferred<Unit>()
+        var requests = 0
+        val http = HttpClient(MockEngine { requests++; entered.complete(Unit); kotlinx.coroutines.awaitCancellation() })
+        val repo = BenchmarksRepository(FakePopulationStatDao(), ApiClient(http, "http://test.local", { null }, { "test" }))
+        var completed = false
+        val work = kotlinx.coroutines.CoroutineScope(coroutineContext).launch {
+            repo.refresh(City.CDMX)
+            completed = true
+        }
+        entered.await()
+        work.cancel(); work.join()
+        assertFalse(completed)
+        assertEquals(1, requests)
+        http.close()
+    }
+
+    @Test fun `v3 rejects real and synthetic legacy cache even offline without certification`() = runTest {
+        val dao = FakePopulationStatDao().apply {
+            rows += cachedRow("cdmx", "uber", 45.0, 0, synthetic = false)
+            rows += cachedRow("cdmx", "didi", 44.0, 0, synthetic = true)
+        }
+        val repo = BenchmarksRepository(dao, api(intArrayOf(0)) { "" to HttpStatusCode.ServiceUnavailable }, fixedClock(999999999))
+        assertTrue(repo.observeComparisonCohorts(City.CDMX).first().isEmpty())
+        assertEquals(BenchmarksRepository.RefreshResult.FAILED, repo.refresh(City.CDMX))
+        assertTrue(repo.observeComparisonCohorts(City.CDMX).first().isEmpty())
+        assertEquals(2, repo.observe(City.CDMX).first().size)
+    }
+
+    @Test fun `v3 contribution never activates legacy captured uploads regardless of opt in`() {
+        assertFalse(StatementContributionContract.canUpload(false))
+        assertFalse(StatementContributionContract.canUpload(true))
+    }
 
     @Test
     fun `first fetch caches benchmarks and exposes them as domain models`() = runTest {

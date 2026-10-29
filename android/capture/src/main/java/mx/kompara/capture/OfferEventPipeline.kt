@@ -49,6 +49,8 @@ class OfferEventPipeline @Inject constructor(
      * has collected anything from the OTA provider, and as the bundled-fallback when no remote
      * cache is available.
      */
+    private val sessions = mx.kompara.parsers.model.OfferSessionTracker()
+
     @Volatile
     private var loaded: LoadedSpecs = LoadedSpecs.bundled(BundledSpecs.load())
 
@@ -70,7 +72,19 @@ class OfferEventPipeline @Inject constructor(
     /** Run a single already-captured snapshot through the spec engine. Exposed for the service/tests. */
     fun process(snapshot: ScreenSnapshot): OfferEvent = toOfferEvent(snapshot)
 
+    private val recentEvents = LinkedHashMap<ScreenSnapshot, Pair<LoadedSpecs, OfferEvent>>()
+
+    @Synchronized
     private fun toOfferEvent(snapshot: ScreenSnapshot): OfferEvent {
+        val current = loaded
+        recentEvents[snapshot]?.takeIf { it.first === current }?.let { return it.second }
+        val event = classifySnapshot(snapshot)
+        recentEvents[snapshot] = current to event
+        if (recentEvents.size > 16) recentEvents.remove(recentEvents.keys.first())
+        return event
+    }
+
+    private fun classifySnapshot(snapshot: ScreenSnapshot): OfferEvent {
         val current = loaded
         // A remotely kill-switched platform: recognized, but deliberately turned off.
         if (current.isDisabled(snapshot.packageName)) {
@@ -93,6 +107,7 @@ class OfferEventPipeline @Inject constructor(
         }
         val card = engine.evaluate(parser, spec)
         if (card == null) {
+            sessions.missing(snapshot.timestampMs)
             recorder.record(parser, "NOT_AN_OFFER")
             return OfferEvent.NoCard(
                 packageName = snapshot.packageName,
@@ -104,7 +119,7 @@ class OfferEventPipeline @Inject constructor(
         return OfferEvent.Parsed(
             packageName = snapshot.packageName,
             timestampMs = snapshot.timestampMs,
-            card = card,
+            card = sessions.parsed(card, snapshot.timestampMs),
         )
     }
 }

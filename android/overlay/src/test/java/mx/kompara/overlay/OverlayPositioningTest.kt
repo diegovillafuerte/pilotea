@@ -1,136 +1,144 @@
 package mx.kompara.overlay
 
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
+import mx.kompara.parsers.model.*
+import org.junit.Assert.*
 import org.junit.Test
+import kotlin.math.roundToInt
+import kotlin.random.Random
 
-/**
- * Exhaustive math for clamping, the bottom safe zone, and snap-to-edge. A 1080x1920 portrait screen
- * stands in for a typical phone; the chip is 360x280 px.
- */
+/** Coordinates measured from the reference renders are TEST inputs only. */
 class OverlayPositioningTest {
+    private val full = ChipSize(480, 224)
+    private val compact = ChipSize(480, 160)
+    private val viewport = OverlayViewport(HostRect(0, 0, 786, 1704), 2f, HostOrientation.PORTRAIT)
+    private fun rect(l: Double, t: Double, r: Double, b: Double) = HostRect((l*2).toInt(), (t*2).toInt(), (r*2).toInt(), (b*2).toInt())
+    private fun marker(kind: MapMarkerKind, l: Double, t: Double, r: Double, b: Double) = MapMarker(kind, rect(l,t,r,b))
+    private fun geometry(top: Int = 545, chrome: Int = 128, markers: List<MapMarker> = emptyList(), nav: Boolean = false) =
+        HostGeometry("uber", "test-only", 1000, viewport.bounds, viewport.orientation,
+            HostRect(0, 80*2, 786, chrome*2), HostRect(0, top*2, 786, 1676),
+            listOf(HostRect(40, 1500, 746, 1620)), markers, nav)
+    private fun place(g: HostGeometry, saved: OverlayPosition? = null) =
+        OverlayPositioning.place(g, "uber", viewport, 1000, full, compact, saved)
+    private fun shown(g: HostGeometry) = place(g) as OverlayPlacement.Displayed
 
-    private val screenW = 1080
-    private val screenH = 1920
-    private val chipW = 360
-    private val chipH = 280
-
-    @Test
-    fun `bottom safe zone is the lower 25 percent of the screen`() {
-        // 1920 * 0.75 = 1440 -> everything at/below 1440 is reserved.
-        assertEquals(1440, OverlayPositioning.bottomSafeZoneTop(screenH))
+    @Test fun `C1 and N8 N9 N10 share the measured right foot independent of colour`() {
+        assertEquals(OverlayPosition(282, 834), shown(geometry()).position)
+        assertEquals(PlateFormat.FULL, shown(geometry()).format)
     }
-
-    @Test
-    fun `clamp keeps the chip bottom out of the safe zone`() {
-        val clamped = OverlayPositioning.clamp(
-            OverlayPosition(x = 100, y = 1800), // way down into the safe zone
-            screenW, screenH, chipW, chipH,
-        )
-        // bottom edge must not pass 1440
-        assertTrue("chip bottom intrudes into safe zone", clamped.y + chipH <= 1440)
-        assertEquals(1440 - chipH, clamped.y)
+    @Test fun `C8 clears the pin outer stroke and destination by moving higher left`() {
+        val g = geometry(top = 316, markers = listOf(
+            marker(MapMarkerKind.PICKUP, 188.5,275.5,205.5,292.5),
+            marker(MapMarkerKind.DESTINATION,321.0,147.0,339.0,165.0)))
+        assertEquals(OverlayPosition(24, 295), shown(g).position)
+        assertEquals(PlateFormat.FULL, shown(g).format)
     }
-
-    @Test
-    fun `clamp keeps the chip on screen horizontally and below the top inset`() {
-        val offRight = OverlayPositioning.clamp(OverlayPosition(5000, 0), screenW, screenH, chipW, chipH)
-        assertEquals(screenW - chipW, offRight.x)
-        assertEquals(OverlayPositioning.TOP_INSET_PX, offRight.y)
-
-        val offLeft = OverlayPositioning.clamp(OverlayPosition(-200, -200), screenW, screenH, chipW, chipH)
-        assertEquals(0, offLeft.x)
-        assertEquals(OverlayPositioning.TOP_INSET_PX, offLeft.y)
+    @Test fun `C9 next manoeuvre forces higher right past the destination`() {
+        val g = geometry(chrome = 180, nav = true, markers = listOf(
+            marker(MapMarkerKind.DRIVER,77.0,489.0,115.0,527.0),
+            marker(MapMarkerKind.NEXT_MANOEUVRE,196.5,482.0,224.5,511.5),
+            marker(MapMarkerKind.DESTINATION,321.0,371.0,339.0,389.0)))
+        assertEquals(OverlayPosition(282, 486), shown(g).position)
     }
-
-    @Test
-    fun `edgeFor picks the nearer side by chip centre`() {
-        assertEquals(SnapEdge.LEFT, OverlayPositioning.edgeFor(OverlayPosition(10, 0), screenW, chipW))
-        assertEquals(SnapEdge.RIGHT, OverlayPositioning.edgeFor(OverlayPosition(900, 0), screenW, chipW))
+    @Test fun `C10 font growth keeps external margins fixed and rechecks horizontal fit`() {
+        val v = OverlayViewport(HostRect(0,0,1965,4260), 5f, HostOrientation.PORTRAIT)
+        val g = HostGeometry("uber", "test", 1000, v.bounds,v.orientation,
+            HostRect(0,400,1965,640), HostRect(0,2345,1965,4190),
+            listOf(HostRect(100,3700,1865,4080)), emptyList())
+        val p = OverlayPositioning.place(g,"uber",v,1000,ChipSize(1560,728),ChipSize(1560,520)) as OverlayPlacement.Displayed
+        assertEquals(OverlayPosition(345,1537),p.position) // x69, y307.4; bottom453
+        assertEquals(PlateFormat.FULL,p.format)
+        val huge = OverlayPositioning.place(g,"uber",v,1000,ChipSize(2400,1120),ChipSize(2400,800))
+        assertTrue(huge is OverlayPlacement.Suppressed)
     }
-
-    @Test
-    fun `snapToEdge pins to left or right flush with the margin`() {
-        val snappedLeft = OverlayPositioning.snapToEdge(OverlayPosition(50, 300), screenW, screenH, chipW, chipH)
-        assertEquals(OverlayPositioning.EDGE_MARGIN_PX, snappedLeft.x)
-
-        val snappedRight = OverlayPositioning.snapToEdge(OverlayPosition(800, 300), screenW, screenH, chipW, chipH)
-        assertEquals(screenW - chipW - OverlayPositioning.EDGE_MARGIN_PX, snappedRight.x)
+    @Test fun `C11 measured 80dp band suppresses rather than clamping onto a control`() {
+        assertEquals(OverlayPlacement.Suppressed("NAVIGATION"), place(geometry(260,180,nav=true)))
     }
-
-    @Test
-    fun `snapToEdge also enforces the bottom safe zone`() {
-        val snapped = OverlayPositioning.snapToEdge(OverlayPosition(800, 1900), screenW, screenH, chipW, chipH)
-        assertTrue(snapped.y + chipH <= 1440)
+    @Test fun `C12 full cannot clear puck ring but compact foot can`() {
+        val g = geometry(342, markers=listOf(marker(MapMarkerKind.DRIVER,159.0,153.0,233.0,227.0)))
+        val p = shown(g)
+        assertEquals(PlateFormat.COMPACT,p.format)
+        assertEquals(OverlayPosition(282,492),p.position)
+        assertFalse(p.overMarker)
+        val grown = OverlayPositioning.place(g,"uber",viewport,1000,ChipSize(624,291),ChipSize(624,208)) as OverlayPlacement.Displayed
+        assertEquals(PlateFormat.COMPACT,grown.format)
+        assertTrue(grown.overMarker)
+        assertEquals(OverlayPosition(138,444),grown.position)
     }
-
-    @Test
-    fun `default position is top-right inside the safe area`() {
-        val def = OverlayPositioning.defaultPosition(screenW, screenH, chipW, chipH)
-        assertEquals(screenW - chipW - OverlayPositioning.EDGE_MARGIN_PX, def.x)
-        assertEquals(OverlayPositioning.TOP_INSET_PX, def.y)
-        assertTrue(def.y + chipH <= 1440)
+    @Test fun `144 and 112dp boundaries are inclusive and one pixel below switches or suppresses`() {
+        for (band in listOf(288,287,224,223)) {
+            val g=geometry().copy(offerCard=HostRect(0,256+band,786,1676))
+            val p=place(g)
+            when(band) {
+                288 -> assertEquals(PlateFormat.FULL,(p as OverlayPlacement.Displayed).format)
+                287,224 -> assertEquals(PlateFormat.COMPACT,(p as OverlayPlacement.Displayed).format)
+                223 -> assertTrue(p is OverlayPlacement.Suppressed)
+            }
+        }
     }
-
-    // --- avoid(): keep the chip off the offer's fare (the OCR-occlusion blink fix) ---
-    // Real Galaxy S25 geometry from the captured session: 1080x2340, measured chip ~530x340, and the
-    // fare+leg block union at top=785..bottom=1590.
-    private val s25W = 1080
-    private val s25H = 2340
-    private val s25ChipW = 530
-    private val s25ChipH = 340
-    private val fareContent = ContentRect(left = 103, top = 785, right = 769, bottom = 1590)
-
-    private fun overlapsContent(p: OverlayPosition, c: ContentRect) =
-        p.x < c.right && p.x + s25ChipW > c.left && p.y < c.bottom && p.y + s25ChipH > c.top
-
-    @Test
-    fun `avoid leaves the collision-free top-right default unchanged`() {
-        // The clean-install default (y=48) sits above the fare (785), so a fresh chip never blinks.
-        val def = OverlayPositioning.defaultPosition(s25W, s25H, s25ChipW, s25ChipH)
-        assertEquals(def, OverlayPositioning.avoid(def, fareContent, s25W, s25H, s25ChipW, s25ChipH))
+    @Test fun `marker alone never suppresses while protected controls always win`() {
+        val g=geometry(markers=listOf(marker(MapMarkerKind.DRIVER,0.0,128.0,393.0,545.0)))
+        assertTrue(shown(g).overMarker)
+        assertEquals(PlateFormat.COMPACT,shown(g).format)
+        assertTrue(place(g.copy(protectedControls=g.protectedControls + rect(0.0,128.0,393.0,545.0))) is OverlayPlacement.Suppressed)
     }
-
-    @Test
-    fun `avoid lifts a chip parked on the fare above it, keeping the driver's side`() {
-        val blinkRect = OverlayPosition(x = 550, y = 913) // the exact on-device blink position
-        val resolved = OverlayPositioning.avoid(blinkRect, fareContent, s25W, s25H, s25ChipW, s25ChipH)
-        assertEquals(550, resolved.x) // x (the driver's chosen side) is preserved
-        assertTrue("lifted chip must clear the fare", !overlapsContent(resolved, fareContent))
-        assertTrue("chip is lifted ABOVE the fare", resolved.y < fareContent.top)
+    @Test fun `right foot then left foot before higher slots`() {
+        val g=geometry(markers=listOf(marker(MapMarkerKind.DESTINATION,340.0,480.0,360.0,500.0)))
+        assertEquals(OverlayPosition(24,834),shown(g).position)
     }
-
-    @Test
-    fun `avoid is a no-op when content bounds are null`() {
-        val p = OverlayPosition(550, 913)
-        assertEquals(p, OverlayPositioning.avoid(p, null, s25W, s25H, s25ChipW, s25ChipH))
+    @Test fun `saved drag is restored only if valid for this frame and plate size`() {
+        val g=geometry()
+        val saved=OverlayPosition(24,320)
+        assertEquals(saved,(place(g,saved) as OverlayPlacement.Displayed).position)
+        assertEquals(shown(g).position,(place(g,OverlayPosition(900,1600)) as OverlayPlacement.Displayed).position)
+        val tall=geometry(260,180,nav=true)
+        assertTrue(place(tall,saved) is OverlayPlacement.Suppressed)
     }
-
-    @Test
-    fun `avoided position never lands in the bottom safe zone`() {
-        val resolved = OverlayPositioning.avoid(OverlayPosition(550, 913), fareContent, s25W, s25H, s25ChipW, s25ChipH)
-        assertTrue(resolved.y + s25ChipH <= OverlayPositioning.bottomSafeZoneTop(s25H))
+    @Test fun `drag rejects card chrome protected controls markers and offscreen proposals`() {
+        val g=geometry(markers=listOf(marker(MapMarkerKind.DRIVER,180.0,200.0,220.0,240.0)))
+        val current=shown(g)
+        for(p in listOf(OverlayPosition(-1,300),OverlayPosition(24,0),OverlayPosition(24,1300),OverlayPosition(24,400)))
+            assertEquals(current.position,OverlayPositioning.drag(current,p,g,viewport))
+        assertEquals(OverlayPosition(24,650),OverlayPositioning.drag(current,OverlayPosition(24,650),g,viewport))
     }
-
-    @Test
-    fun `avoid lifts a chip parked in the card body BELOW the fare above it (never below)`() {
-        // The on-device flicker: the chip sits below the fare but still inside the tall card (over a
-        // leg). Our old "no overlap with the fare+leg union -> leave it" left it there to occlude a
-        // leg every other frame. It must now be lifted ABOVE the content — never dropped below.
-        val parkedLow = OverlayPosition(x = 550, y = 1300) // below the fare (785), in the card body
-        val resolved = OverlayPositioning.avoid(parkedLow, fareContent, s25W, s25H, s25ChipW, s25ChipH)
-        assertEquals(550, resolved.x) // driver's side kept
-        assertTrue("chip is lifted ABOVE the fare", resolved.y + s25ChipH <= fareContent.top)
-        assertTrue("never parked in/below the card body", resolved.y < fareContent.top)
+    @Test fun `snap uses nearer edge only when that edge remains safe`() {
+        val g=geometry(markers=listOf(marker(MapMarkerKind.DESTINATION,380.0,480.0,390.0,500.0)))
+        val p=OverlayPlacement.Displayed(OverlayPosition(240,834),full,PlateFormat.FULL)
+        assertTrue(OverlayPositioning.valid(p.position,full,g,viewport))
+        assertEquals(p.position,OverlayPositioning.snapToEdge(p,g,viewport))
+        assertEquals(OverlayPosition(24,834),OverlayPositioning.snapToEdge(p.copy(position=OverlayPosition(80,834)),g,viewport))
     }
-
-    @Test
-    fun `avoid clamps to the top inset when the fare sits too high to clear above it`() {
-        // Pathological: fare pushed near the top (top=200) so even a fully-lifted chip can't clear it
-        // above the inset. clamp() docks it at the top inset — the least-bad slot, chip still shown.
-        // Real cards render the fare well down the screen (~785), so this branch is never hit live.
-        val highContent = ContentRect(left = 103, top = 200, right = 769, bottom = 1000)
-        val resolved = OverlayPositioning.avoid(OverlayPosition(550, 500), highContent, s25W, s25H, s25ChipW, s25ChipH)
-        assertEquals(OverlayPositioning.TOP_INSET_PX, resolved.y)
+    @Test fun `unknown host stale future rotated or resized bounds are unsupported not no room`() {
+        assertEquals("UNVALIDATED_GEOMETRY",(OverlayPositioning.place(null,"uber",viewport,1000,full,compact) as OverlayPlacement.Unsupported).cause)
+        for (g in listOf(geometry().copy(packageName="didi"),geometry().copy(capturedAtMs=-1),geometry().copy(capturedAtMs=1001),
+            geometry().copy(orientation=HostOrientation.LANDSCAPE),geometry().copy(displayBounds=HostRect(0,0,1000,786))))
+            assertTrue(place(g) is OverlayPlacement.Unsupported)
+    }
+    @Test fun `display origin density cutout and Back strips are respected in landscape`() {
+        val v=OverlayViewport(HostRect(50,20,1754,806),2f,HostOrientation.LANDSCAPE,
+            OverlayInsets(left=70,top=25,right=20),OverlayInsets(left=90,right=60))
+        val g=HostGeometry("uber","test",1000,v.bounds,v.orientation,
+            HostRect(100,50,1600,100),HostRect(50,650,1754,806),listOf(HostRect(100,700,1650,780)),emptyList())
+        val p=OverlayPositioning.place(g,"uber",v,1000,full,compact) as OverlayPlacement.Displayed
+        assertEquals(1694,p.position.x+full.width)
+        assertEquals(OverlayPosition(p.position.x-50,p.position.y-45),p.position.inWindow(OverlayPosition(50,45)))
+    }
+    @Test fun `random measured layouts never intersect controls or card and marker fallback remains compact`() {
+        val random=Random(5)
+        repeat(1500) {
+            val cardTop=random.nextInt(150,750)*2
+            val chrome=random.nextInt(40,cardTop/2)*2
+            val g=geometry().copy(topChrome=HostRect(0,0,786,chrome),offerCard=HostRect(0,cardTop,786,1704),
+                protectedControls=listOf(HostRect(20,cardTop,766,1704)),
+                markers=listOf(MapMarker(MapMarkerKind.PICKUP,HostRect(200,chrome,400,minOf(chrome+80,1704)))))
+            val scale=random.nextDouble(.8,2.0)
+            val f=ChipSize((480*scale).roundToInt(),(224*scale).roundToInt())
+            val c=ChipSize((480*scale).roundToInt(),(160*scale).roundToInt())
+            val p=OverlayPositioning.place(g,"uber",viewport,1000,f,c)
+            if(p is OverlayPlacement.Displayed) {
+                assertTrue(OverlayPositioning.valid(p.position,p.size,g,viewport,p.overMarker))
+                assertFalse(p.position.bounds(p.size).overlaps(g.offerCard))
+                if(p.overMarker) assertEquals(PlateFormat.COMPACT,p.format)
+            }
+        }
     }
 }

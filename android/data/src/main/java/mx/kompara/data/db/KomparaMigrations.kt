@@ -124,6 +124,70 @@ object KomparaMigrations {
      */
     const val UPTIME_ARTIFACT_CUTOFF_MS: Long = 1_000_000_000_000L
 
+    /** v5: retain the singleton as migration evidence; never infer a car amount/start date. */
+    val MIGRATION_4_5 = object : Migration(4, 5) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("""CREATE TABLE IF NOT EXISTS `running_cost_versions` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `effectiveFrom` INTEGER NOT NULL, `recordedAt` INTEGER NOT NULL,
+                `mode` TEXT NOT NULL, `confirmation` TEXT NOT NULL, `confirmedAt` INTEGER,
+                `wearPerKm` TEXT NOT NULL, `fuelPricePerLitre` TEXT, `kmPerLitre` TEXT,
+                `kwhPer100Km` TEXT, `pricePerKwh` TEXT, `directPerKm` TEXT)""")
+            db.execSQL("""CREATE TABLE IF NOT EXISTS `car_cost_versions` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `effectiveFrom` TEXT NOT NULL, `weeklyMxn` TEXT, `recordedAt` INTEGER NOT NULL)""")
+            for (table in listOf("daily_aggregates", "weekly_aggregates")) {
+                db.execSQL("ALTER TABLE `$table` ADD COLUMN `runningCostKnown` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `$table` ADD COLUMN `runningExpenseDecimal` TEXT")
+                db.execSQL("ALTER TABLE `$table` ADD COLUMN `contributionDecimal` TEXT")
+                db.execSQL("ALTER TABLE `$table` ADD COLUMN `costVersionIds` TEXT")
+            }
+            // Only the saved edit time is known. Earlier history has no attributable version.
+            // LEGACY preserves the old resolved fuel rule; it cannot prove gas vs EV mode.
+            db.execSQL("""INSERT INTO running_cost_versions
+                (effectiveFrom, recordedAt, mode, confirmation, confirmedAt, wearPerKm,
+                 fuelPricePerLitre, kmPerLitre, kwhPer100Km, pricePerKwh, directPerKm)
+                SELECT updatedAt, updatedAt, 'LEGACY', 'LEGACY_CONFIRMED', updatedAt,
+                    CAST(maintenancePerKmMxn AS TEXT), CAST(gasPricePerLitreMxn AS TEXT),
+                    CAST(rendimientoKmPerLitre AS TEXT), NULL, NULL,
+                    CAST(CASE WHEN fuelPerKmMxn > 0 THEN fuelPerKmMxn
+                        WHEN rendimientoKmPerLitre > 0 THEN gasPricePerLitreMxn / rendimientoKmPerLitre
+                        ELSE fuelPerKmMxn END AS TEXT)
+                FROM cost_profile WHERE id = 1""")
+        }
+    }
+
+    /** v6 preserves legacy zeros/verdicts verbatim, without inventing missing fields or limits. */
+    val MIGRATION_5_6 = object : Migration(5, 6) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("""CREATE TABLE IF NOT EXISTS `offers_v6` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `seenAt` INTEGER NOT NULL, `platform` TEXT NOT NULL, `fareMxn` REAL, `distanceKm` REAL, `durationMin` REAL, `pickupKm` REAL, `surge` INTEGER NOT NULL, `verdict` TEXT, `accepted` INTEGER NOT NULL, `outcome` TEXT NOT NULL, `resolvedAt` INTEGER, `shiftId` INTEGER, `sessionId` TEXT, `lastSeenAt` INTEGER NOT NULL, `tripKm` REAL, `pickupMin` REAL, `tripMin` REAL, `paymentBasis` TEXT NOT NULL, `inputProvenance` TEXT NOT NULL, `evaluation_evaluatedAt` INTEGER, `evaluation_unit` TEXT, `evaluation_goal` TEXT, `evaluation_minimum` TEXT, `evaluation_costVersionId` INTEGER, `evaluation_source` TEXT, `evaluation_paymentBasis` TEXT, `evaluation_contribution` TEXT, `evaluation_perKm` TEXT, `evaluation_perHour` TEXT, `evaluation_unavailableReason` TEXT)""")
+            db.execSQL("""INSERT INTO offers_v6 (`id`, `seenAt`, `platform`, `fareMxn`, `distanceKm`, `durationMin`, `pickupKm`, `surge`, `verdict`, `accepted`, `outcome`, `resolvedAt`, `shiftId`, `sessionId`, `lastSeenAt`, `tripKm`, `pickupMin`, `tripMin`, `paymentBasis`, `inputProvenance`, `evaluation_evaluatedAt`, `evaluation_unit`, `evaluation_goal`, `evaluation_minimum`, `evaluation_costVersionId`, `evaluation_source`, `evaluation_paymentBasis`, `evaluation_contribution`, `evaluation_perKm`, `evaluation_perHour`, `evaluation_unavailableReason`) SELECT `id`, `seenAt`, `platform`, `fareMxn`, `distanceKm`, `durationMin`, `pickupKm`, `surge`, `verdict`, `accepted`, `outcome`, `resolvedAt`, `shiftId`, NULL, seenAt, NULL, NULL, NULL, 'UNCONFIRMED', 'LEGACY_UNSPECIFIED', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL FROM offers""")
+            db.execSQL("DROP TABLE `offers`")
+            db.execSQL("ALTER TABLE `offers_v6` RENAME TO `offers`")
+            db.execSQL("""CREATE TABLE IF NOT EXISTS `trips_v6` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `offerId` INTEGER, `shiftId` INTEGER, `startedAt` INTEGER NOT NULL, `endedAt` INTEGER, `platform` TEXT NOT NULL, `grossMxn` REAL, `distanceKm` REAL, `durationMin` REAL, `estimated` INTEGER NOT NULL, `lifecycle` TEXT NOT NULL, `lastObservedAt` INTEGER NOT NULL, `paymentBasis` TEXT NOT NULL, `inputProvenance` TEXT NOT NULL, `confirmationEvidenceId` TEXT, `confirmationSource` TEXT, `confirmedAt` INTEGER, `cancellationSource` TEXT)""")
+            db.execSQL("""INSERT INTO trips_v6 (`id`, `offerId`, `shiftId`, `startedAt`, `endedAt`, `platform`, `grossMxn`, `distanceKm`, `durationMin`, `estimated`, `lifecycle`, `lastObservedAt`, `paymentBasis`, `inputProvenance`, `confirmationEvidenceId`, `confirmationSource`, `confirmedAt`, `cancellationSource`) SELECT `id`, `offerId`, `shiftId`, `startedAt`, `endedAt`, `platform`, `grossMxn`, `distanceKm`, `durationMin`, `estimated`, CASE WHEN offerId IS NULL OR (grossMxn = 0 AND distanceKm = 0 AND durationMin = 0) THEN 'UNKNOWN' WHEN endedAt IS NULL THEN 'IN_PROGRESS' ELSE 'FINISHED' END, COALESCE(endedAt, startedAt), 'UNCONFIRMED', 'LEGACY_UNSPECIFIED', NULL, NULL, NULL, NULL FROM trips""")
+            db.execSQL("DROP TABLE `trips`")
+            db.execSQL("ALTER TABLE `trips_v6` RENAME TO `trips`")
+            db.execSQL("CREATE UNIQUE INDEX index_offers_sessionId ON offers(sessionId)")
+            db.execSQL("CREATE TABLE IF NOT EXISTS offer_presentations (sessionId TEXT NOT NULL PRIMARY KEY, outcome TEXT NOT NULL, recordedAt INTEGER NOT NULL, cause TEXT)")
+        }
+    }
+
     /** All migrations, in order — wired into the Room builder in DatabaseModule. */
-    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+    val MIGRATION_6_7 = object : Migration(6, 7) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE running_cost_versions ADD COLUMN correctsVersionId INTEGER")
+        }
+    }
+
+    val MIGRATION_7_8 = object : Migration(7, 8) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("CREATE TABLE IF NOT EXISTS import_drafts (id TEXT NOT NULL PRIMARY KEY, platform TEXT NOT NULL, uploadType TEXT NOT NULL, createdAt INTEGER NOT NULL, consentAt INTEGER, previewJson TEXT, correctionJson TEXT, stage TEXT NOT NULL, error TEXT, parentId TEXT)")
+            db.execSQL("CREATE TABLE IF NOT EXISTS import_files (draftId TEXT NOT NULL, position INTEGER NOT NULL, name TEXT NOT NULL, mime TEXT NOT NULL, bytes BLOB NOT NULL, PRIMARY KEY(draftId, position))")
+            db.execSQL("CREATE TABLE IF NOT EXISTS import_statements (id TEXT NOT NULL PRIMARY KEY, platform TEXT NOT NULL, start TEXT NOT NULL, endInclusive TEXT NOT NULL, payment TEXT, trips INTEGER, km TEXT, hours TEXT, source TEXT NOT NULL, uploadType TEXT NOT NULL, savedAt INTEGER NOT NULL)")
+            db.execSQL("CREATE TABLE IF NOT EXISTS import_selections (platform TEXT NOT NULL, start TEXT NOT NULL, statementId TEXT NOT NULL, fields TEXT NOT NULL, PRIMARY KEY(platform, start))")
+        }
+    }
+
+    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
 }

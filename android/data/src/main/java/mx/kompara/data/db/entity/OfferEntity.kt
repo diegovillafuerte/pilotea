@@ -1,6 +1,8 @@
 package mx.kompara.data.db.entity
 
 import androidx.room.Entity
+import androidx.room.Embedded
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /**
@@ -10,7 +12,7 @@ import androidx.room.PrimaryKey
  * durations in minutes. [verdict] is the metrics engine's traffic-light call, persisted
  * for later analysis; null until the engine has run.
  */
-@Entity(tableName = "offers")
+@Entity(tableName = "offers", indices = [Index(value = ["sessionId"], unique = true)])
 data class OfferEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
@@ -22,13 +24,13 @@ data class OfferEntity(
     val platform: String,
 
     /** Total promised fare in MXN. */
-    val fareMxn: Double,
+    val fareMxn: Double?,
 
-    /** Trip distance in km, including the pickup leg. */
-    val distanceKm: Double,
+    /** Complete pickup + trip distance, null if either leg is missing. */
+    val distanceKm: Double?,
 
     /** Estimated total trip time in minutes (pickup + ride). */
-    val durationMin: Double,
+    val durationMin: Double?,
 
     /** Pickup distance in km, when the card exposes it separately. */
     val pickupKm: Double? = null,
@@ -43,8 +45,7 @@ data class OfferEntity(
     val accepted: Boolean = false,
 
     /**
-     * Lifecycle outcome ([OfferOutcome] name): PENDING until resolved, then ACCEPTED / DECLINED /
-     * EXPIRED. Drives acceptance-rate analytics; only ACCEPTED offers feed earnings. Added in B-039.
+     * Lifecycle outcome ([OfferOutcome] name), independent of the frozen economic judgement.
      */
     val outcome: String = OfferOutcome.PENDING.name,
 
@@ -53,4 +54,14 @@ data class OfferEntity(
 
     /** FK to the [ShiftEntity] this offer was seen during, when a shift was open. */
     val shiftId: Long? = null,
+    /** Shared by capture, evaluation and overlay presentation; never derived from money. */
+    val sessionId: String? = null,
+    val lastSeenAt: Long = seenAt,
+    val tripKm: Double? = null,
+    val pickupMin: Double? = null,
+    val tripMin: Double? = null,
+    val paymentBasis: String = "DRIVER_PAYMENT",
+    /** Legacy records retain original numbers but do not prove which fields were readable. */
+    val inputProvenance: String = "CAPTURED",
+    @Embedded(prefix = "evaluation_") val evaluation: OfferEvaluation? = null,
 )

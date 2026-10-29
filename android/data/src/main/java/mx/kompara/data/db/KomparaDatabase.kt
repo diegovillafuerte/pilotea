@@ -1,5 +1,10 @@
 package mx.kompara.data.db
 
+import mx.kompara.data.db.dao.CarCostDao
+import mx.kompara.data.db.dao.OfferPresentationDao
+import mx.kompara.data.db.entity.OfferPresentationEntity
+import mx.kompara.data.db.entity.CostVersionEntity
+import mx.kompara.data.db.entity.CarCostVersionEntity
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import mx.kompara.data.db.dao.AggregateDao
@@ -32,10 +37,17 @@ import mx.kompara.data.db.entity.WeeklyAggregateEntity
  */
 @Database(
     entities = [
+        mx.kompara.data.imports.ImportDraftEntity::class,
+        mx.kompara.data.imports.ImportFileEntity::class,
+        mx.kompara.data.imports.ImportStatementEntity::class,
+        mx.kompara.data.imports.ImportSelectionEntity::class,
         OfferEntity::class,
+        OfferPresentationEntity::class,
         TripEntity::class,
         ShiftEntity::class,
         CostProfileEntity::class,
+        CostVersionEntity::class,
+        CarCostVersionEntity::class,
         TelemetryCounterEntity::class,
         FixtureReportEntity::class,
         WeeklyAggregateEntity::class,
@@ -49,14 +61,19 @@ import mx.kompara.data.db.entity.WeeklyAggregateEntity
     // See KomparaMigrations.MIGRATION_2_3.
     // v4 (B-081): DATA-ONLY repair — purges phantom zero-value trips + uptime-dated (1970) rows the
     // pre-fix node path wrote. No schema change. See KomparaMigrations.MIGRATION_3_4.
-    version = 4,
+    // v5 (S2): effective cost versions and exact contribution/provenance on rollups.
+    version = 8,
     exportSchema = true,
 )
 abstract class KomparaDatabase : RoomDatabase() {
+    abstract fun importDao(): mx.kompara.data.db.dao.ImportDao
+    abstract fun localDataDao(): mx.kompara.data.db.dao.LocalDataDao
+    abstract fun offerPresentationDao(): OfferPresentationDao
     abstract fun offerDao(): OfferDao
     abstract fun tripDao(): TripDao
     abstract fun shiftDao(): ShiftDao
     abstract fun costProfileDao(): CostProfileDao
+    abstract fun carCostDao(): CarCostDao
     abstract fun telemetryCounterDao(): TelemetryCounterDao
     abstract fun fixtureReportDao(): FixtureReportDao
     abstract fun aggregateDao(): AggregateDao

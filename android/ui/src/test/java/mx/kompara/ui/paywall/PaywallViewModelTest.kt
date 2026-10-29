@@ -1,178 +1,121 @@
 package mx.kompara.ui.paywall
 
 import android.app.Activity
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.test.StandardTestDispatcher
-import kotlinx.coroutines.test.advanceUntilIdle
-import kotlinx.coroutines.test.resetMain
-import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
-import mx.kompara.billing.BillingLogger
-import mx.kompara.billing.BillingProducts
-import mx.kompara.billing.BillingPurchase
-import mx.kompara.billing.Entitlement
-import mx.kompara.billing.EntitlementCache
-import mx.kompara.billing.EntitlementRepository
-import mx.kompara.billing.FakeBillingClient
-import mx.kompara.billing.PurchaseState
-import mx.kompara.billing.SubscriptionBackend
-import org.junit.After
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
-import org.junit.Before
-import org.junit.Test
+import kotlinx.coroutines.*
+import kotlinx.coroutines.test.*
+import mx.kompara.billing.*
+import org.junit.*
+import org.junit.Assert.*
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
-/**
- * [PaywallViewModel] tests (B-050): offer loaded from Play (price/trial copy at runtime), the trial CTA
- * launches the billing flow + records the funnel, restore reports its outcome, and the graceful
- * Play-unavailable state. Runs under Robolectric for a real [Activity] (launchBillingFlow takes one).
- */
 @OptIn(ExperimentalCoroutinesApi::class)
-@RunWith(RobolectricTestRunner::class)
+@RunWith(RobolectricTestRunner::class) @Config(sdk = [34])
 class PaywallViewModelTest {
-
     private val dispatcher = StandardTestDispatcher()
-
     @Before fun setUp() = Dispatchers.setMain(dispatcher)
-
     @After fun tearDown() = Dispatchers.resetMain()
-
-    private class RecordingFunnel : GateFunnel {
-        val recorded = mutableListOf<Pair<GateSurface, GateEvent>>()
-        override suspend fun record(surface: GateSurface, event: GateEvent) {
-            recorded += surface to event
-        }
-    }
-
-    private class FakeCache(var current: Entitlement = Entitlement.Free) : EntitlementCache {
-        override suspend fun read(): Entitlement = current
+    private val monthly = SubscriptionProduct("kompara_premium", "monthly", null, "base", "MX$99.50", "MXN", 99_500_000, false)
+    private class Cache(var current: Entitlement = Entitlement.Free) : EntitlementCache {
+        override suspend fun read() = current
         override suspend fun write(entitlement: Entitlement) { current = entitlement }
     }
-
-    private fun repo(billing: FakeBillingClient) =
-        EntitlementRepository(billing, SubscriptionBackend.NONE, FakeCache(), BillingLogger.NOOP)
-
-    @Test
-    fun `loads the offer with the price and trial copy from Play`() = runTest(dispatcher) {
-        val billing = FakeBillingClient() // DEFAULT_PRODUCTS has a $79 trial offer
-        val funnel = RecordingFunnel()
-        val vm = PaywallViewModel(billing, repo(billing), funnel)
-        advanceUntilIdle()
-
-        val state = vm.uiState.first()
-        assertTrue(state is PaywallUiState.Ready)
-        state as PaywallUiState.Ready
-        assertEquals("$79.00", state.formattedPrice)
-        assertTrue(state.hasFreeTrial)
+    private class Funnel : GateFunnel {
+        val events = mutableListOf<Pair<GateSurface, GateEvent>>()
+        override suspend fun record(surface: GateSurface, event: GateEvent) { events += surface to event }
     }
+    private class Trials : PromotionalTrials {
+        override val supported = true
+        var eligible = TrialEligibility.ELIGIBLE
+        var starts = 0; var checks = 0
+        override suspend fun eligibility(accountId: String): TrialEligibility { checks++; return eligible }
+        override suspend fun start(accountId: String): PromotionalGrant { starts++; return PromotionalGrant(System.currentTimeMillis() + 14 * 86400000L) }
+    }
+    private val evidence = PremiumEvidence(listOf("El detalle de cada semana"))
+    private fun repo(billing: BillingClientFacade) = EntitlementRepository(billing, SubscriptionBackend.NONE, Cache(), BillingLogger.NOOP)
+    private fun vm(billing: BillingClientFacade = FakeBillingClient(products = listOf(monthly)),
+        source: PremiumSalesSource = PremiumSalesSource { evidence }, identity: PremiumIdentity = PremiumIdentity { null },
+        trials: PromotionalTrials = PromotionalTrials.UNSUPPORTED, repository: EntitlementRepository = repo(billing), funnel: Funnel = Funnel()) =
+        PaywallViewModel(billing, repository, funnel, source, identity, trials).also { it.onOpened(GateSurface.HISTORY) }
+    private fun activity() = Robolectric.buildActivity(Activity::class.java).create().get()
 
-    @Test
-    fun `Play unavailable yields the graceful state, not a dead CTA`() = runTest(dispatcher) {
+    @Test fun `actual localized monthly price excludes card required Play trial`() = runTest(dispatcher) {
+        val model = vm(FakeBillingClient(products = FakeBillingClient.DEFAULT_PRODUCTS + monthly))
+        advanceUntilIdle()
+        val ready = model.uiState.value as PaywallUiState.Ready
+        assertEquals("MX$99.50", ready.formattedPrice); assertFalse(ready.promotional)
+        assertNull(ready.product.offerId)
+        val trialOnly = vm(FakeBillingClient())
+        advanceUntilIdle(); assertEquals(PaywallUiState.PlayUnavailable, trialOnly.uiState.value)
+    }
+    @Test fun `Play unavailable is retryable without launch action`() = runTest(dispatcher) {
         val billing = FakeBillingClient(available = false)
-        val vm = PaywallViewModel(billing, repo(billing), RecordingFunnel())
-        advanceUntilIdle()
-
-        assertEquals(PaywallUiState.PlayUnavailable, vm.uiState.first())
+        val model = vm(billing); advanceUntilIdle()
+        assertEquals(PaywallUiState.PlayUnavailable, model.uiState.value)
+        model.purchase(activity()); advanceUntilIdle(); assertTrue(billing.launchedAccountIds.isEmpty())
     }
-
-    @Test
-    fun `startTrial launches the billing flow and records TRIAL_STARTED for the surface`() =
-        runTest(dispatcher) {
-            val activity = Robolectric.buildActivity(Activity::class.java).create().get()
-            val billing = FakeBillingClient()
-            val funnel = RecordingFunnel()
-            val vm = PaywallViewModel(billing, repo(billing), funnel)
-            advanceUntilIdle()
-
-            vm.startTrial(activity, GateSurface.FISCAL)
-            advanceUntilIdle()
-
-            assertEquals(listOf(GateSurface.FISCAL to GateEvent.TRIAL_STARTED), funnel.recorded)
-            // The fake records the (anonymous) launch.
-            assertEquals(listOf<String?>(null), billing.launchedAccountIds)
+    @Test fun `eligibility precedes offers and is rechecked before purchase`() = runTest(dispatcher) {
+        var available = true
+        val billing = FakeBillingClient(products = listOf(monthly))
+        val model = vm(billing, source = PremiumSalesSource { if (available) evidence else PremiumEvidence() })
+        advanceUntilIdle(); available = false
+        model.purchase(activity()); advanceUntilIdle()
+        assertEquals(PaywallUiState.NoResult, model.uiState.value); assertTrue(billing.launchedAccountIds.isEmpty())
+        model.loadOffer(); advanceUntilIdle(); assertEquals(PaywallUiState.NoResult, model.uiState.value)
+    }
+    @Test fun `purchase uses account identity and distinct purchase event with duplicate taps ignored`() = runTest(dispatcher) {
+        val billing = FakeBillingClient(products = listOf(monthly)); val funnel = Funnel()
+        val model = vm(billing, identity = PremiumIdentity { "driver-id" }, funnel = funnel); advanceUntilIdle()
+        model.purchase(activity()); model.purchase(activity()); advanceUntilIdle()
+        assertEquals(listOf("driver-id"), billing.launchedAccountIds)
+        assertTrue(funnel.events.contains(GateSurface.HISTORY to GateEvent.PURCHASE_STARTED))
+        assertFalse(funnel.events.any { it.second == GateEvent.TRIAL_STARTED })
+    }
+    @Test fun `no account returns from auth without starting promotional clock`() = runTest(dispatcher) {
+        var account: String? = null; val trials = Trials()
+        val billing = FakeBillingClient(products = listOf(monthly))
+        val model = vm(billing, identity = PremiumIdentity { account }, trials = trials)
+        advanceUntilIdle(); model.purchase(activity()); advanceUntilIdle()
+        assertEquals(PaywallMessage.SignIn, model.message.value); assertEquals(0, trials.starts)
+        account = "verified"; model.consumeMessage(); model.loadOffer(); advanceUntilIdle()
+        assertEquals(TrialEligibility.ELIGIBLE, (model.uiState.value as PaywallUiState.Ready).trial)
+        assertEquals(0, trials.starts); assertTrue(billing.launchedAccountIds.isEmpty())
+        model.purchase(activity()); advanceUntilIdle()
+        assertEquals(1, trials.starts); assertTrue(model.entitlement.value is Entitlement.Premium)
+        assertTrue(billing.launchedAccountIds.isEmpty()); assertTrue(trials.checks >= 2)
+    }
+    @Test fun `changed trial eligibility cannot start and failures never convert to a Play trial`() = runTest(dispatcher) {
+        val trials = Trials(); val billing = FakeBillingClient(products = listOf(monthly))
+        val model = vm(billing, identity = PremiumIdentity { "id" }, trials = trials); advanceUntilIdle()
+        trials.eligible = TrialEligibility.USED
+        model.purchase(activity()); advanceUntilIdle()
+        assertEquals(PaywallMessage.OfferChanged, model.message.value); assertEquals(0, trials.starts)
+        assertTrue(billing.launchedAccountIds.isEmpty())
+    }
+    @Test fun `restore with owned purchase and with no purchase reports distinct results`() = runTest(dispatcher) {
+        val billing = FakeBillingClient(products = listOf(monthly)); val model = vm(billing); advanceUntilIdle()
+        model.restore(); advanceUntilIdle(); assertEquals(PaywallMessage.NothingToRestore, model.message.value)
+        billing.setOwnedPurchases(listOf(BillingPurchase("token", "kompara_premium", PurchaseState.PURCHASED, true, true, false)))
+        model.restore(); advanceUntilIdle(); assertEquals(PaywallMessage.Restored, model.message.value)
+        model.consumeMessage(); assertNull(model.message.value)
+    }
+    @Test fun `restore transport failure is not nothing to restore`() = runTest(dispatcher) {
+        val billing = object : BillingClientFacade by FakeBillingClient(products = listOf(monthly)) {
+            override suspend fun queryPurchases(): List<BillingPurchase> = error("offline")
         }
-
-    @Test
-    fun `startTrial when Play is unavailable surfaces a message and does not record`() =
-        runTest(dispatcher) {
-            val activity = Robolectric.buildActivity(Activity::class.java).create().get()
-            val billing = FakeBillingClient(available = false)
-            val funnel = RecordingFunnel()
-            val vm = PaywallViewModel(billing, repo(billing), funnel)
-            advanceUntilIdle()
-
-            vm.startTrial(activity, GateSurface.FISCAL)
-            advanceUntilIdle()
-
-            assertEquals(PaywallMessage.PlayUnavailable, vm.message.first())
-            assertTrue(funnel.recorded.isEmpty())
+        val model = vm(billing); advanceUntilIdle(); model.restore(); advanceUntilIdle()
+        assertEquals(PaywallMessage.RestoreFailed, model.message.value)
+    }
+    @Test fun `price changes after viewing require another explicit tap`() = runTest(dispatcher) {
+        var product = monthly
+        val delegate = FakeBillingClient()
+        val billing = object : BillingClientFacade by delegate {
+            override suspend fun queryProductDetails() = listOf(product)
         }
-
-    @Test
-    fun `restore with an owned premium reports Restored`() = runTest(dispatcher) {
-        val billing = FakeBillingClient()
-        billing.setOwnedPurchases(
-            listOf(
-                BillingPurchase(
-                    purchaseToken = "tok",
-                    productId = BillingProducts.PREMIUM_SUBSCRIPTION,
-                    state = PurchaseState.PURCHASED,
-                    acknowledged = true,
-                    autoRenewing = true,
-                    trial = false,
-                    expiryTimeMillis = 9_999_999_999_000L,
-                ),
-            ),
-        )
-        val vm = PaywallViewModel(billing, repo(billing), RecordingFunnel())
-        advanceUntilIdle()
-
-        vm.restore()
-        advanceUntilIdle()
-
-        assertEquals(PaywallMessage.Restored, vm.message.first())
-    }
-
-    @Test
-    fun `restore with nothing owned reports NothingToRestore`() = runTest(dispatcher) {
-        val billing = FakeBillingClient() // no owned purchases
-        val vm = PaywallViewModel(billing, repo(billing), RecordingFunnel())
-        advanceUntilIdle()
-
-        vm.restore()
-        advanceUntilIdle()
-
-        assertEquals(PaywallMessage.NothingToRestore, vm.message.first())
-    }
-
-    @Test
-    fun `onOpened records PAYWALL_OPENED for the originating surface`() = runTest(dispatcher) {
-        val billing = FakeBillingClient()
-        val funnel = RecordingFunnel()
-        val vm = PaywallViewModel(billing, repo(billing), funnel)
-        advanceUntilIdle()
-
-        vm.onOpened(GateSurface.HISTORY)
-        advanceUntilIdle()
-
-        assertTrue(funnel.recorded.contains(GateSurface.HISTORY to GateEvent.PAYWALL_OPENED))
-    }
-
-    @Test
-    fun `consumeMessage clears the one-shot message`() = runTest(dispatcher) {
-        val billing = FakeBillingClient()
-        val vm = PaywallViewModel(billing, repo(billing), RecordingFunnel())
-        advanceUntilIdle()
-        vm.restore()
-        advanceUntilIdle()
-
-        vm.consumeMessage()
-        assertNull(vm.message.first())
+        val model = vm(billing); advanceUntilIdle(); product = monthly.copy(formattedPrice = "€4,99", priceCurrencyCode = "EUR", priceAmountMicros = 4_990_000)
+        model.purchase(activity()); advanceUntilIdle()
+        assertEquals(PaywallMessage.OfferChanged, model.message.value); assertTrue(delegate.launchedAccountIds.isEmpty())
     }
 }

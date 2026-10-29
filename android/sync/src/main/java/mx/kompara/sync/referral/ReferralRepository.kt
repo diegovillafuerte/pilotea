@@ -75,6 +75,7 @@ class ReferralRepository @Inject constructor(
         // The backend's Spanish copy (or its status description) is exactly what to show.
         ReferralResult.Failure(message = e.message, status = e.status)
     } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+        if (e is kotlinx.coroutines.CancellationException) throw e
         ReferralResult.Failure(message = TRANSPORT_MESSAGE, status = null)
     }
 

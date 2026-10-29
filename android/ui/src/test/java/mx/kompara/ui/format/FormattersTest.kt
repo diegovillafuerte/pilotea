@@ -5,6 +5,20 @@ import org.junit.Test
 
 class FormattersTest {
 
+    @Test fun `hourly limits preserve saved cents while hourly earnings still round to pesos`() {
+        assertEquals("$315.25/h", Formatters.formatLimit("315.25".toBigDecimal(), perHour = true))
+        assertEquals("$200/h", Formatters.formatLimit("200.00".toBigDecimal(), perHour = true))
+        assertEquals("$315/h", Formatters.formatPerHourWhole("315.25".toBigDecimal()))
+    }
+
+    @Test fun `no break formatting is idempotent and normalizes to the exact visible contract`() {
+        for (value in listOf("−$1.05/km", "$1,200/h", "$6.50/km", "(1 en curso)", "4 h 50 min", "78 %")) {
+            val protected = Formatters.unbroken(value)
+            assertEquals(protected, Formatters.unbroken(protected))
+            assertEquals(value, mx.kompara.ui.contract.FrameContract.normalize(protected))
+        }
+    }
+
     @Test
     fun `formatMxn renders peso sign, grouping and two decimals`() {
         assertEquals("$1,234.56", Formatters.formatMxn(1234.56))
@@ -24,7 +38,7 @@ class FormattersTest {
     @Test
     fun `formatMxn handles zero and negatives`() {
         assertEquals("$0.00", Formatters.formatMxn(0.0))
-        assertEquals("$-12.30", Formatters.formatMxn(-12.3))
+        assertEquals("−$12.30", Formatters.formatMxn(-12.3))
     }
 
     @Test
@@ -34,15 +48,15 @@ class FormattersTest {
 
     @Test
     fun `formatKm renders one decimal with km suffix`() {
-        assertEquals("12.3 km", Formatters.formatKm(12.34))
-        assertEquals("0.0 km", Formatters.formatKm(0.0))
-        assertEquals("8.0 km", Formatters.formatKm(8.0))
+        assertEquals("12.3\u00a0km", Formatters.formatKm(12.34))
+        assertEquals("0.0\u00a0km", Formatters.formatKm(0.0))
+        assertEquals("8.0\u00a0km", Formatters.formatKm(8.0))
     }
 
     @Test
     fun `formatPerHour appends per-hour suffix to money`() {
-        assertEquals("$185.50/h", Formatters.formatPerHour(185.5))
-        assertEquals("$0.00/h", Formatters.formatPerHour(0.0))
+        assertEquals("$186/h", Formatters.formatPerHour(185.5))
+        assertEquals("$0/h", Formatters.formatPerHour(0.0))
     }
 
     @Test
@@ -79,5 +93,31 @@ class FormattersTest {
     @Test
     fun `formatMonthLabel falls back on unparseable input`() {
         assertEquals("nope", Formatters.formatMonthLabel("nope"))
+    }
+
+    @Test fun `v3 decimal formatting rounds once with a real minus before peso`() {
+        assertEquals("−$1.05/km", Formatters.formatPerKm(java.math.BigDecimal("-1.053")))
+        assertEquals("−$1,234", Formatters.formatMxnWhole(-1234.4))
+        assertEquals("$0", Formatters.formatMxnWhole(-0.1))
+        assertEquals("$6.50/km", Formatters.formatLimit(java.math.BigDecimal("6.5")))
+        assertEquals("$200/h", Formatters.formatLimit(java.math.BigDecimal("200"), perHour = true))
+        assertEquals("$1,235", Formatters.formatMxnWhole(java.math.BigDecimal("1234.5")))
+    }
+
+    @Test fun `percentages round and units cannot split from figures`() {
+        assertEquals("78\u00a0%", Formatters.formatPercent(.775))
+        assertEquals("100\u00a0%", Formatters.formatPercent(1.2))
+        assertEquals("0\u00a0%", Formatters.formatPercent(-.1))
+        assertEquals("8\u00a0h\u00a010\u00a0min", Formatters.formatDuration(490))
+        assertEquals("12\u00a0–\u00a018\u00a0oct", Formatters.unbroken("12 – 18 oct"))
+        assertEquals("−$1.05\u2060/\u2060km", Formatters.unbroken("−$1.05/km"))
+    }
+
+    @Test fun `relative money labels always identify the date`() {
+        val today = java.time.LocalDate.of(2026, 10, 20)
+        assertEquals("Ayer, lunes 19 oct", Formatters.formatDatedRelativeLabel(today.minusDays(1), today))
+        assertEquals("Domingo 18 oct", Formatters.formatDatedRelativeLabel(today.minusDays(2), today))
+        assertEquals("Ayer, jueves 31 dic 2026", Formatters.formatDatedRelativeLabel(
+            java.time.LocalDate.of(2026, 12, 31), java.time.LocalDate.of(2027, 1, 1)))
     }
 }

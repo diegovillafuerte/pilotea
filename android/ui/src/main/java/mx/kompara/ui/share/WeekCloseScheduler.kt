@@ -23,8 +23,8 @@ import javax.inject.Singleton
  *  - [ensureScheduled] enqueues a **weekly** periodic check anchored to the next Monday 09:00 local
  *    (KEEP, so calling it on every app start is idempotent). The 7-day cadence fires each Monday
  *    morning; the worker's per-week watermark means an extra run is a cheap no-op. No network
- *    constraint — it reads local rollups only.
- *  - [runNow] enqueues a one-off check for the next-app-open path, REPLACE so repeated opens coalesce.
+ *    constraint — it reads local period records only.
+ *  - [runNow] enqueues a one-off check for the next-app-open path, KEEP so repeated opens preserve pending retries.
  *    Combined with the watermark this can't double-post; it covers a device that was off all Monday.
  *
  * The initial-delay math ([initialDelayMillis]) is a pure function so the Monday-09:00 anchoring is
@@ -42,6 +42,7 @@ class WeekCloseScheduler @Inject constructor(
         val delay = initialDelayMillis(clock.nowMs(), ZoneId.systemDefault())
         val request = PeriodicWorkRequestBuilder<WeekCloseWorker>(PERIOD)
             .setInitialDelay(Duration.ofMillis(delay))
+            .setBackoffCriteria(androidx.work.BackoffPolicy.LINEAR, Duration.ofMinutes(15))
             .build()
         workManager.enqueueUniquePeriodicWork(
             WeekCloseWorker.PERIODIC_WORK_NAME,
@@ -52,10 +53,11 @@ class WeekCloseScheduler @Inject constructor(
 
     /** Run an immediate week-close check (the "next app open" path). Coalesces with any pending one. */
     fun runNow() {
-        val request = OneTimeWorkRequestBuilder<WeekCloseWorker>().build()
+        val request = OneTimeWorkRequestBuilder<WeekCloseWorker>().setBackoffCriteria(androidx.work.BackoffPolicy.LINEAR, Duration.ofMinutes(15))
+            .build()
         workManager.enqueueUniqueWork(
             WeekCloseWorker.ONE_OFF_WORK_NAME,
-            ExistingWorkPolicy.REPLACE,
+            ExistingWorkPolicy.KEEP,
             request,
         )
     }

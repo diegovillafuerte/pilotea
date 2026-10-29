@@ -63,7 +63,7 @@ class OfferPipelineTest {
 
         // net = 120 - 1*10 = 110; netPerKm = 11 (>=8), netPerHour = 220 (>=90).
         // pickup legs are unknown so the read is provisional -> capped at YELLOW.
-        assertEquals(110.0, metrics.netMxn!!, 0.0001)
-        assertEquals(VerdictLevel.YELLOW, metrics.verdict.level)
+        assertNull(metrics.netMxn)
+        assertEquals(VerdictLevel.UNKNOWN, metrics.verdict.level)
     }
 }

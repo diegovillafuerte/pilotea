@@ -1,242 +1,171 @@
 package mx.kompara.ui.screens
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import android.app.DatePickerDialog
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.*
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import mx.kompara.ui.R
-import mx.kompara.ui.components.CardTone
-import mx.kompara.ui.components.EmptyState
-import mx.kompara.ui.components.KomparaCard
-import mx.kompara.ui.components.VerdictBadge
-import mx.kompara.ui.format.Formatters
-import mx.kompara.ui.stats.CompletenessHint
-import mx.kompara.ui.stats.DayDetail
-import mx.kompara.ui.stats.DayDetailUiState
-import mx.kompara.ui.stats.DayDetailViewModel
-import mx.kompara.ui.stats.HourBlock
-import mx.kompara.ui.stats.OfferFunnel
-import mx.kompara.ui.stats.ShiftTimelineItem
+import mx.kompara.ui.components.*
+import mx.kompara.ui.stats.*
 import mx.kompara.ui.theme.KomparaTheme
 import mx.kompara.ui.theme.KomparaType
+import java.time.LocalDate
 
-/**
- * The day-detail screen (B-040 req 2): per-shift timeline, the offer funnel (seen/taken/declined with
- * verdicts), best-hour blocks, plus the five MetricCards for the day.
- */
 @Composable
-fun DayDetailScreen(
-    modifier: Modifier = Modifier,
-    viewModel: DayDetailViewModel = hiltViewModel(),
-) {
+fun DayDetailScreen(onBack: () -> Unit, onLimits: () -> Unit, modifier: Modifier = Modifier,
+    viewModel: DayDetailViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    when (val s = state) {
-        is DayDetailUiState.Loading -> Spacer(modifier.fillMaxSize())
-        is DayDetailUiState.Loaded -> DayDetailContent(detail = s.detail, modifier = modifier)
-    }
-}
-
-@Composable
-private fun DayDetailContent(detail: DayDetail, modifier: Modifier = Modifier) {
-    if (detail.period.isEmpty && detail.offers.seen == 0 && detail.shifts.isEmpty()) {
-        EmptyState(
-            icon = Icons.Filled.DateRange,
-            title = stringResource(R.string.day_empty_title),
-            body = stringResource(R.string.day_empty_body),
-            modifier = modifier,
-        )
-        return
-    }
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Text(
-            text = Formatters.formatDayLabel(detail.dayIso),
-            style = MaterialTheme.typography.headlineSmall,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-
-        MetricCardsBlock(detail.period)
-
-        if (detail.completeness != CompletenessHint.NONE) {
-            val note = when (detail.completeness) {
-                CompletenessHint.HOURS_INFERRED -> stringResource(R.string.completeness_hours_inferred)
-                CompletenessHint.HOURS_MISSING -> stringResource(R.string.completeness_hours_missing)
-                CompletenessHint.NONE -> ""
-            }
-            Text(
-                text = "ⓘ $note",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+    val selected by viewModel.selectedOffer.collectAsStateWithLifecycle()
+    val ledger by viewModel.ledger.collectAsStateWithLifecycle()
+    val filtered by viewModel.filtered.collectAsStateWithLifecycle()
+    val undo by viewModel.undoReceipt.collectAsStateWithLifecycle()
+    val error by viewModel.actionError.collectAsStateWithLifecycle()
+    LaunchedEffect(undo) { if (undo != null) { kotlinx.coroutines.delay(6_000); viewModel.dismissMessage() } }
+    val day = (state as? DayDetailUiState.Loaded)?.day
+    val context = LocalContext.current
+    val back = { if (filtered) viewModel.filter(false) else onBack() }
+    BackHandler(filtered && selected == null && !ledger) { viewModel.filter(false) }
+    val actionMessage: (@Composable () -> Unit)? = if (undo != null || error != null) ({
+        Snackbar(Modifier.padding(vertical = 8.dp),
+            action = { TextButton(if (undo != null) viewModel::undo else viewModel::dismissMessage) {
+                Text(if (undo != null) "Deshacer" else "Cerrar", color = KomparaTheme.colors.paper)
+            } }, containerColor = KomparaTheme.colors.ink, contentColor = KomparaTheme.colors.paper) {
+            Text(error ?: "Se canceló. Se quitó de tu día.", style = KomparaType.body)
         }
-
-        if (detail.shifts.isNotEmpty()) {
-            Section(title = stringResource(R.string.day_shifts_title)) {
-                detail.shifts.forEach { ShiftLine(it) }
+    }) else null
+    val limitsSnackbar = LocalLimitsSnackbar.current
+    val message: (@Composable () -> Unit)? = if (limitsSnackbar?.message != null) ({
+        Spacer(Modifier.height(8.dp)); SaveSnackbar(limitsSnackbar); Spacer(Modifier.height(8.dp))
+        actionMessage?.invoke()
+    }) else actionMessage
+    Column(modifier.fillMaxSize()) {
+        DayHeader(day?.title ?: state.dayIso.ifBlank { "Hoy" }, back,
+            previous = { day?.let { viewModel.selectDay(it.date.minusDays(1)) } },
+            next = { day?.let { viewModel.selectDay(it.date.plusDays(1)) } },
+            canStep = day != null, canNext = day != null && day.date < day.today,
+            pick = { day?.let {
+                DatePickerDialog(context, { _, y, m, d -> viewModel.selectDay(LocalDate.of(y, m + 1, d)) },
+                    it.date.year, it.date.monthValue - 1, it.date.dayOfMonth).apply {
+                    datePicker.maxDate = it.money.window.asOf.toEpochMilli()
+                }.show()
+            } })
+        when (state) {
+            is DayDetailUiState.Loading -> Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                StaticSkeleton(Modifier.size(170.dp, 22.dp)); StaticSkeleton(Modifier.size(190.dp, 74.dp))
+                repeat(4) { StaticSkeleton(Modifier.fillMaxWidth().height(56.dp)) }
             }
-        }
-
-        Section(title = stringResource(R.string.day_offers_title)) {
-            OffersFunnelLine(detail.offers)
-            // PRESERVED richer-than-mock state: per-offer detail rows. The mock shows only the
-            // aggregate funnel line, but we keep each offer (clock · fare + its verdict badge),
-            // given the same DayListRow card chrome for consistency.
-            detail.offers.rows.forEach { row ->
-                DayListRow(
-                    leading = {
-                        Text(
-                            text = "${Formatters.formatClock(row.seenAt)} · ${Formatters.formatMxn(row.fareMxn)}",
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                    },
-                    trailing = { row.verdict?.let { VerdictBadge(level = it) } },
-                )
+            is DayDetailUiState.Error -> Column(Modifier.padding(20.dp)) {
+                Text("No pudimos cargar tus números.", style = KomparaType.body)
+                TextButton(viewModel::retry) { Text("Reintentar") }
             }
-        }
-
-        if (detail.bestHours.isNotEmpty()) {
-            Section(title = stringResource(R.string.day_best_hours_title)) {
-                detail.bestHours.take(3).forEach { BestHourLine(it) }
+            is DayDetailUiState.Loaded -> if (day != null) {
+                if (selected == null) message?.invoke()
+                key(day.date, filtered) {
+                    DayDetailContent(day, filtered, { viewModel.filter(!filtered) }, viewModel::openOffer,
+                        { viewModel.showLedger(true) }, Modifier.weight(1f))
+                }
             }
         }
     }
-}
-
-@Composable
-private fun Section(title: String, content: @Composable () -> Unit) {
-    // 8dp gap (was 4dp): label-to-card and card-to-card spacing matches the mock's .listrow
-    // margin-top:8px now that content rows are tonal cards rather than bare text.
-    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            // Section label: design Dia .lbl is the small uppercase metricLabel (13/500, muted),
-            // not a titleMedium heading.
-            text = title,
-            style = KomparaType.metricLabel,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        content()
-    }
-}
-
-/**
- * The Compose form of the mock's `.listrow`: a tonal [KomparaCard] (radius 12, no shadow,
- * surfaceContainer fill = mock `--surface-card`) wrapping a SpaceBetween row with 14×16 padding.
- * [leading] is the row's primary content; [trailing] is the optional right-aligned slot.
- */
-@Composable
-private fun DayListRow(
-    leading: @Composable () -> Unit,
-    trailing: (@Composable () -> Unit)? = null,
-) {
-    KomparaCard(tone = CardTone.DEFAULT, modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            leading()
-            trailing?.invoke()
+    if (day != null) {
+        if (ledger) DayCalculationSheet(dayCalculation(day.money)) { viewModel.showLedger(false) }
+        else if (selected != null) {
+            val model = day.offer(selected!!)
+            if (model != null) OfferDetailSheet(model, day.date.toString(), viewModel::closeOffer,
+                { viewModel.showLedger(true) }, onLimits, viewModel::cancelOffer, message)
+            else SheetScaffold("Oferta", viewModel::closeOffer) { Text("No encontramos esta oferta en el día elegido.") }
         }
     }
 }
 
 @Composable
-private fun ShiftLine(item: ShiftTimelineItem) {
-    val end = item.endedAt?.let { Formatters.formatClock(it) } ?: stringResource(R.string.day_shift_open)
-    DayListRow(
-        leading = {
-            Text(
-                text = stringResource(
-                    R.string.day_shift_line,
-                    Formatters.formatClock(item.startedAt),
-                    end,
-                    item.tripCount,
-                ),
-                style = MaterialTheme.typography.bodyMedium,
-            )
-        },
-        trailing = {
-            // Shift net: emerald (brand primary, NOT a verdict) + bold + right-aligned per the mock.
-            Text(
-                text = Formatters.formatMxn(item.netMxn),
-                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.primary,
-            )
-        },
-    )
+fun DayHeader(label: String, onBack: () -> Unit, previous: () -> Unit, next: () -> Unit,
+    canStep: Boolean, canNext: Boolean, pick: () -> Unit, modifier: Modifier = Modifier) {
+    val large = LocalDensity.current.fontScale > 1.3f
+    @Composable fun RowScope.heading() {
+        IconButton(onBack, Modifier.size(48.dp)) { DrawnIcon(R.drawable.v3_back, description = "Volver") }
+        Text("Tu día", Modifier.weight(1f), style = KomparaType.title)
+    }
+    @Composable fun steps(modifier: Modifier) {
+        Row(modifier.semantics { isTraversalGroup = true }, verticalAlignment = Alignment.CenterVertically) {
+            IconButton(previous, Modifier.size(48.dp), enabled = canStep) {
+                DrawnIcon(R.drawable.v3_chev_l, description = "Día anterior a $label")
+            }
+            Text(label, Modifier.weight(1f).heightIn(min = 48.dp).clickable(enabled = canStep, onClick = pick)
+                .wrapContentHeight().semantics { traversalIndex = -1f }, style = KomparaType.bodyStrong)
+            IconButton(next, Modifier.size(48.dp), enabled = canNext) {
+                DrawnIcon(R.drawable.v3_chev, description = "Día siguiente a $label",
+                    tint = if (canNext) KomparaTheme.colors.inkSecondary else KomparaTheme.colors.inkTertiary)
+            }
+        }
+    }
+    // Read the date before its controls; keep all targets 48dp, grow the header on narrow/large text.
+    BoxWithConstraints(modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
+        if (large || maxWidth < 340.dp) Column {
+            Row(Modifier.heightIn(min = 64.dp), verticalAlignment = Alignment.CenterVertically) { heading() }
+            steps(Modifier.fillMaxWidth())
+        } else Row(Modifier.heightIn(min = 64.dp), verticalAlignment = Alignment.CenterVertically) {
+            heading()
+            steps(Modifier.width(210.dp))
+        }
+    }
 }
 
 @Composable
-private fun OffersFunnelLine(funnel: OfferFunnel) {
-    DayListRow(
-        leading = {
-            Text(
-                text = stringResource(R.string.day_offers_funnel, funnel.seen, funnel.taken, funnel.declined),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        },
-    )
-}
-
-@Composable
-private fun BestHourLine(block: HourBlock) {
-    // QUESTION: the mock's best-hours trailing element is a VerdictBadge (green/yellow), but
-    // HourBlock has no verdict field. Inventing one would break the "verdict colours = verdicts
-    // only" rule, so we keep the net money figure as the trailing element instead. If product
-    // wants the verdict pill here, HourBlock needs a real verdict level.
-    DayListRow(
-        leading = {
-            Text(
-                text = stringResource(R.string.day_best_hour_line, Formatters.formatHourRange(block.hour), block.trips),
-                style = MaterialTheme.typography.bodyMedium,
-            )
-        },
-        trailing = {
-            Text(text = Formatters.formatMxn(block.netMxn), style = MaterialTheme.typography.bodyMedium)
-        },
-    )
-}
-
-@Preview(showBackground = true, name = "Day detail — vacío")
-@Composable
-private fun DayDetailEmptyPreview() {
-    KomparaTheme {
-        DayDetailContent(
-            detail = DayDetail(
-                dayIso = "2026-06-10",
-                period = mx.kompara.ui.stats.PeriodStats.EMPTY,
-                shifts = emptyList(),
-                offers = OfferFunnel(seen = 0, taken = 0, declined = 0, pending = 0, rows = emptyList()),
-                bestHours = emptyList(),
-                completeness = CompletenessHint.NONE,
-            ),
-        )
+fun DayDetailContent(day: DayPresentation, filtered: Boolean, onFilter: () -> Unit,
+    onOffer: (Long) -> Unit, onCalculation: () -> Unit, modifier: Modifier = Modifier) {
+    val list = rememberLazyListState()
+    val rows = if (filtered) day.missedAbove else day.rows
+    val keepPredicateTogether = LocalDensity.current.fontScale <= 1.3f
+    Box(modifier.fillMaxSize()) {
+        LazyColumn(Modifier.fillMaxSize().testTag("day-offers"), state = list,
+            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 24.dp)) {
+            item {
+                if (day.amount != null) PeriodHero(day.label, day.amount, day.quietLine, onCalculation)
+                else Text(day.emptyMessage.orEmpty(), Modifier.padding(vertical = 16.dp), style = KomparaType.body)
+                if (day.money.trips > 0 && day.money.hoursOnline.signum() == 0)
+                    Text("Sin turno detectado: aún no podemos calcular tus horas.", Modifier.padding(vertical = 12.dp), style = KomparaType.small, color = KomparaTheme.colors.inkSecondary)
+                if (day.missedAbove.isNotEmpty()) {
+                    Rule()
+                    Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(onClick = onFilter).padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        OfferMark(OfferMarkState.ABOVE)
+                        Text(if (filtered) "Ver todas las ofertas del día" else
+                            "${day.missedAbove.size} ${if (day.missedAbove.size == 1) "oferta arriba de tu meta se fue" else "ofertas arriba de tu meta se fueron"} sin tomar".let { if (keepPredicateTogether) it.replace("se fueron sin tomar", mx.kompara.ui.format.Formatters.unbroken("se fueron sin tomar")) else it },
+                            Modifier.weight(1f), style = KomparaType.body)
+                        DrawnIcon(R.drawable.v3_chev)
+                    }
+                    Rule()
+                }
+                FlowRow(Modifier.fillMaxWidth().padding(top = 32.dp, bottom = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(if (filtered) "Arriba de tu meta · ${rows.size}" else day.section, style = KomparaType.section)
+                    Text(day.column, Modifier.align(Alignment.Bottom), style = KomparaType.small, color = KomparaTheme.colors.inkSecondary)
+                }
+            }
+            items(rows, key = { it.offerId }) { row ->
+                OfferRow(row.outcomeLabel, "${day.clock(row)} · ${day.meaning(row)}", row.rate, row.mark,
+                    { onOffer(row.offerId) }, Modifier.testTag("offer-${row.offerId}"))
+                Rule()
+            }
+        }
+        if (list.canScrollForward) Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(24.dp)
+            .background(Brush.verticalGradient(listOf(KomparaTheme.colors.paper.copy(alpha = 0f), KomparaTheme.colors.paper))))
     }
 }

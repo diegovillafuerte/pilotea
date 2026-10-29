@@ -139,15 +139,23 @@ class OcrLifecycleClassifierTest {
     }
 
     @Test
-    fun `onCaptureEnd closes an open session with a final idle, then resets clean`() {
+    fun `capture loss records no completion and resets clean`() {
         frame(card = uberCard, t = 1) // OfferSeen — platform context = uber
         frame(text = "Iniciar viaje | En camino", t = 2) // TripStateEntered — open trip
         // Projection lost mid-trip (screen lock): close out the ledger session.
         val closing = classifier.onCaptureEnd(99)
-        assertTrue(closing is LifecycleSignal.IdleStateEntered)
-        assertEquals("com.ubercab.driver", (closing as LifecycleSignal.IdleStateEntered).packageName)
+        assertTrue(closing is LifecycleSignal.ObservationLost)
+        assertEquals("com.ubercab.driver", (closing as LifecycleSignal.ObservationLost).packageName)
         // Reset happened: a fresh offer after the restart emits OfferSeen again (no wedge).
         assertTrue(frame(card = uberCard, t = 3) is LifecycleSignal.OfferSeen)
+    }
+
+    @Test fun `observed underway phase is distinct from accepted estimate`() {
+        val accepted = frame(text = "Agenda de viajes", t = 1) as LifecycleSignal.TripStateEntered
+        assertEquals(false, accepted.inProgress)
+        val underway = frame(text = "Viaje en curso | Finalizar viaje", t = 2) as LifecycleSignal.TripStateEntered
+        assertTrue(underway.inProgress)
+        assertNull(frame(text = "Viaje en curso", t = 3))
     }
 
     @Test
@@ -206,4 +214,17 @@ class OcrLifecycleClassifierTest {
         assertEquals(false, OcrTripMarkers.DEFAULT.isTripLike(cancelReasonList))
         assertEquals(false, OcrTripMarkers.DEFAULT.isTripLike(cancelConfirm))
     }
+    @Test fun `unread frames and cancel confirmation dialog never finish a trip`() {
+        frame(text = "Viaje en curso", t = 1)
+        assertTrue(frame(text = "mapa ilegible", t = 2) is LifecycleSignal.ObservationLost)
+        assertNull(frame(text = "¿Quieres cancelar este viaje? CANCELAR VIAJE", t = 3))
+        assertTrue(frame(text = "Viaje cancelado", t = 4) is LifecycleSignal.TripCancelled)
+    }
+
+    @Test fun `same trip phase on a different host still emits its own transition`() {
+        assertTrue(frame(text = "Viaje en curso", host = "com.ubercab.driver", t = 1) is LifecycleSignal.TripStateEntered)
+        val next = frame(text = "Viaje en curso", host = "com.didiglobal.driver", t = 2)
+        assertEquals("com.didiglobal.driver", (next as LifecycleSignal.TripStateEntered).packageName)
+    }
+
 }

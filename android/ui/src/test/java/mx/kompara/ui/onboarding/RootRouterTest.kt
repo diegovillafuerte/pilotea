@@ -12,8 +12,8 @@ class RootRouterTest {
     }
 
     @Test
-    fun `null session (auth loading) routes to LOADING`() {
-        assertEquals(RootRoute.LOADING, RootRouter.route(onboardingCompleted = true, authenticated = null))
+    fun `local use does not wait for session loading`() {
+        assertEquals(RootRoute.MAIN, RootRouter.route(onboardingCompleted = true, authenticated = null))
     }
 
     @Test
@@ -24,9 +24,9 @@ class RootRouterTest {
     }
 
     @Test
-    fun `completed onboarding without a session routes to AUTH`() {
-        // Pre-account installs and logged-out drivers must sign up before the shell.
-        assertEquals(RootRoute.AUTH, RootRouter.route(true, authenticated = false))
+    fun `logout and account deletion keep completed installs in MAIN`() {
+        // Local history and reader remain usable after logout, deletion or session expiry.
+        assertEquals(RootRoute.MAIN, RootRouter.route(true, authenticated = false))
     }
 
     @Test

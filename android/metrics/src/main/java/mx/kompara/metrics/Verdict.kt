@@ -8,9 +8,8 @@ import mx.kompara.data.settings.PreferredMetric
  * Carrying both the net rates *and* the gross $/km is deliberate — the overlay's whole pitch is
  * "Uber shows you gross, we show you what's left", so the UI can render the two side by side.
  *
- * [missingInputs] names the fields the engine had to do without (e.g. "pickupMin", "tripKm"). When
- * it is non-empty the verdict was reached on partial data and should never be GREEN — the UI can
- * surface the gaps so the driver knows the read is provisional.
+ * [missingInputs] lists unread fields. A missing non-selected time leg does not downgrade a
+ * complete per-km judgement; a missing selected denominator produces UNKNOWN with a reason.
  *
  * @property level traffic-light decision
  * @property netPerKm net MXN per total km (pickup + trip), after marginal costs; null if total
@@ -37,4 +36,5 @@ data class Verdict(
     val netPerKmLevel: VerdictLevel? = null,
     val netPerHourLevel: VerdictLevel? = null,
     val preferredMetric: PreferredMetric = PreferredMetric.DEFAULT,
+    val unavailableReason: String? = null,
 )

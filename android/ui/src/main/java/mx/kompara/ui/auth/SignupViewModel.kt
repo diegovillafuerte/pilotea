@@ -1,185 +1,106 @@
 package mx.kompara.ui.auth
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
-import mx.kompara.data.model.City
-import mx.kompara.data.settings.SettingsRepository
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.*
 import mx.kompara.sync.api.ApiException
 import mx.kompara.sync.auth.AuthRepository
 import mx.kompara.sync.auth.SessionState
+import mx.kompara.ui.stats.AppClock
 import javax.inject.Inject
 
-/**
- * Drives the required signup flow: phone → WhatsApp OTP → profile (name + city).
- *
- * The account itself is created server-side on OTP verification (find-or-create by phone), which
- * also merges the install's anonymous device id so locally captured data attaches to the account.
- * The profile step is a follow-up PATCH; its city choice is mirrored into [SettingsRepository] so
- * the benchmarks/percentiles surfaces use the same city without asking twice.
- *
- * Re-entry: if a previous attempt already authenticated (app killed mid-flow), the flow resumes at
- * the profile step instead of asking for the phone again.
- */
 @HiltViewModel
 class SignupViewModel @Inject constructor(
     private val auth: AuthRepository,
-    private val settings: SettingsRepository,
+    private val saved: SavedStateHandle,
+    private val clock: AppClock,
 ) : ViewModel() {
-
-    private val _state = MutableStateFlow(SignupUiState())
-    val state: StateFlow<SignupUiState> = _state.asStateFlow()
-
+    private val _state = MutableStateFlow(SignupUiState(
+        step = saved["step"] ?: SignupStep.PHONE, phoneInput = saved["phone"] ?: "", codeInput = saved["code"] ?: "",
+        devCodeHint = auth.devBypassCode))
+    val state = _state.asStateFlow()
     private var resendJob: Job? = null
-
+    private var request: Job? = null
     init {
-        // Debug builds expose the offline-login code as a hint on the code screen (null in release).
-        _state.update { it.copy(devCodeHint = auth.devBypassCode) }
         viewModelScope.launch {
-            val session = auth.sessionState.first()
-            if (session is SessionState.Authenticated) {
-                _state.update {
-                    it.copy(
-                        step = SignupStep.PROFILE,
-                        nameInput = session.driver.name.orEmpty(),
-                        city = City.fromKey(session.driver.city) ?: City.DEFAULT,
-                    )
-                }
+            if (auth.sessionState.first() is SessionState.Authenticated) update { it.copy(step = SignupStep.DONE) }
+            else if (_state.value.step == SignupStep.DONE) update { it.copy(step = SignupStep.PHONE) }
+        }
+        if (_state.value.step == SignupStep.CODE) countdown()
+    }
+    private fun update(change: (SignupUiState) -> SignupUiState) {
+        _state.update(change)
+        saved["step"] = _state.value.step; saved["phone"] = _state.value.phoneInput; saved["code"] = _state.value.codeInput
+    }
+    fun onPhoneChange(value: String) { if (!_state.value.busy) update { it.copy(phoneInput = value, error = null) } }
+    fun onCodeChange(value: String) {
+        if (_state.value.busy) return
+        val digits = value.filter { it in '0'..'9' }.take(SignupUiState.CODE_LENGTH)
+        val changed = digits != _state.value.codeInput
+        update { it.copy(codeInput = digits, error = null) }
+        if (changed && _state.value.canSubmitCode) submitCode()
+    }
+    fun submitPhone() {
+        if (_state.value.busy) return
+        val phone = _state.value.phoneE164
+        if (phone == null) { update { it.copy(error = SignupError.INVALID_PHONE) }; return }
+        send(phone)
+    }
+    private fun send(phone: String) {
+        update { it.copy(busy = true, error = null) }
+        request = viewModelScope.launch {
+            try {
+                auth.requestOtp(phone)
+                saved["resendAt"] = clock.nowMs() + 30_000
+                update { it.copy(busy = false, step = SignupStep.CODE, codeInput = "") }
+                countdown()
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                update { it.copy(busy = false, error = SignupError.REQUEST_FAILED) }
             }
         }
     }
-
-    fun onPhoneChange(value: String) {
-        _state.update { it.copy(phoneInput = value, error = null) }
-    }
-
-    fun onCodeChange(value: String) {
-        val digits = value.filter(Char::isDigit).take(SignupUiState.CODE_LENGTH)
-        _state.update { it.copy(codeInput = digits, error = null) }
-    }
-
-    fun onNameChange(value: String) {
-        _state.update { it.copy(nameInput = value, error = null) }
-    }
-
-    fun onCityChange(value: City) {
-        _state.update { it.copy(city = value, error = null) }
-    }
-
-    /** Request the WhatsApp code and advance to the code screen. */
-    fun submitPhone() {
-        val phone = _state.value.phoneE164
-        if (phone == null) {
-            _state.update { it.copy(error = SignupError.INVALID_PHONE) }
-            return
-        }
-        _state.update { it.copy(busy = true, error = null) }
-        viewModelScope.launch {
-            runCatching { auth.requestOtp(phone) }
-                .onSuccess {
-                    _state.update { it.copy(busy = false, step = SignupStep.CODE, codeInput = "") }
-                    startResendCooldown()
-                }
-                .onFailure {
-                    _state.update { it.copy(busy = false, error = SignupError.REQUEST_FAILED) }
-                }
-        }
-    }
-
-    /** Re-send the code (rate-limited locally by the cooldown; the backend rate-limits too). */
     fun resendCode() {
         if (_state.value.resendSecondsLeft > 0 || _state.value.busy) return
-        val phone = _state.value.phoneE164 ?: return
-        viewModelScope.launch {
-            runCatching { auth.requestOtp(phone) }
-                .onFailure { _state.update { it.copy(error = SignupError.REQUEST_FAILED) } }
-            startResendCooldown()
-        }
+        _state.value.phoneE164?.let(::send)
     }
-
-    /** Go back from the code screen to correct the phone number. */
     fun changePhone() {
-        resendJob?.cancel()
-        _state.update { it.copy(step = SignupStep.PHONE, codeInput = "", error = null, resendSecondsLeft = 0) }
+        request?.cancel(); resendJob?.cancel(); saved["resendAt"] = 0L
+        update { it.copy(step = SignupStep.PHONE, codeInput = "", busy = false, error = null, resendSecondsLeft = 0) }
     }
-
-    /** Verify the code; on success the session persists and the flow advances to the profile. */
     fun submitCode() {
         val s = _state.value
         val phone = s.phoneE164 ?: return
         if (!s.canSubmitCode) return
-        _state.update { it.copy(busy = true, error = null) }
-        viewModelScope.launch {
-            runCatching { auth.verifyOtp(phone, s.codeInput) }
-                .onSuccess { driver ->
-                    resendJob?.cancel()
-                    _state.update {
-                        it.copy(
-                            busy = false,
-                            step = SignupStep.PROFILE,
-                            nameInput = driver.name.orEmpty(),
-                            city = City.fromKey(driver.city) ?: it.city,
-                        )
-                    }
-                }
-                .onFailure { e ->
-                    val kind = if ((e as? ApiException)?.status == 401) {
-                        SignupError.WRONG_CODE
-                    } else {
-                        SignupError.VERIFY_FAILED
-                    }
-                    _state.update { it.copy(busy = false, error = kind) }
-                }
-        }
-    }
-
-    /** Save name + city to the account, mirror the city into settings, then finish. */
-    fun saveProfile(onDone: () -> Unit) {
-        val s = _state.value
-        _state.update { it.copy(busy = true, error = null) }
-        viewModelScope.launch {
-            runCatching {
-                auth.updateProfile(
-                    name = s.nameInput.trim().ifEmpty { null },
-                    city = s.city.key,
-                )
-                settings.setCity(s.city)
+        update { it.copy(busy = true, error = null) }
+        request = viewModelScope.launch {
+            try {
+                auth.verifyOtp(phone, s.codeInput)
+                resendJob?.cancel()
+                update { it.copy(busy = false, step = SignupStep.DONE, codeInput = "") }
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                update { it.copy(busy = false, error = if ((e as? ApiException)?.status == 401) SignupError.WRONG_CODE else SignupError.VERIFY_FAILED) }
             }
-                .onSuccess {
-                    _state.update { it.copy(busy = false) }
-                    onDone()
-                }
-                .onFailure {
-                    _state.update { it.copy(busy = false, error = SignupError.PROFILE_SAVE_FAILED) }
-                }
         }
     }
-
-    /** Skip the profile step — the account already exists; the profile is editable later. */
-    fun skipProfile(onDone: () -> Unit) {
-        onDone()
+    fun resume() { if (_state.value.step == SignupStep.CODE) countdown() }
+    fun cancel() {
+        request?.cancel(); resendJob?.cancel()
+        update { it.copy(busy = false) }
     }
-
-    private fun startResendCooldown() {
+    private fun countdown() {
         resendJob?.cancel()
         resendJob = viewModelScope.launch {
-            _state.update { it.copy(resendSecondsLeft = RESEND_COOLDOWN_SECONDS) }
-            while (_state.value.resendSecondsLeft > 0) {
+            do {
+                val seconds = (((saved.get<Long>("resendAt") ?: 0L) - clock.nowMs() + 999) / 1_000).coerceIn(0, 30).toInt()
+                update { it.copy(resendSecondsLeft = seconds) }
+                if (seconds == 0) break
                 delay(1_000)
-                _state.update { it.copy(resendSecondsLeft = it.resendSecondsLeft - 1) }
-            }
+            } while (isActive)
         }
-    }
-
-    private companion object {
-        const val RESEND_COOLDOWN_SECONDS = 30
     }
 }

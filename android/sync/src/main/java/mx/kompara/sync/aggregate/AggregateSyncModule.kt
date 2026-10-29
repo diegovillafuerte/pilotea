@@ -20,10 +20,16 @@ object AggregateSyncModule {
     @Provides
     @Singleton
     fun provideAggregateConsent(settings: SettingsRepository): AggregateConsent =
-        AggregateConsent { settings.isShareAggregatesEnabled() }
+        AggregateConsent { StatementContributionContract.canUpload(settings.isShareAggregatesEnabled()) }
 
     @Provides
     @Singleton
     fun provideSessionGate(auth: AuthRepository): SessionGate =
         SessionGate { auth.currentToken() != null }
+}
+
+/** The legacy endpoint accepts captured/unscoped aggregates. It cannot satisfy the v3 consent. */
+object StatementContributionContract {
+    fun canUpload(consented: Boolean): Boolean = consented && CERTIFIED_STATEMENT_UPLOAD_SUPPORTED
+    private const val CERTIFIED_STATEMENT_UPLOAD_SUPPORTED = false
 }

@@ -28,16 +28,23 @@ class ShareCardSharer @Inject constructor(
      * resolved [ShareTarget] so the caller/tests can assert WhatsApp-vs-chooser. The actual
      * `startActivity` is best-effort (a brand-new emulator may have no share targets at all).
      */
-    fun share(imageUri: Uri, caption: String): ShareTarget {
+    fun share(imageUri: Uri, caption: String, preferWhatsApp: Boolean = true): ShareTarget {
         val base = sendIntent(imageUri, caption)
-        val whatsappInstalled = isWhatsAppInstalled()
-        val intent = if (whatsappInstalled) {
-            Intent(base).setPackage(WHATSAPP_PACKAGE)
-        } else {
-            Intent.createChooser(base, caption).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+        if (preferWhatsApp && isWhatsAppInstalled()) {
+            try {
+                context.startActivity(Intent(base).setPackage(WHATSAPP_PACKAGE).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                return ShareTarget.WHATSAPP
+            } catch (_: android.content.ActivityNotFoundException) { /* App removed or cannot receive PNG. */ }
+            catch (_: SecurityException) { /* Fall back to the system chooser. */ }
         }
-        runCatching { context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
-        return if (whatsappInstalled) ShareTarget.WHATSAPP else ShareTarget.CHOOSER
+        return try {
+            context.startActivity(Intent.createChooser(base, "Compartir").apply {
+                clipData = base.clipData
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            })
+            ShareTarget.CHOOSER
+        } catch (_: android.content.ActivityNotFoundException) { ShareTarget.FAILED }
+        catch (_: SecurityException) { ShareTarget.FAILED }
     }
 
     /** Record a completed share intent in the anonymous local funnel counter. */
@@ -62,6 +69,7 @@ class ShareCardSharer @Inject constructor(
         fun sendIntent(imageUri: Uri, caption: String): Intent =
             Intent(Intent.ACTION_SEND).apply {
                 type = MIME_PNG
+                clipData = android.content.ClipData.newRawUri("Resumen de Kompara", imageUri)
                 putExtra(Intent.EXTRA_STREAM, imageUri)
                 putExtra(Intent.EXTRA_TEXT, caption)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
@@ -70,4 +78,4 @@ class ShareCardSharer @Inject constructor(
 }
 
 /** Which target the share intent was aimed at (B-055) — for the funnel + tests. */
-enum class ShareTarget { WHATSAPP, CHOOSER }
+enum class ShareTarget { WHATSAPP, CHOOSER, FAILED }

@@ -5,6 +5,11 @@ import mx.kompara.data.db.entity.OfferOutcome
 import mx.kompara.data.db.entity.ShiftEntity
 import mx.kompara.data.db.entity.TripEntity
 import mx.kompara.metrics.VerdictLevel
+import mx.kompara.data.db.entity.TripLifecycle
+import mx.kompara.data.db.entity.OfferEvaluation
+import mx.kompara.data.db.entity.hasItemConfirmation
+import mx.kompara.data.settings.PlatformThreshold
+import mx.kompara.data.settings.PreferredMetric
 
 /**
  * Everything the day-detail screen renders for one local day (B-040 req 2): the per-shift timeline,
@@ -37,18 +42,54 @@ data class OfferFunnel(
     val taken: Int,
     val declined: Int,
     val pending: Int,
-    val rows: List<OfferRow>,
+    val rows: List<OfferRowModel>,
 )
 
 /** One captured offer in the day's funnel, with its persisted verdict (null if never evaluated). */
-data class OfferRow(
+data class OfferRowModel(
     val offerId: Long,
     val seenAt: Long,
     val platform: String,
-    val fareMxn: Double,
+    val fareMxn: Double?,
     val outcome: OfferOutcome,
     val verdict: VerdictLevel?,
-)
+    val lifecycle: TripLifecycle? = null,
+    val itemConfirmed: Boolean = false,
+    val evaluation: OfferEvaluation? = null,
+) {
+    val inProgress: Boolean get() = lifecycle == TripLifecycle.ACCEPTED_ESTIMATE || lifecycle == TripLifecycle.IN_PROGRESS
+    val outcomeLabel: String get() = when {
+        lifecycle == TripLifecycle.CANCELLED || outcome == OfferOutcome.CANCELLED -> "Se canceló"
+        inProgress -> "En curso"
+        evaluation?.unavailableReason == "FARE" -> "Sin lectura"
+        lifecycle == TripLifecycle.FINISHED && outcome == OfferOutcome.ACCEPTED -> "La tomaste"
+        outcome in setOf(OfferOutcome.NOT_TAKEN, OfferOutcome.DECLINED, OfferOutcome.EXPIRED) -> "Se fue sin tomar"
+        else -> "Sin confirmar"
+    }
+    val contributionLabel: String? get() = when {
+        evaluation?.contribution == null -> null
+        inProgress -> "Te deja · aprox."
+        lifecycle == TripLifecycle.FINISHED && outcome == OfferOutcome.ACCEPTED -> "Te dejó · aprox."
+        outcome in setOf(OfferOutcome.NOT_TAKEN, OfferOutcome.DECLINED, OfferOutcome.EXPIRED) -> "Te habría dejado · aprox."
+        else -> null
+    }
+
+    /** Only the limit named by the frozen judgement controls “a esa hora”. */
+    fun historicalLimitSuffix(current: PlatformThreshold): String? {
+        val snapshot = evaluation ?: return null
+        val km = snapshot.unit == PreferredMetric.IPK.name
+        val goal = verdict == VerdictLevel.GREEN
+        if (verdict == null || verdict == VerdictLevel.UNKNOWN) return null
+        val previous = (if (goal) snapshot.goal else snapshot.minimum).toBigDecimal()
+        val now = when {
+            goal && km -> current.minPerKmMxn
+            goal -> current.minPerHourMxn
+            km -> current.redPerKmMxn
+            else -> current.redPerHourMxn
+        }.toBigDecimal()
+        return if (previous.compareTo(now) == 0) "" else " a esa hora"
+    }
+}
 
 /**
  * Folds the day's raw rows into a [DayDetail]. The caller supplies the rows already scoped to the
@@ -83,11 +124,15 @@ object DayDetailBuilder {
                 )
             }
 
-        val rows = offers.map { it.toRow() }.sortedBy { it.seenAt }
+        val rows = offers.map { offer ->
+            val trip = trips.firstOrNull { it.offerId == offer.id }
+            offer.toRow().copy(lifecycle = trip?.let { runCatching { TripLifecycle.valueOf(it.lifecycle) }.getOrNull() },
+                itemConfirmed = trip?.hasItemConfirmation == true)
+        }.sortedByDescending { it.seenAt }
         val funnel = OfferFunnel(
             seen = rows.size,
             taken = rows.count { it.outcome == OfferOutcome.ACCEPTED },
-            declined = rows.count { it.outcome == OfferOutcome.DECLINED || it.outcome == OfferOutcome.EXPIRED },
+            declined = rows.count { it.outcome in setOf(OfferOutcome.DECLINED, OfferOutcome.EXPIRED, OfferOutcome.NOT_TAKEN) },
             pending = rows.count { it.outcome == OfferOutcome.PENDING },
             rows = rows,
         )
@@ -106,11 +151,12 @@ object DayDetailBuilder {
         )
     }
 
-    private fun OfferEntity.toRow(): OfferRow = OfferRow(
+    private fun OfferEntity.toRow(): OfferRowModel = OfferRowModel(
         offerId = id,
         seenAt = seenAt,
         platform = platform,
-        fareMxn = fareMxn,
+        fareMxn = fareMxn.takeUnless { inputProvenance == "LEGACY_UNSPECIFIED" || paymentBasis != "DRIVER_PAYMENT" },
+        evaluation = evaluation,
         outcome = runCatching { OfferOutcome.valueOf(outcome) }.getOrDefault(OfferOutcome.PENDING),
         verdict = verdict?.let { name -> runCatching { VerdictLevel.valueOf(name) }.getOrNull() },
     )

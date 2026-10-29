@@ -8,7 +8,7 @@ import org.junit.Test
 
 /**
  * The pure week/row helpers behind [CompararViewModel] (S-024): the available-weeks list for the
- * dropdown and the IMPORTED-over-CAPTURED preference when folding a week's rows.
+ * period choices and preservation of original source rows for coverage selection.
  */
 class CompareStateTest {
 
@@ -58,13 +58,13 @@ class CompareStateTest {
     }
 
     @Test
-    fun `rowsForWeek prefers imported over captured for the same platform-week`() {
+    fun `rowsForWeek preserves both sources for explicit coverage selection`() {
         val rows = listOf(
             weekly(Platform.UBER, "2026-06-08", source = AggregateSource.CAPTURED, perKm = 9.0),
             weekly(Platform.UBER, "2026-06-08", source = AggregateSource.IMPORTED, perKm = 12.0),
         )
-        val uber = CompareState.rowsForWeek(rows, "2026-06-08").single()
-        assertEquals(AggregateSource.IMPORTED.name, uber.source)
-        assertEquals(12.0, uber.earningsPerKm!!, 1e-9)
+        val uber = CompareState.rowsForWeek(rows, "2026-06-08")
+        assertEquals(setOf("CAPTURED", "IMPORTED"), uber.map { it.source }.toSet())
+        assertEquals(listOf(9.0, 12.0), uber.map { it.earningsPerKm })
     }
 }

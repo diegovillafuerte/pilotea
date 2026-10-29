@@ -34,6 +34,8 @@ class EventPipeline(
     private val snapshotReader: SnapshotReader,
     private val dispatcher: CoroutineDispatcher,
     private val debounceMs: Long,
+    private val captureToken: () -> Long = { 0L },
+    private val canRead: (String, Long) -> Boolean = { _, _ -> true },
 ) {
     /**
      * Hilt-friendly constructor that supplies the production debounce window and binds work to the
@@ -43,9 +45,13 @@ class EventPipeline(
     constructor(
         snapshotReader: SnapshotReader,
         @mx.kompara.data.di.DefaultDispatcher dispatcher: CoroutineDispatcher,
-    ) : this(snapshotReader, dispatcher, DEFAULT_DEBOUNCE_MS)
+        readiness: mx.kompara.data.service.ReaderReadinessRepository,
+    ) : this(snapshotReader, dispatcher, DEFAULT_DEBOUNCE_MS, readiness::captureToken,
+        { app, token -> readiness.canRead(app, token) })
 
-    private val events = MutableSharedFlow<CaptureEvent>(
+    private data class PendingEvent(val event: CaptureEvent, val token: Long)
+
+    private val events = MutableSharedFlow<PendingEvent>(
         replay = 0,
         extraBufferCapacity = 64,
         onBufferOverflow = BufferOverflow.DROP_OLDEST,
@@ -68,7 +74,12 @@ class EventPipeline(
     val debouncedSnapshots: Flow<ScreenSnapshot> =
         events
             .debounce(debounceMs)
-            .map { snapshotReader.read(it.packageName, it.timestampMs) }
+            .map { pending ->
+                val event = pending.event
+                if (!canRead(event.packageName, pending.token)) null
+                else snapshotReader.read(event.packageName, event.timestampMs)
+                    ?.takeIf { canRead(event.packageName, pending.token) }
+            }
             .filterNotNull()
             .flowOn(dispatcher)
 
@@ -85,7 +96,7 @@ class EventPipeline(
 
     /** Feed one raw host-app event into the pipeline. Non-blocking; never drops the newest event. */
     fun submit(event: CaptureEvent) {
-        events.tryEmit(event)
+        events.tryEmit(PendingEvent(event, captureToken()))
     }
 
     companion object {

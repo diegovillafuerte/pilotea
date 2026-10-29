@@ -23,6 +23,7 @@ class FiscalPdfSharerTest {
 
         assertEquals(Intent.ACTION_SEND, intent.action)
         assertEquals(FiscalPdfSharer.MIME_PDF, intent.type)
+        assertEquals(uri, intent.clipData!!.getItemAt(0).uri)
         assertEquals(uri, intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM))
         assertEquals("Resumen Kompara", intent.getStringExtra(Intent.EXTRA_SUBJECT))
         assertEquals("Adjunto", intent.getStringExtra(Intent.EXTRA_TEXT))
@@ -33,9 +34,12 @@ class FiscalPdfSharerTest {
     }
 
     @Test
-    fun `file name carries the month and only safe characters`() {
-        assertEquals("kompara_fiscal_2026-06.pdf", FiscalPdfWriter.fileNameFor("2026-06"))
-        // Defensive: any odd characters are stripped so the cache file name is always safe.
-        assertEquals("kompara_fiscal_2026-06.pdf", FiscalPdfWriter.fileNameFor("2026-06/../etc"))
+    fun `invalid month cannot create a report with a misleading period`() {
+        val h = mx.kompara.ui.export.ExportHarness()
+        val report = FiscalReportComposer.recorded(mx.kompara.ui.fixtures.MonthFixture(h.context).month(), "Generado hoy")
+        org.junit.Assert.assertThrows(java.time.format.DateTimeParseException::class.java) {
+            FiscalPdfWriter(h.context, h.cache).write(report, "2026-06/../etc")
+        }
+        assertTrue(java.io.File(h.context.cacheDir, "fiscal_reports").listFiles().orEmpty().isEmpty())
     }
 }

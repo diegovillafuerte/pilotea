@@ -4,7 +4,7 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 
 /**
- * A completed trip, inferred from the offer→accept→complete lifecycle.
+ * An observed trip, with lifecycle separate from itemized payment evidence.
  *
  * Trips replace uploads as the primary data source (android-technical-design.md §3): the
  * capture pipeline links an accepted [OfferEntity] to the resulting trip via [offerId].
@@ -36,15 +36,15 @@ data class TripEntity(
     /**
      * Gross earnings for the trip in MXN. On the captured path this is the *offer fare* used as an
      * estimate ([estimated] = true) — we cannot read the final settled fare on device, only what the
-     * offer promised. An imported weekly summary (B-045) carries realized earnings instead.
+     * offer promised. Aggregate statements never confirm this individual trip.
      */
-    val grossMxn: Double,
+    val grossMxn: Double?,
 
     /** Actual distance driven in km (offer estimate on the captured path). */
-    val distanceKm: Double,
+    val distanceKm: Double?,
 
     /** Actual trip duration in minutes (offer estimate on the captured path). */
-    val durationMin: Double,
+    val durationMin: Double?,
 
     /**
      * True when [grossMxn]/[distanceKm]/[durationMin] are the offer's *estimate* rather than realized
@@ -52,4 +52,13 @@ data class TripEntity(
      * "estimado" and so reconciliation (B-045) knows captured numbers are provisional.
      */
     val estimated: Boolean = true,
+    val lifecycle: String = if (endedAt == null) TripLifecycle.IN_PROGRESS.name else TripLifecycle.FINISHED.name,
+    val lastObservedAt: Long = endedAt ?: startedAt,
+    val paymentBasis: String = "DRIVER_PAYMENT",
+    val inputProvenance: String = "CAPTURED",
+    /** Only itemized evidence can confirm this trip; finishing and weekly imports cannot. */
+    val confirmationEvidenceId: String? = null,
+    val confirmationSource: String? = null,
+    val confirmedAt: Long? = null,
+    val cancellationSource: String? = null,
 )

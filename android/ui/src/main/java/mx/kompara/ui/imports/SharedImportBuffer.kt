@@ -11,13 +11,13 @@ import javax.inject.Singleton
  * (translucent) share activity drains the bytes into [ImportFile]s — the content-URI read grant is
  * transient and not guaranteed to survive the launch, so we copy out immediately — classifies the
  * platform ([ShareTargetClassifier]), drops the result here, and launches the shell at the import
- * route. The ViewModel [take]s it on init and jumps straight to the dry-run preview, so the file is
+ * route. The ViewModel [take]s it on init and opens the consent page, so the file is
  * pre-picked (no document-picker round-trip).
  *
  * A Hilt [Singleton] so the share activity (which writes) and the import ViewModel (which reads) share
  * one instance. [take] is exactly-once: it clears the slot so a later, unrelated open of the import
- * flow never re-fires a stale share, and a configuration change can't double-submit. Holds the bytes in
- * memory only (no disk), so a never-consumed share is simply garbage-collected with the process.
+ * flow never re-fires a stale share, and a configuration change can't double-submit. The activity also retains the draft in Room before launching the shell, so process death can
+ * restore the same consent page without this transient hand-off.
  */
 @Singleton
 class SharedImportBuffer @Inject constructor() {

@@ -1,118 +1,92 @@
 package mx.kompara.ui.stats
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import mx.kompara.data.model.City
 import mx.kompara.data.settings.SettingsRepository
 import mx.kompara.sync.auth.AuthRepository
 import mx.kompara.sync.auth.SessionState
+import mx.kompara.ui.format.Formatters
+import java.math.BigDecimal
 import javax.inject.Inject
 
-/** What the account screen needs to render, all from a single source of truth. */
 data class AccountUiState(
-    /** Read-only WhatsApp phone (E.164) of the signed-in driver; empty while loading. */
-    val phone: String = "",
-    /** Editable display name. */
-    val nameInput: String = "",
-    /** Editable benchmark city. */
-    val city: City = City.DEFAULT,
-    /** A save / delete call is in flight. */
-    val busy: Boolean = false,
-    /** True after a profile save succeeds (drives the "Guardado" confirmation). */
-    val saved: Boolean = false,
-    /** Non-null when the last save or delete failed. */
-    val error: AccountError? = null,
+    val loaded: Boolean = false, val phone: String = "", val name: String = "", val city: City = City.DEFAULT,
+    val citySource: String? = null, val goal: String = "$8.00/km", val minimum: String = "$6.00/km",
+    val busy: Boolean = false, val message: String? = null, val error: String? = null,
+    val sheet: String? = null, val pendingCity: City? = null, val nameDraft: String = "",
+    // Only supplied by a validated configuration. The fixture is not a live city proposal.
+    val suggestedGoal: String? = null,
 )
+fun cityConfirmation(state: AccountUiState, city: City): String =
+    "Te comparamos con ${city.displayName} desde esta semana. Tu meta sigue en ${state.goal}" +
+        (state.suggestedGoal?.let { "; allá se sugiere $it." } ?: "; tu mínimo, en ${state.minimum}.")
 
-/** What went wrong, mapped to Spanish by the UI. */
-enum class AccountError {
-    /** PATCH /v1/me failed (network/server). */
-    SAVE_FAILED,
-
-    /** DELETE /v1/me failed (network/server). */
-    DELETE_FAILED,
-}
-
-/**
- * Backs the "Tu cuenta" screen (B-069): shows the signed-in driver's phone, lets them edit name +
- * city (PATCH /v1/me, mirroring the city into settings exactly like the signup profile step), and
- * exposes cerrar-sesión and delete-account actions.
- *
- * Logout and delete both clear local auth via [AuthRepository], which flips [SessionState] so the
- * app root re-gates to the signup flow — no explicit navigation needed here.
- */
 @HiltViewModel
 class AccountViewModel @Inject constructor(
     private val auth: AuthRepository,
     private val settings: SettingsRepository,
+    private val saved: SavedStateHandle,
 ) : ViewModel() {
+    private val busy = MutableStateFlow(false)
+    private val error = MutableStateFlow<String?>(null)
+    private val message = MutableStateFlow<String?>(null)
+    private val operation = combine(busy, error, message) { b, e, m -> Triple(b, e, m) }
+    private val draft = combine(saved.getStateFlow<String?>("profileSheet", null),
+        saved.getStateFlow<String?>("profileCity", null), saved.getStateFlow("profileName", "")) { sheet, city, name ->
+        Triple(sheet, city?.let(City::fromKey), name)
+    }
+    private val refresh = MutableStateFlow(0)
+    fun retry() { refresh.value++ }
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val state = refresh.flatMapLatest { combine(auth.sessionState, settings.settings, operation, draft) { session, prefs, action, editor ->
+        val driver = (session as? SessionState.Authenticated)?.driver
+        val rule = prefs.effectiveThreshold
+        val hour = prefs.preferredMetric == mx.kompara.data.settings.PreferredMetric.IPH
+        AccountUiState(loaded = true, phone = driver?.phone.orEmpty(), name = driver?.name.orEmpty(), city = prefs.city,
+            citySource = if (prefs.cityChosen) "elegida por ti" else if (driver?.city == null) "valor inicial" else null,
+            goal = Formatters.formatMxn(BigDecimal.valueOf(if (hour) rule.minPerHourMxn else rule.minPerKmMxn)) + if (hour) "/h" else "/km",
+            minimum = Formatters.formatMxn(BigDecimal.valueOf(if (hour) rule.redPerHourMxn else rule.redPerKmMxn)) + if (hour) "/h" else "/km",
+            busy = action.first, error = action.second, message = action.third, sheet = editor.first,
+            pendingCity = editor.second, nameDraft = editor.third)
+    } .catch { e ->
+        if (e is CancellationException) throw e
+        emit(AccountUiState(error = "No pudimos cargar tu perfil. Inténtalo otra vez."))
+    } }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AccountUiState())
 
-    private val _state = MutableStateFlow(AccountUiState())
-    val state: StateFlow<AccountUiState> = _state.asStateFlow()
-
-    init {
+    fun open(sheet: String) { if (!busy.value) { saved["profileSheet"] = sheet; saved["profileName"] = state.value.name; message.value = null } }
+    fun close() { if (!busy.value) { saved["profileSheet"] = null; saved["profileCity"] = null } }
+    fun chooseCity(city: City?) { if (!busy.value) saved["profileCity"] = city?.key }
+    fun name(value: String) { saved["profileName"] = value }
+    private fun run(failure: String, action: suspend () -> Unit) {
+        if (busy.value) return
+        busy.value = true; error.value = null; message.value = null
         viewModelScope.launch {
-            val session = auth.sessionState.first()
-            if (session is SessionState.Authenticated) {
-                val driver = session.driver
-                _state.update {
-                    it.copy(
-                        phone = driver.phone,
-                        nameInput = driver.name.orEmpty(),
-                        city = City.fromKey(driver.city) ?: settings.currentCity(),
-                    )
-                }
-            }
+            try { action(); saved["profileSheet"] = null; saved["profileCity"] = null }
+            catch (e: Exception) { if (e is CancellationException) throw e; error.value = failure; saved["profileCity"] = null; if (saved.get<String>("profileSheet") == "logout") saved["profileSheet"] = null }
+            finally { busy.value = false }
         }
     }
-
-    fun onNameChange(value: String) {
-        _state.update { it.copy(nameInput = value, error = null, saved = false) }
-    }
-
-    fun onCityChange(value: City) {
-        _state.update { it.copy(city = value, error = null, saved = false) }
-    }
-
-    /** Persist name + city to the account (PATCH /v1/me) and mirror the city into settings. */
-    fun save() {
-        val s = _state.value
-        if (s.busy) return
-        _state.update { it.copy(busy = true, error = null, saved = false) }
-        viewModelScope.launch {
-            runCatching {
-                auth.updateProfile(
-                    name = s.nameInput.trim().ifEmpty { null },
-                    city = s.city.key,
-                )
-                settings.setCity(s.city)
-            }
-                .onSuccess { _state.update { it.copy(busy = false, saved = true) } }
-                .onFailure { _state.update { it.copy(busy = false, error = AccountError.SAVE_FAILED) } }
+    fun confirmCity() {
+        val city = state.value.pendingCity ?: return
+        run("No pudimos guardar tu ciudad. Inténtalo otra vez.") {
+            if (auth.sessionState.first() is SessionState.Authenticated) auth.updateProfile(city = city.key)
+            settings.setCity(city) // Never writes either saved threshold or selected unit.
+            message.value = "Ciudad cambiada a ${city.displayName}"
         }
     }
-
-    /** Revoke the session and clear local auth; the root gate then routes to signup. */
-    fun logout() {
-        if (_state.value.busy) return
-        _state.update { it.copy(busy = true, error = null) }
-        viewModelScope.launch { auth.logout() }
+    fun saveName() = run("No pudimos guardar tu nombre. Inténtalo otra vez.") {
+        val name = state.value.nameDraft.trim()
+        require(name.length in 1..100)
+        auth.updateProfile(name = name)
+        message.value = "Nombre guardado"
     }
-
-    /** Permanently delete the account; on success the root gate routes to signup. */
-    fun deleteAccount() {
-        if (_state.value.busy) return
-        _state.update { it.copy(busy = true, error = null) }
-        viewModelScope.launch {
-            runCatching { auth.deleteAccount() }
-                .onFailure { _state.update { it.copy(busy = false, error = AccountError.DELETE_FAILED) } }
-        }
+    fun logout() = run("No pudimos cerrar sesión. Inténtalo otra vez.") {
+        auth.logout(); message.value = "Sesión cerrada"
     }
 }

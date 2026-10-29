@@ -17,7 +17,14 @@ import mx.kompara.ui.nav.KomparaDestination
  * `popBackStack()` on success / cancel.
  */
 fun NavGraphBuilder.importDestination(navController: NavController) {
+    composable("import-review/{draftId}") {
+        ImportScreen(onClose = { navController.popBackStack() }, onSignIn = { navController.navigate("settings-signin") }, onSaved = {})
+    }
     composable(KomparaDestination.IMPORT_ROUTE) {
-        ImportScreen(onClose = { navController.popBackStack() })
+        ImportScreen(onClose = { navController.popBackStack() },
+            onSignIn = { navController.navigate("settings-signin") },
+            onSaved = { week -> navController.navigate("${KomparaDestination.WEEK_SUMMARY_ROUTE}/$week") {
+                popUpTo(KomparaDestination.IMPORT_ROUTE) { inclusive = true }; launchSingleTop = true
+            } })
     }
 }

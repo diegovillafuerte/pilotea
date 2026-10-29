@@ -36,6 +36,9 @@ data class FiscalReportData(
     val ratesNote: String,
     /** Generation date line, e.g. "Generado el 10 jun 2026". */
     val generatedOn: String,
+    /** V3 factual ledger. Regulatory fields above are never rendered for this report. */
+    val recordedRows: List<Pair<String, String>>? = null,
+    val sourceNotes: List<String> = emptyList(),
 ) {
     companion object {
         const val WORDMARK = "Kompara"

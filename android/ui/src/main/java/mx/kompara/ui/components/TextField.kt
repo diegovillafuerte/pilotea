@@ -7,16 +7,23 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.error
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import mx.kompara.ui.theme.KomparaType
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
@@ -31,10 +38,10 @@ import mx.kompara.ui.theme.KomparaTheme
  * Kompara's labelled text field: a tonal input with a STATIC label sitting above it (never a
  * floating Material label, which the design system explicitly rejects). Supports a fixed [prefix]
  * (e.g. "+52" for the WhatsApp number), a [hint], and an [error] that takes over the helper slot
- * and reddens the border. Built on [BasicTextField] + a `decorationBox` so the prefix and
+ * with an ink error border. Built on [BasicTextField] + a `decorationBox` so the prefix and
  * placeholder render exactly as the tokens call for, without Material's outlined/filled chrome.
  *
- * 52 dp tall for an easy tap with the phone on a mount. Shows [error] (red) over [hint] when both
+ * At least 56 dp tall for an easy tap with the phone on a mount. Shows [error] (ink) over [hint] when both
  * are set.
  *
  * [readOnly] makes the field non-editable while keeping it fully visible (e.g. the WhatsApp number
@@ -56,17 +63,24 @@ fun KomparaTextField(
     enabled: Boolean = true,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     visualTransformation: VisualTransformation = VisualTransformation.None,
+    underlined: Boolean = false,
+    suffix: String? = null,
 ) {
+    var focused by remember { mutableStateOf(false) }
     val borderColor = if (error != null) {
         MaterialTheme.colorScheme.error
+    } else if (focused) {
+        MaterialTheme.colorScheme.primary
     } else {
-        MaterialTheme.colorScheme.outline
+        MaterialTheme.colorScheme.outlineVariant
     }
+    val ink = MaterialTheme.colorScheme.onSurface
+    val inputStyle = if (underlined) KomparaType.carSuffix.copy(fontWeight = FontWeight.SemiBold) else MaterialTheme.typography.bodyLarge
     Column(modifier = modifier.alpha(if (enabled) 1f else 0.45f)) {
         Text(
             text = label,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontSize = 12.sp,
+            fontSize = 13.sp,
             fontWeight = FontWeight.Medium,
         )
         BasicTextField(
@@ -77,34 +91,35 @@ fun KomparaTextField(
             enabled = enabled,
             keyboardOptions = keyboardOptions,
             visualTransformation = visualTransformation,
-            textStyle = MaterialTheme.typography.bodyLarge.copy(
+            textStyle = inputStyle.copy(
                 color = MaterialTheme.colorScheme.onSurface,
             ),
             cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
             modifier = Modifier
+                .onFocusChanged { focused = it.isFocused }
+                .semantics { contentDescription = label; if (error != null) error(error) }
                 .padding(top = 6.dp)
                 .fillMaxWidth()
-                .height(52.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.surfaceContainer)
-                .border(
-                    width = 1.5.dp,
-                    color = borderColor,
-                    shape = RoundedCornerShape(12.dp),
-                ),
+                .heightIn(min = 56.dp)
+                .then(if (underlined) Modifier.drawBehind {
+                    val stroke = (if (focused) 2.dp else 1.dp).toPx()
+                    drawLine(ink, Offset(0f, size.height - stroke / 2), Offset(size.width, size.height - stroke / 2), stroke)
+                } else Modifier.clip(RoundedCornerShape(8.dp))
+                    .background(MaterialTheme.colorScheme.surfaceContainer)
+                    .border(1.5.dp, borderColor, RoundedCornerShape(8.dp))),
             decorationBox = { innerTextField ->
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 14.dp),
+                        .padding(horizontal = if (underlined) 0.dp else 14.dp, vertical = 10.dp),
                 ) {
                     if (prefix != null) {
                         Text(
                             text = prefix,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 16.sp,
+                            style = if (underlined) inputStyle else MaterialTheme.typography.bodyLarge,
                             fontWeight = FontWeight.SemiBold,
                         )
                     }
@@ -118,6 +133,7 @@ fun KomparaTextField(
                         }
                         innerTextField()
                     }
+                    if (suffix != null) Text(suffix, style = KomparaType.body, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             },
         )
@@ -129,7 +145,7 @@ fun KomparaTextField(
                 } else {
                     MaterialTheme.colorScheme.onSurfaceVariant
                 },
-                fontSize = 12.sp,
+                fontSize = 13.sp,
                 modifier = Modifier.padding(top = 4.dp),
             )
         }

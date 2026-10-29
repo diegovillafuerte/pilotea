@@ -3,6 +3,7 @@ package mx.kompara.ui.stats
 import mx.kompara.data.db.entity.DailyAggregateEntity
 import mx.kompara.data.db.entity.WeeklyAggregateEntity
 import mx.kompara.data.model.Platform
+import mx.kompara.data.accounting.*
 
 /**
  * The five headline metrics for one period (a week or a day), folded to a single platform or summed
@@ -26,11 +27,17 @@ data class PeriodStats(
     val earningsPerHour: Double?,
     val tripsPerHour: Double?,
     val acceptanceRate: Double?,
+    val runningCostKnown: Boolean = true,
 ) {
     /** True when this period carried no completed trips at all (drives the empty/first-run state). */
     val isEmpty: Boolean get() = totalTrips == 0 && netEarningsMxn == 0.0 && hoursOnline == 0.0
 
     companion object {
+        /** V3 consumers share this complete ledger; no screen-specific net formula. */
+        fun calculate(window: PeriodWindow, records: List<IncomeRecord>, costs: CostSchedule,
+            shifts: List<TimeInterval> = emptyList(), decisions: List<Reconciliation> = emptyList()): PeriodMoney =
+            PeriodAccounting.calculate(window, records, costs, shifts, decisions)
+
         /** A zeroed period — what the dashboard shows before any data is captured. */
         val EMPTY = PeriodStats(
             netEarningsMxn = 0.0,
@@ -55,13 +62,13 @@ data class PeriodStats(
          */
         fun fromWeekly(rows: List<WeeklyAggregateEntity>, platform: Platform?): PeriodStats =
             foldRows(
-                rows.map { it.toRow() }.filterByPlatform(platform),
+                rows.map { it.toRow() }.selectSources().filterByPlatform(platform),
             )
 
         /** Daily twin of [fromWeekly] for a *single* day bucket (hours replicated per platform-row). */
         fun fromDaily(rows: List<DailyAggregateEntity>, platform: Platform?): PeriodStats =
             foldRows(
-                rows.map { it.toRow() }.filterByPlatform(platform),
+                rows.map { it.toRow() }.selectSources().filterByPlatform(platform),
             )
 
         /**
@@ -73,10 +80,15 @@ data class PeriodStats(
          * inflate $/hora and viajes/hora. Rates are recomputed from these corrected monthly totals.
          */
         fun fromDailyMonth(rows: List<DailyAggregateEntity>, platform: Platform?): PeriodStats {
-            val selected = rows.map { it.toRow() }.filterByPlatform(platform)
+            val selected = rows.map { it.toRow() }.selectSources().filterByPlatform(platform)
             if (selected.isEmpty()) return EMPTY
             val monthlyHours = selected.groupBy { it.day }.values.sumOf { dayRows -> dayRows.maxOf { it.hours } }
             return foldRows(selected, hoursOverride = monthlyHours)
+        }
+
+        // Legacy aggregates have no field-selection evidence. Captured stays selected per app/period.
+        private fun List<AggRow>.selectSources(): List<AggRow> = groupBy { it.platform to it.period }.values.map { candidates ->
+            candidates.firstOrNull { it.source == "CAPTURED" } ?: candidates.first()
         }
 
         private fun List<AggRow>.filterByPlatform(platform: Platform?): List<AggRow> =
@@ -84,7 +96,8 @@ data class PeriodStats(
 
         private fun foldRows(rows: List<AggRow>, hoursOverride: Double? = null): PeriodStats {
             if (rows.isEmpty()) return EMPTY
-            val net = rows.sumOf { it.net }
+            val known = rows.all { it.runningCostKnown }
+            val net = rows.fold(java.math.BigDecimal.ZERO) { total, row -> total.add(row.exactNet ?: row.net.decimal()) }.toDouble()
             val gross = rows.sumOf { it.gross }
             val trips = rows.sumOf { it.trips }
             val km = rows.sumOf { it.km }
@@ -99,11 +112,12 @@ data class PeriodStats(
                 totalTrips = trips,
                 totalKm = km,
                 hoursOnline = hours,
-                earningsPerTrip = if (trips == 0) null else net / trips,
-                earningsPerKm = if (km <= 0.0) null else net / km,
-                earningsPerHour = if (hours <= 0.0) null else net / hours,
+                earningsPerTrip = if (!known || trips == 0) null else net / trips,
+                earningsPerKm = if (!known || km <= 0.0) null else net / km,
+                earningsPerHour = if (!known || hours <= 0.0) null else net / hours,
                 tripsPerHour = if (hours <= 0.0) null else trips / hours,
                 acceptanceRate = if (acceptances.isEmpty()) null else acceptances.average(),
+                runningCostKnown = known,
             )
         }
     }
@@ -122,10 +136,18 @@ private data class AggRow(
     val hours: Double,
     val acceptanceRate: Double?,
     val day: String? = null,
+    val period: String,
+    val source: String,
+    val runningCostKnown: Boolean,
+    val exactNet: java.math.BigDecimal?,
 )
 
 private fun WeeklyAggregateEntity.toRow() = AggRow(
+    period = weekStart,
     platform = platform,
+    source = source,
+    runningCostKnown = runningCostKnown,
+    exactNet = contributionDecimal?.toBigDecimal(),
     net = netEarningsMxn,
     gross = grossEarningsMxn,
     trips = totalTrips,
@@ -135,7 +157,11 @@ private fun WeeklyAggregateEntity.toRow() = AggRow(
 )
 
 private fun DailyAggregateEntity.toRow() = AggRow(
+    period = day,
     platform = platform,
+    source = source,
+    runningCostKnown = runningCostKnown,
+    exactNet = contributionDecimal?.toBigDecimal(),
     net = netEarningsMxn,
     gross = grossEarningsMxn,
     trips = totalTrips,
@@ -144,3 +170,7 @@ private fun DailyAggregateEntity.toRow() = AggRow(
     acceptanceRate = acceptanceRate,
     day = day,
 )
+
+/** The ledger basis follows configured elapsed car charges, including on days without trips. */
+fun PeriodMoney.deductionBasis(): String = if (carConfigured) "ya restamos ${energy()}, desgaste y coche"
+    else "ya restamos ${energy()} y desgaste"

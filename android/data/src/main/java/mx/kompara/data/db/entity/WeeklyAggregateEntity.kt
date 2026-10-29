@@ -1,5 +1,6 @@
 package mx.kompara.data.db.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 
 /**
@@ -69,6 +70,12 @@ data class WeeklyAggregateEntity(
 
     /** Epoch millis this row was last recomputed. */
     val computedAt: Long,
+
+    /** Legacy net is retained as evidence; v3 only claims net when its running cost is known. */
+    @ColumnInfo(defaultValue = "0") val runningCostKnown: Boolean = true,
+    val runningExpenseDecimal: String? = null,
+    val contributionDecimal: String? = null,
+    val costVersionIds: String? = null,
 
     /**
      * Epoch millis this row's derived aggregate was last successfully uploaded to the backend

@@ -34,6 +34,8 @@ data class ParserSpec(
      * Uber/DiDi behavior, untouched). See [mx.kompara.parsers.engine.SpecEngine.evaluateAll].
      */
     val listMode: ListMode? = null,
+    /** A parser contract must explicitly certify the fare basis before net calculation. */
+    val paymentBasis: String = "UNCONFIRMED",
 )
 
 /**

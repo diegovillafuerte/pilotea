@@ -43,21 +43,18 @@ class FiscalAggregateMapperTest {
     }
 
     @Test
-    fun `weekly with no daily coverage pro-rates the in-month days`() {
+    fun `cross boundary weekly summary never invents dated fiscal income`() {
         // Week of Mon 2026-06-29 spans Jun 29,30 + Jul 1..5. For June: 2 of 7 days in-month.
         val inputs = FiscalAggregateMapper.toInputs(
             YearMonth.of(2026, 6),
             daily = emptyList(),
             weekly = listOf(weekly("UBER", "2026-06-29", gross = 7000.0, net = 5600.0)),
         )
-        assertEquals(1, inputs.size)
-        // 2/7 of the week falls in June.
-        assertEquals(7000.0 * 2.0 / 7.0, inputs.single().grossMxn, 0.001)
-        assertEquals(5600.0 * 2.0 / 7.0, inputs.single().netMxn, 0.001)
+        assertTrue(inputs.isEmpty())
     }
 
     @Test
-    fun `daily coverage suppresses the weekly pro-rate for the same days`() {
+    fun `dated income remains intact beside an undated weekly summary`() {
         // Same straddling week, but Jun 29 has a daily row → only Jun 30 is uncovered → 1/7 pro-rate.
         val inputs = FiscalAggregateMapper.toInputs(
             YearMonth.of(2026, 6),
@@ -66,7 +63,7 @@ class FiscalAggregateMapperTest {
         )
         // One daily (1000) + one pro-rated weekly (1/7 of 7000 = 1000) = 2000 gross total.
         val gross = inputs.sumOf { it.grossMxn }
-        assertEquals(2000.0, gross, 0.001)
+        assertEquals(1000.0, gross, 0.001)
     }
 
     @Test

@@ -18,6 +18,8 @@ import mx.kompara.data.settings.CostProfileRepository
 import mx.kompara.data.settings.PlatformThreshold
 import mx.kompara.data.settings.SettingsRepository
 import mx.kompara.metrics.NetProfitEngine
+import mx.kompara.metrics.OfferRecorder
+import mx.kompara.data.db.entity.TripLifecycle
 import mx.kompara.parsers.model.OfferCard
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -56,7 +58,7 @@ class TripLifecycleTrackerTest {
     }
 
     private fun card(fare: Double = 100.0, tripKm: Double = 10.0, tripMin: Double = 20.0) =
-        OfferCard(platform = uber, fare = fare, tripDistanceKm = tripKm, tripDurationMin = tripMin)
+        OfferCard(platform = uber, paymentBasis = "DRIVER_PAYMENT", pickupDistanceKm = 0.0, pickupEtaMin = 0.0, fare = fare, tripDistanceKm = tripKm, tripDurationMin = tripMin)
 
     private fun tracker(
         offers: FakeOfferDao,
@@ -67,9 +69,7 @@ class TripLifecycleTrackerTest {
         offerDao = offers,
         tripDao = trips,
         shiftDao = shifts,
-        costProfileRepository = CostProfileRepository(FakeCostProfileDao()),
-        settingsRepository = settings,
-        engine = NetProfitEngine(),
+        recorder = OfferRecorder(offers, CostProfileRepository(FakeCostProfileDao()), settings, NetProfitEngine()),
         rollupTrigger = rollups,
         heuristics = TripStateHeuristics.DEFAULT,
     )
@@ -77,7 +77,7 @@ class TripLifecycleTrackerTest {
     @Test
     fun `seen then accepted then completed records offer, trip and earnings`() = runTest {
         val offers = FakeOfferDao()
-        val trips = FakeTripDao()
+        val trips = FakeTripDao(offers)
         val shifts = FakeShiftDao()
         val rollups = CountingRollupTrigger()
         val t = tracker(offers, trips, shifts, rollups)
@@ -99,16 +99,16 @@ class TripLifecycleTrackerTest {
         val trip = trips.all().single()
         assertEquals(offer.id, trip.offerId)
         assertNotNull(trip.endedAt)
-        assertEquals(150.0, trip.grossMxn, 1e-9) // offer fare estimate
-        assertEquals(12.0, trip.distanceKm, 1e-9)
+        assertEquals(150.0, trip.grossMxn!!, 1e-9) // offer fare estimate
+        assertEquals(12.0, trip.distanceKm!!, 1e-9)
         assertTrue("captured earnings are estimated", trip.estimated)
         assertTrue("rollup fired on trip close", rollups.count >= 1)
     }
 
     @Test
-    fun `seen then quick idle is a decline with no trip`() = runTest {
+    fun `observed idle resolves not taken with no trip`() = runTest {
         val offers = FakeOfferDao()
-        val trips = FakeTripDao()
+        val trips = FakeTripDao(offers)
         val shifts = FakeShiftDao()
         val t = tracker(offers, trips, shifts, CountingRollupTrigger())
 
@@ -118,15 +118,15 @@ class TripLifecycleTrackerTest {
         t.handle(LifecycleSignal.IdleStateEntered(uber, t0 + 3_000L))
 
         val offer = offers.all().single()
-        assertEquals(OfferOutcome.DECLINED.name, offer.outcome)
+        assertEquals(OfferOutcome.NOT_TAKEN.name, offer.outcome)
         assertFalse(offer.accepted)
         assertTrue("no trip on a decline", trips.all().isEmpty())
     }
 
     @Test
-    fun `seen then slow idle with no trip is an expiry`() = runTest {
+    fun `observed idle after a long offer resolves not taken`() = runTest {
         val offers = FakeOfferDao()
-        val trips = FakeTripDao()
+        val trips = FakeTripDao(offers)
         val shifts = FakeShiftDao()
         val t = tracker(offers, trips, shifts, CountingRollupTrigger())
 
@@ -135,14 +135,14 @@ class TripLifecycleTrackerTest {
         // Idle well past declineMax, still no trip ⇒ EXPIRED.
         t.handle(LifecycleSignal.IdleStateEntered(uber, t0 + 20_000L))
 
-        assertEquals(OfferOutcome.EXPIRED.name, offers.all().single().outcome)
+        assertEquals(OfferOutcome.NOT_TAKEN.name, offers.all().single().outcome)
         assertTrue(trips.all().isEmpty())
     }
 
     @Test
     fun `a trip-state arriving after the accept window does not link the stale offer`() = runTest {
         val offers = FakeOfferDao()
-        val trips = FakeTripDao()
+        val trips = FakeTripDao(offers)
         val shifts = FakeShiftDao()
         val t = tracker(offers, trips, shifts, CountingRollupTrigger())
 
@@ -152,16 +152,16 @@ class TripLifecycleTrackerTest {
         t.handle(LifecycleSignal.TripStateEntered(uber, t0 + 60_000L))
 
         val offer = offers.all().single()
-        assertEquals(OfferOutcome.EXPIRED.name, offer.outcome) // resolved as stale, not accepted
+        assertEquals(OfferOutcome.UNKNOWN.name, offer.outcome) // resolved as stale, not accepted
         val trip = trips.all().single()
         assertNull("bare trip has no offer link", trip.offerId)
-        assertEquals(0.0, trip.grossMxn, 1e-9)
+        assertNull(trip.grossMxn)
     }
 
     @Test
-    fun `next offer closes the prior open trip`() = runTest {
+    fun `next offer can overlap and never closes the prior trip`() = runTest {
         val offers = FakeOfferDao()
-        val trips = FakeTripDao()
+        val trips = FakeTripDao(offers)
         val shifts = FakeShiftDao()
         val t = tracker(offers, trips, shifts, CountingRollupTrigger())
 
@@ -172,14 +172,13 @@ class TripLifecycleTrackerTest {
         t.handle(LifecycleSignal.OfferSeen(uber, t0 + 600_000L, card(fare = 200.0)))
 
         val firstTrip = trips.all().first { it.offerId != null }
-        assertNotNull("prior trip closed", firstTrip.endedAt)
-        assertEquals(t0 + 600_000L, firstTrip.endedAt)
+        assertNull("overlapping offer is not completion evidence", firstTrip.endedAt)
     }
 
     @Test
-    fun `a flicker trip shorter than the minimum is dropped to a zero trip`() = runTest {
+    fun `a short flicker becomes unknown and preserves captured economics`() = runTest {
         val offers = FakeOfferDao()
-        val trips = FakeTripDao()
+        val trips = FakeTripDao(offers)
         val shifts = FakeShiftDao()
         val t = tracker(offers, trips, shifts, CountingRollupTrigger())
 
@@ -190,9 +189,9 @@ class TripLifecycleTrackerTest {
         t.handle(LifecycleSignal.IdleStateEntered(uber, t0 + 6_000L))
 
         val trip = trips.all().single()
-        assertEquals(trip.startedAt, trip.endedAt)
-        assertEquals(0.0, trip.grossMxn, 1e-9)
-        assertEquals(0.0, trip.distanceKm, 1e-9)
+        assertEquals(TripLifecycle.UNKNOWN.name, trip.lifecycle)
+        assertEquals(100.0, trip.grossMxn!!, 1e-9)
+        assertEquals(10.0, trip.distanceKm!!, 1e-9)
     }
 
     // --- Persisted verdict colour (B-083) ----------------------------------------------------
@@ -201,6 +200,7 @@ class TripLifecycleTrackerTest {
     // at zero marginal cost: GREEN under the 8.0/km default, YELLOW under a stricter 10.0/km floor.
     private fun ninePerKmCard() = OfferCard(
         platform = uber,
+        paymentBasis = "DRIVER_PAYMENT",
         fare = 90.0,
         pickupDistanceKm = 0.0,
         pickupEtaMin = 0.0,
@@ -234,12 +234,110 @@ class TripLifecycleTrackerTest {
         assertEquals("GREEN", offers.all().single().verdict)
     }
 
+    @Test fun `nullable legs and fare survive capture and unlinked trips never invent zero`() = runTest {
+        val offers = FakeOfferDao(); val trips = FakeTripDao(offers); val shifts = FakeShiftDao()
+        val tracker = tracker(offers, trips, shifts, CountingRollupTrigger())
+        tracker.handle(LifecycleSignal.OfferSeen(uber, 1_000, OfferCard(uber, tripDistanceKm = 10.0)))
+        val offer = offers.all().single()
+        assertNull(offer.fareMxn); assertNull(offer.distanceKm); assertNull(offer.durationMin)
+        assertEquals(10.0, offer.tripKm!!, 0.0)
+        assertEquals("UNKNOWN", offer.verdict)
+        tracker.handle(LifecycleSignal.TripStateEntered(uber, 100_000))
+        val trip = trips.all().single()
+        assertNull(trip.offerId); assertNull(trip.grossMxn); assertNull(trip.distanceKm)
+        assertEquals("UNKNOWN", trip.lifecycle)
+    }
+
+    @Test fun `duplicate session after restart keeps first judgement and raw legs`() = runTest {
+        val offers = FakeOfferDao(); val trips = FakeTripDao(offers); val shifts = FakeShiftDao()
+        val first = tracker(offers, trips, shifts, CountingRollupTrigger())
+        val card = ninePerKmCard().copy(sessionId = "offer-a", sessionStartedAt = 1_000)
+        first.handle(LifecycleSignal.OfferSeen(uber, 1_000, card))
+        val before = offers.all().single()
+        settings.setThreshold(PlatformThreshold(20.0, 300.0, 15.0, 200.0))
+        settings.setPreferredMetric(mx.kompara.data.settings.PreferredMetric.IPH)
+        val restarted = tracker(offers, trips, shifts, CountingRollupTrigger())
+        restarted.handle(LifecycleSignal.OfferSeen(uber, 40_000, card.copy(tripDistanceKm = 100.0)))
+        val after = offers.all().single()
+        assertEquals(before.evaluation, after.evaluation)
+        assertEquals("GREEN", after.verdict)
+        assertEquals(10.0, after.distanceKm!!, 0.0)
+        // Acceptance is measured from the last observed card, not its first appearance.
+        restarted.handle(LifecycleSignal.TripStateEntered(uber, 45_000))
+        assertEquals(after.id, trips.all().single().offerId)
+        restarted.handle(LifecycleSignal.TripStateEntered(uber, 46_000))
+        assertEquals(1, trips.all().size)
+    }
+
+    @Test fun `host switch cannot accept or finish another apps trip`() = runTest {
+        val offers = FakeOfferDao(); val trips = FakeTripDao(offers); val shifts = FakeShiftDao()
+        val tracker = tracker(offers, trips, shifts, CountingRollupTrigger())
+        val didi = "com.didiglobal.driver"
+        tracker.handle(LifecycleSignal.OfferSeen(uber, 1_000, card()))
+        tracker.handle(LifecycleSignal.TripStateEntered(didi, 2_000))
+        assertNull(trips.all().single().offerId)
+        assertEquals("PENDING", offers.all().single().outcome)
+        tracker.handle(LifecycleSignal.TripStateEntered(uber, 3_000))
+        tracker.handle(LifecycleSignal.IdleStateEntered(didi, 100_000))
+        assertNull(trips.all().first { it.platform == "UBER" }.endedAt)
+        assertEquals(2, trips.all().size)
+    }
+
+    @Test fun `advertised minutes capture loss and restart cannot manufacture completion`() = runTest {
+        val offers = FakeOfferDao(); val trips = FakeTripDao(offers); val shifts = FakeShiftDao()
+        val tracker = tracker(offers, trips, shifts, CountingRollupTrigger())
+        val start = java.time.LocalDateTime.parse("2026-10-19T14:32:00").atZone(java.time.ZoneId.of("America/Mexico_City")).toInstant().toEpochMilli()
+        tracker.handle(LifecycleSignal.OfferSeen(uber, start, card(148.0, 12.0, 24.0)))
+        tracker.handle(LifecycleSignal.TripStateEntered(uber, start + 1_000))
+        tracker.handle(LifecycleSignal.ObservationLost(uber, start + 8 * minute))
+        val restarted = tracker(offers, trips, shifts, CountingRollupTrigger())
+        assertNull(trips.all().single().endedAt)
+        restarted.handle(LifecycleSignal.TripStateEntered(uber, start + 9 * minute, inProgress = true))
+        assertEquals("IN_PROGRESS", trips.all().single().lifecycle)
+        // Fixture end 14:56 is an explicit observation, never inferred from the 24 min quote.
+        restarted.handle(LifecycleSignal.IdleStateEntered(uber, start + 24 * minute))
+        val trip = trips.all().single()
+        assertEquals("FINISHED", trip.lifecycle)
+        assertTrue(trip.estimated)
+        assertNull(trip.confirmationEvidenceId)
+        assertEquals(148.0, trip.grossMxn!!, 0.0)
+    }
+
+    @Test fun `cancellation removes only selected trip retaining money and judgement for audit`() = runTest {
+        val offers = FakeOfferDao(); val trips = FakeTripDao(offers); val shifts = FakeShiftDao()
+        val rollups = CountingRollupTrigger(); val tracker = tracker(offers, trips, shifts, rollups)
+        tracker.handle(LifecycleSignal.OfferSeen(uber, 1_000, card()))
+        tracker.handle(LifecycleSignal.TripStateEntered(uber, 2_000))
+        val first = trips.all().single()
+        tracker.handle(LifecycleSignal.IdleStateEntered(uber, 100_000))
+        tracker.handle(LifecycleSignal.OfferSeen(uber, 101_000, card(150.0)))
+        tracker.handle(LifecycleSignal.TripStateEntered(uber, 102_000))
+        assertTrue(tracker.cancelTrip(first.id, 103_000))
+        assertFalse(tracker.cancelTrip(first.id, 104_000))
+        assertEquals("CANCELLED", trips.all().first().lifecycle)
+        assertEquals(100.0, trips.all().first().grossMxn!!, 0.0)
+        assertEquals("USER", trips.all().first().cancellationSource)
+        assertEquals("ACCEPTED_ESTIMATE", trips.all().last().lifecycle)
+        assertEquals("CANCELLED", offers.all().first().outcome)
+        assertEquals("ACCEPTED", offers.all().last().outcome)
+    }
+
+    @Test fun `stale host observation cannot finish a newer trip`() = runTest {
+        val offers = FakeOfferDao(); val trips = FakeTripDao(offers); val shifts = FakeShiftDao()
+        val tracker = tracker(offers, trips, shifts, CountingRollupTrigger())
+        tracker.handle(LifecycleSignal.OfferSeen(uber, 10_000, card()))
+        tracker.handle(LifecycleSignal.TripStateEntered(uber, 11_000))
+        tracker.handle(LifecycleSignal.TripStateEntered(uber, 100_000))
+        tracker.handle(LifecycleSignal.IdleStateEntered(uber, 50_000))
+        assertNull(trips.all().single().endedAt)
+    }
+
     // --- Shift inference ---------------------------------------------------------------------
 
     @Test
     fun `first event opens a shift and subsequent events keep it open`() = runTest {
         val offers = FakeOfferDao()
-        val trips = FakeTripDao()
+        val trips = FakeTripDao(offers)
         val shifts = FakeShiftDao()
         val t = tracker(offers, trips, shifts, CountingRollupTrigger())
 
@@ -256,7 +354,7 @@ class TripLifecycleTrackerTest {
     @Test
     fun `a gap over 30 minutes closes the old shift and opens a new one`() = runTest {
         val offers = FakeOfferDao()
-        val trips = FakeTripDao()
+        val trips = FakeTripDao(offers)
         val shifts = FakeShiftDao()
         val t = tracker(offers, trips, shifts, CountingRollupTrigger())
 
@@ -279,6 +377,7 @@ class TripLifecycleTrackerTest {
 // --- In-memory fakes -------------------------------------------------------------------------
 
 private class FakeOfferDao : OfferDao {
+    override suspend fun hasSeenBefore(before: Long) = rows.values.any { it.seenAt < before }
     private val rows = mutableMapOf<Long, OfferEntity>()
     private var nextId = 1L
 
@@ -290,6 +389,14 @@ private class FakeOfferDao : OfferDao {
         return id
     }
 
+    override suspend fun attachShift(id: Long, shiftId: Long?) { rows[id]?.let { if (it.shiftId == null) rows[id] = it.copy(shiftId = shiftId) } }
+    override suspend fun retireOlderPending(platform: String, before: Long, at: Long) {
+        rows.values.filter { it.platform == platform && it.outcome == "PENDING" && it.seenAt < before && it.lastSeenAt <= at }
+            .forEach { rows[it.id] = it.copy(outcome = "UNKNOWN", resolvedAt = at) }
+    }
+    override suspend fun forSession(sessionId: String) = rows.values.firstOrNull { it.sessionId == sessionId }
+    override suspend fun touch(id: Long, at: Long) { rows[id]?.let { rows[id] = it.copy(lastSeenAt = maxOf(at, it.lastSeenAt)) } }
+
     override suspend fun update(offer: OfferEntity) {
         rows[offer.id] = offer
     }
@@ -300,8 +407,8 @@ private class FakeOfferDao : OfferDao {
 
     override suspend fun findById(id: Long): OfferEntity? = rows[id]
 
-    override suspend fun latestPending(): OfferEntity? =
-        rows.values.filter { it.outcome == OfferOutcome.PENDING.name }.maxByOrNull { it.seenAt }
+    override suspend fun latestPending(platform: String?): OfferEntity? =
+        rows.values.filter { it.outcome == OfferOutcome.PENDING.name && (platform == null || it.platform == platform) }.maxByOrNull { it.seenAt }
 
     override suspend fun seenBetween(from: Long, until: Long): List<OfferEntity> =
         rows.values.filter { it.seenAt in from until until }.sortedBy { it.seenAt }
@@ -310,7 +417,9 @@ private class FakeOfferDao : OfferDao {
         MutableStateFlow(rows.values.filter { it.seenAt in from until until }.sortedBy { it.seenAt })
 }
 
-private class FakeTripDao : TripDao {
+private class FakeTripDao(private val offers: FakeOfferDao? = null) : TripDao {
+    override suspend fun startedBetween(from: Long, until: Long) = rows.values.filter { it.startedAt >= from && it.startedAt < until }.sortedBy { it.startedAt }
+
     private val rows = mutableMapOf<Long, TripEntity>()
     private var nextId = 1L
 
@@ -320,6 +429,11 @@ private class FakeTripDao : TripDao {
         val id = if (trip.id == 0L) nextId++ else trip.id
         rows[id] = trip.copy(id = id)
         return id
+    }
+
+    override suspend fun forOffer(offerId: Long) = rows.values.firstOrNull { it.offerId == offerId }
+    override suspend fun resolveOffer(id: Long, outcome: String, accepted: Boolean, at: Long) {
+        offers?.findById(id)?.let { offers.update(it.copy(outcome = outcome, accepted = accepted, resolvedAt = at)) }
     }
 
     override suspend fun update(trip: TripEntity) {
@@ -332,10 +446,10 @@ private class FakeTripDao : TripDao {
         MutableStateFlow(all().filter { it.startedAt >= since })
 
     override fun observeGrossSince(since: Long): Flow<Double> =
-        MutableStateFlow(all().filter { it.startedAt >= since }.sumOf { it.grossMxn })
+        MutableStateFlow(all().filter { it.startedAt >= since }.sumOf { it.grossMxn ?: 0.0 })
 
-    override suspend fun latestOpen(): TripEntity? =
-        rows.values.filter { it.endedAt == null }.maxByOrNull { it.startedAt }
+    override suspend fun latestOpen(platform: String?): TripEntity? =
+        rows.values.filter { it.endedAt == null && (platform == null || it.platform == platform) }.maxByOrNull { it.startedAt }
 
     override suspend fun completedStartedBetween(from: Long, until: Long): List<TripEntity> =
         rows.values.filter { it.endedAt != null && it.startedAt in from until until }
@@ -378,6 +492,18 @@ private class FakeShiftDao : ShiftDao {
 }
 
 private class FakeCostProfileDao : CostProfileDao {
+    // These tests isolate thresholds/lifecycle from running costs: explicitly configured zero.
+    private val costVersions = mutableListOf(mx.kompara.data.db.entity.CostVersionEntity.from(
+        mx.kompara.data.accounting.RunningCostVersion(1, 0, 0,
+            mx.kompara.data.accounting.RunningCostInputs(mx.kompara.data.accounting.RunningCostMode.DIRECT,
+                directPerKm = java.math.BigDecimal.ZERO), mx.kompara.data.accounting.CostConfirmation.CONFIRMED, 0)))
+    override suspend fun insertVersion(version: mx.kompara.data.db.entity.CostVersionEntity): Long {
+        costVersions += version.copy(id = costVersions.size + 1L)
+        return costVersions.size.toLong()
+    }
+    override suspend fun versions() = costVersions.toList()
+    override fun observeVersions() = MutableStateFlow(costVersions.toList())
+
     override suspend fun upsert(profile: CostProfileEntity) = Unit
     override fun observe(id: Long): Flow<CostProfileEntity?> = MutableStateFlow(null)
     override suspend fun get(id: Long): CostProfileEntity? = null

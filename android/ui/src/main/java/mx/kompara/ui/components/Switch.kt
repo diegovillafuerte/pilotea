@@ -1,57 +1,29 @@
 package mx.kompara.ui.components
 
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import mx.kompara.ui.theme.KomparaTheme
 
-/**
- * Kompara's binary toggle (notifications, EV vehicle, premium-test debug). A thin wrapper over
- * Material3 [Switch] that sets the brand colours explicitly: brand emerald track + white thumb when
- * ON, a tonal `surfaceVariant` track with an `outline` thumb and hairline when OFF. The bare
- * Material3 switch falls back to non-brand container roles, so the ON/OFF look is pinned here.
- */
+/** Kit's 44×26 track inside a real 48dp target. */
 @Composable
-fun KomparaSwitch(
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true,
-) {
-    val scheme = MaterialTheme.colorScheme
-    Switch(
-        checked = checked,
-        onCheckedChange = onCheckedChange,
-        enabled = enabled,
-        colors = SwitchDefaults.colors(
-            checkedThumbColor = Color.White,
-            checkedTrackColor = scheme.primary,
-            uncheckedThumbColor = scheme.outline,
-            uncheckedTrackColor = scheme.surfaceVariant,
-            uncheckedBorderColor = scheme.outline,
-        ),
-        modifier = modifier,
-    )
-}
-
-@Preview(showBackground = true, name = "KomparaSwitch — estados")
-@Composable
-private fun KomparaSwitchPreview() {
-    KomparaTheme {
-        androidx.compose.foundation.layout.Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp),
-        ) {
-            KomparaSwitch(checked = true, onCheckedChange = {})
-            KomparaSwitch(checked = false, onCheckedChange = {})
-            KomparaSwitch(checked = true, onCheckedChange = {}, enabled = false)
-            KomparaSwitch(checked = false, onCheckedChange = {}, enabled = false)
+fun KomparaSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier, enabled: Boolean = true) {
+    val c = KomparaTheme.colors
+    Box(modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+        .toggleable(checked, enabled = enabled, role = Role.Switch, onValueChange = onCheckedChange),
+        contentAlignment = Alignment.Center) {
+        Box(Modifier.size(44.dp, 26.dp).background(if (checked) c.brand else c.paperSecondary, CircleShape)
+            .then(if (!checked) Modifier.border(1.5.dp, c.inkTertiary, CircleShape) else Modifier)) {
+            Box(Modifier.align(if (checked) Alignment.CenterEnd else Alignment.CenterStart).padding(horizontal = 3.dp)
+                .size(20.dp).background(if (checked) c.onBrand else c.inkTertiary, CircleShape))
         }
     }
 }

@@ -3,14 +3,28 @@ package mx.kompara.ui.nav
 import android.annotation.SuppressLint
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Text
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import mx.kompara.ui.R
+import mx.kompara.ui.components.DrawnIcon
+import mx.kompara.ui.theme.KomparaType
+import mx.kompara.ui.screens.HoyActions
+import mx.kompara.ui.screens.HoyRecoveryScreen
+import mx.kompara.ui.screens.HoyBatteryScreen
+import mx.kompara.ui.screens.HoyHostLinks
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -22,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
@@ -30,7 +45,6 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import mx.kompara.ui.components.KomparaWordmark
 import mx.kompara.ui.imports.importDestination
 import mx.kompara.ui.paywall.GateSurface
 import mx.kompara.ui.paywall.PaywallScreen
@@ -41,8 +55,9 @@ import mx.kompara.ui.screens.CompararScreen
 import mx.kompara.ui.screens.CostProfileScreen
 import mx.kompara.ui.screens.DayDetailScreen
 import mx.kompara.ui.screens.FiscalScreen
+import mx.kompara.ui.screens.MonthSummaryScreen
+import mx.kompara.ui.stats.FiscalViewModel
 import mx.kompara.ui.screens.HelpScreen
-import mx.kompara.ui.screens.HistoryScreen
 import mx.kompara.ui.screens.InicioDashboardScreen
 import mx.kompara.ui.screens.LectorScreen
 import mx.kompara.ui.screens.ThresholdsScreen
@@ -53,19 +68,13 @@ import mx.kompara.ui.stats.WeekSummaryViewModel
 import mx.kompara.ui.theme.KomparaTheme
 
 /**
- * The whole app shell: a [Scaffold] with the [KomparaBottomBar] hosting a [NavHost] over the five
+ * The whole app shell: a [Scaffold] with the [KomparaBottomBar] hosting a [NavHost] over the three
  * top-level destinations. Launches into [KomparaDestination.START] (Inicio). `:app`'s MainActivity
  * just wraps this in [KomparaTheme], keeping the app module thin.
  *
- * [registerExtraDestinations] lets a module that `:ui` cannot depend on (e.g. `:overlay`, which owns
- * the offer simulator screen) inject its own routes into the shared [NavHost]. `:app` is the only
- * place that depends on both `:ui` and those modules, so it supplies this. The lambda receives the
- * [NavController] so extra screens can navigate too.
- *
- * @param navigateToReaderTrial when true (set right after onboarding's "Probar el lector" CTA), the
- *   shell navigates on first composition to the offer simulator if its route is present in the graph
- *   (registered via [registerExtraDestinations]), otherwise to the Lector tab. Checked at runtime so
- *   this file does not have to know whether the simulator has been registered.
+ * [registerExtraDestinations] lets modules outside :ui supply optional routes.
+ * The legacy onboarding trial entry now opens the single limits editor and its labelled example;
+ * S15 owns the short first-run demo. No separate simulator can persist a competing rule.
  */
 // currentBackStack is @RestrictTo(LIBRARY_GROUP) but is the only way to read the FULL back stack as
 // a state (needed for the B-074 tab-highlight + re-tap-to-pop behavior); the public
@@ -78,6 +87,8 @@ fun KomparaApp(
     navigateToReaderTrial: Boolean = false,
     navigateToShareCard: Boolean = false,
     navigateToImport: Boolean = false,
+    notification: mx.kompara.ui.notifications.NoticeTarget? = null,
+    onNotificationConsumed: () -> Unit = {},
     registerExtraDestinations: NavGraphBuilder.(NavController) -> Unit = {},
 ) {
     val navController = rememberNavController()
@@ -86,18 +97,19 @@ fun KomparaApp(
     // Tu semáforo…) this lights the tab it was opened from rather than falling back to Inicio, so a
     // re-tap can pop that detail stack back to the tab root (B-074 F5).
     val current = KomparaDestination.activeTab(backStack.map { it.destination.route })
-    // The brand top bar shows only on the five tab roots (detail screens have their own chrome), so
-    // Kompara branding rides every main screen consistently (S-024 feedback).
+    // Root titles replace the wordmark; only roots and Tu día retain the bottom bar.
     val currentRoute = backStack.lastOrNull()?.destination?.route
-    val isTabRoot = KomparaDestination.barItems.any { it.route == currentRoute }
+    val isTabRoot = KomparaDestination.barItems.any { it.route == currentRoute } || currentRoute == KomparaDestination.MONTH_ROUTE
 
-    if (navigateToReaderTrial) {
-        LaunchedEffect(Unit) { navController.navigateToReaderTrial() }
+    var readerDeepLinkConsumed by rememberSaveable { mutableStateOf(false) }
+    if (navigateToReaderTrial && !readerDeepLinkConsumed) {
+        LaunchedEffect(Unit) { navController.navigateToReaderTrial(); readerDeepLinkConsumed = true }
     }
 
     // Week-close notification deep link (B-055): jump straight to the share-card preview.
-    if (navigateToShareCard) {
-        LaunchedEffect(Unit) { navController.navigate(KomparaDestination.SHARE_CARD_ROUTE) }
+    var shareDeepLinkConsumed by rememberSaveable { mutableStateOf(false) }
+    if (navigateToShareCard && !shareDeepLinkConsumed) {
+        LaunchedEffect(Unit) { navController.navigate(KomparaDestination.SHARE_CARD_ROUTE); shareDeepLinkConsumed = true }
     }
 
     // Share-target deep link (PR-D3): jump to the import flow; the shared file is already staged in
@@ -113,80 +125,102 @@ fun KomparaApp(
         }
     }
 
+    if (notification != null) {
+        val dispatcher = hiltViewModel<mx.kompara.ui.notifications.NoticeNavigation>()
+        LaunchedEffect(notification) {
+            val destination = dispatcher.route(notification)
+            navController.navigate(destination) {
+                popUpTo(navController.graph.startDestinationId) { inclusive = destination == KomparaDestination.INICIO.route }
+                launchSingleTop = true
+            }
+            onNotificationConsumed()
+        }
+    }
+
+    val limitsSnackbar = androidx.compose.runtime.remember { mx.kompara.ui.components.SaveSnackbarState() }
+    LaunchedEffect(limitsSnackbar.sequence) {
+        if (limitsSnackbar.message != null) { kotlinx.coroutines.delay(4_000); limitsSnackbar.clear() }
+    }
+    androidx.compose.runtime.CompositionLocalProvider(mx.kompara.ui.components.LocalLimitsSnackbar provides limitsSnackbar) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        topBar = { if (isTabRoot) KomparaTopBar() },
+        topBar = {
+            if (currentRoute != KomparaDestination.INICIO.route && (isTabRoot || currentRoute?.startsWith("${KomparaDestination.WEEK_SUMMARY_ROUTE}/") == true || currentRoute in listOf("ajustes", "fiscal"))) {
+                val isMonth = currentRoute == KomparaDestination.MONTH_ROUTE
+                val monthState = if (isMonth) hiltViewModel<FiscalViewModel>(backStack.last()).uiState.collectAsStateWithLifecycle().value else null
+                val earnings = currentRoute == "ganancias" || currentRoute?.startsWith("${KomparaDestination.WEEK_SUMMARY_ROUTE}/") == true
+                val weekState = if (earnings) hiltViewModel<WeekSummaryViewModel>(backStack.last()).uiState.collectAsStateWithLifecycle().value else null
+                val compare = if (currentRoute == "comparar") hiltViewModel<mx.kompara.ui.stats.CompararViewModel>(backStack.last()).uiState.collectAsStateWithLifecycle().value.comparison else null
+                NavigationHeader(
+                    showShare = earnings || isMonth || compare?.rank != null,
+                    shareDescription = stringResource(if (isMonth) R.string.v3_share_month else R.string.v3_share_week),
+                    onShare = if (compare?.rank != null) ({ navController.navigate("${KomparaDestination.SHARE_CARD_ROUTE}?weekStart=${compare.weekStart}&app=${compare.choice.app}&city=${compare.choice.city.key}&metric=${compare.choice.metric.name}") }) else if (isMonth) monthState?.period?.takeIf { it.amount != null && !it.importOnly }?.let { month ->
+                        { navController.navigate("${KomparaDestination.SHARE_CARD_ROUTE}?month=${month.month}") }
+                    } else weekState?.week?.takeIf { it.hasData && it.amount != null }?.let { week ->
+                        { navController.navigate("${KomparaDestination.SHARE_CARD_ROUTE}?weekStart=${week.start}") }
+                    },
+                    title = when {
+                        isMonth || currentRoute == "ganancias" || currentRoute?.startsWith("${KomparaDestination.WEEK_SUMMARY_ROUTE}/") == true -> "Ganancias"
+                        currentRoute == "comparar" -> "Comparar"
+                        currentRoute == "ajustes" -> "Ajustes"
+                        currentRoute == "lector" -> "Semáforo"
+                        currentRoute == "fiscal" -> "IMSS del mes"
+                        else -> "Tu día"
+                    },
+                    onBack = if (isTabRoot) null else ({ navController.popBackStack(); Unit }),
+                    onSettings = if (isTabRoot) ({ navController.navigate("ajustes") }) else null,
+                )
+            }
+        },
         bottomBar = {
-            KomparaBottomBar(
+            if (KomparaDestination.showsBottomBar(currentRoute)) KomparaBottomBar(
                 current = current,
-                onSelect = { destination ->
-                    if (destination.route != current.route) {
-                        navController.navigate(destination.route) {
-                            // Single-top tabs: keep one copy of each, restore its state, and pop
-                            // back to the start so the back button always exits from Inicio.
-                            popUpTo(KomparaDestination.START.route) {
-                                saveState = true
-                                inclusive = false
-                            }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    } else {
-                        // Re-tapping the active tab pops its detail stack back to the tab root (B-074
-                        // F5) — standard bottom-nav behaviour. No-op when already at the root.
-                        navController.popBackStack(destination.route, inclusive = false)
-                    }
-                },
+                onSelect = { navController.selectRoot(it, current) },
             )
         },
     ) { innerPadding ->
         NavHost(
             navController = navController,
             startDestination = KomparaDestination.START.route,
-            modifier = Modifier.padding(innerPadding),
+            modifier = Modifier.padding(innerPadding).consumeWindowInsets(innerPadding),
         ) {
             tabScreens(navController)
-            statsScreens(navController)
+            statsScreens(navController, limitsSnackbar)
             registerExtraDestinations(navController)
         }
     }
 }
 
-/**
- * The shared brand top bar shown on every tab root (S-024): just the Kompara wordmark, left-aligned,
- * so the whole app reads as one branded surface. The current tab's name is already in the bottom bar,
- * so repeating it here was clutter (V1.0). Insets below the status bar; tonal like the bottom bar.
- */
-@Composable
-private fun KomparaTopBar() {
-    Surface(color = MaterialTheme.colorScheme.surfaceContainer, tonalElevation = 3.dp) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .windowInsetsPadding(WindowInsets.statusBars)
-                .padding(horizontal = 16.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            KomparaWordmark()
-        }
+}
+
+/** A root retap drops its drill-in; switching roots restores that root's saved stack. */
+internal fun NavController.selectRoot(destination: KomparaDestination, current: KomparaDestination) {
+    if (destination == current && popBackStack(destination.route, inclusive = false)) return
+    navigate(destination.route) {
+        popUpTo(KomparaDestination.START.route) { saveState = true }
+        launchSingleTop = true
+        restoreState = true
     }
 }
 
-/**
- * Navigate to the offer simulator if its route was registered into the graph (via
- * [KomparaApp]'s `registerExtraDestinations`), otherwise fall back to the Lector tab. Backs the
- * onboarding "Probar el lector" CTA — see [KomparaApp]'s `navigateToReaderTrial`. The runtime graph
- * check keeps `:ui` from hard-depending on whether `:overlay` registered the simulator.
- */
-private fun NavHostController.navigateToReaderTrial() {
-    val hasSimulator = runCatching {
-        graph.any { node -> node.route == KomparaDestination.SIMULATOR_ROUTE }
-    }.getOrDefault(false)
-    val target = if (hasSimulator) {
-        KomparaDestination.SIMULATOR_ROUTE
-    } else {
-        KomparaDestination.LECTOR.route
+@Composable
+internal fun NavigationHeader(title: String, onBack: (() -> Unit)?, onSettings: (() -> Unit)?,
+    showShare: Boolean = false, onShare: (() -> Unit)? = null, shareDescription: String = stringResource(R.string.v3_share_week)) {
+    Row(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
+        .heightIn(min = if (onBack == null) 72.dp else 64.dp).padding(horizontal = 20.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        if (onBack != null) IconButton(onBack, Modifier.size(48.dp)) { DrawnIcon(R.drawable.v3_back, description = "Volver") }
+        Text(title, Modifier.weight(1f), style = if (onBack == null) KomparaType.rootTitle else KomparaType.title)
+        if (showShare) IconButton({ onShare?.invoke() }, Modifier.size(48.dp), enabled = onShare != null) {
+            DrawnIcon(R.drawable.v3_share, description = shareDescription, tint = if (onShare != null) KomparaTheme.colors.ink else KomparaTheme.colors.inkTertiary)
+        }
+        if (onSettings != null) IconButton(onSettings, Modifier.size(48.dp)) { DrawnIcon(R.drawable.v3_gear, description = "Ajustes") }
     }
+}
+
+/** Legacy onboarding entry, kept until S15 migrates its demo. */
+private fun NavHostController.navigateToReaderTrial() {
+    val target = KomparaDestination.THRESHOLDS_ROUTE
     navigate(target) {
         popUpTo(KomparaDestination.START.route) { saveState = true }
         launchSingleTop = true
@@ -202,79 +236,120 @@ private fun NavController.navigateToPaywall(surface: GateSurface) {
 /** Registers the screen for every top-level destination. */
 private fun NavGraphBuilder.tabScreens(navController: NavController) {
     composable(KomparaDestination.INICIO.route) {
-        InicioDashboardScreen(
-            onOpenCostProfile = { navController.navigate(KomparaDestination.COST_PROFILE_ROUTE) },
-            onOpenToday = { navController.navigate(KomparaDestination.DAY_DETAIL_ROUTE) },
-            onOpenReaderTrial = { navController.navigate(KomparaDestination.SIMULATOR_ROUTE) },
-            onUpgrade = { surface -> navController.navigateToPaywall(surface) },
-            // PR-E: a premium-but-unverified driver's benchmark gate routes here to verify by importing.
+        val context = LocalContext.current
+        InicioDashboardScreen(hoyActions(navController, context))
+    }
+    composable(KomparaDestination.GANANCIAS.route) {
+        WeekSummaryScreen(
+            onImportReview = { navController.navigate("import-review/$it") },
+            onDay = { navController.navigate(KomparaDestination.dayRoute(it.toString())) },
+            onMonth = { navController.navigate(KomparaDestination.MONTH_ROUTE) { launchSingleTop = true } },
+            onCosts = { navController.navigate(KomparaDestination.AJUSTES.route) },
+            onUpgrade = { navController.navigateToPaywall(GateSurface.HISTORY) },
             onImport = { navController.navigate(KomparaDestination.IMPORT_ROUTE) },
-            onOpenShareCard = { navController.navigate(KomparaDestination.SHARE_CARD_ROUTE) },
+        )
+    }
+    composable(KomparaDestination.MONTH_ROUTE) {
+        MonthSummaryScreen(
+            onWeek = { date ->
+                if (date == null) {
+                    if (!navController.popBackStack(KomparaDestination.GANANCIAS.route, false)) {
+                        navController.navigate(KomparaDestination.GANANCIAS.route) { launchSingleTop = true }
+                    }
+                } else navController.navigate("${KomparaDestination.WEEK_SUMMARY_ROUTE}/$date")
+            },
+            onImss = { navController.navigate(KomparaDestination.FISCAL.route) },
+            onImport = { navController.navigate(KomparaDestination.IMPORT_ROUTE) },
+            onUpgrade = { navController.navigateToPaywall(GateSurface.MONTH_HISTORY) },
         )
     }
     composable(KomparaDestination.COMPARAR.route) {
         CompararScreen(
             onUpgrade = { surface -> navController.navigateToPaywall(surface) },
-            // Empty Comparar → import the driver's own weekly earnings (the fast way to seed data to
-            // compare). The import flow's onClose popBackStack() returns here. The reader stays reachable
-            // via the Lector tab.
+            // Confirmation returns to the same saved comparison context and week.
             onImport = { navController.navigate(KomparaDestination.IMPORT_ROUTE) },
-            onShare = { navController.navigate(KomparaDestination.SHARE_CARD_ROUTE) },
-            onOpenInicio = {
-                navController.navigate(KomparaDestination.INICIO.route) {
-                    popUpTo(KomparaDestination.START.route) { saveState = true }
-                    launchSingleTop = true
-                    restoreState = true
-                }
-            },
         )
     }
     composable(KomparaDestination.LECTOR.route) {
         LectorScreen(
-            onOpenSimulator = { navController.navigate(KomparaDestination.SIMULATOR_ROUTE) },
+            onBack = { navController.popBackStack() },
+            onHelp = { navController.navigate("help?answer=semaforo") },
+            onPermission = { navController.navigate(KomparaDestination.RECOVERY_ROUTE) },
+            onBattery = { navController.navigate(KomparaDestination.BATTERY_ROUTE) },
+            onOffer = { day, id -> navController.navigate(KomparaDestination.dayRoute(day, id)) },
             onOpenThresholds = { navController.navigate(KomparaDestination.THRESHOLDS_ROUTE) },
         )
     }
     composable(KomparaDestination.FISCAL.route) {
-        FiscalScreen(onUpgrade = { surface -> navController.navigateToPaywall(surface) })
+        FiscalScreen(onUpgrade = { surface -> navController.navigateToPaywall(surface) },
+            onImport = { navController.navigate(KomparaDestination.IMPORT_ROUTE) })
     }
     composable(KomparaDestination.AJUSTES.route) {
         AjustesScreen(
-            onOpenSimulator = { navController.navigate(KomparaDestination.SIMULATOR_ROUTE) },
+            onOpenReader = { navController.navigate(KomparaDestination.LECTOR.route) },
             onOpenCostProfile = { navController.navigate(KomparaDestination.COST_PROFILE_ROUTE) },
-            onOpenHistory = { navController.navigate(KomparaDestination.HISTORY_ROUTE) },
+            onOpenPermission = { navController.navigate(KomparaDestination.RECOVERY_ROUTE) },
+            onSignIn = { navController.navigate("settings-signin") },
+            onPlan = { navController.navigate(KomparaDestination.PLAN_ROUTE) },
             onOpenReferral = { navController.navigate(KomparaDestination.REFERRAL_ROUTE) },
             onOpenThresholds = { navController.navigate(KomparaDestination.THRESHOLDS_ROUTE) },
             onOpenHelp = { navController.navigate(KomparaDestination.HELP_ROUTE) },
             onOpenAccount = { navController.navigate(KomparaDestination.ACCOUNT_ROUTE) },
+            onOpenData = { navController.navigate(KomparaDestination.DATA_ROUTE) },
+            onOpenNotices = { navController.navigate(KomparaDestination.NOTICES_ROUTE) },
         )
     }
+}
+
+internal fun hoyActions(navController: NavController, context: android.content.Context): HoyActions {
+    return HoyActions(
+            settings = { navController.navigate(KomparaDestination.AJUSTES.route) },
+            reader = { navController.navigate(KomparaDestination.LECTOR.route) },
+            day = { navController.navigate(KomparaDestination.dayRoute(it)) },
+            calculation = { navController.navigate(KomparaDestination.dayRoute(it, ledger = true)) },
+            offer = { day, offer -> navController.navigate(KomparaDestination.dayRoute(day, offer)) },
+            costs = { navController.navigate("cost-efficiency") },
+            limits = { navController.navigate(KomparaDestination.THRESHOLDS_ROUTE) },
+            profile = { navController.navigate(KomparaDestination.ACCOUNT_ROUTE) },
+            battery = { navController.navigate(KomparaDestination.BATTERY_ROUTE) },
+            permission = { navController.navigate(KomparaDestination.RECOVERY_ROUTE) },
+            openUber = { HoyHostLinks.openUber(context) },
+            notifications = { HoyHostLinks.notifications(context) },
+            resume = {}, retry = {}, confirmCosts = {},
+    )
 }
 
 /**
  * The B-040 stats detail screens (not bottom-bar tabs): cost-profile editor, history weeks list,
  * day detail (today by default, or a specific ISO day), and week summary.
  */
-private fun NavGraphBuilder.statsScreens(navController: NavController) {
+private fun NavGraphBuilder.statsScreens(navController: NavController, snackbar: mx.kompara.ui.components.SaveSnackbarState) {
+    composable(KomparaDestination.RECOVERY_ROUTE) { HoyRecoveryScreen { navController.popBackStack() } }
+    composable(KomparaDestination.BATTERY_ROUTE) { HoyBatteryScreen { navController.popBackStack() } }
     composable(KomparaDestination.COST_PROFILE_ROUTE) {
-        CostProfileScreen(onSaved = { navController.popBackStack() })
+        CostProfileScreen(onBack = { navController.popBackStack() })
     }
+    composable("cost-efficiency") { CostProfileScreen(onBack = { navController.popBackStack() }, efficiency = true) }
+    composable("settings-signin") { mx.kompara.ui.auth.SignupFlowScreen(onComplete = { navController.popBackStack() }, onCancel = { navController.popBackStack() }) }
     // B-070 threshold editor and B-071 help center, both reached from Ajustes.
-    composable(KomparaDestination.THRESHOLDS_ROUTE) { ThresholdsScreen() }
-    composable(KomparaDestination.HELP_ROUTE) { HelpScreen() }
-    // B-069 account management ("Tu cuenta"), reached from Ajustes.
-    composable(KomparaDestination.ACCOUNT_ROUTE) { AccountScreen() }
-    composable(KomparaDestination.HISTORY_ROUTE) {
-        HistoryScreen(
-            onOpenWeek = { weekStart ->
-                navController.navigate("${KomparaDestination.WEEK_SUMMARY_ROUTE}/$weekStart")
-            },
-            // B-045 import flow (registered below via importDestination).
-            onImportWeek = { navController.navigate(KomparaDestination.IMPORT_ROUTE) },
-            // B-050 paywall: older history rows are gated behind the free window.
-            onUpgrade = { surface -> navController.navigateToPaywall(surface) },
-        )
+    composable(KomparaDestination.THRESHOLDS_ROUTE) {
+        ThresholdsScreen(onBack = { navController.popBackStack() }, onSaved = { message ->
+            navController.popBackStack()
+            snackbar.saved(message)
+        })
     }
+    composable("${KomparaDestination.HELP_ROUTE}?answer={answer}", arguments = listOf(navArgument("answer") { type = NavType.StringType; defaultValue = "" })) { entry ->
+        HelpScreen(initialAnswer = entry.arguments?.getString("answer"), onBack = { navController.popBackStack() })
+    }
+    // B-069 account management ("Tu cuenta"), reached from Ajustes.
+    composable(KomparaDestination.ACCOUNT_ROUTE) {
+        AccountScreen(onBack = { navController.popBackStack() }, onSignIn = { navController.navigate("settings-signin") },
+            onHelp = { navController.navigate(KomparaDestination.HELP_ROUTE) })
+    }
+    composable(KomparaDestination.DATA_ROUTE) {
+        mx.kompara.ui.screens.TusDatosScreen(onBack = { navController.popBackStack() }, onSignIn = { navController.navigate("settings-signin") })
+    }
+    composable(KomparaDestination.NOTICES_ROUTE) { mx.kompara.ui.screens.AvisosScreen(onBack = { navController.popBackStack() }) }
     // B-050 paywall screen, reached from any PaywallGate CTA. The surface path arg buckets analytics.
     composable(
         route = "${KomparaDestination.PAYWALL_ROUTE}/{${KomparaDestination.ARG_PAYWALL_SURFACE}}",
@@ -285,17 +360,28 @@ private fun NavGraphBuilder.statsScreens(navController: NavController) {
         val surfaceName = entry.arguments?.getString(KomparaDestination.ARG_PAYWALL_SURFACE)
         val surface = runCatching { GateSurface.valueOf(surfaceName ?: "") }
             .getOrDefault(GateSurface.GENERIC)
-        PaywallScreen(surface = surface, onClose = { navController.popBackStack() })
+        PaywallScreen(surface = surface, onClose = { navController.popBackStack() }, onPlan = {
+            navController.navigate(KomparaDestination.PLAN_ROUTE) { popUpTo(entry.destination.id) { inclusive = true }; launchSingleTop = true }
+        })
+    }
+    composable(KomparaDestination.PLAN_ROUTE) {
+        mx.kompara.ui.paywall.TuPlanScreen(onBack = { navController.popBackStack() }, onSubscribe = { navController.navigate("plan-subscribe") })
+    }
+    composable("plan-subscribe") {
+        PaywallScreen(onClose = { navController.popBackStack() }, purchaseExplanation = true,
+            onPlan = { navController.popBackStack(KomparaDestination.PLAN_ROUTE, false) })
     }
     importDestination(navController)
     // B-056 referral / "Invita y gana" flow.
     referralDestination(navController)
     // Day detail with no arg → today.
-    composable(KomparaDestination.DAY_DETAIL_ROUTE) { DayDetailScreen() }
+    composable(KomparaDestination.DAY_DETAIL_ROUTE) { DayDetailScreen(onBack = { navController.popBackStack() }, onLimits = { navController.navigate("thresholds") }) }
     composable(
-        route = "${KomparaDestination.DAY_DETAIL_ROUTE}/{${DayDetailViewModel.ARG_DAY}}",
-        arguments = listOf(navArgument(DayDetailViewModel.ARG_DAY) { type = NavType.StringType }),
-    ) { DayDetailScreen() }
+        route = "${KomparaDestination.DAY_DETAIL_ROUTE}/{${DayDetailViewModel.ARG_DAY}}?offerId={offerId}&ledger={ledger}",
+        arguments = listOf(navArgument(DayDetailViewModel.ARG_DAY) { type = NavType.StringType },
+            navArgument("offerId") { type = NavType.LongType; defaultValue = -1L },
+            navArgument("ledger") { type = NavType.BoolType; defaultValue = false }),
+    ) { DayDetailScreen(onBack = { navController.popBackStack() }, onLimits = { navController.navigate("thresholds") }) }
     composable(
         route = "${KomparaDestination.WEEK_SUMMARY_ROUTE}/{${WeekSummaryViewModel.ARG_WEEK_START}}",
         arguments = listOf(
@@ -303,14 +389,22 @@ private fun NavGraphBuilder.statsScreens(navController: NavController) {
         ),
     ) {
         WeekSummaryScreen(
-            onOpenShareCard = { navController.navigate(KomparaDestination.SHARE_CARD_ROUTE) },
+            onImportReview = { navController.navigate("import-review/$it") },
+            onDay = { navController.navigate(KomparaDestination.dayRoute(it.toString())) },
+            onMonth = { navController.navigate(KomparaDestination.MONTH_ROUTE) { launchSingleTop = true } },
+            onCosts = { navController.navigate(KomparaDestination.AJUSTES.route) },
+            onUpgrade = { navController.navigateToPaywall(GateSurface.HISTORY) },
             // PR-E: a premium-but-unverified driver's benchmark gate here routes to import-to-verify.
             onImport = { navController.navigate(KomparaDestination.IMPORT_ROUTE) },
         )
     }
-    // B-055 share-card preview, reachable from the Inicio header icon, the week-summary CTA, and the
-    // Monday week-close notification.
-    composable(KomparaDestination.SHARE_CARD_ROUTE) { ShareCardScreen() }
+    // One share task retains the opener's period and comparison context. S19 migrates notification payloads.
+    composable("${KomparaDestination.SHARE_CARD_ROUTE}?weekStart={weekStart}&month={month}&app={app}&city={city}&metric={metric}",
+        arguments = listOf(navArgument("weekStart") { type = NavType.StringType; defaultValue = "" },
+            navArgument("month") { type = NavType.StringType; defaultValue = "" },
+            navArgument("app") { type = NavType.StringType; defaultValue = "UBER" },
+            navArgument("city") { type = NavType.StringType; defaultValue = "" },
+            navArgument("metric") { type = NavType.StringType; defaultValue = "PER_TRIP" })) { ShareCardScreen(onClose = { navController.popBackStack() }) }
 }
 
 @Preview(showBackground = true, name = "KomparaApp shell")

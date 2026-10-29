@@ -17,38 +17,82 @@ import java.io.OutputStream
  * (Plataforma | Bruto | Neto | ISR ret. | IVA ret.) → month-totals + YTD rows → total-withheld +
  * IMSS coverage line → disclaimer/rates/generated footer.
  */
-object FiscalPdfRenderer {
+class FiscalPdfRenderer(context: android.content.Context) {
+    private val fonts = mx.kompara.ui.export.ExportFonts(context)
 
-    /** Write the report as a PDF into [out]. Closes the document; the caller owns [out]. */
+    /** Write a paginated factual report; the caller owns the output stream. */
     fun render(data: FiscalReportData, out: OutputStream) {
         val doc = PdfDocument()
         try {
-            val pageInfo = PdfDocument.PageInfo.Builder(
-                FiscalPdfLayout.PAGE_WIDTH,
-                FiscalPdfLayout.PAGE_HEIGHT,
-                1,
-            ).create()
-            val page = doc.startPage(pageInfo)
-            drawPage(page.canvas, data)
-            doc.finishPage(page)
+            val pages = if (data.recordedRows != null) recordedPages(data) else listOf(emptyList())
+            pages.forEachIndexed { index, lines ->
+                val page = doc.startPage(PdfDocument.PageInfo.Builder(FiscalPdfLayout.PAGE_WIDTH, FiscalPdfLayout.PAGE_HEIGHT, index + 1).create())
+                if (data.recordedRows != null) {
+                    drawHeader(page.canvas, data)
+                    drawRecorded(page.canvas, lines)
+                } else drawPage(page.canvas, data)
+                doc.finishPage(page)
+            }
             doc.writeTo(out)
-        } finally {
-            doc.close()
-        }
+        } finally { doc.close() }
     }
 
-    /**
-     * Draw the whole report onto [canvas] (the page's own coordinate space). Exposed (vs. the
-     * [PdfDocument] wrapper above) so the drawing — every `drawText`/`drawLine`, the wrapping, the
-     * column placement — is smoke-testable on a real [android.graphics.Canvas] under Robolectric,
-     * which can't construct a [PdfDocument] (no native PDF runtime) but renders Canvas fine. Returns
-     * nothing; the smoke test asserts it draws without throwing for full and sparse reports.
-     */
+    /** Canvas entry for layout QA. Factual reports use the same first-page lines as export. */
     fun drawPage(canvas: android.graphics.Canvas, data: FiscalReportData) {
         drawHeader(canvas, data)
+        if (data.recordedRows != null) {
+            drawRecorded(canvas, recordedPages(data).first())
+            return
+        }
         val tableTop = drawTable(canvas, data)
         val footerStart = drawSummaryLines(canvas, data, tableTop)
         drawFooter(canvas, data, footerStart)
+    }
+
+    internal data class RecordedLine(val text: String, val value: String? = null, val height: Float = 16f)
+
+    internal fun recordedPages(data: FiscalReportData): List<List<RecordedLine>> {
+        val lines = buildList {
+            data.recordedRows.orEmpty().forEach { (label, value) ->
+                val wrapped = wrapLines(label, FiscalPdfLayout.contentWidth() - cellPaintRight.measureText(value) - 16f, cellPaint)
+                wrapped.forEachIndexed { index, text -> add(RecordedLine(text, if (index == 0) value else null,
+                    if (index == wrapped.lastIndex) 28f else 16f)) }
+            }
+            (data.sourceNotes + data.imssCoverageLine + data.generatedOn).forEach { note ->
+                val wrapped = wrapLines(note, FiscalPdfLayout.contentWidth(), subtlePaint)
+                wrapped.forEachIndexed { index, text -> add(RecordedLine(text, height = if (index == wrapped.lastIndex) 22f else 14f)) }
+            }
+        }
+        val pages = mutableListOf<MutableList<RecordedLine>>(mutableListOf())
+        var y = FiscalPdfLayout.contentTopY() + 20f
+        for (line in lines) {
+            if (y + line.height > FiscalPdfLayout.PAGE_HEIGHT - FiscalPdfLayout.MARGIN) {
+                pages.add(mutableListOf()); y = FiscalPdfLayout.contentTopY() + 20f
+            }
+            pages.last().add(line); y += line.height
+        }
+        return pages
+    }
+
+    private fun drawRecorded(canvas: android.graphics.Canvas, lines: List<RecordedLine>) {
+        var y = FiscalPdfLayout.contentTopY() + 20f
+        for (line in lines) {
+            canvas.drawText(line.text, FiscalPdfLayout.leftX(), y, if (line.value != null) cellPaint else subtlePaint)
+            line.value?.let { canvas.drawText(it, FiscalPdfLayout.rightX(), y, cellPaintRight) }
+            y += line.height
+        }
+    }
+
+    private fun wrapLines(text: String, width: Float, paint: Paint): List<String> {
+        val lines = mutableListOf<String>()
+        var line = ""
+        for (word in text.split(' ')) {
+            val candidate = if (line.isEmpty()) word else "$line $word"
+            if (paint.measureText(candidate) > width && line.isNotEmpty()) { lines.add(line); line = word }
+            else line = candidate
+        }
+        if (line.isNotEmpty()) lines.add(line)
+        return lines
     }
 
     // ─── header ──────────────────────────────────────────────────────────────────────────────────
@@ -185,30 +229,30 @@ object FiscalPdfRenderer {
 
     // ─── paints ──────────────────────────────────────────────────────────────────────────────────
 
-    private val ink = Color.rgb(0x1A, 0x1A, 0x1A)
-    private val subtleInk = Color.rgb(0x66, 0x66, 0x66)
-    private val accent = Color.rgb(0x00, 0x6E, 0x52) // Kompara green-ish; cosmetic only.
+    private val ink = Color.rgb(0x11, 0x11, 0x10)
+    private val subtleInk = Color.rgb(0x5C, 0x5B, 0x57)
+    private val accent = Color.rgb(0x18, 0x7A, 0x36)
 
     private val wordmarkPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = accent; textSize = 20f; typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        color = accent; textSize = 20f; typeface = fonts.strong
     }
     private val titlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = ink; textSize = 14f; typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        color = ink; textSize = 14f; typeface = fonts.strong
     }
-    private val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = ink; textSize = 12f }
-    private val subtlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = subtleInk; textSize = 10f }
+    private val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = ink; textSize = 12f; typeface = fonts.body }
+    private val subtlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = subtleInk; textSize = 10f; typeface = fonts.body }
     private val headerCellPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = ink; textSize = 10f; typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        color = ink; textSize = 10f; typeface = fonts.strong
     }
     private val headerCellPaintRight = Paint(headerCellPaint).apply { textAlign = Paint.Align.RIGHT }
-    private val cellPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = ink; textSize = 11f }
-    private val cellPaintRight = Paint(cellPaint).apply { textAlign = Paint.Align.RIGHT }
+    private val cellPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = ink; textSize = 11f; typeface = fonts.body }
+    private val cellPaintRight = Paint(cellPaint).apply { textAlign = Paint.Align.RIGHT; typeface = fonts.number; fontFeatureSettings = "tnum, lnum" }
     private val totalLabelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = ink; textSize = 11f; typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        color = ink; textSize = 11f; typeface = fonts.strong
     }
-    private val totalCellPaint = Paint(totalLabelPaint).apply { textAlign = Paint.Align.RIGHT }
-    private val footnotePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = subtleInk; textSize = 8f }
+    private val totalCellPaint = Paint(totalLabelPaint).apply { textAlign = Paint.Align.RIGHT; typeface = fonts.number; fontFeatureSettings = "tnum, lnum" }
+    private val footnotePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = subtleInk; textSize = 8f; typeface = fonts.body }
     private val rulePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.rgb(0xCC, 0xCC, 0xCC); strokeWidth = 0.7f
+        color = Color.rgb(0xE8, 0xE7, 0xE3); strokeWidth = 0.7f
     }
 }

@@ -27,4 +27,5 @@ data class TripOffer(
     val pickupMin: Double?,
     val tripKm: Double?,
     val tripMin: Double?,
+    val paymentBasis: String = "DRIVER_PAYMENT",
 )

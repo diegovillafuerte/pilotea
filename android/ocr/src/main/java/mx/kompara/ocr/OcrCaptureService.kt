@@ -3,7 +3,6 @@ package mx.kompara.ocr
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
-import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
@@ -40,17 +39,19 @@ import mx.kompara.data.service.ScreenRect
  *
  * Lifecycle (B-075): Android revokes the projection on every screen lock / consent withdrawal, and
  * the grant is one-shot — the service cannot restart itself. So an unexpected stop posts a
- * tap-to-restart notification (relaunching the consent flow via [ScreenReaderState.ACTION_START]),
+ * shared readiness incident (delivered by the app's watchdog),
  * fully stops the foreground service (no stale "leyendo la pantalla" notification), and mirrors the
  * live state into [ScreenReaderState] for the Lector tab.
  */
+@dagger.hilt.android.AndroidEntryPoint
 class OcrCaptureService : Service() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val engine = OcrEngine()
     // All parse → verdict → ledger logic lives in the shared, capture-source-agnostic pipeline so this
     // MediaProjection lane and the API 30+ [SilentScreenshotLane] can never drift (B-091).
-    private val pipeline = OfferFramePipeline()
+    @javax.inject.Inject lateinit var readiness: mx.kompara.data.service.ReaderReadinessRepository
+    private val pipeline by lazy { OfferFramePipeline(readiness) }
     private var projection: MediaProjection? = null
     private var virtualDisplay: VirtualDisplay? = null
     private var imageReader: ImageReader? = null
@@ -79,11 +80,27 @@ class OcrCaptureService : Service() {
     // chipRect is snapshotted at CAPTURE time so the mask matches THESE pixels: OCR is async, and a
     // drag/attach/detach between capture and parse would otherwise misalign the live rect with the
     // frame (leak the old chip block, or blank host text at the new spot). See [ChipMask].
-    private data class CapturedFrame(val generation: Int, val bitmap: Bitmap, val chipRect: ScreenRect?)
+    private data class CapturedFrame(val generation: Int, val bitmap: Bitmap, val chipRect: ScreenRect?, val token: Long)
+
+    override fun onCreate() {
+        super.onCreate()
+        scope.launch {
+            readiness.state.collect { state ->
+                if (!state.canRead) stateMutex.withLock { pipeline.onCaptureEnd(System.currentTimeMillis()) }
+            }
+        }
+    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_STOP) {
+            readiness.pauseUntilTomorrow()
+            teardown(restarting = true)
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+            return START_NOT_STICKY
+        }
         val resultCode = intent?.getIntExtra(EXTRA_RESULT_CODE, 0) ?: 0
         val data = intent?.let {
             if (Build.VERSION.SDK_INT >= 33) it.getParcelableExtra(EXTRA_DATA, Intent::class.java)
@@ -97,7 +114,7 @@ class OcrCaptureService : Service() {
         startAsForeground()
 
         // Re-consent while already capturing (Lector "reiniciar"): drop the old projection first.
-        if (projection != null) teardown()
+        if (projection != null) teardown(restarting = true)
 
         val mpm = getSystemService(MediaProjectionManager::class.java)
         val mp = mpm.getMediaProjection(resultCode, data)
@@ -121,6 +138,7 @@ class OcrCaptureService : Service() {
         // The reader may have been restarted from the Lector tab rather than the stopped
         // notification — clear it so it can't claim "detenido" while capture runs.
         getSystemService(NotificationManager::class.java).cancel(STOPPED_NOTIF_ID)
+        readiness.captureRunning(true)
         ScreenReaderState.setRunning(true)
         return START_NOT_STICKY
     }
@@ -170,12 +188,14 @@ class OcrCaptureService : Service() {
         reader.setOnImageAvailableListener({ r ->
             val image = r.acquireLatestImage() ?: return@setOnImageAvailableListener
             try {
+                if (!readiness.canRead()) return@setOnImageAvailableListener
+                val token = readiness.captureToken()
                 val now = SystemClock.elapsedRealtime()
                 if (now - lastOcrAt < THROTTLE_MS) return@setOnImageAvailableListener
                 lastOcrAt = now
                 // Hand off to the sequential consumer, tagged with this session's generation; CONFLATED
                 // replaces any unprocessed frame. Recycle if the channel is closed (teardown race).
-                val frame = CapturedFrame(generation, image.toBitmap(width, height), ScreenReaderState.overlayChipRect)
+                val frame = CapturedFrame(generation, image.toBitmap(width, height), ScreenReaderState.overlayChipRect, token)
                 if (frameChannel.trySend(frame).isFailure) frame.bitmap.recycle()
             } finally {
                 image.close()
@@ -184,6 +204,7 @@ class OcrCaptureService : Service() {
     }
 
     private suspend fun runOcr(frame: CapturedFrame) {
+        if (!readiness.canRead(token = frame.token)) { frame.bitmap.recycle(); return }
         val blocks = try {
             engine.recognize(frame.bitmap)
         } catch (cancellation: kotlinx.coroutines.CancellationException) {
@@ -203,8 +224,8 @@ class OcrCaptureService : Service() {
         // session was closed and reset. The generation check is INSIDE the lock, so it can't race the
         // bump in teardown. Delegates the whole parse → verdict → ledger step to the shared pipeline.
         stateMutex.withLock {
-            if (frame.generation == captureGeneration) {
-                pipeline.process(blocks, frame.chipRect, if (BuildConfig.DEBUG) getExternalFilesDir(null) else null)
+            if (frame.generation == captureGeneration && readiness.canRead(token = frame.token)) {
+                pipeline.process(blocks, frame.chipRect, if (BuildConfig.DEBUG) getExternalFilesDir(null) else null, token = frame.token)
             }
         }
     }
@@ -213,12 +234,9 @@ class OcrCaptureService : Service() {
         val channelId = "ocr_capture"
         val nm = getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(
-            NotificationChannel(channelId, "Lector OCR", NotificationManager.IMPORTANCE_LOW),
+            NotificationChannel(channelId, getString(R.string.capture_channel), NotificationManager.IMPORTANCE_LOW),
         )
-        val notification: Notification = Notification.Builder(this, channelId)
-            .setContentTitle("Kompara está leyendo la pantalla")
-            .setSmallIcon(android.R.drawable.ic_menu_view)
-            .build()
+        val notification = captureNotification(this)
         if (Build.VERSION.SDK_INT >= 29) {
             startForeground(NOTIF_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
         } else {
@@ -233,45 +251,20 @@ class OcrCaptureService : Service() {
      * stale (B-075).
      */
     private fun onProjectionLost() {
-        val nm = getSystemService(NotificationManager::class.java)
-        // Settings on an existing channel are immutable; the v1 id must go or upgraded devices
-        // show a zombie "Estado del lector" entry next to the v2 channel. No-op when never created.
-        nm.deleteNotificationChannel("ocr_reader_state")
-        nm.createNotificationChannel(
-            NotificationChannel(
-                STOPPED_CHANNEL_ID,
-                "Estado del lector",
-                NotificationManager.IMPORTANCE_HIGH,
-            ).apply {
-                // The reader dies at screen lock — phone in pocket — so the alert must be felt,
-                // not just seen (B-078).
-                enableVibration(true)
-                vibrationPattern = longArrayOf(0, 250, 150, 250)
-            },
-        )
-        val restart = PendingIntent.getActivity(
-            this,
-            0,
-            Intent(ScreenReaderState.ACTION_START).setPackage(packageName)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-        )
-        val notification = Notification.Builder(this, STOPPED_CHANNEL_ID)
-            .setContentTitle("Kompara: se detuvo el lector para DiDi")
-            .setContentText("Toca para reiniciar la captura y ver el semáforo en DiDi.")
-            .setSmallIcon(android.R.drawable.ic_dialog_alert)
-            .setContentIntent(restart)
-            .setAutoCancel(true)
-            .build()
-        nm.notify(STOPPED_NOTIF_ID, notification)
+        // One shared incident owner handles this and permission loss. Paused/denied notifications
+        // must not bypass that owner through a second OCR-specific notification path.
+        teardown()
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
 
-    private fun teardown() {
+    private fun teardown(restarting: Boolean = false) {
         virtualDisplay?.release(); virtualDisplay = null
         imageReader?.close(); imageReader = null
-        projection?.stop(); projection = null
+        val oldProjection = projection
+        projection = null
+        oldProjection?.stop()
+        readiness.captureRunning(false, intentionalStop = restarting)
         ScreenReaderState.setRunning(false)
         // Close the session under the state lock, serialized with the frame consumer. Bumping the
         // capture generation FIRST means any frame still queued or mid-recognition is dropped at its
@@ -302,13 +295,12 @@ class OcrCaptureService : Service() {
     companion object {
         private const val TAG = "KomparaOCR"
         private const val NOTIF_ID = 42
-        // "_v2": channel settings are immutable once created; the vibration pattern (B-078) needs
-        // a fresh id on devices that already created the original channel.
-        private const val STOPPED_CHANNEL_ID = "ocr_reader_state_v2"
+        // Cancel the retired OCR-specific outage notice; shared incident delivery owns recovery.
         private const val STOPPED_NOTIF_ID = 43
         // 300 ms bounds the offer→verdict latency (plus ML Kit time); ~3 fps full-screen OCR is
         // fine on the target devices and only runs while the driver has the reader on.
         private const val THROTTLE_MS = 300L
+        const val ACTION_STOP = "mx.kompara.action.STOP_SCREEN_READER"
         const val EXTRA_RESULT_CODE = "result_code"
         const val EXTRA_DATA = "data"
 

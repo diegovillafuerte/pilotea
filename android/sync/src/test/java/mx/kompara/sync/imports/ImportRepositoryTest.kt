@@ -1,404 +1,155 @@
 package mx.kompara.sync.imports
 
 import io.ktor.client.HttpClient
-import io.ktor.client.engine.mock.MockEngine
-import io.ktor.client.engine.mock.MockRequestHandleScope
-import io.ktor.client.engine.mock.respond
+import io.ktor.client.engine.mock.*
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.client.request.HttpRequestData
-import io.ktor.client.request.HttpResponseData
-import io.ktor.http.HttpHeaders
-import io.ktor.http.HttpStatusCode
-import io.ktor.http.headersOf
+import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.json
-import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runTest
-import kotlinx.serialization.json.Json
-import mx.kompara.data.db.dao.AggregateDao
-import mx.kompara.data.db.entity.AggregateSource
-import mx.kompara.data.db.entity.DailyAggregateEntity
-import mx.kompara.data.db.entity.WeeklyAggregateEntity
+import mx.kompara.data.imports.*
 import mx.kompara.sync.aggregate.SessionGate
-import mx.kompara.sync.api.ApiClient
-import mx.kompara.sync.api.ApiException
-import mx.kompara.sync.api.ImportFile
-import mx.kompara.sync.verification.VerificationSignals
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
-import org.junit.Assert.assertThrows
-import org.junit.Assert.assertTrue
+import mx.kompara.sync.api.*
+import org.junit.Assert.*
 import org.junit.Test
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
 
-/**
- * [ImportRepository] tests (B-045): dry-run vs real upload, backend error mapping (Spanish strings),
- * local Room upsert on confirm, captured-protection, idempotent re-import, and the per-platform
- * file-count guard. Runs against a Ktor MockEngine + an in-memory [FakeImportDao].
- */
-@OptIn(ExperimentalCoroutinesApi::class)
-class ImportRepositoryTest {
-
-    private val json = Json { ignoreUnknownKeys = true; explicitNulls = false }
-
-    private fun fixedClock(millis: Long): Clock =
-        Clock.fixed(Instant.ofEpochMilli(millis), ZoneOffset.UTC)
-
-    private fun pdf(name: String = "report.pdf") =
-        ImportFile(fileName = name, mimeType = "application/pdf", bytes = byteArrayOf(1, 2, 3, 4))
-
-    private fun png(name: String) =
-        ImportFile(fileName = name, mimeType = "image/png", bytes = byteArrayOf(5, 6, 7, 8))
-
-    /** Build an ApiClient over a MockEngine that records each request's URL. */
-    private fun api(
-        urls: MutableList<String> = mutableListOf(),
-        handler: MockRequestHandleScope.(HttpRequestData) -> HttpResponseData,
-    ): ApiClient {
-        val engine = MockEngine { req ->
-            urls += req.url.toString()
-            handler(req)
-        }
-        val http = HttpClient(engine) {
-            expectSuccess = false
-            install(ContentNegotiation) { json(json) }
-        }
-        return ApiClient(http, "http://test.local", { "session-token" }, { "device-uuid" })
+class MemoryImportStore : LocalImportStore {
+    val drafts = linkedMapOf<String, ImportDraftEntity>()
+    val inputs = mutableMapOf<String, List<ImportFileEntity>>()
+    val statements = mutableMapOf<String, ImportStatementEntity>()
+    val selections = mutableMapOf<String, ImportSelectionEntity>()
+    var failSave = false
+    override suspend fun draft(id: String) = drafts[id]
+    override suspend fun pending() = drafts.values.lastOrNull { it.stage !in listOf("SAVED", "DISCARDED") }
+    override suspend fun files(id: String) = inputs[id].orEmpty()
+    override suspend fun retain(draft: ImportDraftEntity, files: List<ImportFileEntity>) { drafts[draft.id] = draft; inputs[draft.id] = files }
+    override suspend fun update(draft: ImportDraftEntity) { drafts[draft.id] = draft }
+    override suspend fun commit(draft: ImportDraftEntity, statement: ImportStatementEntity, selection: ImportSelectionEntity?) {
+        if (failSave) error("disk")
+        if (drafts[draft.id]?.stage == "SAVED") return
+        statements[statement.id] = statement; selection?.let { selections["${it.platform}:${it.start}"] = it }
+        drafts[draft.id] = draft.copy(stage = "SAVED"); inputs.remove(draft.id)
     }
-
-    private fun MockRequestHandleScope.okJson(body: String): HttpResponseData = respond(
-        content = body,
-        status = HttpStatusCode.OK,
-        headers = headersOf(HttpHeaders.ContentType, "application/json"),
-    )
-
-    private fun MockRequestHandleScope.errorJson(
-        status: HttpStatusCode,
-        message: String,
-    ): HttpResponseData = respond(
-        content = """{"error":${json.encodeToString(message)}}""",
-        status = status,
-        headers = headersOf(HttpHeaders.ContentType, "application/json"),
-    )
-
-    private fun repo(
-        api: ApiClient,
-        dao: AggregateDao = FakeImportDao(),
-        signedIn: Boolean = true,
-        clockMillis: Long = 1_000L,
-        verification: VerificationSignals = VerificationSignals.NONE,
-    ) = ImportRepository(
-        api = api,
-        aggregateDao = dao,
-        session = SessionGate { signedIn },
-        clock = fixedClock(clockMillis),
-        verification = verification,
-    )
-
-    /** Records [VerificationSignals.markVerified] calls so a test can assert import-as-proof. */
-    private class RecordingVerification : VerificationSignals {
-        var marked = 0
-        var markedGeneration: Int? = null
-        override suspend fun sessionGeneration() = 7 // a distinct value to assert it's threaded through
-        override suspend fun markVerified(generation: Int) { marked++; markedGeneration = generation }
-        override suspend fun reset() = Unit
-        override suspend fun syncFromServer() = Unit
-    }
-
-    private val previewBody = """
-        {
-          "import_id": null,
-          "metrics": {
-            "week_start": "2025-03-24",
-            "net_earnings": 3850.5,
-            "gross_earnings": 5200.0,
-            "total_trips": 72,
-            "hours_online": 45.5,
-            "earnings_per_trip": 53.48,
-            "earnings_per_hour": 84.63,
-            "trips_per_hour": 1.58,
-            "platform_commission_pct": 20.19
-          },
-          "data_completeness": 0.95,
-          "dry_run": true
-        }
-    """.trimIndent()
-
-    private val confirmBody = """
-        {
-          "import_id": "imp-123",
-          "metrics": {
-            "week_start": "2025-03-24",
-            "net_earnings": 3850.5,
-            "gross_earnings": 5200.0,
-            "total_trips": 72,
-            "hours_online": 45.5,
-            "earnings_per_trip": 53.48,
-            "earnings_per_hour": 84.63,
-            "trips_per_hour": 1.58,
-            "platform_commission_pct": 20.19
-          },
-          "data_completeness": 0.95,
-          "dry_run": false
-        }
-    """.trimIndent()
-
-    // ─── Dry-run preview ──────────────────────────────────────────────────────
-
-    @Test
-    fun `preview adds dry_run query param, maps metrics, and writes NOTHING locally`() = runTest {
-        val urls = mutableListOf<String>()
-        val dao = FakeImportDao()
-        val repository = repo(api(urls) { okJson(previewBody) }, dao)
-
-        val result = repository.preview("uber", "pdf", listOf(pdf()))
-
-        assertTrue(result.dryRun)
-        assertNull(result.importId)
-        assertEquals("2025-03-24", result.metrics.weekStart)
-        assertEquals(3850.5, result.metrics.netEarnings!!, 0.001)
-        assertEquals(72, result.metrics.totalTrips)
-        assertEquals(0.95, result.dataCompleteness, 0.001)
-        // dry_run flag is on the wire.
-        assertTrue(urls.single().contains("dry_run=true"))
-        // Preview must never persist.
-        assertTrue(dao.upserts.isEmpty())
-    }
-
-    // ─── Confirmed import + local upsert ──────────────────────────────────────
-
-    @Test
-    fun `confirm uploads without dry_run and upserts one IMPORTED weekly row`() = runTest {
-        val urls = mutableListOf<String>()
-        val dao = FakeImportDao()
-        val repository = repo(api(urls) { okJson(confirmBody) }, dao, clockMillis = 7_000L)
-
-        val result = repository.confirm("uber", "pdf", listOf(pdf()))
-
-        assertEquals("imp-123", result.importId)
-        assertTrue(!result.dryRun)
-        assertTrue(!urls.single().contains("dry_run"))
-
-        // Exactly one local row, source=IMPORTED, platform stored as the enum name UBER.
-        assertEquals(1, dao.rows.size)
-        val row = dao.rows.single()
-        assertEquals(AggregateSource.IMPORTED.name, row.source)
-        assertEquals("UBER", row.platform)
-        assertEquals("2025-03-24", row.weekStart)
-        assertEquals(3850.5, row.netEarningsMxn, 0.001)
-        assertEquals(72, row.totalTrips)
-        assertEquals(7_000L, row.computedAt)
-        assertNull(row.acceptanceRate)
-        assertNull(row.lastSyncedAt)
-    }
-
-    @Test
-    fun `confirm marks the driver verified (import-as-proof)`() = runTest {
-        val verification = RecordingVerification()
-        val repository = repo(api { okJson(confirmBody) }, verification = verification)
-
-        repository.confirm("uber", "pdf", listOf(pdf()))
-
-        assertEquals(1, verification.marked) // a successful non-dry-run import IS the verification event
-        assertEquals(7, verification.markedGeneration) // the pre-upload generation snapshot is threaded through
-    }
-
-    @Test
-    fun `preview (dry-run) does NOT mark the driver verified`() = runTest {
-        val verification = RecordingVerification()
-        val repository = repo(api { okJson(previewBody) }, verification = verification)
-
-        repository.preview("uber", "pdf", listOf(pdf()))
-
-        assertEquals(0, verification.marked) // a dry-run proves nothing
-    }
-
-    @Test
-    fun `confirm maps didi platform name and lands the imported row`() = runTest {
-        val dao = FakeImportDao()
-        val didiBody = confirmBody.replace("imp-123", "imp-didi")
-        val repository = repo(api { okJson(didiBody) }, dao)
-
-        repository.confirm("didi", "screenshot", listOf(png("earnings.png"), png("tablero.png")))
-
-        assertEquals("DIDI", dao.rows.single().platform)
-    }
-
-    // ─── Captured-protection ──────────────────────────────────────────────────
-
-    @Test
-    fun `confirm never overwrites a CAPTURED row - imported lands as a distinct key`() = runTest {
-        val dao = FakeImportDao().apply {
-            // Pre-seed a live-captured row for the SAME platform/week.
-            rows += capturedRow(platform = "UBER", weekStart = "2025-03-24", net = 9999.0)
-        }
-        val repository = repo(api { okJson(confirmBody) }, dao)
-
-        repository.confirm("uber", "pdf", listOf(pdf()))
-
-        // Both rows coexist (different source in the composite key); captured untouched.
-        assertEquals(2, dao.rows.size)
-        val captured = dao.rows.single { it.source == AggregateSource.CAPTURED.name }
-        val imported = dao.rows.single { it.source == AggregateSource.IMPORTED.name }
-        assertEquals(9999.0, captured.netEarningsMxn, 0.001) // captured preserved
-        assertEquals(3850.5, imported.netEarningsMxn, 0.001) // imported written
-    }
-
-    // ─── Idempotent re-import ─────────────────────────────────────────────────
-
-    @Test
-    fun `re-importing the same week leaves exactly one IMPORTED row (latest wins)`() = runTest {
-        val dao = FakeImportDao()
-        val repository = repo(api { okJson(confirmBody) }, dao)
-
-        repository.confirm("uber", "pdf", listOf(pdf()))
-        // Second import of the same week with different numbers.
-        val updated = confirmBody.replace("3850.5", "4000.0").replace("72", "80")
-        val repository2 = repo(api { okJson(updated) }, dao)
-        repository2.confirm("uber", "pdf", listOf(pdf()))
-
-        // REPLACE upsert on (platform, weekStart, IMPORTED) keeps one row.
-        val imported = dao.rows.filter { it.source == AggregateSource.IMPORTED.name }
-        assertEquals(1, imported.size)
-        assertEquals(4000.0, imported.single().netEarningsMxn, 0.001)
-        assertEquals(80, imported.single().totalTrips)
-    }
-
-    // ─── Error mapping ────────────────────────────────────────────────────────
-
-    @Test
-    fun `parse failure surfaces the exact backend Spanish error as an ApiException`() = runTest {
-        val message = "No pudimos leer tus datos. Asegurate que el screenshot sea claro y completo."
-        val dao = FakeImportDao()
-        val repository = repo(api { errorJson(HttpStatusCode.UnprocessableEntity, message) }, dao)
-
-        val ex = assertThrows(ApiException::class.java) {
-            kotlinx.coroutines.runBlocking { repository.confirm("uber", "pdf", listOf(pdf())) }
-        }
-        assertEquals(422, ex.status)
-        assertEquals(message, ex.message)
-        // Nothing persisted on failure.
-        assertTrue(dao.upserts.isEmpty())
-    }
-
-    @Test
-    fun `signed-out upload surfaces the 401 from the backend`() = runTest {
-        val dao = FakeImportDao()
-        // isSignedIn() is the UI's gate; the repository still forwards the call, and a 401 comes back.
-        val repository = repo(
-            api { errorJson(HttpStatusCode.Unauthorized, "No autorizado") },
-            dao,
-            signedIn = false,
-        )
-
-        assertTrue(!repository.isSignedIn())
-        val ex = assertThrows(ApiException::class.java) {
-            kotlinx.coroutines.runBlocking { repository.confirm("uber", "pdf", listOf(pdf())) }
-        }
-        assertEquals(401, ex.status)
-        assertTrue(dao.upserts.isEmpty())
-    }
-
-    // ─── File-count validation ────────────────────────────────────────────────
-
-    @Test
-    fun `didi requires exactly two files - one is rejected before any network call`() = runTest {
-        val urls = mutableListOf<String>()
-        val dao = FakeImportDao()
-        val repository = repo(api(urls) { okJson(confirmBody) }, dao)
-
-        val ex = assertThrows(ApiException::class.java) {
-            kotlinx.coroutines.runBlocking {
-                repository.confirm("didi", "screenshot", listOf(png("only.png")))
-            }
-        }
-        assertTrue(ex.message.contains("DiDi requiere 2 capturas"))
-        // Short-circuited: never hit the network, never persisted.
-        assertTrue(urls.isEmpty())
-        assertTrue(dao.upserts.isEmpty())
-    }
-
-    @Test
-    fun `single-file platforms reject a multi-file upload before any network call`() = runTest {
-        val urls = mutableListOf<String>()
-        val repository = repo(api(urls) { okJson(confirmBody) })
-
-        assertThrows(ApiException::class.java) {
-            kotlinx.coroutines.runBlocking {
-                repository.preview("uber", "pdf", listOf(pdf("a.pdf"), pdf("b.pdf")))
-            }
-        }
-        assertTrue(urls.isEmpty())
-    }
-
-    @Test
-    fun `didi preview accepts exactly two files`() = runTest {
-        val urls = mutableListOf<String>()
-        val repository = repo(api(urls) { okJson(previewBody) })
-
-        val result = repository.preview(
-            "didi",
-            "screenshot",
-            listOf(png("earnings.png"), png("tablero.png")),
-        )
-
-        assertTrue(result.dryRun)
-        assertTrue(urls.single().contains("dry_run=true"))
-    }
+    override suspend fun discard(id: String) { drafts[id]?.let { drafts[id] = it.copy(stage = "DISCARDED") }; inputs.remove(id) }
 }
 
-// ─── Fakes ────────────────────────────────────────────────────────────────────
-
-private fun capturedRow(platform: String, weekStart: String, net: Double) = WeeklyAggregateEntity(
-    platform = platform,
-    weekStart = weekStart,
-    source = AggregateSource.CAPTURED.name,
-    netEarningsMxn = net,
-    grossEarningsMxn = net + 500.0,
-    totalTrips = 200,
-    totalKm = 800.0,
-    hoursOnline = 50.0,
-    earningsPerTrip = net / 200,
-    earningsPerKm = net / 800,
-    earningsPerHour = net / 50,
-    tripsPerHour = 4.0,
-    acceptanceRate = 0.7,
-    computedAt = 1L,
-    lastSyncedAt = null,
-)
-
-/**
- * In-memory [AggregateDao] modelling Room's REPLACE-on-(platform, weekStart, source) upsert so the
- * repository's local-backfill + captured-protection + idempotency can be asserted without a DB.
- */
-private class FakeImportDao : AggregateDao {
-    val rows = mutableListOf<WeeklyAggregateEntity>()
-    /** Every upsert call's payload, in order — lets tests assert "nothing was written". */
-    val upserts = mutableListOf<List<WeeklyAggregateEntity>>()
-
-    override suspend fun upsertWeekly(rows: List<WeeklyAggregateEntity>) {
-        upserts += rows
-        for (row in rows) {
-            // REPLACE on the composite primary key.
-            this.rows.removeAll {
-                it.platform == row.platform && it.weekStart == row.weekStart && it.source == row.source
-            }
-            this.rows += row
+class ImportRepositoryTest {
+    private val m = ImportMetrics("2026-09-14", netEarnings = 5340.0, grossEarnings = 7000.0, totalTrips = 29, hoursOnline = 26.0, platformCommissionPct = 24.0)
+    private val pdf = ImportFile("semana.pdf", "application/pdf", byteArrayOf(1, 2, 3))
+    private val urls = mutableListOf<String>()
+    private fun repo(store: MemoryImportStore, signedIn: Boolean = true, response: ImportMetrics = m, status: HttpStatusCode = HttpStatusCode.OK): ImportRepository {
+        val engine = MockEngine { req ->
+            urls += req.url.toString()
+            respond(if (status == HttpStatusCode.OK) importJson.encodeToString(ImportResponse(metrics = response, dataCompleteness = .95, dryRun = true)) else """{"error":"No pudimos leer este archivo"}""",
+                status, headersOf(HttpHeaders.ContentType, "application/json"))
         }
+        return ImportRepository(ApiClient(HttpClient(engine) { install(ContentNegotiation) { json(importJson) } }, "http://test.local", { "token" }, { "device" }),
+            store, SessionGate { signedIn }, Clock.fixed(Instant.parse("2026-10-29T12:00:00Z"), ZoneOffset.UTC))
+    }
+    @Test fun `selection and consent write no money and do not parse`() = runTest {
+        val store = MemoryImportStore(); val repo = repo(store)
+        val draft = repo.retain("uber", "pdf", listOf(pdf))
+        assertNull(draft.consentAt); assertEquals(pdf, repo.files(draft.id).single())
+        assertTrue(runCatching { repo.read(draft.id) }.isFailure)
+        repo.consent(draft.id)
+        assertTrue(urls.isEmpty()); assertTrue(store.statements.isEmpty())
+    }
+    @Test fun `review corrections duplicate Save and repeated read use exactly one dry run`() = runTest {
+        val store = MemoryImportStore(); val repo = repo(store)
+        val draft = repo.retain("uber", "pdf", listOf(pdf)); repo.consent(draft.id)
+        val parsed = repo.read(draft.id)
+        val corrected = repo.correct(draft.id, m.copy(netEarnings = 5400.5))
+        assertEquals(parsed.previewJson, corrected.previewJson)
+        repo.read(draft.id); repo.save(draft.id, true); repo.save(draft.id, true)
+        assertEquals(1, urls.size); assertTrue(urls.single().contains("dry_run=true"))
+        val row = store.statements.values.single()
+        assertEquals("5400.5", row.payment); assertNull(row.km); assertEquals("USER_CORRECTED_IMPORT", row.source)
+        assertEquals(setOf("PAYMENT", "TRIPS", "HOURS"), store.selections.values.single().fields.split(',').toSet())
+        assertEquals("SAVED", store.drafts[draft.id]!!.stage)
+        assertTrue(repo.files(draft.id).isEmpty())
+    }
+    @Test fun `recreating repository restores preview corrections and consent without another parse`() = runTest {
+        val store = MemoryImportStore(); val first = repo(store)
+        val draft = first.retain("uber", "pdf", listOf(pdf)); first.consent(draft.id); first.read(draft.id)
+        first.correct(draft.id, m.copy(totalTrips = 30))
+        val next = repo(store)
+        assertEquals(30, next.restore()!!.metrics()!!.totalTrips)
+        next.read(draft.id); next.save(draft.id, false)
+        assertEquals(1, urls.size); assertEquals(30, store.statements.values.single().trips)
+    }
+    @Test fun `concurrent reads share retained result and concurrent saves are idempotent`() = runTest {
+        val store = MemoryImportStore(); val repo = repo(store)
+        val draft = repo.retain("uber", "pdf", listOf(pdf)); repo.consent(draft.id)
+        val a = async { repo.read(draft.id) }; val b = async { repo.read(draft.id) }
+        assertEquals(a.await().previewJson, b.await().previewJson)
+        val c = async { repo.save(draft.id, false) }; val d = async { repo.save(draft.id, false) }; c.await(); d.await()
+        assertEquals(1, urls.size); assertEquals(1, store.statements.size)
+    }
+    @Test fun `failed upload keeps same bytes and consent for retry`() = runTest {
+        val store = MemoryImportStore(); val failing = repo(store, status = HttpStatusCode.ServiceUnavailable)
+        val draft = failing.retain("uber", "pdf", listOf(pdf)); failing.consent(draft.id)
+        assertTrue(runCatching { failing.read(draft.id) }.exceptionOrNull() is ApiException)
+        assertEquals("ERROR", store.drafts[draft.id]!!.stage)
+        val retry = repo(store); assertEquals(pdf, retry.files(draft.id).single())
+        retry.read(draft.id); retry.save(draft.id, false)
+        assertEquals(2, urls.size); assertEquals(1, store.statements.size)
+    }
+    @Test fun `save failure retains parsed result and retries without upload`() = runTest {
+        val store = MemoryImportStore(); val repo = repo(store)
+        val draft = repo.retain("uber", "pdf", listOf(pdf)); repo.consent(draft.id); repo.read(draft.id)
+        store.failSave = true; assertTrue(runCatching { repo.save(draft.id, true) }.isFailure)
+        assertTrue(store.statements.isEmpty()); assertNotNull(repo.restore()!!.previewJson)
+        store.failSave = false; repo.save(draft.id, true); assertEquals(1, urls.size)
+    }
+    @Test fun `signed out cannot parse and does not lose selected share`() = runTest {
+        val store = MemoryImportStore(); val repo = repo(store, signedIn = false)
+        val draft = repo.retain("uber", "pdf", listOf(pdf)); repo.consent(draft.id)
+        val error = runCatching { repo.read(draft.id) }.exceptionOrNull() as ApiException
+        assertEquals(401, error.status); assertEquals(pdf, repo.files(draft.id).single()); assertTrue(urls.isEmpty())
+    }
+    @Test fun `missing DiDi image retains input and new pair gets separate parse identity`() = runTest {
+        val store = MemoryImportStore(); val repo = repo(store)
+        val image = pdf.copy(mimeType = "image/png")
+        val first = repo.retain("didi", "screenshot", listOf(image)); repo.consent(first.id)
+        assertEquals(422, (runCatching { repo.read(first.id) }.exceptionOrNull() as ApiException).status)
+        val pair = repo.retain("didi", "screenshot", listOf(image, image.copy(bytes = byteArrayOf(4))), first.id)
+        assertNotEquals(first.id, pair.id); assertEquals(first.id, pair.parentId); assertNotNull(store.drafts[first.id])
+        repo.consent(pair.id); repo.read(pair.id); assertEquals(1, urls.size); assertTrue(store.statements.isEmpty())
+    }
+    @Test fun `unknown versus zero and distinct apps survive save without verification or gross substitution`() = runTest {
+        val store = MemoryImportStore(); val repo = repo(store, response = m.copy(netEarnings = null, totalTrips = null, hoursOnline = 0.0))
+        val draft = repo.retain("uber", "pdf", listOf(pdf)); repo.consent(draft.id); repo.read(draft.id)
+        val row = repo.save(draft.id, true)
+        assertNull(row.payment); assertNull(row.trips); assertEquals("0.0", row.hours)
+        assertFalse(row.income().tripsKnown); assertEquals("PARSED_STATEMENT", row.source); assertTrue(store.selections.isEmpty())
+    }
+    @Test fun `invalid corrections and adding a missing distance never change original`() = runTest {
+        val store = MemoryImportStore(); val repo = repo(store)
+        val draft = repo.retain("uber", "pdf", listOf(pdf)); repo.consent(draft.id); val original = repo.read(draft.id)
+        listOf(m.copy(totalTrips = -1), m.copy(totalKm = 5.0), m.copy(hoursOnline = 169.0), m.copy(netEarnings = Double.NaN), m.copy(weekStart = "2026-09-15")).forEach {
+            assertTrue(runCatching { repo.correct(draft.id, it) }.isFailure)
+        }
+        assertEquals(original, repo.restore())
+    }
+    @Test fun `discard cleans local files and reselecting same parsed content does not parse twice`() = runTest {
+        val store = MemoryImportStore(); val repo = repo(store)
+        val d = repo.retain("uber", "pdf", listOf(pdf)); repo.consent(d.id); repo.read(d.id); repo.discard(d.id)
+        assertNull(repo.restore()); assertTrue(repo.files(d.id).isEmpty())
+        val again = repo.retain("uber", "pdf", listOf(pdf.copy(fileName = "renamed.pdf")))
+        assertEquals(d.id, again.id); assertNull(again.consentAt)
+        repo.consent(again.id); repo.read(again.id); assertEquals(1, urls.size)
+    }
+    @Test fun `same input set in reverse order and renamed files reuses one parse`() = runTest {
+        val store = MemoryImportStore(); val repo = repo(store)
+        val images = listOf(pdf.copy(mimeType = "image/png"), pdf.copy(mimeType = "image/png", bytes = byteArrayOf(4)))
+        val first = repo.retain("didi", "screenshot", images); repo.consent(first.id); repo.read(first.id)
+        val again = repo.retain("didi", "screenshot", images.reversed().map { it.copy(fileName = "renamed.png") })
+        repo.read(again.id)
+        assertEquals(first.id, again.id); assertEquals(1, urls.size)
+        assertTrue(runCatching { repo.retain("didi", "screenshot", listOf(images[0], images[0])) }.isFailure)
     }
 
-    override suspend fun upsertDaily(rows: List<DailyAggregateEntity>) = error("unused")
-    override fun observeWeekly() = error("unused")
-    override fun observeDaily() = error("unused")
-    override suspend fun capturedWeek(weekStart: String): List<WeeklyAggregateEntity> = error("unused")
-    override suspend fun capturedDay(day: String): List<DailyAggregateEntity> = error("unused")
-    override suspend fun allWeekly(): List<WeeklyAggregateEntity> = error("unused")
-    override suspend fun deleteCapturedDay(day: String) = error("unused")
-    override suspend fun deleteCapturedWeek(weekStart: String) = error("unused")
-    override fun observeDailyInRange(startDay: String, endDay: String) = error("unused")
-    override fun observeWeeklyInRange(startWeek: String, endWeek: String) = error("unused")
-    override suspend fun dirtyForSync(): List<WeeklyAggregateEntity> = error("unused")
-    override suspend fun markSynced(platform: String, weekStart: String, source: String, syncedAt: Long) =
-        error("unused")
 }

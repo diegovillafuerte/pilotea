@@ -35,6 +35,9 @@ class FiscalConfigRepository @Inject constructor(
     private val clock: Clock = Clock.systemUTC(),
 ) {
 
+    /** No rule, jurisdiction or source certification exists in the current API/cache contract. */
+    val regulatoryEnabled: Boolean get() = false
+
     /** Outcome of a [refresh] call, for the worker/caller and tests. */
     enum class RefreshResult {
         /** Fetched fresh config from the backend and cached it. */

@@ -1,296 +1,86 @@
 package mx.kompara.ui.auth
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import mx.kompara.data.model.City
-import mx.kompara.ui.R
-import mx.kompara.ui.components.KomparaOtpInput
-import mx.kompara.ui.components.KomparaTextField
-import mx.kompara.ui.components.PrimaryButton
+import mx.kompara.ui.components.*
+import mx.kompara.ui.onboarding.OnboardingFrame
+import mx.kompara.ui.onboarding.OnboardingTextAction
+import mx.kompara.ui.theme.KomparaTheme
+import mx.kompara.ui.theme.KomparaType
 
-/**
- * The required signup flow (phone → WhatsApp code → profile), one composable per step with the
- * step switch driven by [SignupViewModel]. Lives both inside the onboarding funnel (new installs)
- * and standalone at the app root (installs that completed onboarding before accounts existed).
- */
 @Composable
-fun SignupFlowScreen(
-    onComplete: () -> Unit,
-    modifier: Modifier = Modifier,
-    viewModel: SignupViewModel = hiltViewModel(),
-) {
+fun SignupFlowScreen(onComplete: () -> Unit, modifier: Modifier = Modifier, onCancel: () -> Unit = onComplete,
+    viewModel: SignupViewModel = hiltViewModel(), premium: Boolean = false) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    when (state.step) {
-        SignupStep.PHONE -> PhoneStep(state, viewModel, modifier)
-        SignupStep.CODE -> CodeStep(state, viewModel, modifier)
-        SignupStep.PROFILE -> ProfileStep(state, viewModel, onComplete, modifier)
-    }
+    val keyboard = LocalSoftwareKeyboardController.current
+    // The destination's ViewModel survives rotation, including an OTP request already sent.
+    // Explicit navigation cancels below; removing the destination clears its ViewModel scope.
+    LaunchedEffect(viewModel) { viewModel.resume() }
+    val cancel = { viewModel.cancel(); keyboard?.hide(); onCancel() }
+    val back = { if (state.step == SignupStep.CODE) viewModel.changePhone() else cancel() }
+    BackHandler { back() }
+    if (state.step == SignupStep.DONE) {
+        LaunchedEffect(Unit) { keyboard?.hide(); onComplete() }
+    } else SignupContent(state, viewModel::onPhoneChange, viewModel::onCodeChange, viewModel::submitPhone,
+        viewModel::submitCode, viewModel::resendCode, viewModel::changePhone, back, cancel, modifier, premium = premium)
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun PhoneStep(state: SignupUiState, viewModel: SignupViewModel, modifier: Modifier = Modifier) {
-    StepScaffold(
-        title = stringResource(R.string.auth_phone_titulo),
-        body = stringResource(R.string.auth_phone_cuerpo),
-        modifier = modifier,
-        content = {
-            KomparaTextField(
-                value = state.phoneInput,
-                onValueChange = viewModel::onPhoneChange,
-                label = stringResource(R.string.auth_phone_hint),
-                prefix = stringResource(R.string.auth_phone_prefijo),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                error = if (state.error == SignupError.INVALID_PHONE) errorMessage(state.error) else null,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            ErrorText(state.error, ignore = SignupError.INVALID_PHONE)
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = stringResource(R.string.auth_phone_privacidad),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        },
-        footer = {
-            PrimaryButton(
-                text = stringResource(R.string.auth_phone_cta),
-                onClick = viewModel::submitPhone,
-                enabled = state.canSubmitPhone,
-            )
-        },
-    )
-}
-
-@Composable
-private fun CodeStep(state: SignupUiState, viewModel: SignupViewModel, modifier: Modifier = Modifier) {
-    val phoneShown = state.phoneE164?.let(MxPhone::display) ?: state.phoneInput
-    StepScaffold(
-        title = stringResource(R.string.auth_code_titulo),
-        body = stringResource(R.string.auth_code_cuerpo, phoneShown),
-        modifier = modifier,
-        content = {
-            KomparaOtpInput(
-                value = state.codeInput,
-                onValueChange = viewModel::onCodeChange,
-                error = state.error == SignupError.WRONG_CODE,
-            )
-            ErrorText(state.error)
-            state.devCodeHint?.let { devCode ->
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = stringResource(R.string.auth_code_dev_hint, devCode),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                TextButton(onClick = viewModel::changePhone) {
-                    Text(stringResource(R.string.auth_code_cambiar))
-                }
-                TextButton(
-                    onClick = viewModel::resendCode,
-                    enabled = state.resendSecondsLeft == 0 && !state.busy,
-                ) {
-                    Text(
-                        text = if (state.resendSecondsLeft > 0) {
-                            stringResource(R.string.auth_code_reenviar_en, state.resendSecondsLeft)
-                        } else {
-                            stringResource(R.string.auth_code_reenviar)
-                        },
-                    )
-                }
-            }
-        },
-        footer = {
-            PrimaryButton(
-                text = stringResource(R.string.auth_code_cta),
-                onClick = viewModel::submitCode,
-                enabled = state.canSubmitCode,
-            )
-        },
-    )
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ProfileStep(
-    state: SignupUiState,
-    viewModel: SignupViewModel,
-    onComplete: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    StepScaffold(
-        title = stringResource(R.string.auth_profile_titulo),
-        body = stringResource(R.string.auth_profile_cuerpo),
-        modifier = modifier,
-        content = {
-            KomparaTextField(
-                value = state.nameInput,
-                onValueChange = viewModel::onNameChange,
-                label = stringResource(R.string.auth_profile_nombre_hint),
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Spacer(Modifier.height(16.dp))
-
-            // Label-above (not a floating Material label, which the design system rejects): a static
-            // 12sp label sits above the dropdown anchor, mirroring KomparaTextField. The City.entries
-            // enum dropdown is preserved — only the label placement changes.
-            val cityLabel = stringResource(R.string.auth_profile_ciudad_label)
-            Text(
-                text = cityLabel,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium,
-            )
-            var cityMenuOpen by remember { mutableStateOf(false) }
-            ExposedDropdownMenuBox(
-                expanded = cityMenuOpen,
-                onExpandedChange = { cityMenuOpen = it },
-                modifier = Modifier.padding(top = 6.dp),
-            ) {
-                OutlinedTextField(
-                    value = state.city.displayName,
-                    onValueChange = {},
-                    readOnly = true,
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = cityMenuOpen) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .menuAnchor()
-                        .semantics { contentDescription = "$cityLabel: ${state.city.displayName}" },
-                )
-                ExposedDropdownMenu(
-                    expanded = cityMenuOpen,
-                    onDismissRequest = { cityMenuOpen = false },
-                ) {
-                    City.entries.forEach { city ->
-                        DropdownMenuItem(
-                            text = { Text(city.displayName) },
-                            onClick = {
-                                viewModel.onCityChange(city)
-                                cityMenuOpen = false
-                            },
-                        )
+fun SignupContent(state: SignupUiState, phoneChange: (String) -> Unit = {}, codeChange: (String) -> Unit = {},
+    send: () -> Unit = {}, verify: () -> Unit = {}, resend: () -> Unit = {}, changePhone: () -> Unit = {},
+    back: () -> Unit = {}, cancel: () -> Unit = {}, modifier: Modifier = Modifier, requestFocus: Boolean = true, premium: Boolean = false) {
+    val code = state.step == SignupStep.CODE
+    val focus = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
+    LaunchedEffect(code, requestFocus) { if (requestFocus) { focus.requestFocus(); keyboard?.show() } }
+    OnboardingFrame(back, modifier = modifier, title = if (premium) "Premium" else null, close = premium, footer = {
+        if (!code) PrimaryButton(if (state.error == SignupError.REQUEST_FAILED) "Reintentar" else "Mandar código", send, enabled = state.canSubmitPhone)
+        else if (state.error != null) PrimaryButton("Reintentar", if (state.error == SignupError.REQUEST_FAILED) resend else verify,
+            enabled = if (state.error == SignupError.REQUEST_FAILED) !state.busy && state.resendSecondsLeft == 0 else state.canSubmitCode)
+        if (premium && !code) OnboardingTextAction("Ahora no", cancel)
+        if (state.error == SignupError.REQUEST_FAILED || state.error == SignupError.VERIFY_FAILED) OnboardingTextAction("Seguir sin cuenta por ahora", cancel)
+    }) {
+        Column(Modifier.padding(horizontal = 20.dp)) {
+            Text(if (code) "Escribe el código" else if (premium) "Confirma tu WhatsApp" else "Entra con tu WhatsApp", style = KomparaType.headline)
+            Text(if (code) "Te lo mandamos por WhatsApp al ${state.phoneE164?.let(MxPhone::display) ?: state.phoneInput}."
+                else if (premium) "Una prueba por conductor.\nDespués eliges cuándo empieza." else "El semáforo y tus registros funcionan sin cuenta.", Modifier.padding(top = 8.dp), style = KomparaType.body, color = KomparaTheme.colors.inkSecondary)
+            Spacer(Modifier.height(32.dp))
+            if (code) {
+                KomparaOtpInput(state.codeInput, codeChange, Modifier.focusRequester(focus), error = state.error == SignupError.WRONG_CODE)
+                FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    TextButton(changePhone, Modifier.heightIn(min = 48.dp), enabled = !state.busy) { Text("Cambiar número", style = KomparaType.bodyStrong, color = KomparaTheme.colors.ink) }
+                    TextButton(resend, Modifier.heightIn(min = 48.dp), enabled = !state.busy && state.resendSecondsLeft == 0) {
+                        Text(if (state.resendSecondsLeft > 0) "Reenviar en ${state.resendSecondsLeft} s" else "Reenviar código", style = KomparaType.bodyStrong, color = if (state.resendSecondsLeft > 0 || state.busy) KomparaTheme.colors.inkTertiary else KomparaTheme.colors.ink)
                     }
                 }
+                state.devCodeHint?.let { Text("Prueba local: $it", style = KomparaType.small, color = KomparaTheme.colors.inkSecondary) }
+            } else {
+                KomparaTextField(state.phoneInput, phoneChange, if (premium) "Número de WhatsApp" else "Tu número", Modifier.focusRequester(focus), prefix = "+52",
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), enabled = !state.busy, underlined = true)
+                if (!premium) Text("No lo mostramos a otros conductores.", Modifier.padding(top = 12.dp), style = KomparaType.small, color = KomparaTheme.colors.inkSecondary)
             }
-            ErrorText(state.error)
-        },
-        footer = {
-            PrimaryButton(
-                text = stringResource(R.string.auth_profile_cta),
-                onClick = { viewModel.saveProfile(onComplete) },
-                enabled = !state.busy,
-            )
-            TextButton(
-                onClick = { viewModel.skipProfile(onComplete) },
-                modifier = Modifier.align(Alignment.CenterHorizontally),
-            ) {
-                Text(stringResource(R.string.auth_profile_saltar))
+            val error = when (state.error) {
+                SignupError.INVALID_PHONE -> "Revisa tu número: debe tener 10 dígitos."
+                SignupError.REQUEST_FAILED -> "No pudimos mandar el código. Inténtalo otra vez."
+                SignupError.WRONG_CODE -> "El código no es válido o ya venció."
+                SignupError.VERIFY_FAILED -> "No pudimos verificar el código. Inténtalo otra vez."
+                null -> null
             }
-        },
-    )
-}
-
-/**
- * Shared step layout: left-aligned title + body and the step's own fields scroll in the upper
- * region; the primary CTA (and any secondary action) is pinned to a fixed [footer] at the bottom so
- * it never scrolls away under the keyboard.
- */
-@Composable
-private fun StepScaffold(
-    title: String,
-    body: String,
-    modifier: Modifier = Modifier,
-    content: @Composable ColumnScope.() -> Unit,
-    footer: @Composable ColumnScope.() -> Unit,
-) {
-    Column(modifier = modifier.fillMaxSize().padding(24.dp)) {
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState()),
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Spacer(Modifier.height(12.dp))
-            Text(
-                text = body,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(24.dp))
-            content()
+            if (error != null) Text(error, Modifier.padding(top = 12.dp), style = KomparaType.body)
+            if (state.busy) Text(if (code) "Verificando…" else "Mandando código…", Modifier.padding(top = 12.dp), style = KomparaType.body)
         }
-        Spacer(Modifier.height(16.dp))
-        footer()
     }
-}
-
-/** The user-facing copy for each [SignupError], or null when there is no error. */
-@Composable
-private fun errorMessage(error: SignupError?): String? = when (error) {
-    null -> null
-    SignupError.INVALID_PHONE -> stringResource(R.string.auth_phone_error_invalido)
-    SignupError.REQUEST_FAILED -> stringResource(R.string.auth_phone_error_red)
-    SignupError.WRONG_CODE -> stringResource(R.string.auth_code_error_invalido)
-    SignupError.VERIFY_FAILED -> stringResource(R.string.auth_code_error_red)
-    SignupError.PROFILE_SAVE_FAILED -> stringResource(R.string.auth_profile_error)
-}
-
-/**
- * Renders the error message below a step's fields. [ignore] is the one error already surfaced inline
- * by a field (its red border + helper text), so it isn't repeated here.
- */
-@Composable
-private fun ErrorText(error: SignupError?, ignore: SignupError? = null) {
-    if (error == null || error == ignore) return
-    Spacer(Modifier.height(8.dp))
-    Text(
-        text = errorMessage(error)!!,
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.error,
-    )
 }

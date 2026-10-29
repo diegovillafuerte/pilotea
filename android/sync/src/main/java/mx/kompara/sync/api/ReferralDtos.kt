@@ -16,6 +16,8 @@ data class ReferralMineResponse(
     val code: String,
     val redemptionsCount: Int = 0,
     val premiumDaysEarned: Int = 0,
+    val rewardDaysReferrer: Int? = null,
+    val rewardDaysRedeemer: Int? = null,
     /** Grant-based premium expiry as epoch millis, or null when the driver holds no grant. */
     val premiumUntilMillis: Long? = null,
 )

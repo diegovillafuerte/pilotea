@@ -1,57 +1,80 @@
 package mx.kompara.overlay
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.ui.text.PlatformTextStyle
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import mx.kompara.ui.theme.VerdictRed
+import mx.kompara.ui.theme.KomparaTheme
+import mx.kompara.ui.theme.KomparaType
+import mx.kompara.parsers.model.HostGeometry
 
-/**
- * The reader-down banner (B-078): a tappable pill the accessibility service overlays on DiDi/
- * inDrive while the screen reader is dead — the moment the driver is silently missing verdicts.
- * Tapping relaunches the capture consent flow; the controller hides it the instant capture is back
- * (or the driver leaves the host app).
- */
+/** C6 is passive: no click, drag, dismiss or consent action. The window passes touches through. */
 @Composable
-fun ReaderDownBannerUi(onTap: () -> Unit) {
-    Surface(
-        shape = RoundedCornerShape(24.dp),
-        color = Color(0xF2212121),
-        shadowElevation = 6.dp,
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .clickable(onClick = onTap)
-                .padding(horizontal = 16.dp, vertical = 10.dp),
-        ) {
-            androidx.compose.foundation.layout.Box(
-                modifier = Modifier
-                    .size(10.dp)
-                    .background(color = VerdictRed, shape = CircleShape),
-            )
-            Spacer(modifier = Modifier.width(10.dp))
-            Text(
-                text = stringResource(R.string.overlay_reader_down),
-                color = Color.White,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold,
-            )
-        }
+fun ReaderStoppedTab(modifier: Modifier = Modifier) {
+    val scale = LocalDensity.current.fontScale
+    Column(modifier.width((240 * scale).dp).heightIn(min = (72 * scale).dp)
+        .shadow(10.dp, RoundedCornerShape((14 * scale).dp))
+        .background(KomparaTheme.colors.chipInk, RoundedCornerShape((14 * scale).dp))
+        .semantics(mergeDescendants = true) {}
+        .padding(horizontal = (14 * scale).dp, vertical = (7 * scale).dp), verticalArrangement = Arrangement.Center) {
+        BasicText("Semáforo apagado", style = KomparaType.section.copy(fontSize = 22.sp, lineHeight = 22.sp,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, color = KomparaTheme.colors.onChip,
+            platformStyle = PlatformTextStyle(includeFontPadding = false),
+            lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None)))
+        val detailStyle = KomparaType.small.copy(lineHeight = 15.sp, color = KomparaTheme.colors.onChip.copy(alpha = .68f),
+            platformStyle = PlatformTextStyle(includeFontPadding = false),
+            lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None))
+        BasicText("Dejamos de leer tus ofertas", style = detailStyle)
+        BasicText("Abre Kompara al estacionarte", style = detailStyle)
     }
+}
+
+/** A foreground visit, not a capture-state emission, arms one five-second tab. */
+class ReaderStoppedTabGate {
+    private var host: String? = null
+    private var shown = false
+    private var until: Long? = null
+    fun visible(host: String?, eligible: Boolean, nowMs: Long): Boolean {
+        if (this.host != host) { this.host = host; shown = false; until = null }
+        if (host == null || !eligible) { until = null; return false }
+        if (!shown) { shown = true; until = nowMs + 5_000 }
+        return until?.let { nowMs < it } == true
+    }
+}
+
+/** A requested WindowManager position is not proof of the tab's position on screen. */
+internal sealed interface StoppedTabWindowDecision {
+    data object Hide : StoppedTabWindowDecision
+    data object WaitForLayout : StoppedTabWindowDecision
+    data object Show : StoppedTabWindowDecision
+    data class Move(val windowPosition: OverlayPosition) : StoppedTabWindowDecision
+}
+
+internal fun stoppedTabWindowDecision(
+    geometry: HostGeometry,
+    host: String,
+    viewport: OverlayViewport,
+    size: ChipSize,
+    actualPosition: OverlayPosition,
+    requestedPosition: OverlayPosition,
+    layoutPending: Boolean,
+    lastMoveFrom: OverlayPosition? = null,
+): StoppedTabWindowDecision {
+    // Admission checked freshness before capture stopped. Keep that bounded five-second visit;
+    // recheck its measured dimensions/insets without pretending capture still supplies frames.
+    val placed = OverlayPositioning.place(geometry, host, viewport, geometry.capturedAtMs, size, size)
+        as? OverlayPlacement.Displayed ?: return StoppedTabWindowDecision.Hide
+    if (layoutPending || lastMoveFrom == actualPosition) return StoppedTabWindowDecision.WaitForLayout
+    if (actualPosition == placed.position) return StoppedTabWindowDecision.Show
+    val origin = OverlayPosition(actualPosition.x - requestedPosition.x, actualPosition.y - requestedPosition.y)
+    return StoppedTabWindowDecision.Move(placed.position.inWindow(origin))
 }

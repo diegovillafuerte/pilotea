@@ -54,6 +54,31 @@ class OfferCardSelectorTest {
         assertNull(selectOfferCard(uber, didi, garbledUber))
     }
 
+
+    @Test fun `fare leg unions never authorize host placement`() {
+        val uberCard = selectOfferCard(uber,didi,listOf(block("UberX Exclusivo"), block("MXN96.17",40,600,300,650),
+            block("A5 min (0.8 km)",40,700,300,750),block("Viaje: 32 min (11.3 km)",40,800,300,850)))!!
+        assertTrue(uberCard.contentBounds != null)
+        assertNull(uberCard.hostGeometry)
+        val didiCard = selectOfferCard(uber,didi,listOf(block("$132.59",83,973,543,1085),
+            block("6min (1.2km)",139,1692,441,1745),block("39min (17.3km)",156,1902,514,1960),
+            block("Aceptar $132.59",200,2150,880,2240)))!!
+        assertTrue(didiCard.contentBounds != null)
+        assertNull(didiCard.hostGeometry)
+    }
+
+    @Test fun `certified measured geometry travels only with its exact host and frame`() {
+        val frame=listOf(block("UberX Exclusivo"),block("MXN96.17"),block("A5 min (0.8 km)"),block("Viaje: 32 min (11.3 km)"))
+        val g=mx.kompara.parsers.model.HostGeometry(UberOcrParser.UBER_PACKAGE,"test",1000,
+            mx.kompara.parsers.model.HostRect(0,0,393,852),mx.kompara.parsers.model.HostOrientation.PORTRAIT,
+            mx.kompara.parsers.model.HostRect(0,80,393,128),mx.kompara.parsers.model.HostRect(0,545,393,838),
+            listOf(mx.kompara.parsers.model.HostRect(20,750,373,810)),emptyList())
+        val observation=mx.kompara.parsers.model.HostLayoutObservation(g,true,true)
+        val adapter=mx.kompara.parsers.model.HostGeometryAdapter(setOf(g.packageName to g.layoutId))
+        assertEquals(g,selectOfferCard(uber,didi,frame,1000,observation,adapter)?.hostGeometry)
+        assertNull(selectOfferCard(uber,didi,frame,1001,observation,adapter)?.hostGeometry)
+        assertNull(selectOfferCard(uber,didi,frame,1000,observation)?.hostGeometry) // production capability still off
+    }
     private fun block(text: String) = OcrBlock(text, OcrBounds(0, 0, 0, 0))
     private fun block(text: String, l: Int, t: Int, r: Int, b: Int) = OcrBlock(text, OcrBounds(l, t, r, b))
 }

@@ -1,6 +1,8 @@
 package mx.kompara.ocr
 
 import mx.kompara.parsers.model.OfferCard
+import mx.kompara.parsers.model.HostGeometryAdapter
+import mx.kompara.parsers.model.HostLayoutObservation
 
 /**
  * Picks the offer card for a frame from its OCR blocks, identifying the platform in the process.
@@ -22,6 +24,11 @@ internal fun selectOfferCard(
     uber: UberOcrParser,
     didi: DidiOcrParser,
     blocks: List<OcrBlock>,
-): OfferCard? =
-    uber.parse(blocks)
-        ?: if (uber.hasCardSignature(blocks)) null else didi.parse(blocks)
+    capturedAtMs: Long = 0,
+    observation: HostLayoutObservation? = null,
+    geometryAdapter: HostGeometryAdapter = HostGeometryAdapter(),
+): OfferCard? {
+    val card = uber.parse(blocks)
+        ?: (if (uber.hasCardSignature(blocks)) null else didi.parse(blocks)) ?: return null
+    return card.copy(hostGeometry = geometryAdapter.adapt(card.platform, capturedAtMs, observation))
+}

@@ -332,22 +332,22 @@ class SettingsSerializationTest {
     }
 
     @Test
-    fun `share hide-amounts defaults OFF and reads a stored value (B-055)`() {
+    fun `share hide-amounts defaults ON and reads a stored value (B-055)`() {
         val fresh = SettingsSerialization.decode(
             enabledNames = null,
             lookupDouble = { null },
             lookupBoolean = { null },
         )
-        assertFalse(fresh.shareHideAmounts)
+        assertTrue(fresh.shareHideAmounts)
 
         val hidden = SettingsSerialization.decode(
             enabledNames = null,
             lookupDouble = { null },
             lookupBoolean = { key ->
-                if (key == SettingsSerialization.KEY_SHARE_HIDE_AMOUNTS) true else null
+                if (key == SettingsSerialization.KEY_SHARE_HIDE_AMOUNTS) false else null
             },
         )
-        assertTrue(hidden.shareHideAmounts)
+        assertFalse(hidden.shareHideAmounts)
     }
 
     @Test

@@ -1,0 +1,6 @@
+Read-only reference: docs/ux-elevation-v3 @ 2bb61fedd5bb63c9afc987a0add7455fbc78f5f9
+Source: design-system/ui_kits/android-app-v2/
+Copied for debug/test only; never seed production data.
+
+S20 frame contract refreshed to docs/ux-elevation-v3 @ 910ecc4cacc6ebcb67a7ecdd3ad1524afb71dc2b.
+Only adds G1e/G1n (118 scenarios); fixture.json is unchanged.

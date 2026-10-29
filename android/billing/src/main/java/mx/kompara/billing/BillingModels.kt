@@ -67,6 +67,7 @@ data class SubscriptionProduct(
     val priceAmountMicros: Long,
     /** True when [offerId] resolves to a free-trial pricing phase (amount 0 for the first phase). */
     val hasFreeTrial: Boolean,
+    val billingPeriod: String = "P1M",
 )
 
 /** Outcome of a [BillingClientFacade] connection attempt. */

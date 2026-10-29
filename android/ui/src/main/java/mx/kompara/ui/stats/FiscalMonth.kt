@@ -11,8 +11,8 @@ import java.util.Locale
 /**
  * Maps the Fiscal tab's month picker to the date keys the IMSS tracker needs (B-051): the target
  * [YearMonth], the inclusive ISO day-range to query daily aggregates, and the inclusive ISO
- * week-start (Monday) range that covers every week that could straddle the month — so the
- * [mx.kompara.metrics.imss.ImssCalculator] can pro-rate a straddling week.
+ * week-start (Monday) range that covers every week that could straddle the month — so crossing
+ * undated weeks can retain their original scope without allocation.
  *
  * Pure aside from the injected [zone] (device-local, so month boundaries match what the rollup wrote
  * and the driver sees). Kept here so the month-selection logic is unit-testable without Room.

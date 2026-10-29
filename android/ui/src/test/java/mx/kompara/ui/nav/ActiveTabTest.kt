@@ -1,54 +1,31 @@
 package mx.kompara.ui.nav
 
-import org.junit.Assert.assertEquals
+import org.junit.Assert.*
 import org.junit.Test
 
-/**
- * Resolution of the highlighted bottom-bar tab from the nav back stack (B-074 F5). The fix the test
- * guards: on a detail screen the parent tab stays lit (instead of falling back to Inicio), which is
- * what makes a re-tap able to pop that detail stack back to the tab root.
- */
 class ActiveTabTest {
-
-    private val graphRoot: String? = null // the NavGraph root entry has a null route
-
-    @Test
-    fun `empty back stack falls back to start`() {
-        assertEquals(KomparaDestination.START, KomparaDestination.activeTab(emptyList()))
+    @Test fun `exactly three roots in the specified order`() {
+        assertEquals(listOf("inicio", "ganancias", "comparar"), KomparaDestination.barItems.map { it.route })
     }
-
-    @Test
-    fun `tab on top resolves to that tab`() {
-        val stack = listOf(graphRoot, KomparaDestination.INICIO.route, KomparaDestination.AJUSTES.route)
-        assertEquals(KomparaDestination.AJUSTES, KomparaDestination.activeTab(stack))
+    @Test fun `empty back stack falls back to Hoy`() {
+        assertEquals(KomparaDestination.INICIO, KomparaDestination.activeTab(emptyList()))
     }
-
-    @Test
-    fun `detail screen highlights the tab it was opened from`() {
-        // Inicio → Ajustes → Ayuda (a detail route, not a tab).
-        val stack = listOf(
-            graphRoot,
-            KomparaDestination.INICIO.route,
-            KomparaDestination.AJUSTES.route,
-            KomparaDestination.HELP_ROUTE,
-        )
-        assertEquals(KomparaDestination.AJUSTES, KomparaDestination.activeTab(stack))
+    @Test fun `settings and reader are drill ins owned by their opener`() {
+        assertEquals(KomparaDestination.INICIO, KomparaDestination.activeTab(listOf(null, "inicio", "ajustes", "lector")))
+        assertEquals(KomparaDestination.COMPARAR, KomparaDestination.activeTab(listOf(null, "inicio", "comparar", "ajustes", "help")))
     }
-
-    @Test
-    fun `detail screen with no tab below falls back to start`() {
-        val stack = listOf(graphRoot, KomparaDestination.HELP_ROUTE)
-        assertEquals(KomparaDestination.START, KomparaDestination.activeTab(stack))
+    @Test fun `legacy routes keep the most recent root`() {
+        assertEquals(KomparaDestination.GANANCIAS, KomparaDestination.activeTab(listOf(null, "inicio", "ganancias", "fiscal", "history")))
     }
-
-    @Test
-    fun `topmost tab wins when several are in the stack`() {
-        val stack = listOf(
-            graphRoot,
-            KomparaDestination.INICIO.route,
-            KomparaDestination.FISCAL.route,
-            KomparaDestination.HISTORY_ROUTE,
-        )
-        assertEquals(KomparaDestination.FISCAL, KomparaDestination.activeTab(stack))
+    @Test fun `detail without root falls back to Hoy`() {
+        assertEquals(KomparaDestination.START, KomparaDestination.activeTab(listOf(null, "help")))
+    }
+    @Test fun `bar appears only on roots and Tu dia including its argument template`() {
+        for (route in listOf("inicio", "ganancias", "comparar", "day", "day/{day}?offerId={offerId}")) assertTrue(route, KomparaDestination.showsBottomBar(route))
+        for (route in listOf("ajustes", "lector", "fiscal", "thresholds", "reader-recovery", "reader-battery", "import", "share-card")) assertFalse(route, KomparaDestination.showsBottomBar(route))
+    }
+    @Test fun `day route preserves date and selected record identity`() {
+        assertEquals("day/2026-10-19?offerId=42", KomparaDestination.dayRoute("2026-10-19", 42))
+        assertEquals("day/2026-10-19", KomparaDestination.dayRoute("2026-10-19"))
     }
 }

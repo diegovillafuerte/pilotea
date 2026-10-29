@@ -33,6 +33,7 @@ object OfferMapping {
         pickupMin = card.pickupEtaMin,
         tripKm = card.tripDistanceKm,
         tripMin = card.tripDurationMin,
+        paymentBasis = card.paymentBasis,
     )
 
     /**

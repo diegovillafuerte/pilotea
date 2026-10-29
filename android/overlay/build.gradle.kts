@@ -50,7 +50,6 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     // The in-app offer simulator screen (B-037) renders the verdict chip inline and needs the
     // material icons + Compose tooling preview the floating overlay path didn't.
-    implementation(libs.androidx.compose.material.icons.core)
     implementation(libs.androidx.compose.ui.tooling.preview)
     debugImplementation(libs.androidx.compose.ui.tooling)
 
@@ -68,8 +67,17 @@ dependencies {
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
 
+    testImplementation(libs.androidx.compose.ui.test.junit4)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.ext.junit)
+}
+
+// Measured host scenarios are test-only; never authorize a production layout from a fixture.
+tasks.withType<Test>().configureEach {
+    systemProperty("v3.recordScreenshots", providers.gradleProperty("v3.recordScreenshots").getOrElse("false"))
+    inputs.dir("src/test/snapshots/v3")
+    outputs.dir(layout.buildDirectory.dir("outputs/v3-screenshots"))
 }

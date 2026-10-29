@@ -96,6 +96,17 @@ class AggregateUploaderTest {
     )
 
     @Test
+    fun `revocation during a batch stops before the next account upload`() = runTest {
+        var consent = true
+        val dao = FakeAggregateDao().apply { dirty += weeklyRow(); dirty += weeklyRow(platform = "DIDI") }
+        val bodies = mutableListOf<String>()
+        val uploader = AggregateUploader(dao, api({ consent = false; ok() }, bodies), { consent }, { true }, fixedClock(1000))
+        val outcome = uploader.sync()
+        assertEquals(1, bodies.size); assertEquals(1, outcome.uploaded); assertTrue(outcome.shortCircuited)
+        assertEquals(1, dao.markedSynced.size)
+    }
+
+    @Test
     fun `consent off short-circuits - nothing read or sent`() = runTest {
         val dao = FakeAggregateDao().apply { dirty += weeklyRow() }
         val bodies = mutableListOf<String>()
@@ -263,6 +274,9 @@ internal data class MarkSynced(
 )
 
 internal class FakeAggregateDao : AggregateDao {
+    override suspend fun capturedDays(from: String, until: String): List<DailyAggregateEntity> = emptyList()
+    override suspend fun capturedWeeks(from: String, until: String): List<WeeklyAggregateEntity> = emptyList()
+
     val dirty = mutableListOf<WeeklyAggregateEntity>()
     val markedSynced = mutableListOf<MarkSynced>()
 

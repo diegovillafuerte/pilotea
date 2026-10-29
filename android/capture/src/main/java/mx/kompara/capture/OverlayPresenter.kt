@@ -25,16 +25,14 @@ interface OverlayPresenter {
      * window can only be added through the service's own [android.view.WindowManager], which carries
      * the accessibility window token. Using the application context throws `BadTokenException`.
      *
-     * [foregroundOcrOwnedApp] is the service's live "the driver is sitting in an OCR-owned app
-     * (DiDi/inDrive) right now" signal (B-078). The implementation combines it with the screen
-     * reader's running state to show a reader-down banner exactly when verdicts are silently
-     * missing — in the host app, reader dead.
+     * [foregroundOcrOwnedApp] is the current host package, or null outside a host foreground visit.
+     * The implementation combines it with shared readiness for the passive C6 tab.
      */
     fun start(
         scope: CoroutineScope,
         events: Flow<OfferEvent>,
         overlayContext: Context,
-        foregroundOcrOwnedApp: Flow<Boolean>,
+        foregroundOcrOwnedApp: Flow<String?>,
     )
 
     /** Tear down any attached overlay window. Called from the service's onDestroy. */

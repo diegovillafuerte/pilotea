@@ -63,7 +63,9 @@ class SimulatorEngine(
     ): SimulatorResult {
         val spec = registry.specFor(snapshot)
             ?: error("No bundled spec recognizes demo snapshot ${offer.id} (${snapshot.packageName})")
-        val card = specEngine.evaluate(snapshot, spec)
+        // These authored examples explicitly represent driver payment. This declaration is confined
+        // to the simulator; it never certifies a live parser or writes captured history.
+        val card = specEngine.evaluate(snapshot, spec)?.copy(paymentBasis = "DRIVER_PAYMENT", captureSource = "DEMO")
             ?: error("Spec ${spec.targetPackage} did not detect demo snapshot ${offer.id} as an offer card")
 
         val tripOffer = OfferMapping.toTripOffer(card)

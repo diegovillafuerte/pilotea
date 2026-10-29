@@ -19,14 +19,17 @@ import javax.inject.Singleton
  * without depending on `:capture` (the binding lives in [mx.kompara.capture.di.ServiceStateModule]).
  */
 @Singleton
-class ServiceStateRepository @Inject constructor() : ServiceStatusProvider {
+class ServiceStateRepository @Inject constructor(private val reader: mx.kompara.data.service.ReaderReadinessRepository) : ServiceStatusProvider {
 
     private val _connected = MutableStateFlow(false)
 
     /** Emits true while the accessibility service is bound, false once it disconnects or dies. */
     override val connected: StateFlow<Boolean> = _connected.asStateFlow()
 
-    fun setConnected(connected: Boolean) {
+    override val readiness = reader.state
+
+    fun setConnected(connected: Boolean, permissionGranted: Boolean = true) {
+        if (connected) reader.bound() else reader.disconnected(permissionGranted)
         _connected.value = connected
     }
 }

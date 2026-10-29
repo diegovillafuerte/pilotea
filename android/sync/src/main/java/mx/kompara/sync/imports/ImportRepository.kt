@@ -1,164 +1,136 @@
 package mx.kompara.sync.imports
 
-import mx.kompara.data.db.dao.AggregateDao
-import mx.kompara.data.db.entity.AggregateSource
-import mx.kompara.data.db.entity.WeeklyAggregateEntity
-import mx.kompara.data.model.Platform
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.json.Json
+import mx.kompara.data.accounting.*
+import mx.kompara.data.imports.*
 import mx.kompara.sync.aggregate.SessionGate
-import mx.kompara.sync.api.ApiClient
-import mx.kompara.sync.api.ApiException
-import mx.kompara.sync.api.ImportFile
-import mx.kompara.sync.api.ImportMetrics
-import mx.kompara.sync.api.ImportResponse
-import mx.kompara.sync.verification.VerificationSignals
+import mx.kompara.sync.api.*
+import java.security.MessageDigest
 import java.time.Clock
+import java.time.DayOfWeek
+import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/**
- * The data-side contract the B-045 import flow's ViewModel ([mx.kompara.ui.imports.ImportViewModel],
- * in `:ui`) depends on. A seam (not the concrete [ImportRepository]) so the ViewModel is unit-testable
- * in `:ui` with a plain fake — no Ktor/MockEngine on the `:ui` test classpath. The Hilt binding
- * ([ImportModule]) provides [ImportRepository] as the live implementation.
- */
+/** One retained parse, local review/correction, then an atomic local-history save. */
 interface Importer {
-    /** True when a session token is held — uploads require an account. */
     suspend fun isSignedIn(): Boolean
-
-    /** Dry-run preview: parse + return metrics, persist nothing. Validates file count. */
-    suspend fun preview(platform: String, uploadType: String, files: List<ImportFile>): ImportResponse
-
-    /** Confirmed import: upload for real, then backfill local history. Validates file count. */
-    suspend fun confirm(platform: String, uploadType: String, files: List<ImportFile>): ImportResponse
+    suspend fun restore(): ImportDraftEntity?
+    suspend fun open(id: String): ImportDraftEntity?
+    suspend fun retain(platform: String, uploadType: String, files: List<ImportFile>, parentId: String? = null): ImportDraftEntity
+    suspend fun files(id: String): List<ImportFile>
+    suspend fun consent(id: String): ImportDraftEntity
+    suspend fun read(id: String): ImportDraftEntity
+    suspend fun correct(id: String, metrics: ImportMetrics): ImportDraftEntity
+    suspend fun save(id: String, useStatement: Boolean): ImportStatementEntity
+    suspend fun discard(id: String)
 }
 
-/**
- * Drives the B-045 import flow on the data side: uploads a weekly summary to the B-044 endpoint
- * (dry-run preview, then confirmed import) and, on a confirmed import, backfills the parsed week into
- * the LOCAL Room weekly-aggregate table so it appears in history immediately with an `importado`
- * badge.
- *
- * **Captured-protection contract (mirrors [AggregateSource]'s reconciliation rule):** an imported
- * week is written as a row with `source = IMPORTED`. The weekly_aggregates primary key is
- * `(platform, weekStart, source)`, so an IMPORTED upsert can NEVER collide with — and therefore never
- * overwrite — a CAPTURED row for the same platform/week. The two coexist; [mx.kompara.ui.stats.
- * HistoryWeeks] prefers the imported (realized) numbers at read time. This is the same "captured beats
- * imported" guarantee the backend enforces server-side, upheld here structurally by the key.
- *
- * **Idempotency:** re-importing the same platform/week writes the same `(platform, weekStart,
- * IMPORTED)` key; the DAO's REPLACE upsert overwrites the prior imported row in place, so a
- * double-import leaves exactly one imported row (the latest numbers win).
- *
- * The repository never throws for an expected failure mode: a signed-out upload surfaces as a 401
- * [ApiException] (the UI maps it to the "necesitas una cuenta" screen), and a parse/validation
- * failure surfaces as an [ApiException] carrying the backend's exact Spanish error string.
- */
+internal val importJson = Json { ignoreUnknownKeys = true }
+fun ImportResponse.retainedJson(): String = importJson.encodeToString(this)
+fun ImportMetrics.retainedJson(): String = importJson.encodeToString(this)
+fun ImportDraftEntity.response(): ImportResponse? = previewJson?.let { importJson.decodeFromString<ImportResponse>(it) }
+fun ImportDraftEntity.metrics(): ImportMetrics? = correctionJson?.let { importJson.decodeFromString<ImportMetrics>(it) } ?: response()?.metrics
+
 @Singleton
 class ImportRepository @Inject constructor(
     private val api: ApiClient,
-    private val aggregateDao: AggregateDao,
+    private val store: LocalImportStore,
     private val session: SessionGate,
     private val clock: Clock = Clock.systemUTC(),
-    private val verification: VerificationSignals = VerificationSignals.NONE,
 ) : Importer {
+    private val mutex = Mutex()
+    override suspend fun isSignedIn() = session.isSignedIn()
+    override suspend fun restore() = store.pending()
+    override suspend fun open(id: String) = store.draft(id)
+    override suspend fun files(id: String) = store.files(id).map { ImportFile(it.name, it.mime, it.bytes) }
 
-    /** True when a session token is held — uploads require an account. */
-    override suspend fun isSignedIn(): Boolean = session.isSignedIn()
-
-    /**
-     * Dry-run preview: upload [files] for [platform]/[uploadType] and return the parsed metrics
-     * WITHOUT persisting anything (server-side or locally). Validates the file count first.
-     */
-    override suspend fun preview(
-        platform: String,
-        uploadType: String,
-        files: List<ImportFile>,
-    ): ImportResponse {
-        validateFileCount(platform, files)
-        return api.importWeek(platform, uploadType, files, dryRun = true)
+    override suspend fun retain(platform: String, uploadType: String, files: List<ImportFile>, parentId: String?): ImportDraftEntity = mutex.withLock {
+        require(platform in setOf("uber", "didi"))
+        require(files.size in 1..2 && files.all { it.bytes.isNotEmpty() && it.bytes.size <= 10 * 1024 * 1024 && it.mimeType in setOf("application/pdf", "image/png", "image/jpeg", "image/webp") })
+        val digest = MessageDigest.getInstance("SHA-256")
+        digest.update("$platform:$uploadType".toByteArray())
+        val fingerprints = files.map { f ->
+            f.mimeType + ":" + MessageDigest.getInstance("SHA-256").digest(f.bytes).joinToString("") { "%02x".format(it) }
+        }
+        require(fingerprints.distinct().size == files.size) { "Elige dos capturas diferentes." }
+        fingerprints.sorted().forEach { digest.update(it.toByteArray()) }
+        val id = digest.digest().joinToString("") { "%02x".format(it) }
+        val existing = store.draft(id)
+        if (existing != null && existing.stage != "DISCARDED") return@withLock existing
+        // A discarded successful parse remains usable; bytes are retained again only for retry.
+        val draft = existing?.copy(stage = if (existing.previewJson == null) "READY" else "REVIEW", consentAt = null)
+            ?: ImportDraftEntity(id, platform, uploadType, clock.millis(), parentId = parentId)
+        store.retain(draft, files.mapIndexed { i, f -> ImportFileEntity(id, i, f.fileName, f.mimeType, f.bytes) })
+        draft
     }
-
-    /**
-     * Confirmed import: upload [files] for real, then backfill the parsed week into local Room
-     * aggregates (source=IMPORTED). Returns the backend response. Validates the file count first.
-     */
-    override suspend fun confirm(
-        platform: String,
-        uploadType: String,
-        files: List<ImportFile>,
-    ): ImportResponse {
-        validateFileCount(platform, files)
-        // Snapshot the verification session BEFORE the upload: if a logout/account-switch lands while
-        // the import is in flight, the mark below is discarded (it would belong to a session that's gone).
-        val generation = verification.sessionGeneration()
-        val response = api.importWeek(platform, uploadType, files, dryRun = false)
-        upsertLocal(platform, response.metrics)
-        // A successful non-dry-run import IS the verification event (account-onboarding design §3):
-        // mark verified now so the benchmarks/compare gate unlocks immediately, no extra round-trip.
-        verification.markVerified(generation)
-        return response
+    override suspend fun consent(id: String) = mutex.withLock {
+        requireDraft(id).copy(consentAt = clock.millis()).also { store.update(it) }
     }
-
-    /**
-     * Write the imported week into local Room as a `source = IMPORTED` row. Scoped to IMPORTED so a
-     * CAPTURED row for the same platform/week is never touched (different primary key). Null money /
-     * count fields default to 0 to satisfy the entity's non-null columns, matching the backend's own
-     * "earnings default to 0" upsert coercion.
-     */
-    private suspend fun upsertLocal(platform: String, metrics: ImportMetrics) {
-        val row = WeeklyAggregateEntity(
-            platform = platformEnumName(platform),
-            weekStart = metrics.weekStart,
-            source = AggregateSource.IMPORTED.name,
-            netEarningsMxn = metrics.netEarnings ?: 0.0,
-            grossEarningsMxn = metrics.grossEarnings ?: 0.0,
-            totalTrips = metrics.totalTrips ?: 0,
-            totalKm = metrics.totalKm ?: 0.0,
-            hoursOnline = metrics.hoursOnline ?: 0.0,
-            earningsPerTrip = metrics.earningsPerTrip,
-            earningsPerKm = metrics.earningsPerKm,
-            earningsPerHour = metrics.earningsPerHour,
-            tripsPerHour = metrics.tripsPerHour,
-            // Acceptance rate is a capture-only metric; an imported summary never carries it.
-            acceptanceRate = null,
-            computedAt = clock.millis(),
-            // A fresh import is not-yet-synced; the B-043 uploader will pick it up as dirty.
-            lastSyncedAt = null,
-        )
-        aggregateDao.upsertWeekly(listOf(row))
-    }
-
-    /**
-     * Enforce the per-platform file-count contract before hitting the network: DiDi needs exactly 2
-     * captures (earnings + tablero), every other platform exactly 1. Throws an [ApiException]
-     * carrying the backend's own Spanish DiDi message so the UI shows one consistent string whether
-     * the check trips locally or server-side.
-     */
-    private fun validateFileCount(platform: String, files: List<ImportFile>) {
-        val expected = if (platform == PLATFORM_DIDI) 2 else 1
-        if (files.size != expected) {
-            val message = if (platform == PLATFORM_DIDI) {
-                "DiDi requiere 2 capturas de pantalla: la pantalla de ganancias y el tablero. " +
-                    "Por favor sube ambas imagenes."
-            } else {
-                "Selecciona exactamente un archivo para subir."
-            }
-            throw ApiException(status = 422, message = message)
+    override suspend fun read(id: String): ImportDraftEntity = mutex.withLock {
+        val draft = requireDraft(id)
+        if (draft.previewJson != null) return@withLock draft
+        check(draft.consentAt != null) { "Falta aceptar la lectura del archivo." }
+        if (!session.isSignedIn()) throw ApiException(401, "Entra con WhatsApp para leer tu resumen.")
+        val files = files(id)
+        if (draft.platform == "didi" && files.size != 2) throw ApiException(422, "Agrega las dos capturas de DiDi para leerlas juntas.")
+        require(files.size == if (draft.platform == "didi") 2 else 1)
+        store.update(draft.copy(stage = "READING", error = null))
+        try {
+            // This is the only network parse. Never call the legacy non-dry-run endpoint.
+            val response = api.importWeek(draft.platform, draft.uploadType, files, dryRun = true)
+            validateImportMetrics(response.metrics)
+            check(store.draft(id) != null)
+            draft.copy(previewJson = importJson.encodeToString(response), stage = "REVIEW", error = null).also { store.update(it) }
+        } catch (e: CancellationException) { throw e
+        } catch (e: Exception) {
+            store.draft(id)?.let { store.update(it.copy(stage = "ERROR", error = e.message)) }
+            throw e
         }
     }
-
-    /** Map the lower-case wire platform ("uber") to the Room/enum name ("UBER") captured rows use. */
-    private fun platformEnumName(wirePlatform: String): String =
-        when (wirePlatform) {
-            PLATFORM_UBER -> Platform.UBER.name
-            PLATFORM_DIDI -> Platform.DIDI.name
-            PLATFORM_INDRIVE -> Platform.INDRIVE.name
-            else -> Platform.UNKNOWN.name
-        }
-
-    private companion object {
-        const val PLATFORM_UBER = "uber"
-        const val PLATFORM_DIDI = "didi"
-        const val PLATFORM_INDRIVE = "indrive"
+    override suspend fun correct(id: String, metrics: ImportMetrics): ImportDraftEntity = mutex.withLock {
+        val draft = requireDraft(id)
+        check(draft.stage != "SAVED")
+        val original = checkNotNull(draft.response()).metrics
+        validateImportMetrics(metrics)
+        // Only read fields can be corrected. No optimistic zeros or newly invented distance.
+        require(original.netEarnings != null || metrics.netEarnings == null)
+        require(original.totalTrips != null || metrics.totalTrips == null)
+        require(original.hoursOnline != null || metrics.hoursOnline == null)
+        require(original.totalKm != null || metrics.totalKm == null)
+        draft.copy(correctionJson = importJson.encodeToString(metrics), stage = "REVIEW").also { store.update(it) }
     }
+    override suspend fun save(id: String, useStatement: Boolean): ImportStatementEntity = mutex.withLock {
+        val draft = requireDraft(id)
+        val metrics = checkNotNull(draft.metrics())
+        validateImportMetrics(metrics)
+        val start = LocalDate.parse(metrics.weekStart)
+        val row = ImportStatementEntity(id, draft.platform.uppercase(), start.toString(), start.plusDays(6).toString(),
+            metrics.netEarnings?.toBigDecimal()?.toPlainString(), metrics.totalTrips,
+            metrics.totalKm?.toBigDecimal()?.toPlainString(), metrics.hoursOnline?.toBigDecimal()?.toPlainString(),
+            if (draft.correctionJson != null && draft.metrics() != draft.response()?.metrics) MoneySource.USER_CORRECTED_IMPORT.name else MoneySource.PARSED_STATEMENT.name,
+            draft.uploadType, clock.millis())
+        val fields = buildList {
+            if (row.payment != null) add(MoneyField.PAYMENT)
+            if (row.trips != null) add(MoneyField.TRIPS)
+            if (row.km != null) add(MoneyField.DISTANCE)
+            if (row.hours != null) add(MoneyField.HOURS)
+        }
+        val selection = if (useStatement && MoneyField.PAYMENT in fields) ImportSelectionEntity(row.platform, row.start, row.id, fields.joinToString(",") { it.name }) else null
+        store.commit(draft, row, selection)
+        row
+    }
+    override suspend fun discard(id: String) = mutex.withLock { store.discard(id) }
+    private suspend fun requireDraft(id: String) = checkNotNull(store.draft(id)) { "El borrador ya no está en este teléfono." }
+}
+
+fun validateImportMetrics(m: ImportMetrics) {
+    require(runCatching { LocalDate.parse(m.weekStart).dayOfWeek == DayOfWeek.MONDAY }.getOrDefault(false)) { "Revisa la fecha de la semana." }
+    require(listOf(m.grossEarnings, m.totalKm, m.hoursOnline, m.platformCommissionPct).all { it == null || it.isFinite() && it >= 0 }) { "Revisa este número" }
+    require(m.netEarnings == null || m.netEarnings.isFinite()) { "Revisa este número" }
+    require(m.totalTrips == null || m.totalTrips >= 0) { "Revisa este número" }
+    require(m.hoursOnline == null || m.hoursOnline <= 168) { "Revisa este número" }
 }

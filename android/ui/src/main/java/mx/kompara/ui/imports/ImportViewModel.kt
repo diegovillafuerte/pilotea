@@ -1,189 +1,178 @@
 package mx.kompara.ui.imports
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import mx.kompara.data.imports.ImportDraftEntity
 import mx.kompara.sync.api.ApiException
 import mx.kompara.sync.api.ImportFile
-import mx.kompara.sync.imports.Importer
+import mx.kompara.sync.imports.*
 import javax.inject.Inject
 
-/**
- * Drives the B-045 import flow's state machine ([ImportUiState]).
- *
- * On creation it resolves the session: signed-out drivers land on [ImportUiState.SignedOut] (account
- * UI is deferred — techdebt TD-008), signed-in drivers start [ImportUiState.Picking]. The driver
- * picks a platform ([selectPlatform]) then files; [submitForReview] runs a dry-run preview (no
- * persistence) and, on success, shows [ImportUiState.Review]. [confirm] re-issues the upload as a
- * real import and backfills local history, ending on [ImportUiState.Saved]. Every upload failure maps
- * to [ImportUiState.Error] carrying the backend's exact Spanish string.
- *
- * The 4-step progress animation (Leyendo archivos → Extrayendo datos con IA → Calculando tus ganancias →
- * Comparando) is driven by [animateProgress], a cosmetic timer that advances the visible step while
- * the real network call runs; the call completing flips state regardless of where the animation is.
- *
- * Testability: the animation cadence is injectable ([stepDelayMillis]) so a test can set it to 0, and
- * all transitions are plain state emissions over [uiState].
- */
 @HiltViewModel
 class ImportViewModel @Inject constructor(
     private val repository: Importer,
     private val sharedImportBuffer: SharedImportBuffer,
+    private val source: ImportReviewSource,
+    private val saved: SavedStateHandle,
 ) : ViewModel() {
+    private val state = MutableStateFlow<ImportUiState>(ImportUiState.Loading)
+    val uiState = state.asStateFlow()
+    private var job: Job? = null
+    private var draft: ImportDraftEntity? = null
+    private var initialRestore: Job? = null
+    init { resolveSession(); initialRestore = job }
 
-    /** Visible step cadence for the upload animation. Overridable in tests (set to 0 for instant). */
-    var stepDelayMillis: Long = DEFAULT_STEP_DELAY_MILLIS
-
-    private val _uiState = MutableStateFlow<ImportUiState>(ImportUiState.Loading)
-    val uiState: StateFlow<ImportUiState> = _uiState.asStateFlow()
-
-    private var animationJob: Job? = null
-
-    init {
-        resolveSession()
+    fun resolveSession() = launch {
+        val savedId = saved.get<String>("draftId")
+        if (savedId != null) {
+            draft = repository.open(savedId)
+            if (draft?.previewJson != null) showReview(draft!!) else state.value = ImportUiState.Picking
+            return@launch
+        }
+        val shared = sharedImportBuffer.take()
+        draft = if (shared != null) repository.retain(shared.platform.wire, shared.platform.uploadType, shared.files) else repository.restore()
+        showDraft(draft)
     }
-
-    /** (Re)check the session and set the entry state. Called on init and from the signed-out retry. */
-    fun resolveSession() {
-        viewModelScope.launch {
-            if (!repository.isSignedIn()) {
-                // No account → can't upload. Drop any staged share (the bytes are in-memory only) so it
-                // can't fire later once they sign in from an unrelated screen.
-                sharedImportBuffer.take()
-                _uiState.value = ImportUiState.SignedOut
-                return@launch
+    /** Android can recreate the caller while its document picker is in front. */
+    fun preparePicker(adding: Boolean) { saved["addingFile"] = adding }
+    /** Picker and Share both land on the same consent page; selection alone never uploads. */
+    fun selected(files: List<ImportFile>, adding: Boolean = saved["addingFile"] ?: false) {
+        // A restored ActivityResult can precede Room's initial draft read. Preserve that result
+        // until its parent is loaded, instead of dropping it through the normal busy guard.
+        viewModelScope.launch { initialRestore?.join(); retainSelection(files, adding) }
+    }
+    private fun retainSelection(files: List<ImportFile>, adding: Boolean) = launch {
+        val parent = draft
+        val combined = if (adding && parent != null) repository.files(parent.id).take(1) + files.take(1) else files
+        val classified = if (adding) PendingSharedImport(ImportPlatform.DIDI, combined) else ShareTargetClassifier.classify(combined)
+            ?: throw IllegalArgumentException("Elige un PDF de Uber o capturas de Ganancias y Tablero.")
+        require(classified.files.size == combined.size) { "Elige un PDF o las dos capturas de DiDi." }
+        draft = repository.retain(classified.platform.wire, classified.platform.uploadType, classified.files, if (adding) parent?.id else null)
+        saved["addingFile"] = false
+        state.value = ImportUiState.Ready(draft!!, repository.files(draft!!.id))
+    }
+    /** A single image cannot reliably identify its app. The driver can name DiDi before any parse. */
+    fun singleImageIsDidi() = launch {
+        val current = draft ?: return@launch
+        draft = repository.retain("didi", "screenshot", repository.files(current.id))
+        state.value = ImportUiState.Ready(draft!!, repository.files(draft!!.id))
+    }
+    fun upload() = launch {
+        val current = draft ?: return@launch
+        draft = repository.consent(current.id)
+        if (!repository.isSignedIn()) { state.value = ImportUiState.SignedOut(draft); return@launch }
+        readDraft()
+    }
+    fun returnedFromSignIn() = launch {
+        if (state.value !is ImportUiState.SignedOut) return@launch
+        if (repository.isSignedIn()) showDraft(draft) // explicit continue after auth, never auto-upload
+    }
+    private suspend fun readDraft() {
+        val current = draft ?: return
+        if (current.platform == "didi" && repository.files(current.id).size < 2) {
+            state.value = ImportUiState.Missing(current, current.previewJson != null); return
+        }
+        state.value = ImportUiState.Reading()
+        draft = repository.read(current.id)
+        showReview(draft!!)
+    }
+    private suspend fun showDraft(current: ImportDraftEntity?) {
+        when {
+            current == null -> state.value = ImportUiState.Picking
+            current.stage == "SAVED" -> state.value = ImportUiState.Saved(current.metrics()!!.weekStart)
+            (current.previewJson != null || current.consentAt != null) && current.platform == "didi" && repository.files(current.id).size < 2 ->
+                state.value = ImportUiState.Missing(current, parsed = current.previewJson != null)
+            current.previewJson != null -> {
+                showReview(current)
+                if (saved.get<String>("editing") == current.id) edit()
             }
-            // PR-D3: a file shared into Kompara from Uber/DiDi/Gmail is pre-picked + pre-classified.
-            // Land on the SharedReady confirmation (NO upload yet) — the share activity is exported, so
-            // auto-firing the dry-run would let any app spend the driver's authenticated parse quota.
-            // The driver taps "Continuar" → [confirmSharedImport]. Falls through to the normal picker
-            // when there is no pending share.
-            val shared = sharedImportBuffer.take()
-            _uiState.value = if (shared != null) {
-                ImportUiState.SharedReady(shared.platform, shared.files)
-            } else {
-                ImportUiState.Picking()
-            }
+            current.stage == "ERROR" -> state.value = ImportUiState.Error(current, repository.files(current.id), current.error ?: "Sin conexión o el servidor no respondió")
+            else -> state.value = ImportUiState.Ready(current, repository.files(current.id))
         }
     }
-
-    /** Choose the platform/upload-type to import. Resets any in-progress pick. */
-    fun selectPlatform(platform: ImportPlatform) {
-        _uiState.value = ImportUiState.Picking(platform = platform, pickedCount = 0)
+    private suspend fun showReview(current: ImportDraftEntity) {
+        val partial = current.stage != "SAVED" && current.platform == "didi" && repository.files(current.id).size < 2
+        state.value = ImportUiState.Review(current, source.overlap(current), partial)
     }
-
-    /**
-     * Confirm a shared file ([ImportUiState.SharedReady], PR-D3): run the dry-run preview now that the
-     * driver has explicitly opted in. No-ops if we're not in SharedReady (defends against a double tap).
-     */
-    fun confirmSharedImport() {
-        val shared = _uiState.value as? ImportUiState.SharedReady ?: return
-        submitForReview(shared.platform, shared.files)
-    }
-
-    /** Return to platform picking from anywhere (the screen's back / "elegir otra plataforma"). */
-    fun restart() {
-        cancelAnimation()
-        _uiState.value = ImportUiState.Picking()
-    }
-
-    /**
-     * Upload [files] for the [platform] as a DRY RUN; on success move to [ImportUiState.Review].
-     * Validates the file count via the repository, so a wrong count surfaces as an [ImportUiState.
-     * Error] without a network call. Called from the picker (after a file is chosen) and from
-     * [resolveSession] for a pre-picked share (PR-D3), so it does NOT assume a starting state.
-     */
-    fun submitForReview(platform: ImportPlatform, files: List<ImportFile>) {
-        runUpload(confirming = false) {
-            val response = repository.preview(platform.wire, platform.uploadType, files)
-            ImportUiState.Review(
-                platform = platform,
-                uploadType = platform.uploadType,
-                files = files,
-                response = response,
-            )
-        }
-    }
-
-    /**
-     * Confirm the previewed import: re-upload for real and backfill local history. Only valid from
-     * [ImportUiState.Review]; reads the platform/files off that state.
-     */
+    fun reviewPartial() = launch { draft?.takeIf { it.previewJson != null }?.let { showReview(it) } }
     fun confirm() {
-        val review = _uiState.value as? ImportUiState.Review ?: return
-        runUpload(confirming = true) {
-            val response = repository.confirm(review.platform.wire, review.uploadType, review.files)
-            ImportUiState.Saved(weekStart = response.metrics.weekStart)
+        val review = state.value as? ImportUiState.Review ?: return
+        if (review.partial || review.draft.stage == "SAVED") return
+        if (review.overlap != null) state.value = ImportUiState.Reconcile(review) else save(false)
+    }
+    fun useStatement() {
+        val reconcile = state.value as? ImportUiState.Reconcile ?: return
+        if (reconcile.review.overlap?.active == true) return
+        save(true)
+    }
+    private fun save(reconcile: Boolean) = launch(saving = true) {
+        val current = draft ?: return@launch
+        // Refresh changing captures before asking for a replacement; no silent change from review.
+        val overlap = source.overlap(current)
+        val reviewed = when(val s = state.value) { is ImportUiState.Reconcile -> s.review.overlap; is ImportUiState.Review -> s.overlap; else -> null }
+        if (overlap != null && (overlap != reviewed || !reconcile)) {
+            state.value = ImportUiState.Reconcile(ImportUiState.Review(current, overlap)); return@launch
+        }
+        state.value = ImportUiState.Reading(saving = true)
+        val statement = repository.save(current.id, reconcile)
+        saved["editing"] = null
+        state.value = ImportUiState.Saved(statement.start)
+    }
+    fun retry() {
+        val error = state.value as? ImportUiState.Error ?: return
+        if (error.saving) launch { showReview(draft!!) } else launch {
+            if (!repository.isSignedIn()) state.value = ImportUiState.SignedOut(draft) else readDraft()
         }
     }
-
-    /** Discard a review without saving — back to picking. */
-    fun discard() {
-        _uiState.value = ImportUiState.Picking()
+    fun restart() = launch {
+        draft?.let { repository.discard(it.id) }
+        draft = null; saved["editing"] = null; state.value = ImportUiState.Picking
     }
-
-    /**
-     * Run an upload [block] inside the [ImportUiState.Uploading] state with the progress animation,
-     * mapping success to the block's result and any [ApiException] to [ImportUiState.Error] with the
-     * backend's Spanish message. Non-API failures (transport) get a generic Spanish retryable error.
-     */
-    private fun runUpload(confirming: Boolean, block: suspend () -> ImportUiState) {
-        cancelAnimation()
-        _uiState.value = ImportUiState.Uploading(ImportProgressStep.READING_FILES, confirming)
-        animateProgress(confirming)
-        viewModelScope.launch {
-            _uiState.value = try {
-                block()
-            } catch (e: ApiException) {
-                // 4xx (bad input / parse failure) is not worth a blind retry; 5xx / transport is.
-                ImportUiState.Error(message = e.message, retryable = e.status >= 500)
-            } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
-                ImportUiState.Error(
-                    message = "No se pudo conectar. Revisa tu conexion e intentalo de nuevo.",
-                    retryable = true,
-                )
-            } finally {
-                cancelAnimation()
+    fun edit() {
+        val review = state.value as? ImportUiState.Review ?: return
+        if (review.draft.stage == "SAVED") return
+        val defaults = ImportCorrection.from(review.draft.metrics()!!)
+        val restoring = saved.get<String>("editing") == review.draft.id
+        val values = if (restoring) ImportCorrection(saved["payment"], saved["trips"], saved["hours"], saved["km"], saved["week"] ?: defaults.week) else defaults
+        state.value = ImportUiState.Correcting(review, values)
+        updateCorrection(values)
+    }
+    fun updateCorrection(values: ImportCorrection) {
+        val edit = state.value as? ImportUiState.Correcting ?: return
+        saved["editing"] = edit.review.draft.id
+        saved["payment"] = values.payment; saved["trips"] = values.trips; saved["hours"] = values.hours; saved["km"] = values.km; saved["week"] = values.week
+        state.value = edit.copy(values = values, error = null)
+    }
+    fun cancelCorrection() {
+        val edit = state.value as? ImportUiState.Correcting ?: return
+        saved["editing"] = null; state.value = edit.review
+    }
+    fun saveCorrection() = launch {
+        val edit = state.value as? ImportUiState.Correcting ?: return@launch
+        try {
+            draft = repository.correct(edit.review.draft.id, edit.values.apply(edit.review.draft.metrics()!!))
+            saved["editing"] = null; showReview(draft!!)
+        } catch (e: IllegalArgumentException) { state.value = edit.copy(error = e.message ?: "Revisa este número") }
+    }
+    fun fileError() { state.value = ImportUiState.Error(draft, emptyList(), "No pudimos leer este archivo", retryable = false) }
+    private fun launch(saving: Boolean = false, block: suspend () -> Unit) {
+        if (job?.isActive == true) return
+        job = viewModelScope.launch {
+            try { block() }
+            catch (e: CancellationException) { throw e }
+            catch (e: Exception) {
+                state.value = if (e is ApiException && e.status == 401) ImportUiState.SignedOut(draft)
+                    else ImportUiState.Error(draft, draft?.let { repository.files(it.id) }.orEmpty(),
+                        if (e is ApiException || e is IllegalArgumentException) e.message ?: "Revisa el archivo" else "Sin conexión o el servidor no respondió",
+                        retryable = e !is IllegalArgumentException && (e !is ApiException || e.status >= 500), saving = saving)
             }
         }
-    }
-
-    /** Advance the visible progress step on a timer while the real upload runs. Cosmetic only. */
-    private fun animateProgress(confirming: Boolean) {
-        val steps = ImportProgressStep.entries
-        animationJob = viewModelScope.launch {
-            for (step in steps.drop(1)) {
-                delay(stepDelayMillis)
-                if (!isActive) return@launch
-                // Only advance if we're still uploading the same phase (not flipped to review/error).
-                val current = _uiState.value
-                if (current is ImportUiState.Uploading && current.confirming == confirming) {
-                    _uiState.value = current.copy(step = step)
-                } else {
-                    return@launch
-                }
-            }
-        }
-    }
-
-    private fun cancelAnimation() {
-        animationJob?.cancel()
-        animationJob = null
-    }
-
-    override fun onCleared() {
-        cancelAnimation()
-        super.onCleared()
-    }
-
-    private companion object {
-        const val DEFAULT_STEP_DELAY_MILLIS = 900L
     }
 }

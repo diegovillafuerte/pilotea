@@ -16,16 +16,16 @@ package mx.kompara.data.model
  * default is [CDMX] (the largest market).
  */
 enum class City(val key: String, val displayName: String) {
-    CDMX("cdmx", "Valle de Mexico (CDMX + Edomex)"),
+    CDMX("cdmx", "CDMX y Edomex"),
     MONTERREY("monterrey", "Monterrey"),
     GUADALAJARA("guadalajara", "Guadalajara"),
-    PUEBLA("puebla", "Puebla-Tlaxcala"),
+    PUEBLA("puebla", "Puebla"),
     TOLUCA("toluca", "Toluca"),
     TIJUANA("tijuana", "Tijuana"),
-    LEON("leon", "Leon"),
-    QUERETARO("queretaro", "Queretaro"),
-    MERIDA("merida", "Merida"),
-    CANCUN("cancun", "Cancun");
+    LEON("leon", "León"),
+    QUERETARO("queretaro", "Querétaro"),
+    MERIDA("merida", "Mérida"),
+    CANCUN("cancun", "Cancún");
 
     companion object {
         /** Launch default — the largest market. */

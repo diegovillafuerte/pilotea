@@ -56,6 +56,19 @@ class EntitlementRepositoryTest {
     }
 
     @Test
+    fun `account deletion distinguishes promotional access from an actual Play subscription`() = runTest {
+        val billing = FakeBillingClient()
+        val repo = EntitlementRepository(billing, SubscriptionBackend.NONE, FakeCache(), BillingLogger.NOOP,
+            PremiumGrantSource { System.currentTimeMillis() + 86400000 })
+        repo.restore()
+        assertTrue(repo.isPremium()); assertFalse(repo.hasPlaySubscription.value)
+        billing.emit(listOf(purchase(trial = true)))
+        repo.restore(); assertTrue(repo.hasPlaySubscription.value)
+        billing.emit(listOf(purchase(state = PurchaseState.EXPIRED)))
+        repo.restore(); assertFalse(repo.hasPlaySubscription.value)
+    }
+
+    @Test
     fun `purchase transitions entitlement to premium`() = runTest {
         val billing = FakeBillingClient()
         val cache = FakeCache()

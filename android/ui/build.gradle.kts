@@ -11,6 +11,20 @@ android {
 
     defaultConfig {
         minSdk = 26
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // Verified public destinations are release configuration, never placeholder links.
+        for ((property, field) in listOf("kompara.premiumTermsUrl" to "PREMIUM_TERMS_URL", "kompara.premiumPrivacyUrl" to "PREMIUM_PRIVACY_URL")) {
+            val url = providers.gradleProperty(property).getOrElse("")
+            require(url.isEmpty() || url.matches(Regex("https://[A-Za-z0-9./_-]+")))
+            buildConfigField("String", field, "\"$url\"")
+        }
+        // Populate only after the destination has been verified for a release (S14 / TD-054).
+        val support = providers.gradleProperty("kompara.supportWhatsApp").getOrElse("")
+        require(support.isEmpty() || support.matches(Regex("[1-9][0-9]{7,14}")))
+        val deletion = providers.gradleProperty("kompara.accountDeletionUrl").getOrElse("")
+        require(deletion.isEmpty() || deletion == "https://kompara.mx/borrar")
+        buildConfigField("String", "SUPPORT_WHATSAPP", "\"$support\"")
+        buildConfigField("String", "ACCOUNT_DELETION_URL", "\"$deletion\"")
     }
 
     compileOptions {
@@ -55,7 +69,6 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.material3)
-    implementation(libs.androidx.compose.material.icons.core)
     implementation(libs.androidx.compose.ui.tooling.preview)
     debugImplementation(libs.androidx.compose.ui.tooling)
 
@@ -73,10 +86,28 @@ dependencies {
     implementation(libs.androidx.hilt.work)
     ksp(libs.androidx.hilt.compiler)
 
+    testImplementation(libs.androidx.compose.ui.test.junit4)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
+    testImplementation(libs.androidx.room.runtime)
+    testImplementation(libs.androidx.work.testing)
+    testImplementation(libs.ktor.client.mock)
+    testImplementation(libs.ktor.client.content.negotiation)
+    testImplementation(libs.ktor.serialization.kotlinx.json)
+    testImplementation(libs.kotlinx.serialization.json)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     // Robolectric + a real Activity: the paywall billing-flow launch test (B-050) and the share-card
     // bitmap render smoke test (B-055) both need real android.* on the JVM without an emulator.
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.ext.junit)
+}
+
+// Explicit baseline recording only; normal tests compare reviewed, computed fixture PNGs.
+tasks.withType<Test>().configureEach {
+    systemProperty("v3.recordScreenshots", providers.gradleProperty("v3.recordScreenshots").getOrElse("false"))
+    inputs.dir("src/test/snapshots/v3")
+    outputs.dir(layout.buildDirectory.dir("outputs/v3-screenshots"))
 }

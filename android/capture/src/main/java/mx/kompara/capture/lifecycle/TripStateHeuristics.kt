@@ -56,6 +56,13 @@ data class TripStateMarkers(
         return hints.any { hint -> markers.any { hint.contains(it, ignoreCase = true) } }
     }
 
+    fun isIdle(packageName: String, hints: Collection<String>): Boolean =
+        packageName in tripMarkersByPackage && hints.any { hint ->
+            listOf("Buscando viajes", "Buscando solicitudes", "Esperando solicitudes", "Estás desconectado").any {
+                hint.contains(it, ignoreCase = true)
+            }
+        }
+
     companion object {
         const val UBER_PACKAGE = "com.ubercab.driver"
         const val DIDI_PACKAGE = "com.didiglobal.driver"

@@ -52,6 +52,7 @@ class KomparaApplication : Application(), Configuration.Provider {
     @Inject lateinit var offerEventPipeline: OfferEventPipeline
     @Inject lateinit var telemetryCollector: TelemetryCollector
     @Inject lateinit var telemetryScheduler: TelemetryScheduler
+    @Inject lateinit var settingsRepository: mx.kompara.data.settings.SettingsRepository
 
     // B-043 consented aggregate sync + benchmark delivery.
     @Inject lateinit var aggregateSyncScheduler: AggregateSyncScheduler
@@ -65,12 +66,14 @@ class KomparaApplication : Application(), Configuration.Provider {
     @Inject lateinit var workManager: WorkManager
 
     // B-036 service-health watchdog (alerts when an OEM task killer disables the reader).
+    @Inject lateinit var readerReadinessMonitor: mx.kompara.capture.ReaderReadinessMonitor
+
     @Inject lateinit var serviceWatchdog: ServiceWatchdog
 
     // B-049 Play Billing entitlement. Hydrates last-known (offline grace) then tracks live purchases.
     @Inject lateinit var entitlementRepository: EntitlementRepository
 
-    // B-051 month-end IMSS summary: daily check + a run on this app open.
+    // Factual month review: daily check plus catchup on app open.
     @Inject lateinit var fiscalMonthEndScheduler: FiscalMonthEndScheduler
 
     // B-050 remote paywall kill switch: refresh the cached flag on app open (TTL-gated, best-effort).
@@ -79,8 +82,10 @@ class KomparaApplication : Application(), Configuration.Provider {
     // PR-E import/data verification: refresh the cached /v1/me `verified` flag on app open (TTL-gated).
     @Inject lateinit var verificationStatusRepository: VerificationStatusRepository
 
-    // B-055 Monday week-close share reminder: weekly Monday-09:00 check + a run on this app open.
+    // Dated week summary: Monday-09:00 check plus catchup on app open.
     @Inject lateinit var weekCloseScheduler: WeekCloseScheduler
+
+    @Inject lateinit var dailySummaryScheduler: mx.kompara.ui.notifications.DailySummaryScheduler
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -91,19 +96,18 @@ class KomparaApplication : Application(), Configuration.Provider {
 
     override fun onCreate() {
         super.onCreate()
+        appScope.launch { runCatching { mx.kompara.ui.export.ExportCache.prune(this@KomparaApplication) } }
 
         // Observe the offer-event flow and accumulate privacy-safe counters. No screen content
         // enters telemetry — see TelemetryCollector (B-034).
         appScope.launch {
             telemetryCollector.collect(offerEventPipeline.offers)
         }
-        // Enqueue the idempotent 12h periodic telemetry upload (network-constrained, with backoff).
-        telemetryScheduler.ensurePeriodic()
-
-        // B-043: enqueue the idempotent 12h periodic consented aggregate sync + benchmark refresh.
-        // The upload leg short-circuits unless signed-in AND opted-in; the benchmark download leg
-        // (TTL-gated, offline-tolerant) keeps the percentile cache fresh regardless.
-        aggregateSyncScheduler.ensurePeriodic()
+        // A restart must not re-arm work the driver revoked in Tus datos.
+        appScope.launch {
+            if (settingsRepository.isTelemetryEnabled()) telemetryScheduler.ensurePeriodic()
+            if (settingsRepository.isShareAggregatesEnabled()) aggregateSyncScheduler.ensurePeriodic()
+        }
 
         // B-039: build the driver's automatic ledger from the capture stream. The tracker infers
         // offers/trips/shifts and triggers rollups on trip close. App-scoped so a transient failure
@@ -135,6 +139,7 @@ class KomparaApplication : Application(), Configuration.Provider {
 
         // Watch reader-service health once onboarding completes; alert (notification + in-app
         // banner) if an OEM task killer disables the accessibility service mid-shift (B-036).
+        readerReadinessMonitor.start(appScope)
         serviceWatchdog.start(appScope)
 
         // B-049: hydrate last-known entitlement (offline grace) then track live Play purchases —
@@ -152,16 +157,18 @@ class KomparaApplication : Application(), Configuration.Provider {
         // (sticky-positive), so a transient blip never re-locks a verified driver's benchmarks/compare.
         appScope.launch { verificationStatusRepository.refresh() }
 
-        // B-051: keep the daily month-end IMSS check enqueued, and run one now (the "next app open"
+        // Keep the factual month-review check enqueued, and run one now (the "next app open"
         // path) so a just-ended month's summary fires promptly. Both are idempotent via the per-month
         // watermark, so an extra run never double-posts.
         fiscalMonthEndScheduler.ensureScheduled()
         fiscalMonthEndScheduler.runNow()
 
-        // B-055: keep the weekly Monday-09:00 share reminder enqueued, and run one now (the "next app
+        // Keep the weekly Monday-09:00 summary enqueued, and run one now (the "next app
         // open" path) so a just-closed week's reminder fires even if the device was off all Monday.
         // Both are idempotent via the per-week watermark, so an extra run never double-posts.
         weekCloseScheduler.ensureScheduled()
         weekCloseScheduler.runNow()
+        dailySummaryScheduler.ensureScheduled()
+        dailySummaryScheduler.runNow()
     }
 }

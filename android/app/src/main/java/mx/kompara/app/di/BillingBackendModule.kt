@@ -36,7 +36,7 @@ object BillingBackendModule {
             override suspend fun syncPurchase(purchase: BillingPurchase): ServerSubscription? =
                 // Best-effort: any failure (401 when anonymous, transport error) degrades to the
                 // client-derived entitlement, so we swallow it and return null.
-                runCatching { api.syncSubscription(purchase.toSyncBody()).toServerSubscription() }
+                if (purchase.state == PurchaseState.PENDING) null else runCatching { api.syncSubscription(purchase.toSyncBody()).toServerSubscription() }
                     .getOrNull()
         }
 
@@ -50,7 +50,7 @@ object BillingBackendModule {
     @Singleton
     fun providePremiumGrantSource(api: ApiClient): PremiumGrantSource =
         PremiumGrantSource {
-            runCatching { api.getMeFull().premiumUntilMillis }.getOrNull()
+            api.getMeFull().premiumUntilMillis
         }
 
     private fun BillingPurchase.toSyncBody(): SubscriptionSyncBody =

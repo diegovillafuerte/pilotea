@@ -49,6 +49,7 @@ class AuthRepository @Inject constructor(
     private val json: Json,
     @DevAuthBypass private val devBypassEnabled: Boolean = BuildConfig.DEBUG,
     private val verification: VerificationSignals = VerificationSignals.NONE,
+    private val uploads: mx.kompara.sync.privacy.AccountUploadControl = mx.kompara.sync.privacy.AccountUploadControl.NONE,
 ) {
     private val deviceIdKey = stringPreferencesKey(KEY_DEVICE_ID)
     private val tokenKey = stringPreferencesKey(KEY_SESSION_TOKEN)
@@ -157,8 +158,10 @@ class AuthRepository @Inject constructor(
      * id is retained so the anonymous install identity stays stable.
      */
     suspend fun logout() {
-        runCatching { api.logout() }
-        clearLocalAuth()
+        val token = currentToken()
+        uploads.revoke(deleting = false)
+        runCatching { api.logout(token) }.onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
+        clearLocalAuth(token)
     }
 
     /**
@@ -168,18 +171,25 @@ class AuthRepository @Inject constructor(
      * Rethrows on failure so the UI can surface an error instead of pretending the account is gone.
      */
     suspend fun deleteAccount() {
-        api.deleteMe()
-        clearLocalAuth()
+        val token = requireNotNull(currentToken()) { "No account session" }
+        uploads.revoke(deleting = true)
+        api.deleteMe(token)
+        clearLocalAuth(token)
     }
 
-    private suspend fun clearLocalAuth() {
+    private suspend fun clearLocalAuth(expectedToken: String?) {
+        var removed = false
         dataStore.edit { prefs ->
-            prefs.remove(tokenKey)
-            prefs.remove(driverKey)
+            // An older request must not log out a different account opened while it was in flight.
+            if (prefs[tokenKey] == expectedToken) {
+                prefs.remove(tokenKey)
+                prefs.remove(driverKey)
+                removed = true
+            }
         }
         // Reset cached import/data verification so it can't survive into another account's session on
         // this device (a resale vector; account-onboarding design §0.5). Re-proven on the next import.
-        verification.reset()
+        if (removed) verification.reset()
     }
 
     private suspend fun persistSession(token: String, driver: DriverDto) {

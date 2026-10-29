@@ -63,6 +63,22 @@ class PercentileRepositoryTest {
         return PercentileRepository(BenchmarksRepository(FakePopulationStatDao(), api, Clock.systemUTC()))
     }
 
+    @Test fun `typed comparison does not fall back to legacy unscoped benchmarks`() {
+        val week = java.time.LocalDate.parse("2026-10-12")
+        val record = mx.kompara.data.accounting.IncomeRecord("statement", "UBER", mx.kompara.data.accounting.Coverage(week, week.plusDays(6), false),
+            mx.kompara.data.accounting.MoneySource.SERVER_CONFIRMED_STATEMENT, "5062".toBigDecimal(), null, 34)
+        val proof = mx.kompara.metrics.compare.ConfirmedStatement(record, "cdmx", "confirmed", setOf(mx.kompara.data.accounting.MoneyField.PAYMENT, mx.kompara.data.accounting.MoneyField.TRIPS))
+        val cohort = mx.kompara.metrics.compare.StatementCohort("cdmx", "UBER", week, mx.kompara.metrics.compare.ComparisonMetric.PER_TRIP,
+            mx.kompara.metrics.compare.ComparisonBasis.DRIVER_PAYMENT_BEFORE_COSTS, mx.kompara.data.accounting.MoneySource.SERVER_CONFIRMED_STATEMENT,
+            "certified", true, false, 1240, "131".toBigDecimal(), mapOf(70 to "142".toBigDecimal(), 80 to "151".toBigDecimal()))
+        val repo = repo()
+        assertEquals(78, repo.comparisonRank(proof, cohort))
+        assertNull(repo.comparisonRank(proof, cohort.copy(synthetic = true)))
+        assertNull(repo.comparisonRank(proof, cohort.copy(week = week.minusWeeks(1))))
+        assertNull(repo.comparisonRank(null, cohort))
+        assertNull(repo.comparisonRank(proof, null))
+    }
+
     @Test
     fun `combines metric values against city and national breakpoints`() {
         val repo = repo()

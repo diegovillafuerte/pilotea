@@ -25,12 +25,15 @@ class FiscalPdfSharer @Inject constructor(
 ) {
 
     /** Share [pdfUri] (a PDF content URI) with a [subject] line and optional [body] text. */
-    fun share(pdfUri: Uri, subject: String, body: String) {
+    fun share(pdfUri: Uri, subject: String, body: String): Boolean {
         val base = sendIntent(pdfUri, subject, body)
         val chooser = Intent.createChooser(base, subject).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            clipData = base.clipData
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        runCatching { context.startActivity(chooser) }
+        return try { context.startActivity(chooser); true }
+        catch (_: android.content.ActivityNotFoundException) { false }
+        catch (_: SecurityException) { false }
     }
 
     /** Record a completed export-share intent in the anonymous local funnel counter. */
@@ -48,6 +51,7 @@ class FiscalPdfSharer @Inject constructor(
         fun sendIntent(pdfUri: Uri, subject: String, body: String): Intent =
             Intent(Intent.ACTION_SEND).apply {
                 type = MIME_PDF
+                clipData = android.content.ClipData.newRawUri("Resumen del mes", pdfUri)
                 putExtra(Intent.EXTRA_STREAM, pdfUri)
                 putExtra(Intent.EXTRA_SUBJECT, subject)
                 putExtra(Intent.EXTRA_TEXT, body)

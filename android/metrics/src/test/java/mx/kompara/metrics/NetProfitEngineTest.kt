@@ -157,14 +157,14 @@ class NetProfitEngineTest {
     }
 
     @Test
-    fun `red floor above green floor is clamped to green, never inverting the band`() {
-        // Misconfigured: red 14 > green 6. Clamped red = 6, so netPerKm 10 >= 6 -> GREEN.
+    fun `invalid limits stay unknown instead of inverting the band`() {
+        // Invalid pairs have no supported verdict.
         val t = PlatformThreshold(
             minPerKmMxn = 6.0, minPerHourMxn = 90.0,
             redPerKmMxn = 14.0, redPerHourMxn = 67.5,
         )
         val m = engine.evaluate(fullOffer(), profile, t)
-        assertEquals(VerdictLevel.GREEN, m.verdict.level)
+        assertEquals(VerdictLevel.UNKNOWN, m.verdict.level)
     }
 
     @Test
@@ -201,9 +201,9 @@ class NetProfitEngineTest {
     // ── Verdict branching: missing fare ──────────────────────────────────────────────────────
 
     @Test
-    fun `missing fare yields RED and null money fields`() {
+    fun `missing fare yields UNKNOWN and null money fields`() {
         val m = engine.evaluate(fullOffer(fare = null), profile, lenient)
-        assertEquals(VerdictLevel.RED, m.verdict.level)
+        assertEquals(VerdictLevel.UNKNOWN, m.verdict.level)
         assertNull(m.grossMxn)
         assertNull(m.netMxn)
         assertNull(m.netPerKm)
@@ -215,7 +215,7 @@ class NetProfitEngineTest {
     // ── Verdict branching: partial distance/time ─────────────────────────────────────────────
 
     @Test
-    fun `partial data caps a would-be GREEN at YELLOW`() {
+    fun `partial distance withholds net and verdict`() {
         // Everything passes, but pickup legs are missing -> provisional read -> YELLOW.
         val offer = TripOffer(
             platform = "uber",
@@ -227,13 +227,13 @@ class NetProfitEngineTest {
         )
         val m = engine.evaluate(offer, profile, lenient)
         // net = 120 - 2*8 = 104 over 8 km/24 min: perKm 13 (>=6), perHour 260 (>=90)
-        assertEquals(104.0, m.netMxn!!, 1e-9)
-        assertEquals(VerdictLevel.YELLOW, m.verdict.level)
+        assertNull(m.netMxn)
+        assertEquals(VerdictLevel.UNKNOWN, m.verdict.level)
         assertTrue(m.verdict.missingInputs.containsAll(listOf("pickupKm", "pickupMin")))
     }
 
     @Test
-    fun `missing all distance makes per-km untestable but per-hour still judged`() {
+    fun `missing distance withholds both net rates`() {
         // No km at all -> the deciding IPK is untestable; the hour metric stands in, capped YELLOW.
         val offer = TripOffer(
             platform = "uber",
@@ -246,8 +246,8 @@ class NetProfitEngineTest {
         val m = engine.evaluate(offer, profile, lenient)
         assertNull(m.totalKm)
         assertNull(m.netPerKm)
-        assertEquals(240.0, m.netPerHour!!, 1e-9) // net == gross 120 (no km cost) over 0.5 h
-        assertEquals(VerdictLevel.YELLOW, m.verdict.level)
+        assertNull(m.netPerHour)
+        assertEquals(VerdictLevel.UNKNOWN, m.verdict.level)
     }
 
     @Test
@@ -264,11 +264,11 @@ class NetProfitEngineTest {
         assertNull(m.totalMin)
         assertNull(m.netPerHour)
         assertEquals(10.0, m.netPerKm!!, 1e-9) // net 100 over 10 km
-        assertEquals(VerdictLevel.YELLOW, m.verdict.level)
+        assertEquals(VerdictLevel.GREEN, m.verdict.level)
     }
 
     @Test
-    fun `no distance and no time but fare present is RED`() {
+    fun `no distance and no time stays unknown`() {
         // Both floors untestable; fare known but nothing passes -> RED.
         val offer = TripOffer(
             platform = "uber",
@@ -281,16 +281,16 @@ class NetProfitEngineTest {
         val m = engine.evaluate(offer, profile, lenient)
         assertNull(m.totalKm)
         assertNull(m.totalMin)
-        assertEquals(120.0, m.netMxn!!, 1e-9) // net == gross (no km cost)
-        assertEquals(VerdictLevel.RED, m.verdict.level)
+        assertNull(m.netMxn)
+        assertEquals(VerdictLevel.UNKNOWN, m.verdict.level)
         assertEquals(4, m.verdict.missingInputs.size) // all four legs
     }
 
     @Test
-    fun `everything missing is RED with all inputs listed`() {
+    fun `everything missing is UNKNOWN with all inputs listed`() {
         val offer = TripOffer("uber", null, null, null, null, null)
         val m = engine.evaluate(offer, profile, lenient)
-        assertEquals(VerdictLevel.RED, m.verdict.level)
+        assertEquals(VerdictLevel.UNKNOWN, m.verdict.level)
         assertEquals(
             listOf("fareMxn", "pickupKm", "pickupMin", "tripKm", "tripMin"),
             m.verdict.missingInputs,
@@ -304,7 +304,7 @@ class NetProfitEngineTest {
         assertEquals(0.0, m.totalKm!!, 1e-9)
         assertNull(m.netPerKm)   // denominator 0 -> null, not Infinity
         assertNull(m.netPerHour)
-        assertEquals(VerdictLevel.RED, m.verdict.level) // nothing testable but fare known
+        assertEquals(VerdictLevel.UNKNOWN, m.verdict.level) // nothing testable but fare known
     }
 
     // ── Preferred metric (B-079) ─────────────────────────────────────────────────────────────
@@ -336,22 +336,22 @@ class NetProfitEngineTest {
     }
 
     @Test
-    fun `untestable preferred metric falls back to the other capped at YELLOW`() {
+    fun `chosen hour never substitutes the km verdict`() {
         // No time at all -> IPH untestable; km is GREEN but a stand-in read is never GREEN.
         val offer = fullOffer().copy(pickupMin = null, tripMin = null)
         val m = engine.evaluate(offer, profile, lenient, PreferredMetric.IPH)
         assertNull(m.netPerHour)
         assertEquals(VerdictLevel.GREEN, m.verdict.netPerKmLevel)
-        assertEquals(VerdictLevel.YELLOW, m.verdict.level)
+        assertEquals(VerdictLevel.UNKNOWN, m.verdict.level)
     }
 
     @Test
-    fun `untestable preferred metric falling back to a RED metric stays RED`() {
+    fun `chosen hour stays unknown even when km is red`() {
         // No time -> IPH untestable; km 10 < red 37.5 -> RED. The cap only softens GREEN.
         val offer = fullOffer().copy(pickupMin = null, tripMin = null)
         val t = PlatformThreshold(minPerKmMxn = 50.0, minPerHourMxn = 90.0)
         val m = engine.evaluate(offer, profile, t, PreferredMetric.IPH)
-        assertEquals(VerdictLevel.RED, m.verdict.level)
+        assertEquals(VerdictLevel.UNKNOWN, m.verdict.level)
     }
 
     // ── es-MX realistic numbers ──────────────────────────────────────────────────────────────
@@ -380,4 +380,68 @@ class NetProfitEngineTest {
         // net = 140 - 2.5*8 = 120 over 8 km/18 min -> 15 MXN/km, 400 MXN/hr: both pass.
         assertEquals(VerdictLevel.GREEN, m.verdict.level)
     }
+    @Test fun `ambiguous payment basis preserves fare but withholds all net claims`() {
+        val result = engine.evaluate(fullOffer().copy(paymentBasis = "UNCONFIRMED"), profile, lenient)
+        assertEquals(120.0, result.grossMxn!!, 0.0)
+        assertNull(result.netMxn)
+        assertNull(result.netPerKm)
+        assertEquals("PAYMENT_BASIS", result.verdict.unavailableReason)
+        assertEquals(VerdictLevel.UNKNOWN, result.verdict.level)
+    }
+
+    @Test fun `complete km with missing time can be green and chosen hour stays unavailable`() {
+        val offer = fullOffer().copy(pickupMin = null)
+        assertEquals(VerdictLevel.GREEN, engine.evaluate(offer, profile, lenient).verdict.level)
+        val hour = engine.evaluate(offer, profile, lenient, PreferredMetric.IPH)
+        assertEquals(VerdictLevel.UNKNOWN, hour.verdict.level)
+        assertEquals("TIME", hour.verdict.unavailableReason)
+        assertNull(hour.totalMin)
+    }
+
+    @Test fun `exact decimals decide before display rounding and minimum equality is yellow`() {
+        val limits = PlatformThreshold(8.0, 200.0, 6.0, 150.0)
+        val offer = TripOffer("uber", 80.0, 0.0, 0.0, 10.0, 30.0)
+        val under = engine.evaluate(offer, java.math.BigDecimal("0.00001"), limits)
+        assertEquals(VerdictLevel.YELLOW, under.verdict.level)
+        assertEquals("7.99999", under.perKmDecimal)
+        assertEquals(VerdictLevel.YELLOW, engine.evaluate(offer.copy(fareMxn = 60.0), CostProfile.ZERO, limits).verdict.level)
+        assertEquals(VerdictLevel.UNKNOWN, engine.evaluate(offer, CostProfile.ZERO, limits.copy(redPerKmMxn = 8.0)).verdict.level)
+    }
+
+    @Test fun `missing cost is unknown while known zero and negative contribution are retained`() {
+        val unknown = engine.evaluate(fullOffer(), null as java.math.BigDecimal?, lenient)
+        assertEquals("COST", unknown.verdict.unavailableReason)
+        assertNull(unknown.netMxn)
+        assertEquals(120.0, engine.evaluate(fullOffer(), CostProfile.ZERO, lenient).netMxn!!, 0.0)
+        val negative = engine.evaluate(fullOffer(10.0), profile, lenient)
+        assertEquals(-10.0, negative.netMxn!!, 0.0)
+        assertEquals(VerdictLevel.RED, negative.verdict.level)
+    }
+
+    @Test fun `invalid numeric input cannot become a zero cost or a verdict`() {
+        for (distance in listOf(Double.NaN, Double.POSITIVE_INFINITY, -1.0)) {
+            val result = engine.evaluate(fullOffer().copy(pickupKm = distance), profile, lenient)
+            assertNull(result.totalKm)
+            assertNull(result.netMxn)
+            assertEquals(VerdictLevel.UNKNOWN, result.verdict.level)
+        }
+    }
+
+    @Test fun `known zero distance supports an hourly verdict but not division by zero in km`() {
+        val offer = fullOffer().copy(pickupKm = 0.0, tripKm = 0.0)
+        val hour = engine.evaluate(offer, profile, lenient, PreferredMetric.IPH)
+        assertEquals(VerdictLevel.GREEN, hour.verdict.level)
+        assertNull(hour.verdict.unavailableReason)
+        assertEquals(VerdictLevel.UNKNOWN, engine.evaluate(offer, profile, lenient).verdict.level)
+    }
+
+    @Test fun `invalid legacy cost profile is unavailable without crashing or assuming free costs`() {
+        for (fuel in listOf(Double.NaN, Double.POSITIVE_INFINITY, -1.0)) {
+            val result = engine.evaluate(fullOffer(), profile.copy(fuelCostPerKm = fuel), lenient)
+            assertNull(result.netMxn)
+            assertEquals(VerdictLevel.UNKNOWN, result.verdict.level)
+            assertEquals("COST", result.verdict.unavailableReason)
+        }
+    }
+
 }

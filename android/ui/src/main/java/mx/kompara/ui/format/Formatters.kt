@@ -10,101 +10,62 @@ import java.util.Locale
  * are unit-testable on the JVM (the composables only ever consume the returned strings).
  *
  * All formatting is pinned to [MX] so the output is identical regardless of the device locale —
- * a driver in Mexico always sees "$1,234.56", "12.3 km", "$185.50/h".
+ * a driver in Mexico always sees "$1,234.56", "12.3 km", "$186/h".
  */
 object Formatters {
     private val MX: Locale = Locale.forLanguageTag("es-MX")
 
-    /**
-     * Pesos with the Mexican peso sign and two decimals, e.g. `formatMxn(1234.56)` → "$1,234.56".
-     * Uses a plain "$" prefix (not "MX$") since the whole app is single-currency.
-     */
-    fun formatMxn(amount: Double): String {
-        val nf = NumberFormat.getNumberInstance(MX).apply {
-            minimumFractionDigits = 2
-            maximumFractionDigits = 2
-        }
-        return "$" + nf.format(amount)
+    const val NBSP = "\u00a0"
+    const val WORD_JOINER = "\u2060"
+
+    private fun number(value: java.math.BigDecimal, digits: Int): String =
+        NumberFormat.getNumberInstance(MX).apply {
+            minimumFractionDigits = digits
+            maximumFractionDigits = digits
+            roundingMode = java.math.RoundingMode.HALF_UP
+        }.format(value.setScale(digits, java.math.RoundingMode.HALF_UP))
+
+    private fun money(value: java.math.BigDecimal, digits: Int): String {
+        val rounded = value.setScale(digits, java.math.RoundingMode.HALF_UP)
+        return (if (rounded.signum() < 0) "−" else "") + "$" + number(rounded.abs(), digits)
     }
 
-    /**
-     * Pesos rounded to whole pesos (no cents), e.g. `formatMxnWhole(4200.49)` → "$4,200". Used by
-     * the Comparar benchmark table where cents are noise and long numbers wrapped (S-024).
-     */
-    fun formatMxnWhole(amount: Double): String {
-        val nf = NumberFormat.getNumberInstance(MX).apply {
-            minimumFractionDigits = 0
-            maximumFractionDigits = 0
-        }
-        return "$" + nf.format(amount)
+    fun formatMxn(amount: Double): String = formatMxn(java.math.BigDecimal.valueOf(amount))
+    fun formatMxn(amount: java.math.BigDecimal): String = money(amount, 2)
+    fun formatMxnWhole(amount: Double): String = formatMxnWhole(java.math.BigDecimal.valueOf(amount))
+    fun formatMxnWhole(amount: java.math.BigDecimal): String = money(amount, 0)
+    fun formatPerKm(amount: Double): String = formatMxn(amount) + "/km"
+    fun formatPerKm(amount: java.math.BigDecimal): String = formatMxn(amount) + "/km"
+    fun formatPerHour(amount: Double): String = formatPerHourWhole(amount)
+    fun formatPerHourWhole(amount: Double): String = formatMxnWhole(amount) + "/h"
+    fun formatPerHourWhole(amount: java.math.BigDecimal): String = formatMxnWhole(amount) + "/h"
+    fun formatKm(km: Double): String = number(java.math.BigDecimal.valueOf(km), 1) + NBSP + "km"
+    fun formatHours(hours: Double): String = number(java.math.BigDecimal.valueOf(hours), 1) + NBSP + "h"
+    fun formatPercent(fraction: Double): String =
+        number(java.math.BigDecimal.valueOf(fraction.coerceIn(0.0, 1.0)).multiply(java.math.BigDecimal(100)), 0) + NBSP + "%"
+
+    /** Text-boundary protection without changing the visible currency/rate. Use in prose. */
+    fun unbroken(value: String): String = value.replace(WORD_JOINER, "")
+        .replace(" ", NBSP).replace("/", WORD_JOINER + "/" + WORD_JOINER)
+
+    /** Km limits retain two decimals; saved hourly cents must survive outside the editor too. */
+    fun formatLimit(value: java.math.BigDecimal, perHour: Boolean = false): String =
+        if (perHour) (if (value.stripTrailingZeros().scale() > 0) formatMxn(value) else formatMxnWhole(value)) + "/h"
+        else formatPerKm(value)
+
+    fun formatDuration(minutes: Long): String {
+        require(minutes >= 0)
+        return unbroken(if (minutes < 60) "$minutes min" else "${minutes / 60} h ${minutes % 60} min")
     }
 
-    /**
-     * Distance in kilometres with one decimal and a "km" suffix, e.g. `formatKm(12.34)` → "12.3 km".
-     */
-    fun formatKm(km: Double): String {
-        val nf = NumberFormat.getNumberInstance(MX).apply {
-            minimumFractionDigits = 1
-            maximumFractionDigits = 1
+    /** A relative money label always dates its evidence, including across year boundaries. */
+    fun formatDatedRelativeLabel(date: LocalDate, today: LocalDate): String {
+        val dated = date.format(DateTimeFormatter.ofPattern(if (date.year == today.year) "EEEE d MMM" else "EEEE d MMM yyyy", MX))
+        return when (date) {
+            today -> "Hoy, $dated"
+            today.minusDays(1) -> "Ayer, $dated"
+            else -> dated.replaceFirstChar { it.titlecase(MX) }
         }
-        return nf.format(km) + " km"
-    }
-
-    /**
-     * A per-hour rate in pesos, e.g. `formatPerHour(185.5)` → "$185.50/h". Reuses [formatMxn] so
-     * the money part stays consistent.
-     */
-    fun formatPerHour(amountPerHour: Double): String = formatMxn(amountPerHour) + "/h"
-
-    /**
-     * A per-hour rate rounded to whole pesos for glanceable surfaces (the overlay chip), e.g.
-     * `formatPerHourWhole(185.5)` → "$186/h". Cent precision is noise at a one-second read.
-     */
-    fun formatPerHourWhole(amountPerHour: Double): String {
-        val nf = NumberFormat.getNumberInstance(MX).apply {
-            minimumFractionDigits = 0
-            maximumFractionDigits = 0
-        }
-        return "$" + nf.format(amountPerHour) + "/h"
-    }
-
-    /**
-     * A money-per-km rate, e.g. `formatPerKm(8.4)` → "$8.40/km". The $/viaje and $/km cards use this
-     * shape (with a "/viaje" or "/km" suffix the caller picks via [formatMxn] when needed).
-     */
-    fun formatPerKm(amountPerKm: Double): String = formatMxn(amountPerKm) + "/km"
-
-    /** A money-per-km rate with one decimal, e.g. `formatPerKmOneDecimal(8.43)` → "$8.4/km" (S-024). */
-    fun formatPerKmOneDecimal(amountPerKm: Double): String {
-        val nf = NumberFormat.getNumberInstance(MX).apply {
-            minimumFractionDigits = 1
-            maximumFractionDigits = 1
-        }
-        return "$" + nf.format(amountPerKm) + "/km"
-    }
-
-    /** A count-per-hour rate with one decimal, e.g. `formatPerHourCount(2.34)` → "2.3/h". */
-    fun formatPerHourCount(countPerHour: Double): String {
-        val nf = NumberFormat.getNumberInstance(MX).apply {
-            minimumFractionDigits = 1
-            maximumFractionDigits = 1
-        }
-        return nf.format(countPerHour) + "/h"
-    }
-
-    /** A 0..1 fraction as a whole-number percent, e.g. `formatPercent(0.834)` → "83 %". */
-    fun formatPercent(fraction: Double): String {
-        val pct = (fraction.coerceIn(0.0, 1.0) * 100).toInt()
-        return "$pct %"
-    }
-
-    /** Hours with one decimal and an "h" suffix, e.g. `formatHours(7.5)` → "7.5 h". */
-    fun formatHours(hours: Double): String {
-        val nf = NumberFormat.getNumberInstance(MX).apply {
-            minimumFractionDigits = 1
-            maximumFractionDigits = 1
-        }
-        return nf.format(hours) + " h"
     }
 
     /** "12" placeholder dash for an unknown rate — every card uses this when its denominator is 0. */

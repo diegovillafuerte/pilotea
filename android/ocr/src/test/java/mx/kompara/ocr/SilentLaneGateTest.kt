@@ -6,6 +6,12 @@ import org.junit.Test
 /** The pure gating decision for the silent-screenshot capture lane (B-091). */
 class SilentLaneGateTest {
 
+    @Test fun `pause and missing permission suppress capture and failure alerts`() {
+        assertEquals(LaneAction.IDLE, SilentLaneGate.decide(true, true, 0, 5, readingAllowed = false))
+        assertEquals(LaneAction.IDLE, SilentLaneGate.decide(true, true, 5, 5, readingAllowed = false))
+        assertEquals(LaneAction.CAPTURE, SilentLaneGate.decide(true, true, 0, 5, readingAllowed = true))
+    }
+
     private val maxFailures = 5
 
     @Test

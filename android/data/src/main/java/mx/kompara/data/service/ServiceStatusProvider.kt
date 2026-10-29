@@ -13,4 +13,7 @@ import kotlinx.coroutines.flow.StateFlow
 interface ServiceStatusProvider {
     /** Emits true while the accessibility service is bound, false once it disconnects or dies. */
     val connected: StateFlow<Boolean>
+
+    /** Shared evidence, pause and incident state for every product surface. */
+    val readiness: StateFlow<ReaderReadiness>
 }

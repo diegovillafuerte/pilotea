@@ -22,7 +22,7 @@ import mx.kompara.parsers.model.OfferCard
  *    (TD-028: "1.4 km" ↔ "14 km"), so keying on them would spawn duplicate ledger offers; and it does
  *    not end on a single no-parse frame, so a one-frame OCR dropout can't split one offer into two.
  *  - **TRIP** — no card/signature, [OcrTripMarkers] match → [LifecycleSignal.TripStateEntered].
- *  - **IDLE** — anything else → [LifecycleSignal.IdleStateEntered].
+ *  - **IDLE** — explicit idle/completion text; unrecognized screens remain unknown.
  *
  * ## Platform attribution
  * OCR captures the whole screen and can't see the foreground package itself, so the caller passes
@@ -40,7 +40,7 @@ import mx.kompara.parsers.model.OfferCard
  */
 class OcrLifecycleClassifier(private val markers: OcrTripMarkers = OcrTripMarkers.DEFAULT) {
 
-    private enum class Phase { NONE, OFFER, TRIP, IDLE }
+    private enum class Phase { NONE, OFFER, ACCEPTED, TRIP, IDLE, UNKNOWN, CANCELLED }
 
     private var phase = Phase.NONE
     private var offerEmitted = false
@@ -58,18 +58,11 @@ class OcrLifecycleClassifier(private val markers: OcrTripMarkers = OcrTripMarker
         lastHost = null
     }
 
-    /**
-     * Capture is ending (projection lost / screen lock / re-consent): we can no longer observe the
-     * host, so close out the current ledger session. Returns a final [LifecycleSignal.IdleStateEntered]
-     * for the active platform — which makes [mx.kompara.capture.lifecycle.TripLifecycleTracker] resolve
-     * a still-pending offer and close an open trip at this point (idempotent if nothing is open) —
-     * then resets. Without this, [reset] alone would strand an open OCR trip until the next offer or a
-     * rollup sweep, since the restarted classifier has no platform context to emit the closing idle.
-     */
+    /** Losing capture ends observation, never the trip. A later observed state resolves it. */
     fun onCaptureEnd(timestampMs: Long): LifecycleSignal? {
         val pkg = lastHost
         reset()
-        return pkg?.let { LifecycleSignal.IdleStateEntered(it, timestampMs) }
+        return pkg?.let { LifecycleSignal.ObservationLost(it, timestampMs) }
     }
 
     /**
@@ -94,6 +87,8 @@ class OcrLifecycleClassifier(private val markers: OcrTripMarkers = OcrTripMarker
         hostPackage: String,
         timestampMs: Long,
     ): LifecycleSignal? {
+        val hostChanged = lastHost != hostPackage
+        if (hostChanged) { phase = Phase.NONE; offerEmitted = false; sessionOfferKey = null }
         lastHost = hostPackage
         // OFFER phase: an offer card is on screen (debounced), parsed this frame or not.
         if (offerPresent) {
@@ -106,7 +101,7 @@ class OcrLifecycleClassifier(private val markers: OcrTripMarkers = OcrTripMarker
             // (platform, fare) — both STABLE across frames — to start a fresh OfferSeen for it. The
             // jittery distance/duration (TD-028: "1.4 km" ↔ "14 km") is deliberately NOT in the key,
             // so OCR noise on the same card never re-emits a duplicate ledger offer.
-            val key = "${card.platform}|${card.fare}"
+            val key = card.sessionId ?: "${card.platform}|${card.fare}"
             if (key != sessionOfferKey) {
                 offerEmitted = false
                 sessionOfferKey = key
@@ -119,15 +114,21 @@ class OcrLifecycleClassifier(private val markers: OcrTripMarkers = OcrTripMarker
             }
         }
 
-        // Non-offer frame: trip or idle, attributed to the CURRENT foreground host.
-        return if (markers.isTripLike(joinedText)) {
-            val changed = phase != Phase.TRIP
-            phase = Phase.TRIP
-            if (changed) LifecycleSignal.TripStateEntered(hostPackage, timestampMs) else null
-        } else {
-            val changed = phase != Phase.IDLE
-            phase = Phase.IDLE
-            if (changed) LifecycleSignal.IdleStateEntered(hostPackage, timestampMs) else null
+        // A random map, unread frame or cancel dialog does not prove a trip ended.
+        val next = when {
+            markers.isCancelled(joinedText) -> Phase.CANCELLED
+            markers.isTripLike(joinedText) -> if (markers.isUnderWay(joinedText)) Phase.TRIP else Phase.ACCEPTED
+            markers.isIdle(joinedText) -> Phase.IDLE
+            else -> Phase.UNKNOWN
+        }
+        if (next == phase) return null
+        phase = next
+        return when (next) {
+            Phase.TRIP -> LifecycleSignal.TripStateEntered(hostPackage, timestampMs, inProgress = true)
+            Phase.ACCEPTED -> LifecycleSignal.TripStateEntered(hostPackage, timestampMs)
+            Phase.IDLE -> LifecycleSignal.IdleStateEntered(hostPackage, timestampMs)
+            Phase.CANCELLED -> LifecycleSignal.TripCancelled(hostPackage, timestampMs)
+            else -> LifecycleSignal.ObservationLost(hostPackage, timestampMs)
         }
     }
 }

@@ -21,5 +21,5 @@ object ScreenReaderLaneModule {
 
     @Provides
     @Singleton
-    fun provideScreenReaderLane(): ScreenReaderLane = SilentScreenshotLane()
+    fun provideScreenReaderLane(readiness: mx.kompara.data.service.ReaderReadinessRepository): ScreenReaderLane = SilentScreenshotLane(readiness)
 }

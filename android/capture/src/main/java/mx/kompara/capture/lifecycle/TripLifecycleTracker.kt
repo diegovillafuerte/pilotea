@@ -1,239 +1,109 @@
 package mx.kompara.capture.lifecycle
 
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import mx.kompara.data.db.dao.OfferDao
 import mx.kompara.data.db.dao.ShiftDao
 import mx.kompara.data.db.dao.TripDao
-import mx.kompara.data.db.entity.OfferEntity
-import mx.kompara.data.db.entity.OfferOutcome
-import mx.kompara.data.db.entity.ShiftEntity
-import mx.kompara.data.db.entity.TripEntity
-import mx.kompara.metrics.CostProfileMapper
-import mx.kompara.metrics.NetProfitEngine
+import mx.kompara.data.db.entity.*
+import mx.kompara.metrics.OfferRecorder
 import mx.kompara.metrics.TripOffer
-import mx.kompara.data.settings.CostProfileRepository
-import mx.kompara.data.settings.SettingsRepository
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/**
- * The offer → accept → trip → complete state machine, and the shift inferer, that turn the capture
- * stream into the driver's automatic ledger (B-039). This is the [LifecycleSignal] collector — wired
- * exactly like the B-034 telemetry collector: an injected singleton that observes a derived flow
- * without restructuring the pipeline ([OfferEventLifecycleMapper] does the OfferEvent → signal
- * mapping; the service launches `tracker.collect(mapper.signals(offers))`).
- *
- * ## Lifecycle rules (all heuristic — see [TripStateHeuristics] + techdebt for calibration)
- * - **Offer seen** → persist an [OfferEntity] (PENDING) with the metrics verdict; remember it as the
- *   pending candidate.
- * - **Trip-state entered** while an offer is PENDING (within [TripStateHeuristics.acceptWindowMs] of
- *   the card vanishing) → mark that offer ACCEPTED and open a [TripEntity] (estimated, using offer
- *   fare/distance/duration). A trip-state with no pending offer also opens a bare trip.
- * - **Idle-state entered** → if an offer was PENDING and recent, mark it DECLINED (fast, looks like a
- *   tap) or EXPIRED (slow, no decision read); and close any open trip.
- * - **Next offer seen / idle** also closes a stale open trip (return to offer-capable state).
- *
- * ## Shift inference
- * The first signal after >= [ShiftEntity.INACTIVITY_GAP_MS] of silence opens a [ShiftEntity]; an open
- * shift whose [ShiftEntity.lastEventAt] is older than the gap is closed **lazily on the next signal**
- * (retroactively, at its last event) before the new shift opens. Closing strictly via the next event
- * is the documented choice (no idle WorkManager wakeups); a periodic [RollupTrigger] sweep would also
- * catch a shift that never sees another event, which the worker handles.
- *
- * On every trip close it fires [rollupTrigger] so daily/weekly aggregates stay current incrementally.
- */
+/** Folds observed host evidence into durable lifecycle states. Advertised minutes never end a trip. */
 @Singleton
 class TripLifecycleTracker @Inject constructor(
     private val offerDao: OfferDao,
     private val tripDao: TripDao,
     private val shiftDao: ShiftDao,
-    private val costProfileRepository: CostProfileRepository,
-    private val settingsRepository: SettingsRepository,
-    private val engine: NetProfitEngine,
+    private val recorder: OfferRecorder,
     private val rollupTrigger: RollupTrigger,
     private val heuristics: TripStateHeuristics = TripStateHeuristics.DEFAULT,
 ) {
+    private val mutex = Mutex()
+    suspend fun collect(signals: Flow<LifecycleSignal>) { signals.collect { handle(it) } }
 
-    /** Track the [signals] flow forever. Started from the service with its long-lived scope. */
-    suspend fun collect(signals: Flow<LifecycleSignal>) {
-        signals.collect { handle(it) }
-    }
-
-    /** Fold a single [signal] into persisted offers/trips/shifts. Pure side effects; safe to test. */
-    suspend fun handle(signal: LifecycleSignal) {
-        val shiftId = ensureShift(signal.timestampMs)
-        when (signal) {
-            is LifecycleSignal.OfferSeen -> onOfferSeen(signal, shiftId)
-            is LifecycleSignal.TripStateEntered -> onTripState(signal, shiftId)
-            is LifecycleSignal.IdleStateEntered -> onIdleState(signal)
-        }
-    }
-
-    // --- Offers -------------------------------------------------------------------------------
-
-    private suspend fun onOfferSeen(signal: LifecycleSignal.OfferSeen, shiftId: Long?) {
-        // A new offer appearing means any earlier still-pending offer never became a trip and any
-        // open trip has ended (the driver is back to receiving requests). Resolve both first.
-        resolveStalePending(signal.timestampMs)
-        closeOpenTrip(signal.timestampMs)
-
+    suspend fun handle(signal: LifecycleSignal) = mutex.withLock {
         val platform = PackagePlatform.of(signal.packageName).name
-        val card = signal.card
-        val verdict = evaluateVerdict(platform, card)
-        offerDao.insert(
-            OfferEntity(
-                seenAt = signal.timestampMs,
-                platform = platform,
-                fareMxn = card.fare ?: 0.0,
-                distanceKm = (card.pickupDistanceKm ?: 0.0) + (card.tripDistanceKm ?: 0.0),
-                durationMin = (card.pickupEtaMin ?: 0.0) + (card.tripDurationMin ?: 0.0),
-                pickupKm = card.pickupDistanceKm,
-                surge = card.surge,
-                verdict = verdict,
-                accepted = false,
-                outcome = OfferOutcome.PENDING.name,
-                resolvedAt = null,
-                shiftId = shiftId,
-            ),
-        )
-    }
-
-    private suspend fun evaluateVerdict(platform: String, card: mx.kompara.parsers.model.OfferCard): String? {
-        if (card.fare == null) return null
-        val costProfile = CostProfileMapper.toCostProfileOrZero(costProfileRepository.get())
-        // Grade against the driver's CONFIGURED floors + preferred metric — the SAME inputs the
-        // overlay graded the live chip with. Reading PlatformThreshold.DEFAULT here persisted a
-        // traffic-light colour one rung greener than the driver actually saw (B-083 / TD-025).
-        val settings = settingsRepository.settings.first()
-        val offer = TripOffer(
-            platform = platform.lowercase(),
-            fareMxn = card.fare,
-            pickupKm = card.pickupDistanceKm,
-            pickupMin = card.pickupEtaMin,
-            tripKm = card.tripDistanceKm,
-            tripMin = card.tripDurationMin,
-        )
-        return engine.evaluate(
-            offer,
-            costProfile,
-            settings.effectiveThreshold,
-            settings.preferredMetric,
-        ).verdict.level.name
-    }
-
-    // --- Trips --------------------------------------------------------------------------------
-
-    private suspend fun onTripState(signal: LifecycleSignal.TripStateEntered, shiftId: Long?) {
-        // If a trip is already open, this is just the trip continuing — nothing to do.
-        if (tripDao.latestOpen() != null) return
-
-        val pending = offerDao.latestPending()
-        if (pending != null && signal.timestampMs - pending.seenAt <= heuristics.acceptWindowMs) {
-            // Accept: link the offer, open an estimated trip from the offer's numbers.
-            offerDao.update(
-                pending.copy(
-                    accepted = true,
-                    outcome = OfferOutcome.ACCEPTED.name,
-                    resolvedAt = signal.timestampMs,
-                ),
-            )
-            tripDao.insert(
-                TripEntity(
-                    offerId = pending.id,
-                    shiftId = shiftId ?: pending.shiftId,
-                    startedAt = signal.timestampMs,
-                    endedAt = null,
-                    platform = pending.platform,
-                    grossMxn = pending.fareMxn,
-                    distanceKm = pending.distanceKm,
-                    durationMin = pending.durationMin,
-                    estimated = true,
-                ),
-            )
-        } else {
-            // Trip-like state with no recent enough offer: any stale pending offer couldn't be
-            // attributed to this trip (it's older than the accept window) — resolve it as
-            // DECLINED/EXPIRED before opening a bare trip so it doesn't linger PENDING forever.
-            resolveStalePending(signal.timestampMs)
-            // Open a bare trip so the online time and a (zero-fare) trip aren't lost; earnings stay
-            // estimated/unknown.
-            tripDao.insert(
-                TripEntity(
-                    offerId = null,
-                    shiftId = shiftId,
-                    startedAt = signal.timestampMs,
-                    endedAt = null,
-                    platform = PackagePlatform.of(signal.packageName).name,
-                    grossMxn = 0.0,
-                    distanceKm = 0.0,
-                    durationMin = 0.0,
-                    estimated = true,
-                ),
-            )
+        val now = signal.timestampMs
+        val shiftId = ensureShift(now)
+        when (signal) {
+            is LifecycleSignal.OfferSeen -> {
+                val card = signal.card
+                val session = card.sessionId ?: "${signal.packageName}:$now"
+                val existing = offerDao.forSession(session)
+                offerDao.retireOlderPending(platform, card.sessionStartedAt ?: now, now)
+                val row = existing ?: recorder.record(session, card.sessionStartedAt ?: now,
+                    TripOffer(platform.lowercase(), card.fare, card.pickupDistanceKm, card.pickupEtaMin,
+                        card.tripDistanceKm, card.tripDurationMin, card.paymentBasis), card.captureSource, card.surge)
+                offerDao.attachShift(row.id, shiftId)
+                offerDao.touch(row.id, now)
+            }
+            is LifecycleSignal.TripStateEntered -> {
+                val open = tripDao.latestOpen(platform)
+                if (open != null) {
+                    if (now >= open.lastObservedAt) tripDao.update(open.copy(lastObservedAt = now,
+                        lifecycle = if (open.offerId == null) TripLifecycle.UNKNOWN.name
+                            else if (signal.inProgress) TripLifecycle.IN_PROGRESS.name else open.lifecycle))
+                } else {
+                    val pending = offerDao.latestPending(platform)
+                    val linked = pending?.takeIf { now - it.lastSeenAt in 0..heuristics.acceptWindowMs }
+                    if (pending != null && linked == null && now >= pending.lastSeenAt) {
+                        offerDao.update(pending.copy(outcome = OfferOutcome.UNKNOWN.name, resolvedAt = now))
+                    }
+                    tripDao.accept(TripEntity(offerId = linked?.id, shiftId = shiftId ?: linked?.shiftId,
+                        startedAt = now, platform = platform, grossMxn = linked?.fareMxn,
+                        distanceKm = linked?.distanceKm, durationMin = linked?.durationMin,
+                        lifecycle = if (linked == null) TripLifecycle.UNKNOWN.name
+                            else if (signal.inProgress) TripLifecycle.IN_PROGRESS.name else TripLifecycle.ACCEPTED_ESTIMATE.name,
+                        paymentBasis = linked?.paymentBasis ?: "UNCONFIRMED"))
+                    rollupTrigger.requestRollup()
+                }
+            }
+            is LifecycleSignal.IdleStateEntered -> {
+                resolvePending(platform, now, OfferOutcome.NOT_TAKEN)
+                val open = tripDao.latestOpen(platform)
+                if (open != null && now >= open.lastObservedAt) {
+                    val noise = now - open.startedAt < heuristics.minTripDurationMs
+                    tripDao.update(open.copy(endedAt = now, lastObservedAt = now,
+                        lifecycle = if (noise || open.offerId == null) TripLifecycle.UNKNOWN.name else TripLifecycle.FINISHED.name))
+                    if (noise) open.offerId?.let { tripDao.resolveOffer(it, OfferOutcome.UNKNOWN.name, false, now) }
+                    rollupTrigger.requestRollup()
+                }
+            }
+            is LifecycleSignal.TripCancelled -> {
+                val open = tripDao.latestOpen(platform)
+                if (open != null && tripDao.cancel(open.id, now, "OBSERVED_HOST")) rollupTrigger.requestRollup()
+                resolvePending(platform, now, OfferOutcome.UNKNOWN)
+            }
+            is LifecycleSignal.ObservationLost -> {
+                // Losing visibility is not evidence that a taken trip ended or was cancelled.
+                // Retain a pending candidate until a subsequent observed state resolves it.
+            }
         }
     }
 
-    private suspend fun onIdleState(signal: LifecycleSignal.IdleStateEntered) {
-        resolveStalePending(signal.timestampMs)
-        closeOpenTrip(signal.timestampMs)
+    suspend fun cancelTrip(tripId: Long, at: Long): Boolean = mutex.withLock {
+        tripDao.cancel(tripId, at).also { if (it) rollupTrigger.requestRollup() }
     }
 
-    /** Close the open trip (if any) at [endedAt], discarding sub-[minTripDurationMs] noise trips. */
-    private suspend fun closeOpenTrip(endedAt: Long) {
-        val open = tripDao.latestOpen() ?: return
-        if (endedAt - open.startedAt < heuristics.minTripDurationMs) {
-            // Too short to be a real trip (UI flicker). Drop it by closing with zero-length and
-            // marking it estimated/empty — simplest is to delete-by-overwrite to a closed noise row.
-            // We keep the row but stamp endedAt == startedAt and zero economics so rollups ignore it
-            // (a zero-trip contributes nothing). Deletion would need a delete query; this is enough.
-            tripDao.update(open.copy(endedAt = open.startedAt, grossMxn = 0.0, distanceKm = 0.0, durationMin = 0.0))
-            return
-        }
-        tripDao.update(open.copy(endedAt = endedAt))
-        rollupTrigger.requestRollup()
+    private suspend fun resolvePending(platform: String, now: Long, outcome: OfferOutcome) {
+        val pending = offerDao.latestPending(platform) ?: return
+        if (now >= pending.lastSeenAt) offerDao.update(pending.copy(outcome = outcome.name, resolvedAt = now))
     }
 
-    /**
-     * Resolve a still-PENDING offer when no acceptance happened: DECLINED if the idle/next-offer
-     * signal arrived fast (looks like a tap), EXPIRED otherwise.
-     */
-    private suspend fun resolveStalePending(now: Long) {
-        val pending = offerDao.latestPending() ?: return
-        val elapsed = now - pending.seenAt
-        val outcome = if (elapsed <= heuristics.declineMaxMs) OfferOutcome.DECLINED else OfferOutcome.EXPIRED
-        offerDao.update(pending.copy(outcome = outcome.name, resolvedAt = now))
-    }
-
-    // --- Shifts -------------------------------------------------------------------------------
-
-    /**
-     * Ensure a shift covers [now]: open a new one if none is active or the active one has been idle
-     * past the gap (closing the stale one retroactively at its last event). Returns the active shift
-     * id. Always advances the open shift's [ShiftEntity.lastEventAt].
-     */
     private suspend fun ensureShift(now: Long): Long? {
-        val open = shiftDao.latestOpen()
-        if (open == null) {
-            return shiftDao.insert(ShiftEntity(startedAt = now, lastEventAt = now))
-        }
+        val open = shiftDao.latestOpen() ?: return shiftDao.insert(ShiftEntity(startedAt = now, lastEventAt = now))
+        if (now < open.lastEventAt) return open.id
         if (now - open.lastEventAt >= ShiftEntity.INACTIVITY_GAP_MS) {
-            // Stale: close it at its last event, then open a fresh shift for the resumed activity.
             shiftDao.update(open.copy(endedAt = open.lastEventAt))
             return shiftDao.insert(ShiftEntity(startedAt = now, lastEventAt = now))
         }
-        // Still active: advance the heartbeat.
         shiftDao.update(open.copy(lastEventAt = now))
         return open.id
     }
 }
 
-/**
- * A seam the tracker calls to recompute aggregates after a trip closes, without `:capture` depending
- * on the rollup worker's module (`:sync`/`:app` provides the impl). Decoupled so the tracker stays a
- * pure-ish state machine that's unit-testable with a fake trigger. (B-039)
- */
-fun interface RollupTrigger {
-    /** Request an (idempotent) recompute of daily/weekly aggregates. Fire-and-forget. */
-    fun requestRollup()
-}
+fun interface RollupTrigger { fun requestRollup() }

@@ -33,6 +33,9 @@ sealed interface ReferralUiState {
         val code: String,
         val redemptionsCount: Int,
         val premiumDaysEarned: Int,
+        val rewardDaysReferrer: Int? = null,
+        val rewardDaysRedeemer: Int? = null,
+        val expanded: Boolean = false,
         val redeemInput: String = "",
         val redeem: RedeemPhase = RedeemPhase.Idle,
     ) : ReferralUiState

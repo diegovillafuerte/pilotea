@@ -1,88 +1,42 @@
 package mx.kompara.ui.nav
 
-import androidx.annotation.StringRes
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.ui.graphics.vector.ImageVector
-import mx.kompara.ui.R
-
-/**
- * The five top-level destinations of the app shell, in bar order. All five render as uniform flat
- * tabs (no raised centre button) — see [mx.kompara.ui.nav.KomparaBottomBar].
- *
- * @param route stable navigation route key.
- * @param labelRes Spanish tab label.
- * @param contentDescriptionRes accessibility description for the tab icon.
- * @param icon the bar icon (also reused as the placeholder screen's empty-state icon).
- */
-enum class KomparaDestination(
-    val route: String,
-    @param:StringRes val labelRes: Int,
-    @param:StringRes val contentDescriptionRes: Int,
-    val icon: ImageVector,
-) {
-    INICIO(
-        route = "inicio",
-        labelRes = R.string.nav_inicio,
-        contentDescriptionRes = R.string.nav_inicio_desc,
-        icon = Icons.Filled.Home,
-    ),
-    COMPARAR(
-        route = "comparar",
-        labelRes = R.string.nav_comparar,
-        contentDescriptionRes = R.string.nav_comparar_desc,
-        icon = Icons.AutoMirrored.Filled.List,
-    ),
-    LECTOR(
-        route = "lector",
-        labelRes = R.string.nav_lector,
-        contentDescriptionRes = R.string.nav_lector_desc,
-        icon = Icons.Filled.PlayArrow,
-    ),
-    FISCAL(
-        route = "fiscal",
-        labelRes = R.string.nav_fiscal,
-        contentDescriptionRes = R.string.nav_fiscal_desc,
-        icon = Icons.Filled.DateRange,
-    ),
-    AJUSTES(
-        route = "ajustes",
-        labelRes = R.string.nav_ajustes,
-        contentDescriptionRes = R.string.nav_ajustes_desc,
-        icon = Icons.Filled.Settings,
-    ),
-    ;
+/** Three roots and the stable drill-in route keys used by existing links. */
+enum class KomparaDestination(val route: String) {
+    INICIO("inicio"),
+    GANANCIAS("ganancias"),
+    COMPARAR("comparar"),
+    LECTOR("lector"),
+    FISCAL("fiscal"),
+    AJUSTES("ajustes");
 
     companion object {
+        const val MONTH_ROUTE = "ganancias-mes"
+        fun showsBottomBar(route: String?): Boolean = barItems.any { it.route == route } || route == MONTH_ROUTE ||
+            route == DAY_DETAIL_ROUTE || route?.startsWith("$DAY_DETAIL_ROUTE/") == true || route?.startsWith("$WEEK_SUMMARY_ROUTE/") == true
+
+        fun dayRoute(day: String, offerId: Long? = null, ledger: Boolean = false): String = "$DAY_DETAIL_ROUTE/$day" +
+            (offerId?.let { "?offerId=$it" + if (ledger) "&ledger=true" else "" } ?: if (ledger) "?ledger=true" else "")
+
+        const val RECOVERY_ROUTE = "reader-recovery"
+        const val BATTERY_ROUTE = "reader-battery"
+
         /** The destination the app launches into. */
         val START: KomparaDestination = INICIO
 
         /** Bar items in display order (same as declaration order). */
-        val barItems: List<KomparaDestination> = entries
+        val barItems: List<KomparaDestination> = listOf(INICIO, GANANCIAS, COMPARAR)
 
         /**
          * The tab to highlight for a given nav back stack, by route. Detail screens (Ayuda,
-         * Historial, Tu semáforo…) are pushed on top of the tab they were opened from but are not
+         * Tu meta y tu mínimo…) are pushed on top of the tab they were opened from but are not
          * tabs themselves, so we pick the topmost route in [backStackRoutes] that *is* a tab and fall
          * back to [START]. This keeps the parent tab lit on detail screens and lets a re-tap pop back
          * to its root (B-074 F5). [backStackRoutes] runs root → top (oldest entry first).
          */
         fun activeTab(backStackRoutes: List<String?>): KomparaDestination =
             backStackRoutes.asReversed()
-                .firstNotNullOfOrNull { route -> entries.firstOrNull { it.route == route } }
+                .firstNotNullOfOrNull { route -> if (route == MONTH_ROUTE || route?.startsWith("$WEEK_SUMMARY_ROUTE/") == true) GANANCIAS else barItems.firstOrNull { it.route == route } }
                 ?: START
-
-        /**
-         * Route for the offer simulator (B-037). It is NOT a bottom-bar tab — it's a detail screen
-         * reachable from Ajustes (and the onboarding done-screen). The route key lives here so `:ui`
-         * (which owns Ajustes) can navigate to it, while `:overlay` registers the actual composable
-         * (the simulator embeds the verdict chip, which lives in `:overlay`).
-         */
-        const val SIMULATOR_ROUTE: String = "simulator"
 
         /** Cost-profile editor (B-040 req 4), reachable from Ajustes and the Inicio first-run nudge. */
         const val COST_PROFILE_ROUTE: String = "cost-profile"
@@ -95,15 +49,14 @@ enum class KomparaDestination(
 
         /** Account management ("Tu cuenta", B-069): profile edit, logout, delete; reachable from Ajustes. */
         const val ACCOUNT_ROUTE: String = "account"
-
-        /** History weeks list (B-040 req 3), reachable from Inicio. */
-        const val HISTORY_ROUTE: String = "history"
+        const val DATA_ROUTE = "your-data"
+        const val NOTICES_ROUTE = "notices"
 
         /**
          * Import flow (B-045), reachable from the History screen's "Importar semana" CTA. The screen +
          * ViewModel live in `:sync` (which owns the upload + local-backfill repository); `:app`
          * registers the composable into the shared graph via `registerExtraDestinations`, the same
-         * dependency inversion the offer simulator uses ([SIMULATOR_ROUTE]). The route key lives here
+         * dependency inversion other modules use. The route key lives here
          * so `:ui` (which owns the History CTA) can navigate to it without depending on `:sync`.
          */
         const val IMPORT_ROUTE: String = "import"
@@ -133,6 +86,7 @@ enum class KomparaDestination(
          * [mx.kompara.ui.paywall.GateSurface] name as a path arg (purely to bucket conversion
          * analytics). Use [paywallRoute] to build a navigable destination string.
          */
+        const val PLAN_ROUTE: String = "tu-plan"
         const val PAYWALL_ROUTE: String = "paywall"
 
         /** Nav-arg key carrying the originating gate surface name on [PAYWALL_ROUTE]. */

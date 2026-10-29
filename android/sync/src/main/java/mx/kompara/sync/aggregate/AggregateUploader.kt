@@ -1,5 +1,6 @@
 package mx.kompara.sync.aggregate
 
+import kotlinx.coroutines.ensureActive
 import mx.kompara.data.db.dao.AggregateDao
 import mx.kompara.data.db.entity.WeeklyAggregateEntity
 import mx.kompara.sync.api.AggregateUploadBody
@@ -86,10 +87,12 @@ class AggregateUploader @Inject constructor(
         var failed = false
 
         for (row in dirty) {
+            kotlinx.coroutines.currentCoroutineContext().ensureActive()
+            if (!session.isSignedIn() || !consent.isEnabled()) return Outcome(uploaded, false, true)
             // Capture the observation time BEFORE the upload so a concurrent recompute that bumps
             // computedAt after this point re-marks the row dirty (computedAt > lastSyncedAt).
             val observedAt = clock.millis()
-            val result = runCatching { api.pushAggregate(row.toBody()) }
+            val result = runCatching { api.pushAggregate(row.toBody()) }.onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
             when {
                 result.isSuccess -> {
                     aggregateDao.markSynced(row.platform, row.weekStart, row.source, observedAt)

@@ -8,6 +8,11 @@ import mx.kompara.data.model.Platform
  * threshold.
  */
 data class Settings(
+    val readerAlertsEnabled: Boolean = true,
+    val dailySummaryEnabled: Boolean = true,
+    val importReminderEnabled: Boolean = true,
+    val cityChosen: Boolean = false,
+    val themePreference: ThemePreference = ThemePreference.AUTOMATIC,
     /** Platforms the driver has enabled for capture/verdicts. */
     val enabledPlatforms: Set<Platform>,
     /**
@@ -33,6 +38,8 @@ data class Settings(
      * watchdog (B-036).
      */
     val onboardingCompleted: Boolean = DEFAULT_ONBOARDING_COMPLETED,
+    /** Explicit acceptance of the current four-line screen-reading disclosure. */
+    val readerDisclosureAccepted: Boolean = false,
 
     /**
      * The driver's weekly **net** earnings target in MXN (B-039 goals & streaks), or null when no
@@ -97,12 +104,8 @@ data class Settings(
      */
     val fiscalLastNotifiedMonth: String? = null,
 
-    /**
-     * Whether the shareable earnings card (B-055) redacts peso amounts by default. When ON the
-     * "Tu Semana / Tu Mes" card shows only the percentile flex, streak and trip count — never net
-     * earnings — so a driver can share their standing in a WhatsApp group without revealing income.
-     * Default **OFF** (amounts visible): most drivers proudly share the number, and the toggle on
-     * the share-preview screen flips it per-share; this persisted value is just the remembered default.
+    /** Legacy share preference retained for migration. V3 starts every new share with amounts and
+     * hours hidden; only that preview's saved state remembers an explicit reveal.
      */
     val shareHideAmounts: Boolean = DEFAULT_SHARE_HIDE_AMOUNTS,
 
@@ -169,8 +172,8 @@ data class Settings(
         /** Month-end IMSS summary notification is ON by default (B-051; see [fiscalMonthlySummaryEnabled]). */
         const val DEFAULT_FISCAL_MONTHLY_SUMMARY_ENABLED = true
 
-        /** The share card shows amounts by default — most drivers share the number (B-055). */
-        const val DEFAULT_SHARE_HIDE_AMOUNTS = false
+        /** Sharing starts with amounts and hours hidden (v3). */
+        const val DEFAULT_SHARE_HIDE_AMOUNTS = true
 
         /** The Monday week-close share reminder is ON by default (B-055; see [shareWeeklyReminderEnabled]). */
         const val DEFAULT_SHARE_WEEKLY_REMINDER_ENABLED = true

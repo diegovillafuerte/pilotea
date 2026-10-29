@@ -5,6 +5,7 @@ import mx.kompara.data.db.entity.WeeklyAggregateEntity
 import mx.kompara.data.model.Platform
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import java.time.LocalDate
 
 /** History weeks folding + source badge precedence for [HistoryWeeks] (B-040 req 3). */
 class HistoryWeeksTest {
@@ -48,15 +49,16 @@ class HistoryWeeksTest {
     }
 
     @Test
-    fun `imported rows win the badge and the summary for a mixed week`() {
+    fun `captured rows retain selection until explicit reconciliation for a mixed week`() {
         val rows = listOf(
             row("2026-06-08", Platform.UBER, AggregateSource.CAPTURED, net = 1000.0),
             row("2026-06-08", Platform.UBER, AggregateSource.IMPORTED, net = 1234.0),
+            row("2026-06-08", Platform.DIDI, AggregateSource.CAPTURED, net = 500.0),
         )
         val weeks = HistoryWeeks.build(rows)
         assertEquals(1, weeks.size)
-        assertEquals(WeekSourceBadge.IMPORTADO, weeks[0].source)
-        assertEquals(1234.0, weeks[0].period.netEarningsMxn, 0.001) // imported preferred
+        assertEquals(WeekSourceBadge.CAPTURADO, weeks[0].source)
+        assertEquals(1500.0, weeks[0].period.netEarningsMxn, 0.001) // both captured apps retained
     }
 
     // ── B-050 free-tier truncation ───────────────────────────────────────────
@@ -69,24 +71,24 @@ class HistoryWeeksTest {
     @Test
     fun `unlocked partition keeps every week visible and locks nothing`() {
         val weeks = weeksList("2026-06-15", "2026-06-08", "2026-06-01", "2026-05-25")
-        val p = HistoryWeeks.partition(weeks, locked = false)
+        val p = HistoryWeeks.partition(weeks, locked = false, today = LocalDate.parse("2026-06-29"))
         assertEquals(4, p.visible.size)
         assertEquals(0, p.locked.size)
         assertEquals(false, p.hasLocked)
     }
 
     @Test
-    fun `locked partition shows the two newest weeks free and gates the rest`() {
+    fun `calendar window gates breakdowns but keeps every own week visible`() {
         val weeks = weeksList("2026-06-15", "2026-06-08", "2026-06-01", "2026-05-25")
-        val p = HistoryWeeks.partition(weeks, locked = true)
-        assertEquals(listOf("2026-06-15", "2026-06-08"), p.visible.map { it.weekStart })
+        val p = HistoryWeeks.partition(weeks, locked = true, today = LocalDate.parse("2026-06-29"))
+        assertEquals(listOf("2026-06-15", "2026-06-08", "2026-06-01", "2026-05-25"), p.visible.map { it.weekStart })
         assertEquals(listOf("2026-06-01", "2026-05-25"), p.locked.map { it.weekStart })
         assertEquals(true, p.hasLocked)
     }
 
     @Test
-    fun `locked partition with two or fewer weeks gates nothing`() {
-        val p = HistoryWeeks.partition(weeksList("2026-06-15", "2026-06-08"), locked = true)
+    fun `recent sparse weeks still fall inside the calendar window`() {
+        val p = HistoryWeeks.partition(weeksList("2026-06-15", "2026-06-08"), locked = true, today = LocalDate.parse("2026-06-29"))
         assertEquals(2, p.visible.size)
         assertEquals(0, p.locked.size)
     }
@@ -94,8 +96,8 @@ class HistoryWeeksTest {
     @Test
     fun `locked partition newest-first regardless of input order`() {
         val weeks = weeksList("2026-05-25", "2026-06-15", "2026-06-01", "2026-06-08")
-        val p = HistoryWeeks.partition(weeks, locked = true)
-        assertEquals(listOf("2026-06-15", "2026-06-08"), p.visible.map { it.weekStart })
+        val p = HistoryWeeks.partition(weeks, locked = true, today = LocalDate.parse("2026-06-29"))
+        assertEquals(listOf("2026-06-15", "2026-06-08", "2026-06-01", "2026-05-25"), p.visible.map { it.weekStart })
         assertEquals(listOf("2026-06-01", "2026-05-25"), p.locked.map { it.weekStart })
     }
 }

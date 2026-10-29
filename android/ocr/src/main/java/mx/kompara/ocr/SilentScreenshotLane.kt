@@ -39,7 +39,7 @@ import kotlin.coroutines.resume
  * that broke it), the lane disables itself and clears [ScreenReaderState.silentLaneActive], which
  * re-enables the manual MediaProjection path (the reader-down banner / Lector "Iniciar" CTA).
  */
-class SilentScreenshotLane : ScreenReaderLane {
+class SilentScreenshotLane(private val readiness: mx.kompara.data.service.ReaderReadinessRepository) : ScreenReaderLane {
 
     private val engine = OcrEngine()
     private var loop: Job? = null
@@ -51,15 +51,17 @@ class SilentScreenshotLane : ScreenReaderLane {
     override fun start(scope: CoroutineScope, service: AccessibilityService): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return false
         if (loop?.isActive == true) return true
+        ScreenReaderState.setSilentLaneFailed(false)
         ScreenReaderState.setSilentLaneActive(true)
         // On 30+ the reader is live for the whole time the a11y service is enabled — no per-session
         // projection to lose — so it reports "running" for the lane's lifetime, not per capture burst.
         owningRunning = true
+        readiness.captureRunning(true)
         ScreenReaderState.setRunning(true)
         // Each capture loop owns a FRESH pipeline: if a service reconnect launches a replacement loop
         // while a cancelled one is still unwinding, the old loop's teardown resets its OWN (orphaned)
         // pipeline, never the new session's — no shared-state race across loop generations.
-        loop = scope.launch { captureLoop(service, OfferFramePipeline()) }
+        loop = scope.launch { captureLoop(service, OfferFramePipeline(readiness)) }
         return true
     }
 
@@ -70,6 +72,7 @@ class SilentScreenshotLane : ScreenReaderLane {
         // Only clear running if this lane actually owns it — never stomp a MediaProjection fallback.
         if (owningRunning) {
             owningRunning = false
+            readiness.captureRunning(false)
             ScreenReaderState.setRunning(false)
         }
     }
@@ -83,7 +86,7 @@ class SilentScreenshotLane : ScreenReaderLane {
             while (currentCoroutineContext().isActive) {
                 val hostForeground = targetAppForeground(service)
                 val screenInteractive = power?.isInteractive != false
-                when (SilentLaneGate.decide(hostForeground, screenInteractive, hardFailures, MAX_HARD_FAILURES)) {
+                when (SilentLaneGate.decide(hostForeground, screenInteractive, hardFailures, MAX_HARD_FAILURES, readiness.canRead())) {
                     LaneAction.DISABLE -> {
                         // OEM broke takeScreenshot: stand down so the MediaProjection fallback can take over.
                         Log.w(TAG, "silent screenshot lane disabled after $hardFailures failures; MediaProjection fallback")
@@ -91,9 +94,11 @@ class SilentScreenshotLane : ScreenReaderLane {
                             pipeline.onCaptureEnd(System.currentTimeMillis())
                             capturing = false
                         }
+                        ScreenReaderState.setSilentLaneFailed(true)
                         ScreenReaderState.setSilentLaneActive(false)
                         if (owningRunning) {
                             owningRunning = false
+                            readiness.captureRunning(false)
                             ScreenReaderState.setRunning(false)
                         }
                         return
@@ -109,6 +114,7 @@ class SilentScreenshotLane : ScreenReaderLane {
                     }
                     LaneAction.CAPTURE -> {
                         capturing = true
+                        val token = readiness.captureToken()
                         when (val shot = takeScreenshot(service)) {
                             is ShotResult.Ok -> {
                                 hardFailures = 0
@@ -116,7 +122,7 @@ class SilentScreenshotLane : ScreenReaderLane {
                                 // pixels — the chip may move/hide while ML Kit runs (parity with the
                                 // MediaProjection lane's CapturedFrame.chipRect).
                                 val chipRect = ScreenReaderState.overlayChipRect
-                                processShot(shot.bitmap, chipRect, pipeline)
+                                processShot(shot.bitmap, chipRect, pipeline, token)
                                 delay(THROTTLE_MS)
                             }
                             ShotResult.RateLimited -> delay(RATE_LIMIT_BACKOFF_MS)
@@ -145,13 +151,14 @@ class SilentScreenshotLane : ScreenReaderLane {
     private fun targetAppForeground(service: AccessibilityService): Boolean {
         val root = service.rootInActiveWindow ?: return false
         return try {
-            root.packageName?.toString() in KomparaAccessibilityService.OCR_OWNED_PACKAGES
+            root.packageName?.toString()?.let { it in KomparaAccessibilityService.OCR_OWNED_PACKAGES && readiness.canRead(it) } == true
         } finally {
             if (Build.VERSION.SDK_INT < 33) @Suppress("DEPRECATION") root.recycle()
         }
     }
 
-    private suspend fun processShot(bitmap: Bitmap, chipRect: ScreenRect?, pipeline: OfferFramePipeline) {
+    private suspend fun processShot(bitmap: Bitmap, chipRect: ScreenRect?, pipeline: OfferFramePipeline, token: Long) {
+        if (!readiness.canRead(token = token)) { bitmap.recycle(); return }
         val blocks = try {
             engine.recognize(bitmap)
         } catch (cancellation: kotlinx.coroutines.CancellationException) {
@@ -167,7 +174,7 @@ class SilentScreenshotLane : ScreenReaderLane {
         }
         // Recognition completed; ML Kit no longer touches the bitmap and the rest works off `blocks`.
         bitmap.recycle()
-        pipeline.process(blocks, chipRect, null)
+        pipeline.process(blocks, chipRect, null, token = token)
     }
 
     private sealed interface ShotResult {

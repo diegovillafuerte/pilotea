@@ -5,71 +5,43 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
+import mx.kompara.data.settings.ThemePreference
 
-private val KomparaDarkColors = darkColorScheme(
-    primary = BrandGreen,
-    onPrimary = OnVerdictGreen,
-    primaryContainer = BrandGreenContainerDark,
-    onPrimaryContainer = BrandGreenContainerLight,
-    secondary = VerdictYellow,
-    onSecondary = OnVerdictYellow,
-    error = VerdictRed,
-    onError = OnVerdictRed,
-    background = SurfaceDark,
-    onBackground = OnSurfaceDark,
-    surface = SurfaceDark,
-    onSurface = OnSurfaceDark,
-    surfaceContainer = SurfaceContainerDark,
-    surfaceVariant = SurfaceVariantDark,
-    onSurfaceVariant = OnSurfaceVariantDark,
-    outline = OutlineDark,
-)
-
-private val KomparaLightColors = lightColorScheme(
-    primary = BrandGreenDark,
-    onPrimary = OnVerdictGreen,
-    primaryContainer = BrandGreenContainerLight,
-    onPrimaryContainer = BrandGreenContainerDark,
-    secondary = VerdictYellow,
-    onSecondary = OnVerdictYellow,
-    error = VerdictRed,
-    onError = OnVerdictRed,
-    background = SurfaceLight,
-    onBackground = OnSurfaceLight,
-    surface = SurfaceLight,
-    onSurface = OnSurfaceLight,
-    surfaceContainer = SurfaceContainerLight,
-    surfaceVariant = SurfaceVariantLight,
-    onSurfaceVariant = OnSurfaceVariantLight,
-    outline = OutlineLight,
-)
-
-/**
- * The Kompara theme. Owned by `:ui` so every module (and the thin `:app`) shares one design
- * language.
- *
- * Defaults to dark — drivers mostly work nights and a dark surface is easier on the eyes and the
- * battery on an always-on dashboard mount. We only drop to the light palette when the device is
- * explicitly in light mode; on a brand-new device that hasn't been switched, [isSystemInDarkTheme]
- * is false yet we still want dark, so the default OR-s in [DARK_PREFERRED].
- *
- * Dynamic (Material You) colour is intentionally NOT used: the verde/amarillo/rojo verdict is a
- * fixed brand signal that must never be recoloured by the wallpaper.
- */
-@Composable
-fun KomparaTheme(
-    darkTheme: Boolean = isSystemInDarkTheme() || DARK_PREFERRED,
-    content: @Composable () -> Unit,
-) {
-    MaterialTheme(
-        colorScheme = if (darkTheme) KomparaDarkColors else KomparaLightColors,
-        typography = KomparaTypography,
-        content = content,
-    )
+private val LocalKomparaColors = staticCompositionLocalOf { DayColors }
+object KomparaTheme {
+    val colors: KomparaColors @Composable get() = LocalKomparaColors.current
 }
 
-/**
- * Product preference: when the system theme is undecided, Kompara starts dark. A future Ajustes
- * toggle (light / dark / system) can flip this per user; until then dark wins for night driving.
- */
-private const val DARK_PREFERRED = true
+/** Paper/ink also owns errors and text actions. Only brand actions and verdicts carry colour. */
+@Composable
+fun KomparaTheme(
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    preference: ThemePreference = ThemePreference.AUTOMATIC,
+    content: @Composable () -> Unit,
+) {
+    val dark = preference.isDark(darkTheme)
+    val c = if (dark) NightColors else DayColors
+    val base = if (dark) darkColorScheme() else lightColorScheme()
+    val scheme = base.copy(
+        primary = c.brand, onPrimary = c.onBrand,
+        primaryContainer = c.paperSecondary, onPrimaryContainer = c.ink,
+        secondary = c.ink, onSecondary = c.paper,
+        secondaryContainer = c.paperSecondary, onSecondaryContainer = c.ink,
+        tertiary = c.ink, onTertiary = c.paper,
+        tertiaryContainer = c.paperSecondary, onTertiaryContainer = c.ink,
+        error = c.ink, onError = c.paper, errorContainer = c.paperSecondary, onErrorContainer = c.ink,
+        background = c.paper, onBackground = c.ink, surface = c.paper, onSurface = c.ink,
+        surfaceVariant = c.paperSecondary, onSurfaceVariant = c.inkSecondary,
+        surfaceTint = c.paper, surfaceDim = c.paperSecondary, surfaceBright = c.paper,
+        surfaceContainerLowest = c.paper, surfaceContainerLow = c.paper,
+        surfaceContainer = c.paperSecondary, surfaceContainerHigh = c.paperSecondary,
+        surfaceContainerHighest = c.paperSecondary,
+        outline = c.inkTertiary, outlineVariant = c.rule,
+        inverseSurface = c.ink, inverseOnSurface = c.paper, inversePrimary = c.onBrand,
+    )
+    CompositionLocalProvider(LocalKomparaColors provides c) {
+        MaterialTheme(colorScheme = scheme, typography = KomparaTypography, content = content)
+    }
+}

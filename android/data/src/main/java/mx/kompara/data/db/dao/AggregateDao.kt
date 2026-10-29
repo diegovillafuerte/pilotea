@@ -85,6 +85,12 @@ interface AggregateDao {
     @Query("DELETE FROM weekly_aggregates WHERE weekStart = :weekStart AND source = 'CAPTURED'")
     suspend fun deleteCapturedWeek(weekStart: String)
 
+    @Query("SELECT * FROM daily_aggregates WHERE source = 'CAPTURED' AND day >= :from AND day <= :until")
+    suspend fun capturedDays(from: String, until: String): List<DailyAggregateEntity>
+
+    @Query("SELECT * FROM weekly_aggregates WHERE source = 'CAPTURED' AND weekStart >= :from AND weekStart <= :until")
+    suspend fun capturedWeeks(from: String, until: String): List<WeeklyAggregateEntity>
+
     // ─── B-043 consented aggregate sync ───────────────────────────────────────────────────────
 
     /**
