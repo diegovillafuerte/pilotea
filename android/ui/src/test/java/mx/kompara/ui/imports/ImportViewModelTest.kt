@@ -93,6 +93,21 @@ class ImportViewModelTest {
         restored.saveCorrection(); assertEquals(2210.5, (restored.uiState.value as ImportUiState.Review).draft.metrics()!!.netEarnings!!, .0)
         assertEquals(1, repo.parses); restored.confirm(); assertEquals(1, repo.saves)
     }
+    @Test fun `review period correction preserves read fields without reparsing and survives recreation`() = runTest {
+        val repo = Fake(); val viewModel = vm(repo)
+        viewModel.selected(listOf(pdf)); viewModel.upload()
+        viewModel.correctWeek(LocalDate.parse("2026-09-16"))
+        val corrected = (viewModel.uiState.value as ImportUiState.Review).draft.metrics()!!
+        assertEquals("2026-09-14", corrected.weekStart)
+        assertEquals(m.copy(weekStart = "2026-09-14"), corrected)
+        assertEquals(1, repo.parses)
+        val restored = vm(repo)
+        assertEquals(corrected, (restored.uiState.value as ImportUiState.Review).draft.metrics())
+        restored.edit()
+        assertEquals("2026-09-14", (restored.uiState.value as ImportUiState.Correcting).values.week)
+        restored.cancelCorrection()
+        assertEquals(corrected, (restored.uiState.value as ImportUiState.Review).draft.metrics())
+    }
     @Test fun `invalid and empty correction keep editor and original result`() = runTest {
         val repo = Fake(); val vm = vm(repo)
         vm.selected(listOf(pdf)); vm.upload(); vm.edit()

@@ -35,6 +35,7 @@ internal fun selectOfferCard(
     displayBounds: HostRect? = null,
     density: Float = 1f,
     accessibility: HostWindowEvidence? = null,
+    appearance: HostAppearanceSamples? = null,
 ): OfferCard? {
     val card = uber.parse(blocks)
         ?: (if (uber.hasCardSignature(blocks)) null else didi.parse(blocks)) ?: return null
@@ -52,5 +53,8 @@ internal fun selectOfferCard(
             protectedControls = nodes?.protectedControls.orEmpty(), markers = nodes?.markers.orEmpty(),
             navigation = nodes?.navigation ?: false, recognizedOffer = true)
     }
-    return card.copy(hostGeometry = geometryAdapter.adapt(card.platform, capturedAtMs, observation) ?: derived)
+    val geometry = geometryAdapter.adapt(card.platform, capturedAtMs, observation) ?: derived
+    return card.copy(hostGeometry = geometry?.let { g ->
+        g.copy(appearance = appearance?.appearance(g) ?: g.appearance)
+    })
 }

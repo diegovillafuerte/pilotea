@@ -4,3 +4,6 @@ Copied for debug/test only; never seed production data.
 
 S20 frame contract refreshed to docs/ux-elevation-v3 @ 910ecc4cacc6ebcb67a7ecdd3ad1524afb71dc2b.
 Only adds G1e/G1n (118 scenarios); fixture.json is unchanged.
+
+F2 updates only fixture.json's descriptive missed-offer note to the current vocabulary;
+all example data remains unchanged.

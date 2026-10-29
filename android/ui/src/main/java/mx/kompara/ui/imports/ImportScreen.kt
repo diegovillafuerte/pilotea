@@ -1,5 +1,6 @@
 package mx.kompara.ui.imports
 
+import android.app.DatePickerDialog
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
@@ -8,6 +9,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -62,7 +64,8 @@ fun ImportScreen(onClose: () -> Unit, onSignIn: () -> Unit, onSaved: (String) ->
     ImportContent(state, ImportActions(
         close = onClose, choose = { viewModel.preparePicker(adding = false); picker.launch(ShareTargetClassifier.ACCEPTED_MIME.toTypedArray()) },
         upload = viewModel::upload, save = viewModel::confirm, useStatement = viewModel::useStatement,
-        correct = viewModel::edit, correction = viewModel::updateCorrection, saveCorrection = viewModel::saveCorrection,
+        correct = viewModel::edit, correctWeek = viewModel::correctWeek,
+        correction = viewModel::updateCorrection, saveCorrection = viewModel::saveCorrection,
         cancelCorrection = viewModel::cancelCorrection, retry = viewModel::retry, restart = viewModel::restart,
         add = { viewModel.preparePicker(adding = true); picker.launch(arrayOf("image/png", "image/jpeg", "image/webp")) },
         review = viewModel::reviewPartial, signIn = onSignIn, didi = viewModel::singleImageIsDidi), modifier, focusCorrection = true)
@@ -70,7 +73,8 @@ fun ImportScreen(onClose: () -> Unit, onSignIn: () -> Unit, onSaved: (String) ->
 
 data class ImportActions(
     val close: () -> Unit = {}, val choose: () -> Unit = {}, val upload: () -> Unit = {}, val save: () -> Unit = {},
-    val useStatement: () -> Unit = {}, val correct: () -> Unit = {}, val correction: (ImportCorrection) -> Unit = {},
+    val useStatement: () -> Unit = {}, val correct: () -> Unit = {}, val correctWeek: (LocalDate) -> Unit = {},
+    val correction: (ImportCorrection) -> Unit = {},
     val saveCorrection: () -> Unit = {}, val cancelCorrection: () -> Unit = {}, val retry: () -> Unit = {},
     val restart: () -> Unit = {}, val add: () -> Unit = {}, val review: () -> Unit = {}, val signIn: () -> Unit = {}, val didi: () -> Unit = {},
 )
@@ -119,7 +123,7 @@ fun ImportContent(state: ImportUiState, actions: ImportActions, modifier: Modifi
             }
             is ImportUiState.SignedOut -> { Headline("Entra para leer tu resumen"); Spacer(Modifier.height(16.dp)); Secondary("Necesitas una cuenta de WhatsApp. Tus datos locales siguen en este teléfono.") }
             is ImportUiState.Reading -> { Headline(if (state.saving) "Guardando tu semana" else "Leyendo tu archivo"); Spacer(Modifier.height(16.dp)); Small(if (state.saving) "En este teléfono" else "Esperando la lectura de tu resumen") }
-            is ImportUiState.Review -> ReviewContent(state, actions.correct)
+            is ImportUiState.Review -> ReviewContent(state, actions.correct, actions.correctWeek)
             is ImportUiState.Reconcile -> ReconcileContent(state.review)
             is ImportUiState.Missing -> {
                 Headline("Falta la captura del Tablero")
@@ -134,22 +138,38 @@ fun ImportContent(state: ImportUiState, actions: ImportActions, modifier: Modifi
             is ImportUiState.Correcting -> CorrectionContent(state, actions.correction, focusCorrection)
             is ImportUiState.Error -> {
                 Headline(if (!state.retryable) "No pudimos leer este archivo" else if (state.saving) "No se pudo guardar tu semana" else "No se pudo subir tu archivo")
-                Spacer(Modifier.height(24.dp)); StatusLine(state.message, StatusGlyph.OFF)
-                Spacer(Modifier.height(16.dp)); Small(if (state.saving) "Lo leído sigue en este teléfono." else "Tu archivo sigue en tu teléfono.")
-                Spacer(Modifier.height(32.dp)); Rule()
-                state.files.forEach { CalculationLedger(listOf(CalculationRow(it.fileName, fileSize(it)))) }
+                Spacer(Modifier.height(16.dp)); StatusLine(state.message, StatusGlyph.OFF)
+                Spacer(Modifier.height(16.dp)); Secondary(if (state.saving) "Lo leído sigue en este teléfono." else "Tu archivo sigue en tu teléfono.")
+                if (state.files.isNotEmpty()) {
+                    Spacer(Modifier.height(32.dp)); Rule()
+                    retainedImportRows(state).forEach { row ->
+                        Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Text(row.label, Modifier.weight(1f), style = KomparaType.body)
+                            Small(row.value)
+                        }
+                        Rule()
+                    }
+                }
             }
             is ImportUiState.Saved -> Text("Listo, tu semana ya está en Ganancias", style = KomparaType.body)
         }
     }
 }
 
-@Composable private fun ReviewContent(state: ImportUiState.Review, correct: () -> Unit) {
+@Composable private fun ReviewContent(state: ImportUiState.Review, correct: () -> Unit, correctWeek: (LocalDate) -> Unit) {
     val m = state.draft.metrics()!!
     val start = LocalDate.parse(m.weekStart)
+    val context = LocalContext.current
     Headline("Te pagó la app")
     Spacer(Modifier.height(8.dp)); Text(m.netEarnings?.let(Formatters::formatMxnWhole) ?: "—", style = KomparaType.number)
-    Spacer(Modifier.height(8.dp)); Secondary("${weekRange(start)} · ${importSourceLabel(state.draft.platform, state.draft.uploadType)}")
+    Spacer(Modifier.height(8.dp))
+    Text("${weekRange(start)} · ${importSourceLabel(state.draft.platform, state.draft.uploadType)}",
+        Modifier.clickable(enabled = state.draft.stage != "SAVED", onClickLabel = "Elegir periodo") {
+            DatePickerDialog(context, { _, year, month, day ->
+                correctWeek(LocalDate.of(year, month + 1, day))
+            }, start.year, start.monthValue - 1, start.dayOfMonth).apply { setTitle("Elegir periodo") }.show()
+        }, style = KomparaType.body, color = KomparaTheme.colors.inkSecondary)
     Spacer(Modifier.height(24.dp)); Rule()
     CalculationLedger(buildList {
         add(CalculationRow("Viajes", m.totalTrips?.toString() ?: "—"))
@@ -225,14 +245,14 @@ fun reconciliationConsequence(review: ImportUiState.Review): String {
         hint = if (state.review.draft.uploadType == "pdf") "Escribe “Tus ganancias” tal como aparece en el PDF." else "Escribe la cifra tal como aparece en tu captura.") }
     values.hours?.let { CorrectionField("Horas en línea", it, defaults.hours, { changed(values.copy(hours = it)) }, suffix = "h") }
     values.km?.let { CorrectionField("Kilómetros", it, defaults.km, { changed(values.copy(km = it)) }, suffix = "km") }
-    // Legacy parsers may infer a Monday: allow the driver to correct the visible period as well.
-    KomparaTextField(values.week, { changed(values.copy(week = it)) }, "Lunes de la semana", underlined = true, hint = "AAAA-MM-DD")
     state.error?.let { Spacer(Modifier.height(12.dp)); Text(it, style = KomparaType.body) }
 }
 @Composable private fun CorrectionField(label: String, value: String, original: String?, changed: (String) -> Unit,
     prefix: String? = null, suffix: String? = null, hint: String? = null, integer: Boolean = false, modifier: Modifier = Modifier) {
-    KomparaTextField(value, changed, if (value != original) "$label · se leyó ${prefix.orEmpty()}$original" else label,
+    val readValue = original?.let { if (prefix == "$") mx.kompara.ui.format.DecimalGrouping.filter(androidx.compose.ui.text.AnnotatedString(it)).text.text else it }
+    KomparaTextField(value, changed, if (value != original) "$label · se leyó ${prefix.orEmpty()}$readValue" else label,
         modifier.fillMaxWidth(), prefix = prefix, suffix = suffix, hint = hint, underlined = true,
+        inlineAffixes = true, cursorAtEndOnFocus = true,
         visualTransformation = if (prefix == "$") mx.kompara.ui.format.DecimalGrouping else androidx.compose.ui.text.input.VisualTransformation.None,
         keyboardOptions = KeyboardOptions(keyboardType = if (integer) KeyboardType.Number else KeyboardType.Decimal))
     Spacer(Modifier.height(16.dp))
@@ -254,6 +274,22 @@ fun reconciliationConsequence(review: ImportUiState.Review): String {
 private fun decimal(value: Double) = value.toBigDecimal().stripTrailingZeros().toPlainString()
 private fun shortRange(start: LocalDate, end: LocalDate) = if (start == end) "${start.dayOfMonth} ${start.format(DateTimeFormatter.ofPattern("MMM", Locale.forLanguageTag("es-MX")))}"
     else "${start.dayOfMonth} – ${end.dayOfMonth} ${end.format(DateTimeFormatter.ofPattern("MMM", Locale.forLanguageTag("es-MX")))}"
+internal fun retainedImportRows(state: ImportUiState.Error): List<CalculationRow> {
+    val draft = state.draft
+    val period = draft?.metrics()?.weekStart?.let { runCatching { weekRange(LocalDate.parse(it)) }.getOrNull() }
+    return state.files.map { file ->
+        val label = if (draft == null) file.fileName else buildList {
+            add(appName(draft.platform))
+            add(when {
+                draft.uploadType == "pdf" -> "PDF semanal"
+                draft.platform == "didi" -> "captura"
+                else -> "captura de Ganancias"
+            })
+            period?.let(::add)
+        }.joinToString(" · ")
+        CalculationRow(label, fileSize(file))
+    }
+}
 private fun fileSize(file: ImportFile) = String.format(Locale.US, "%.1f MB", file.bytes.size / (1024.0 * 1024.0))
 
 /** Bounded resolver read, off the UI thread. Cancellation/picker denial leaves the retained draft. */

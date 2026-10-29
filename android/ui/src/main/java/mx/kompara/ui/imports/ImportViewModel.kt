@@ -135,6 +135,16 @@ class ImportViewModel @Inject constructor(
         draft?.let { repository.discard(it.id) }
         draft = null; saved["editing"] = null; state.value = ImportUiState.Picking
     }
+    /** Select any day in the intended week; imported periods always start on Monday. */
+    fun correctWeek(day: java.time.LocalDate) = launch {
+        val review = state.value as? ImportUiState.Review ?: return@launch
+        if (review.draft.stage == "SAVED") return@launch
+        val start = day.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
+        val corrected = review.draft.metrics()!!.copy(weekStart = start.toString())
+        validateImportMetrics(corrected)
+        draft = repository.correct(review.draft.id, corrected)
+        showReview(draft!!)
+    }
     fun edit() {
         val review = state.value as? ImportUiState.Review ?: return
         if (review.draft.stage == "SAVED") return

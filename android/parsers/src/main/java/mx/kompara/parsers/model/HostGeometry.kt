@@ -28,6 +28,9 @@ enum class MapMarkerKind { PICKUP, DESTINATION, DRIVER, NEXT_MANOEUVRE }
 data class MapMarker(val kind: MapMarkerKind, val outerBounds: HostRect)
 
 @Serializable
+enum class HostAppearance { UNKNOWN, LIGHT, DARK }
+
+@Serializable
 enum class HostGeometrySource { HOST_LAYOUT, OCR_TEXT_BOUNDS, ACCESSIBILITY_BOUNDS, OCR_AND_ACCESSIBILITY, IDLE_HOST }
 
 /** Measured or conservatively derived bounds for ONE frame, in physical display pixels. */
@@ -46,6 +49,8 @@ data class HostGeometry(
     val source: HostGeometrySource = HostGeometrySource.HOST_LAYOUT,
     /** C6 uses the display foot when no offer is present; this boundary is not an offer card. */
     val isIdleHost: Boolean = false,
+    /** Appearance of this captured host, never the Android or Kompara theme preference. */
+    val appearance: HostAppearance = HostAppearance.UNKNOWN,
 )
 
 /**

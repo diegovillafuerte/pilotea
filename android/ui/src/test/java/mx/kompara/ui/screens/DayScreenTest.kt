@@ -61,13 +61,26 @@ class DayScreenTest {
         compose.setContent { KomparaTheme { Host(day, filtered, { filtered = !filtered }, { selected = it }) } }
         compose.onNodeWithText("2 ofertas arriba de tu meta", substring = true).performClick()
         compose.onNodeWithText("Arriba de tu meta · 2").assertExists()
-        compose.onNodeWithTag("offer-${day.at("09:51")}").assertExists()
+        compose.onNodeWithTag("offer-${day.at("9:51")}").assertExists()
         compose.onNodeWithTag("offer-${day.at("14:32")}").assertDoesNotExist()
         compose.onNodeWithText("Ver todas las ofertas del día").performScrollTo().performClick()
-        compose.onNodeWithTag("day-offers").performScrollToNode(hasTestTag("offer-${day.at("08:15")}"))
-        compose.onNodeWithTag("offer-${day.at("08:15")}").performClick()
-        assertEquals(day.at("08:15"), selected)
+        compose.onNodeWithTag("day-offers").performScrollToNode(hasTestTag("offer-${day.at("8:15")}"))
+        compose.onNodeWithTag("offer-${day.at("8:15")}").performClick()
+        assertEquals(day.at("8:15"), selected)
         listOf("Mejores horas", "Turnos", "Vistas", "$648").forEach { compose.onNodeWithText(it).assertDoesNotExist() }
+    }
+
+    @Test fun `past no trip car day exposes its negative hero and calculation door`() {
+        val source = fixture.day()
+        val window = source.money.window.copy(asOf = source.money.window.asOf.plusSeconds(86_400))
+        val money = mx.kompara.data.accounting.PeriodAccounting.calculate(window, emptyList(), fixture.fixture.schedule)
+        val day = source.copy(snapshot = source.snapshot.copy(money = money, offers = emptyList(), trips = emptyList()))
+        var opened = false
+        compose.setContent { KomparaTheme { Host(day, ledger = { opened = true }) } }
+        compose.onNodeWithText("Te quedaron el lunes 19 oct · aprox.").assertIsDisplayed()
+        compose.onNodeWithText("−$214").assertIsDisplayed()
+        compose.onNodeWithText("Sin viajes; lo del coche corre igual").performClick()
+        assertTrue(opened)
     }
 
     @Test fun `own record sheet survives restore ledger dismissal and limits return with frozen judgement`() {

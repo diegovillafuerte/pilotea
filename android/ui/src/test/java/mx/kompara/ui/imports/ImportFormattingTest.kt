@@ -1,6 +1,10 @@
 package mx.kompara.ui.imports
 
 import mx.kompara.sync.api.ImportMetrics
+import mx.kompara.sync.api.ImportFile
+import mx.kompara.sync.api.ImportResponse
+import mx.kompara.sync.imports.retainedJson
+import mx.kompara.data.imports.ImportDraftEntity
 import org.junit.Assert.*
 import org.junit.Test
 import java.time.LocalDate
@@ -15,6 +19,17 @@ class ImportFormattingTest {
         }
         listOf("", "1.234", "NaN", "1e8").forEach { assertTrue(runCatching { original.copy(payment = it).apply(metrics) }.isFailure) }
         assertTrue(runCatching { original.copy(hours = "-1").apply(metrics) }.isFailure)
+    }
+    @Test fun `retained input uses known source and period but never guesses unread dates`() {
+        val file = ImportFile("arbitrary-name.pdf", "application/pdf", byteArrayOf(1))
+        val draft = ImportDraftEntity("id", "uber", "pdf", 1,
+            previewJson = ImportResponse(metrics = metrics, dataCompleteness = .9, dryRun = true).retainedJson())
+        fun rows(d: ImportDraftEntity?, files: List<ImportFile> = listOf(file)) = retainedImportRows(ImportUiState.Error(d, files, "error"))
+        assertEquals("Uber · PDF semanal · 14 – 20 sep", rows(draft).single().label)
+        assertEquals("Uber · PDF semanal", rows(draft.copy(previewJson = null)).single().label)
+        assertEquals("arbitrary-name.pdf", rows(null).single().label)
+        val didi = rows(draft.copy(platform = "didi", uploadType = "screenshot", previewJson = null), listOf(file, file))
+        assertEquals(listOf("DiDi · captura", "DiDi · captura"), didi.map { it.label })
     }
     @Test fun `period and source copy never distributes a boundary week or labels screenshot as PDF`() {
         assertEquals("Se guarda en septiembre como una semana, sin repartir por día.", importConsequence(LocalDate.parse("2026-09-14")))

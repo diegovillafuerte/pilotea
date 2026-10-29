@@ -175,10 +175,11 @@ class SilentScreenshotLane(private val readiness: mx.kompara.data.service.Reader
             bitmap.recycle()
             return
         }
-        // Recognition completed; ML Kit no longer touches the bitmap and the rest works off `blocks`.
+        // Retain only coarse luminance evidence from this frame; no bitmap crosses the pipeline.
+        val appearance = HostAppearanceSamples.capture(bitmap, capturedAtMs, chipRect)
         bitmap.recycle()
         pipeline.process(blocks, chipRect, null, capturedAtMs = capturedAtMs, token = token,
-            displayBounds = display, density = density, accessibility = accessibility)
+            displayBounds = display, density = density, accessibility = accessibility, appearance = appearance)
     }
 
     private sealed interface ShotResult {

@@ -56,7 +56,8 @@ class OfferFramePipeline(private val readiness: mx.kompara.data.service.ReaderRe
         token: Long = readiness?.captureToken() ?: 0L,
         displayBounds: mx.kompara.parsers.model.HostRect? = null,
         density: Float = 1f,
-        accessibility: mx.kompara.capture.HostWindowEvidence? = null) {
+        accessibility: mx.kompara.capture.HostWindowEvidence? = null,
+        appearance: HostAppearanceSamples? = null) {
         if (readiness?.canRead(token = token) == false) return
         // Strip our own chip's text FIRST: the capture mirrors the whole screen including the floating
         // verdict chip, whose "MXN…"/"$…" amount otherwise gets parsed as the offer fare — the
@@ -80,7 +81,7 @@ class OfferFramePipeline(private val readiness: mx.kompara.data.service.ReaderRe
         // Pick the card (and the platform) for this frame; see [selectOfferCard] — Uber first, with a
         // cross-app hold so a garbled Uber frame can't be mis-attributed to DiDi via a "$0.00" pill.
         val parsed = if (ownUi) null else selectOfferCard(uberParser, didiParser, blocks, capturedAtMs, hostObservation,
-            displayBounds = displayBounds, density = density, accessibility = accessibility)
+            displayBounds = displayBounds, density = density, accessibility = accessibility, appearance = appearance)
         parsed?.let {
             Log.d(TAG, "geometry host=${it.platform} source=${it.hostGeometry?.source ?: "MISSING"}")
         }

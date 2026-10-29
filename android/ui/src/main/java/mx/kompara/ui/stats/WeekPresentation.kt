@@ -54,7 +54,7 @@ data class WeekPresentation(val snapshot: WeekMoneySnapshot, val premium: Boolea
     val breakdownAvailable get() = money.byApp.values.any { it.ratePerKm != null } || snapshot.days.any { it?.contributions?.isNotEmpty() == true }
     val locked get() = !premium && breakdownAvailable && !HistoryWeeks.isFree(start, today)
     val quietLine get() = if (money.periodResult == null) "${money.tripCount()},\nfaltan datos para calcular lo que te quedó" else money.tripCount() + (if (money.inProgress > 0) " (${money.inProgress} en curso)" else "") +
-        ",\nya restamos ${money.energy()} y desgaste".let { if (money.carConfigured) it.replace(" y desgaste", ", desgaste y coche") else it }
+        ",\n${money.basis()}"
     val days get() = snapshot.days
     val bars get() = days.mapIndexed { i, day -> BarValue(listOf("lun", "mar", "mié", "jue", "vie", "sáb", "dom")[i],
         day?.periodResult?.toDouble(), day?.periodResult?.let(Formatters::formatMxnWhole) ?: "—") }

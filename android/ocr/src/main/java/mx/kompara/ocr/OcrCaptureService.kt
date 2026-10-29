@@ -221,7 +221,8 @@ class OcrCaptureService : Service() {
             frame.bitmap.recycle() // ML Kit finished (with an error) — safe to free.
             return
         }
-        // Recognition completed; ML Kit no longer touches the bitmap and the rest works off `blocks`.
+        // Retain only coarse luminance evidence from this frame; no bitmap crosses the pipeline.
+        val appearance = HostAppearanceSamples.capture(frame.bitmap, frame.capturedAtMs, frame.chipRect)
         frame.bitmap.recycle()
         // Serialize the state mutation with teardown and drop frames from a superseded capture
         // generation, so a stale pre-teardown frame can never publish to the overlay/ledger after the
@@ -231,7 +232,7 @@ class OcrCaptureService : Service() {
             if (frame.generation == captureGeneration && readiness.canRead(token = frame.token)) {
                 pipeline.process(blocks, frame.chipRect, if (BuildConfig.DEBUG) getExternalFilesDir(null) else null,
                     capturedAtMs = frame.capturedAtMs, token = frame.token, displayBounds = display,
-                    density = frame.density, accessibility = frame.accessibility)
+                    density = frame.density, accessibility = frame.accessibility, appearance = appearance)
             }
         }
     }

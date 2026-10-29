@@ -46,6 +46,7 @@ class InicioStatsTest {
         val partial = fixture.state("B6")
         assertEquals("$166", partial.amount)
         assertEquals("Llevas hoy sin contar DiDi · aprox.", partial.label)
+        assertEquals(listOf("10:05", "9:12", "8:36"), partial.offers.map { it.detail.substringBefore(" · ") })
         val negative = fixture.state("B8")
         assertEquals("−$100", negative.amount)
         assertTrue(negative.quietLine.contains("1 viaje tomado (en curso)"))

@@ -2,6 +2,7 @@ package mx.kompara.ui.screens
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -15,6 +16,8 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import mx.kompara.data.settings.PreferredMetric
@@ -94,12 +97,30 @@ fun ThresholdsContent(state: ThresholdsUiState, edit: (LimitField, String) -> Un
         }
         if (focused == null) Text("Toca la cifra para escribirla.", Modifier.padding(horizontal = 16.dp), style = KomparaType.body, color = KomparaTheme.colors.inkSecondary)
     }
-    if (state.confirmExit && state.draft != null && state.saved != null) AlertDialog(
+    if (state.confirmExit && state.draft != null && state.saved != null) Dialog(
         onDismissRequest = { if (!state.saving) confirm(false) },
-        title = { Text("¿Guardar el cambio?", style = KomparaType.title) },
-        text = { Text(ThresholdEditor.changes(state.draft, state.saved), style = KomparaType.body) },
-        confirmButton = { TextButton(save, enabled = state.canSave) { Text("Guardar", color = KomparaTheme.colors.ink) } },
-        dismissButton = { TextButton(close, enabled = !state.saving) { Text("No guardar", color = KomparaTheme.colors.ink) } },
-        containerColor = KomparaTheme.colors.paper,
-    )
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Surface(Modifier.fillMaxWidth().padding(horizontal = 20.dp).testTag("limits-exit-dialog"),
+            shape = RoundedCornerShape(4.dp), color = KomparaTheme.colors.paper,
+            border = BorderStroke(1.dp, KomparaTheme.colors.rule), shadowElevation = 4.dp) {
+            Column(Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 4.dp)) {
+                Text("¿Guardar el cambio?", style = KomparaType.title)
+                Spacer(Modifier.height(8.dp))
+                Text(ThresholdEditor.changes(state.draft, state.saved), style = KomparaType.body,
+                    color = KomparaTheme.colors.inkSecondary)
+                Spacer(Modifier.height(4.dp))
+                FlowRow(Modifier.fillMaxWidth().offset(x = 12.dp), horizontalArrangement = Arrangement.End) {
+                    TextButton(close, enabled = !state.saving, contentPadding = PaddingValues(horizontal = 12.dp),
+                        modifier = Modifier.heightIn(min = 48.dp)) {
+                        Text("No guardar", style = KomparaType.bodyStrong, color = KomparaTheme.colors.ink)
+                    }
+                    TextButton(save, enabled = state.canSave, contentPadding = PaddingValues(horizontal = 12.dp),
+                        modifier = Modifier.heightIn(min = 48.dp)) {
+                        Text("Guardar", style = KomparaType.bodyStrong, color = KomparaTheme.colors.ink)
+                    }
+                }
+            }
+        }
+    }
 }

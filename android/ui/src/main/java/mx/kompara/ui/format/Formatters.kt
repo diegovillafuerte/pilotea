@@ -136,10 +136,10 @@ object Formatters {
         return "%02d:00–%02d:00".format(h, next)
     }
 
-    /** A clock time (HH:mm) for a shift bound, in the device-local rendering of [epochMs]. */
-    fun formatClock(epochMs: Long): String =
+    /** The kit's 24-hour clock, without a leading hour zero, in the evidence's time zone. */
+    fun formatClock(epochMs: Long, zone: java.time.ZoneId = java.time.ZoneId.systemDefault()): String =
         java.time.Instant.ofEpochMilli(epochMs)
-            .atZone(java.time.ZoneId.systemDefault())
+            .atZone(zone)
             .format(CLOCK)
 
     private val ISO: DateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE
@@ -148,5 +148,5 @@ object Formatters {
     private val MONTH_ABBREV: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM", MX)
     private val MONTH_YEAR: DateTimeFormatter = DateTimeFormatter.ofPattern("MMMM yyyy", MX)
     private val WEEKDAY: DateTimeFormatter = DateTimeFormatter.ofPattern("EEEE", MX)
-    private val CLOCK: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm", MX)
+    private val CLOCK: DateTimeFormatter = DateTimeFormatter.ofPattern("H:mm", MX)
 }

@@ -39,7 +39,8 @@ class ImportFixture(context: Context) {
             "H5c" -> ImportUiState.Missing(draft(ImportMetrics("2026-10-05", netEarnings = 3100.0, totalTrips = 29), "didi"), parsed = true)
             "missing" -> ImportUiState.Missing(ImportDraftEntity("pending", "didi", "screenshot", 1), false)
             "H5d" -> ImportUiState.Correcting(review, ImportCorrection.from(metrics))
-            "H5e" -> ImportUiState.Error(draft().copy(previewJson = null), listOf(ImportFile("Uber · PDF semanal · 14 – 20 sep", "application/pdf", ByteArray((1.2 * 1024 * 1024).toInt()))), "Sin conexión o el servidor no respondió")
+            // This frame supplies known period metadata; real unread drafts omit the unknown period.
+            "H5e" -> ImportUiState.Error(draft(), listOf(ImportFile("resumen-uber.pdf", "application/pdf", ByteArray((1.2 * 1024 * 1024).toInt()))), "Sin conexión o el servidor no respondió")
             "unreadable" -> ImportUiState.Error(null, emptyList(), "No pudimos leer este archivo", retryable = false)
             "reading" -> ImportUiState.Reading()
             "auth" -> ImportUiState.SignedOut()

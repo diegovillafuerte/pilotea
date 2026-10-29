@@ -5,6 +5,15 @@ import org.junit.Test
 
 class FormattersTest {
 
+    @Test fun `clock follows kit hour style and the evidence zone at midnight and noon`() {
+        val zone = java.time.ZoneId.of("America/Mexico_City")
+        for (time in listOf("00:05" to "0:05", "09:51" to "9:51", "12:00" to "12:00", "23:59" to "23:59")) {
+            val at = java.time.LocalDate.parse("2026-10-19").atTime(java.time.LocalTime.parse(time.first)).atZone(zone).toInstant().toEpochMilli()
+            assertEquals(time.second, Formatters.formatClock(at, zone))
+        }
+        assertEquals("9:51", Formatters.formatClock(java.time.Instant.parse("2026-10-19T15:51:00Z").toEpochMilli(), zone))
+    }
+
     @Test fun `hourly limits preserve saved cents while hourly earnings still round to pesos`() {
         assertEquals("$315.25/h", Formatters.formatLimit("315.25".toBigDecimal(), perHour = true))
         assertEquals("$200/h", Formatters.formatLimit("200.00".toBigDecimal(), perHour = true))

@@ -34,7 +34,7 @@ data class MonthPresentation(val snapshot: MonthMoneySnapshot, val premium: Bool
     val label get() = if (importOnly && paymentScopes.size == 1) paymentLabel(paymentScopes.single()) else if (importOnly) "Pagos de tus resúmenes · sin detalle por día" else "$totalLabel · aprox."
     val amount get() = (if (importOnly) if (paymentScopes.any { it.payment == null }) null else paymentScopes.fold(BigDecimal.ZERO) { sum, it -> sum + it.payment!! }
         else money.periodResult?.takeIf { money.contributions.isNotEmpty() || money.carConfigured })?.let(Formatters::formatMxnWhole)
-    val basis get() = "ya restamos ${money.energy()}" + if (money.carConfigured) ", desgaste y coche" else " y desgaste"
+    val basis get() = money.basis()
     val quietLine get() = if (importOnly) (if (paymentScopes.all { it.tripsKnown }) "${paymentScopes.sumOf { it.trips }} viajes según tu resumen, sin km" else "Sin número de viajes ni kilómetros en tu resumen") else
         money.tripCount() + (if (money.inProgress > 0) " (${money.inProgress} en curso)" else "") + ",\n" +
             if (money.periodResult == null) "faltan datos para calcular lo que te quedó" else basis

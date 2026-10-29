@@ -26,8 +26,9 @@ class DayPresentationTest {
         assertEquals("$548", early.amount); assertEquals("$1,026", late.amount)
         assertEquals("6 viajes tomados en 4 h 50 min (1 en curso),\nya restamos gasolina, desgaste y coche", visible(early.quietLine))
         assertEquals("9 viajes tomados en 8 h 10 min,\nya restamos gasolina, desgaste y coche", visible(late.quietLine))
-        assertEquals(listOf("14:32", "12:10", "11:48", "11:20", "10:41", "10:02", "09:51", "09:24", "08:40", "08:15"), early.rows.map(early::clock))
-        assertEquals(listOf("09:51", "08:40"), early.missedAbove.map(early::clock))
+        assertEquals(listOf("14:32", "12:10", "11:48", "11:20", "10:41", "10:02", "9:51", "9:24", "8:40", "8:15"), early.rows.map(early::clock))
+        assertEquals(listOf("9:51", "8:40"), early.missedAbove.map(early::clock))
+        assertEquals("Oferta de las 9:51 · Se fue sin tomar", early.offer(early.at("9:51"))!!.title)
         assertEquals(listOf("$979", "−$217", "−$214", "$548"), dayCalculation(early.money).rows.map { it.value })
         assertEquals(listOf("$1,590", "−$350", "−$214", "$1,026"), dayCalculation(late.money).rows.map { it.value })
         assertEquals(1, dayCalculation(early.money).notes.size)
@@ -102,15 +103,38 @@ class DayPresentationTest {
         assertFalse(dayCalculation(past.money).title.contains("hoy"))
     }
 
-    @Test fun `no trips hides money and unknown costs stay absent while zero configured costs are valid`() {
+    @Test fun `only today's no trip day hides accrued car money`() {
         val day = fixture.day()
         val empty = mx.kompara.data.accounting.PeriodAccounting.calculate(day.money.window, emptyList(), fixture.fixture.schedule)
         val state = DayPresentation(day.snapshot.copy(money = empty, offers = emptyList(), trips = emptyList()), day.settings)
         assertNull(state.amount); assertEquals("Aún no registramos ofertas hoy", state.emptyMessage)
         assertEquals("−$214", Formatters.formatMxnWhole(empty.periodResult!!))
+        val pastMoney = empty.copy(window = empty.window.copy(asOf = empty.window.asOf.plusSeconds(86_400)))
+        val past = state.copy(snapshot = state.snapshot.copy(money = pastMoney))
+        assertEquals("−$214", past.amount)
+        assertEquals("Te quedaron el lunes 19 oct · aprox.", past.label)
+        assertEquals("Sin viajes; lo del coche corre igual", past.quietLine)
+        assertEquals(past.amount, dayCalculation(pastMoney).rows.last().value)
+        val withOffers = past.copy(snapshot = past.snapshot.copy(offers = day.snapshot.offers.filter { !it.accepted }))
+        assertEquals(past.amount, withOffers.amount)
+        assertEquals(past.quietLine, withOffers.quietLine)
+        val unknown = past.copy(snapshot = past.snapshot.copy(money = pastMoney.copy(periodResult = null)))
+        assertNull(unknown.amount)
         val noCost = day.money.copy(carCharges = emptyList(), carCost = java.math.BigDecimal.ZERO)
         assertEquals(3, dayCalculation(noCost).rows.size)
         assertFalse(DayPresentation(day.snapshot.copy(money = noCost), day.settings).quietLine.contains("coche"))
+    }
+
+    @Test fun `past no trip zero cost remains visible without borrowing today's amount`() {
+        val day = fixture.day()
+        val pastWindow = day.money.window.copy(asOf = day.money.window.asOf.plusSeconds(86_400))
+        val schedule = fixture.fixture.schedule
+        val freeCar = mx.kompara.data.accounting.CostSchedule(schedule.running,
+            schedule.car.map { it.copy(weeklyMxn = java.math.BigDecimal.ZERO) })
+        val money = mx.kompara.data.accounting.PeriodAccounting.calculate(pastWindow, emptyList(), freeCar)
+        val past = day.copy(snapshot = day.snapshot.copy(money = money, offers = emptyList(), trips = emptyList()))
+        assertEquals("$0", past.amount)
+        assertEquals("Sin viajes; lo del coche corre igual", past.quietLine)
     }
 
     @Test fun `report contains only explicit derived reading fields not daily earnings or raw capture`() {

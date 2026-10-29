@@ -42,7 +42,8 @@ object OverlayPositioning {
 
     /** Refresh capture age/source without briefly hiding an unchanged, already settled window. */
     fun sameLayout(previous: HostGeometry?, next: HostGeometry): Boolean =
-        previous?.copy(capturedAtMs = next.capturedAtMs, layoutId = next.layoutId, source = next.source) == next
+        previous?.copy(capturedAtMs = next.capturedAtMs, layoutId = next.layoutId, source = next.source,
+            appearance = next.appearance) == next
 
     fun geometryProblem(g: HostGeometry?, host: String, viewport: OverlayViewport, nowMs: Long): String? = when {
         g == null -> "UNVALIDATED_GEOMETRY"

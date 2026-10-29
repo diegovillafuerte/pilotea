@@ -32,17 +32,20 @@ fun WeekSummaryScreen(
     onImport: () -> Unit,
     onDay: (LocalDate) -> Unit,
     onMonth: () -> Unit,
-    onCosts: () -> Unit,
     onUpgrade: () -> Unit,
     viewModel: WeekSummaryViewModel = hiltViewModel(),
     onImportReview: (String) -> Unit = {},
+    carModel: CarCostViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val sheet by viewModel.sheet.collectAsStateWithLifecycle()
+    val car by carModel.state.collectAsStateWithLifecycle()
     var anchors by remember { mutableStateOf(WeekSheetAnchors()) }
     val windowHeight = LocalView.current.rootView.height.toFloat()
     WeekSummaryContent(state, viewModel::openSheet, { viewModel.step(-1) }, { viewModel.step(1) }, onMonth,
-        onCosts, onUpgrade, viewModel::retry, modifier, onAnchor = { name, bottom -> anchors = anchors.updated(name, bottom) }, onImportReview = onImportReview)
+        carModel::open, onUpgrade, viewModel::retry, modifier, onAnchor = { name, bottom -> anchors = anchors.updated(name, bottom) }, onImportReview = onImportReview)
+    if (car.open) CarCostSheet(car, carModel::amount, carModel::date, { carModel.save() }, carModel::dismiss,
+        carModel::confirmRemove, { carModel.save(remove = true) }, carModel::open)
     val week = state.week
     if (sheet != null && week != null && (sheet in listOf("picker", "calculation") || !week.locked)) {
         SheetScaffold(weekSheetTitle(sheet!!, week), viewModel::closeSheet, weekSheetSize(sheet!!, windowHeight, anchors)) {
@@ -91,10 +94,7 @@ fun WeekSummaryContent(
                 Spacer(Modifier.height(16.dp))
                 WeekFigureRow(week.amount ?: "—", week.bars.any { (it.value ?: 0.0) < 0 }) {
                     when {
-                        week.locked -> Column(Modifier.testTag("week-locked")) {
-                            Text("Por día · Premium", style = KomparaType.small)
-                            Text("Gratis esta semana y las 3 anteriores.", style = KomparaType.small, color = KomparaTheme.colors.inkSecondary)
-                        }
+                        week.locked -> LockedWeekPlot()
                         week.money.paymentOnly.isNotEmpty() -> Text("Sin detalle por día", style = KomparaType.small, color = KomparaTheme.colors.inkSecondary)
                         else -> WeekBars(week, Modifier.onGloballyPositioned { onAnchor("days", it.boundsInWindow().bottom) }) { onSheet("days") }
                     }
@@ -136,6 +136,24 @@ fun WeekSummaryContent(
             Canvas(Modifier.fillMaxWidth().height(2.dp)) { drawLine(color, Offset.Zero, Offset(size.width, 0f), 2.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(5.dp.toPx(), 4.dp.toPx()))) }
             Text("Sin conexión", Modifier.padding(top = 12.dp), style = KomparaType.body)
             Text("Todo lo de esta pantalla está en tu teléfono.", style = KomparaType.small, color = KomparaTheme.colors.inkSecondary)
+        }
+    }
+}
+
+@Composable
+private fun LockedWeekPlot() {
+    val colors = KomparaTheme.colors
+    Column(Modifier.testTag("week-locked")) {
+        Column(Modifier.heightIn(min = 72.dp).padding(bottom = 8.dp), verticalArrangement = Arrangement.Bottom) {
+            Text("Por día · Premium", style = KomparaType.bodyStrong)
+            Text("Gratis esta semana\ny las 3 anteriores.", Modifier.padding(top = 2.dp), style = KomparaType.small, color = colors.inkSecondary)
+        }
+        Box(Modifier.fillMaxWidth().height(1.dp).background(colors.inkTertiary).testTag("week-locked-zero"))
+        Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            listOf("L", "M", "M", "J", "V", "S", "D").forEach {
+                Text(it, Modifier.weight(1f), style = KomparaType.small, color = colors.inkSecondary,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            }
         }
     }
 }

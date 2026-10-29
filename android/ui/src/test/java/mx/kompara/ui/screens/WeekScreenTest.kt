@@ -102,6 +102,15 @@ class WeekScreenTest {
         compose.runOnIdle { week = fixture.week("E2") }
         compose.onNodeWithText("$4,747").assertExists()
         compose.onNodeWithText("Por día · Premium").assertExists()
+        compose.onNodeWithTag("week-bars").assertDoesNotExist()
+        val baseline = compose.onNodeWithTag("week-locked-zero").fetchSemanticsNode().boundsInRoot
+        assertEquals(168f, baseline.width, .1f)
+        assertEquals(1f, baseline.height, .1f)
+        listOf("L", "J", "V", "S", "D").forEach {
+            val day = compose.onNodeWithText(it).fetchSemanticsNode().boundsInRoot
+            assertTrue(day.top >= baseline.bottom)
+        }
+        compose.onAllNodesWithText("M").assertCountEquals(2)
         compose.onNodeWithTag("week-calculation").assertExists()
         compose.onNodeWithText("Ver Premium").performScrollTo().performClick()
         assertEquals(1, upgrade)
@@ -155,7 +164,7 @@ class WeekScreenTest {
             }
         }
         val cases = listOf("E1", "E1b", "E1c", "E1d", "E1e", "E1f", "E2", "E6", "E7", "E7b", "E8", "N4").map { Triple(it, 1f, 393) } +
-            listOf(Triple("N4", 1.3f, 393), Triple("E1", 1.3f, 393), Triple("E1e", 1.3f, 393), Triple("E1f", 1.3f, 393), Triple("E1b", 2f, 320), Triple("E1f", 2f, 320), Triple("N4", 2f, 320))
+            listOf(Triple("N4", 1.3f, 393), Triple("E1", 1.3f, 393), Triple("E2", 1.3f, 393), Triple("E2", 2f, 320), Triple("E1e", 1.3f, 393), Triple("E1f", 1.3f, 393), Triple("E1b", 2f, 320), Triple("E1f", 2f, 320), Triple("N4", 2f, 320))
         cases.forEach { (id, scale, size) ->
             compose.runOnIdle { frame = id; font = scale; width = size }
             compose.waitForIdle()

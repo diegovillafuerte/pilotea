@@ -10,7 +10,6 @@ import mx.kompara.metrics.VerdictLevel
 import mx.kompara.ui.components.*
 import mx.kompara.ui.format.Formatters
 import java.time.Instant
-import java.time.format.DateTimeFormatter
 
 enum class HoyMode { MONEY, FIRST_OFF, RECOVERY, FIRST_PREPARED, PREPARED, COSTS, EMPTY }
 data class HoyOffer(val id: Long, val outcome: String, val detail: String, val rate: String?, val mark: OfferMarkState)
@@ -65,7 +64,7 @@ object InicioStats {
         }
         val example = limits.copy(band = if (sampleRate != null && samplePosition != null) ReglaBand.Rated(samplePosition, sampleRate)
             else ReglaBand.Unavailable(ReglaUnavailable.UNCONFIRMED))
-        fun clock(at: Long) = Instant.ofEpochMilli(at).atZone(zone).format(DateTimeFormatter.ofPattern("HH:mm"))
+        fun clock(at: Long) = Formatters.formatClock(at, zone)
         fun relative(at: Long): String {
             val atDate = Instant.ofEpochMilli(at).atZone(zone).toLocalDate()
             return when (atDate) {

@@ -244,7 +244,6 @@ private fun NavGraphBuilder.tabScreens(navController: NavController) {
             onImportReview = { navController.navigate("import-review/$it") },
             onDay = { navController.navigate(KomparaDestination.dayRoute(it.toString())) },
             onMonth = { navController.navigate(KomparaDestination.MONTH_ROUTE) { launchSingleTop = true } },
-            onCosts = { navController.navigate(KomparaDestination.AJUSTES.route) },
             onUpgrade = { navController.navigateToPaywall(GateSurface.HISTORY) },
             onImport = { navController.navigate(KomparaDestination.IMPORT_ROUTE) },
         )
@@ -392,7 +391,6 @@ private fun NavGraphBuilder.statsScreens(navController: NavController, snackbar:
             onImportReview = { navController.navigate("import-review/$it") },
             onDay = { navController.navigate(KomparaDestination.dayRoute(it.toString())) },
             onMonth = { navController.navigate(KomparaDestination.MONTH_ROUTE) { launchSingleTop = true } },
-            onCosts = { navController.navigate(KomparaDestination.AJUSTES.route) },
             onUpgrade = { navController.navigateToPaywall(GateSurface.HISTORY) },
             // PR-E: a premium-but-unverified driver's benchmark gate here routes to import-to-verify.
             onImport = { navController.navigate(KomparaDestination.IMPORT_ROUTE) },

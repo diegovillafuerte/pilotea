@@ -120,4 +120,27 @@ class MonthPresentationTest {
         assertEquals("$7,170", older.amount)
         assertFalse(fixture.month("E3b").copy(premium = false).locked)
     }
+
+    @Test fun `month basis discloses typical dated costs and keeps payment only copy separate`() {
+        val f = fixture.fixture
+        val month = fixture.month()
+        val original = f.schedule.running.single()
+        val schedule = CostSchedule(listOf(original.copy(confirmation = CostConfirmation.TYPICAL),
+            original.copy(id = 2, effectiveFrom = f.date.atStartOfDay(f.zone).toInstant().toEpochMilli())), f.schedule.car)
+        val records = month.money.contributions.map { it.record }
+        val typical = MonthPresentation(monthMoneySnapshot(month.money.window, records, schedule))
+        assertEquals("155 viajes tomados (1 en curso),\ncon costos típicos", typical.quietLine)
+        assertEquals("con costos típicos", typical.basis)
+        assertEquals(month.amount, typical.amount)
+        assertTrue(monthCalculation(typical).notes.contains("Con costos típicos"))
+        assertEquals("ya restamos gasolina, desgaste y coche", month.basis)
+        val confirmed = typical.money.copy(contributions = typical.money.contributions.map {
+            it.copy(runningCostVersion = original)
+        }, carCharges = emptyList(), carCost = java.math.BigDecimal.ZERO)
+        assertEquals("ya restamos gasolina y desgaste", typical.copy(snapshot = typical.snapshot.copy(money = confirmed)).basis)
+        val imported = fixture.month("E3b")
+        val importWithTypical = MonthPresentation(monthMoneySnapshot(imported.money.window, imported.paymentScopes, schedule))
+        assertEquals(imported.quietLine, importWithTypical.quietLine)
+        assertFalse(importWithTypical.quietLine.contains("costos típicos"))
+    }
 }

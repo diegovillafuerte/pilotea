@@ -10,7 +10,6 @@ import mx.kompara.ui.components.OfferMarkState
 import mx.kompara.ui.format.Formatters
 import java.math.BigDecimal
 import java.math.RoundingMode
-import java.time.Instant
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -36,8 +35,8 @@ data class DayPresentation(val snapshot: DayMoneySnapshot, val settings: Setting
     val title = if (date == today) "Hoy · ${date.format(DateTimeFormatter.ofPattern("d MMM", spanish))}"
         else date.dated(today).replaceFirstChar { it.titlecase(spanish) }
     val label = money.dayLabel()
-    val amount = money.periodResult?.takeIf { money.trips > 0 }?.let(Formatters::formatMxnWhole)
-    val quietLine = money.tripCount() +
+    val amount = money.periodResult?.takeUnless { money.isToday() && money.trips == 0 }?.let(Formatters::formatMxnWhole)
+    val quietLine = if (!money.isToday() && money.trips == 0 && money.carConfigured) "Sin viajes; lo del coche corre igual" else money.tripCount() +
         (if (money.hoursOnline.signum() > 0) " en ${Formatters.formatDuration(money.hoursOnline.multiply(BigDecimal(60)).setScale(0, RoundingMode.HALF_UP).toLong())}" else "") +
         (if (money.inProgress > 0) " " + Formatters.unbroken("(${money.inProgress} en curso)") else "") + ",\n${money.basis()}"
     val emptyMessage = when {
@@ -53,7 +52,7 @@ data class DayPresentation(val snapshot: DayMoneySnapshot, val settings: Setting
         "IPH" -> "te deja por hora, sin el coche"
         else -> "te deja, sin el coche"
     }
-    fun clock(row: OfferRowModel) = Instant.ofEpochMilli(row.seenAt).atZone(money.window.zone).format(DateTimeFormatter.ofPattern("HH:mm"))
+    fun clock(row: OfferRowModel) = Formatters.formatClock(row.seenAt, money.window.zone)
     fun suppressed(row: OfferRowModel): OfferPresentationEntity? {
         val session = snapshot.offers.firstOrNull { it.id == row.offerId }?.sessionId ?: return null
         return snapshot.presentations.firstOrNull { it.sessionId == session && it.outcome == "SUPPRESSED" }

@@ -9,7 +9,6 @@ import android.view.Gravity
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowManager
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -45,6 +44,7 @@ import mx.kompara.data.settings.PreferredMetric
 import mx.kompara.data.settings.SettingsRepository
 import mx.kompara.metrics.recordedMetrics
 import mx.kompara.parsers.model.HostGeometry
+import mx.kompara.parsers.model.HostAppearance
 import mx.kompara.parsers.model.HostOrientation
 import mx.kompara.parsers.model.HostRect
 import mx.kompara.ui.components.ReglaBand
@@ -200,14 +200,14 @@ class OverlayController @Inject constructor(
             alpha = 0f // measure invisibly; never flash at an unsafe provisional position
             setViewTreeLifecycleOwner(owner); setViewTreeSavedStateRegistryOwner(owner); setViewTreeViewModelStoreOwner(owner)
             setContent {
-                KomparaTheme {
+                KomparaTheme(darkTheme = geometry?.appearance == HostAppearance.DARK) {
                     val state = chipState ?: return@KomparaTheme
                     val g = geometry ?: return@KomparaTheme
                     val v = viewport ?: return@KomparaTheme
                     val reduced = android.provider.Settings.Global.getFloat(context.contentResolver,
                         android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
                     MeasuredVerdictChip(state, g, v, g.capturedAtMs, savedPosition, chipVisible, reduced,
-                        isSystemInDarkTheme(), VerdictChipCallbacks(::onDrag) { onDragEnd() }) { decision ->
+                        g.appearance == HostAppearance.DARK, VerdictChipCallbacks(::onDrag) { onDragEnd() }) { decision ->
                         // No IO or Compose mutation during measurement. Identity guards reject work
                         // posted by a disposed composition or an older frame of this offer.
                         val frameGeneration = generation
@@ -418,7 +418,7 @@ class OverlayController @Inject constructor(
             setViewTreeSavedStateRegistryOwner(owner)
             setViewTreeViewModelStoreOwner(owner)
             setContent {
-                KomparaTheme {
+                KomparaTheme(darkTheme = g.appearance == HostAppearance.DARK) {
                     ReaderStoppedTab()
                 }
             }

@@ -155,4 +155,20 @@ class OverlayStateMachineTest {
         assertEquals(1,run.seen.filterIsInstance<OverlayVisibility.Reading>().size)
         assertEquals(260,run.seen.filterIsInstance<OverlayVisibility.Showing>().last().event.card.hostGeometry?.offerCard?.top)
     }
+    @Test fun `same offer swaps host appearance without a new reading or changing placement`() = runTest {
+        val run = observe()
+        val geometry = mx.kompara.parsers.model.HostGeometry("uber", "test", 1,
+            mx.kompara.parsers.model.HostRect(0,0,393,852), mx.kompara.parsers.model.HostOrientation.PORTRAIT,
+            mx.kompara.parsers.model.HostRect(0,80,393,128), mx.kompara.parsers.model.HostRect(0,545,393,838),
+            emptyList(), emptyList(), appearance = mx.kompara.parsers.model.HostAppearance.LIGHT)
+        val night = geometry.copy(appearance = mx.kompara.parsers.model.HostAppearance.DARK)
+        run.events.emit(parsed().let { it.copy(card=it.card.copy(hostGeometry=geometry)) }); testScheduler.runCurrent()
+        run.events.emit(parsed(2).let { it.copy(card=it.card.copy(hostGeometry=night)) }); testScheduler.runCurrent()
+        assertEquals(2,run.seen.filterIsInstance<OverlayVisibility.Showing>().size)
+        assertEquals(1,run.seen.filterIsInstance<OverlayVisibility.Reading>().size)
+        assertEquals(mx.kompara.parsers.model.HostAppearance.DARK,
+            run.seen.filterIsInstance<OverlayVisibility.Showing>().last().event.card.hostGeometry?.appearance)
+        assertTrue(OverlayPositioning.sameLayout(geometry, night))
+    }
+
 }

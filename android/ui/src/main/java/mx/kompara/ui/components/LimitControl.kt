@@ -9,6 +9,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.selection.LocalTextSelectionColors
+import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.focusable
 import androidx.compose.ui.input.pointer.pointerInput
@@ -168,21 +170,24 @@ private fun EditorLimitControl(label: String, value: String, unit: String, onVal
                         Text(if (cue == OfferMarkState.ABOVE) "desde" else "abajo de", style = KomparaType.body, color = c.inkSecondary)
                     }
                     Spacer(Modifier.height(4.dp))
-                    BasicTextField(input, { input = it; onValueChange(it.text) }, enabled = enabled, singleLine = true,
-                        textStyle = KomparaType.number.copy(color = c.ink), cursorBrush = SolidColor(c.brand),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = androidx.compose.ui.text.input.ImeAction.Done),
-                        modifier = Modifier.widthIn(max = if (stacked) 240.dp else 155.dp).heightIn(min = 48.dp)
-                            .onFocusChanged {
-                                focused = it.isFocused; onFocus(it.isFocused)
-                            }.clip(RoundedCornerShape(8.dp)).background(c.paperSecondary)
-                            .border(if (focused) 2.dp else 0.dp, if (focused) c.brand else c.paperSecondary, RoundedCornerShape(8.dp))
-                            .padding(horizontal = 10.dp, vertical = 4.dp)
-                            .semantics { contentDescription = label.removeSuffix(" ·"); if (error != null) error(error) },
-                        decorationBox = { content -> Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("$", style = KomparaType.number)
-                            Box(Modifier.weight(1f)) { content() }
-                            Text(unit, style = KomparaType.body, color = c.inkSecondary)
-                        } })
+                    CompositionLocalProvider(LocalTextSelectionColors provides TextSelectionColors(
+                        handleColor = c.ink, backgroundColor = c.ink.copy(alpha = .14f))) {
+                        BasicTextField(input, { input = it; onValueChange(it.text) }, enabled = enabled, singleLine = true,
+                            textStyle = KomparaType.number.copy(color = c.ink), cursorBrush = SolidColor(c.brand),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = androidx.compose.ui.text.input.ImeAction.Done),
+                            modifier = Modifier.widthIn(max = if (stacked) 240.dp else 155.dp).heightIn(min = 48.dp)
+                                .onFocusChanged {
+                                    focused = it.isFocused; onFocus(it.isFocused)
+                                }.clip(RoundedCornerShape(8.dp)).background(c.paperSecondary)
+                                .border(if (focused) 2.dp else 0.dp, if (focused) c.brand else c.paperSecondary, RoundedCornerShape(8.dp))
+                                .padding(horizontal = 10.dp, vertical = 4.dp)
+                                .semantics { contentDescription = label.removeSuffix(" ·"); if (error != null) error(error) },
+                            decorationBox = { content -> Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("$", style = KomparaType.number)
+                                Box(Modifier.weight(1f)) { content() }
+                                Text(unit, style = KomparaType.body, color = c.inkSecondary)
+                            } })
+                    }
                 }
             }
             @Composable fun steps() {

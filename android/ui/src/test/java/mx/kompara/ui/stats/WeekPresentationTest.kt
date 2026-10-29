@@ -84,4 +84,27 @@ class WeekPresentationTest {
         assertNull(unknown.roundingNote)
     }
 
+    @Test fun `week basis follows its dated cost evidence including costs later confirmed`() {
+        val f = fixture.fixture
+        val week = fixture.week()
+        val original = f.schedule.running.single()
+        val confirmedNow = original.copy(id = 2, effectiveFrom = f.date.atStartOfDay(f.zone).toInstant().toEpochMilli())
+        val typicalHistory = CostSchedule(listOf(original.copy(confirmation = CostConfirmation.TYPICAL), confirmedNow), f.schedule.car)
+        val money = PeriodAccounting.calculate(week.money.window, f.weekRecords, typicalHistory)
+        val state = week.copy(snapshot = week.snapshot.copy(money = money))
+        assertEquals("62 viajes tomados,\ncon costos típicos", state.quietLine)
+        assertEquals(week.amount, state.amount)
+        assertTrue(weekCalculation(state).notes.contains("Con costos típicos"))
+        assertEquals("62 viajes tomados,\nya restamos gasolina, desgaste y coche", week.quietLine)
+        val mixed = money.copy(contributions = money.contributions.mapIndexed { index, value ->
+            if (index == 0) value.copy(runningCostVersion = confirmedNow) else value
+        })
+        assertEquals(state.quietLine, week.copy(snapshot = week.snapshot.copy(money = mixed)).quietLine)
+        val withoutCar = money.copy(carCharges = emptyList(), carCost = java.math.BigDecimal.ZERO)
+        assertEquals(state.quietLine, week.copy(snapshot = week.snapshot.copy(money = withoutCar)).quietLine)
+        val open = fixture.week("E8")
+        val openMoney = PeriodAccounting.calculate(open.money.window, open.money.contributions.map { it.record }, typicalHistory)
+        assertEquals("6 viajes tomados (1 en curso),\ncon costos típicos", open.copy(snapshot = open.snapshot.copy(money = openMoney)).quietLine)
+    }
+
 }

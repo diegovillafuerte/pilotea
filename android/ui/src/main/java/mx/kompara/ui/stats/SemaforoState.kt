@@ -39,7 +39,7 @@ data class SemaforoState(
 
 fun semaforoState(reader: ReaderReadiness, settings: Settings, suppressed: List<SuppressedOffer>, zone: ZoneId,
     needsCaptureConsent: Boolean = false): SemaforoState {
-    fun clock(at: Long) = Instant.ofEpochMilli(at).atZone(zone).format(DateTimeFormatter.ofPattern("HH:mm"))
+    fun clock(at: Long) = mx.kompara.ui.format.Formatters.formatClock(at, zone)
     fun relative(at: Long): String {
         val date = Instant.ofEpochMilli(at).atZone(zone).toLocalDate()
         return when (date) {

@@ -50,13 +50,44 @@ class ImportScreenTest {
         var state by mutableStateOf(fixture.frame("H5d") as ImportUiState.Correcting)
         compose.setContent { KomparaTheme { ImportContent(state, ImportActions(correction = { state = state.copy(values = it) })) } }
         compose.onNodeWithText("Kilómetros").assertDoesNotExist()
+        compose.onNodeWithText("Lunes de la semana").assertDoesNotExist()
+        compose.onAllNodes(hasSetTextAction()).assertCountEquals(3)
         compose.onNodeWithContentDescription("Te pagó la app").performTextReplacement("5400")
-        compose.onNodeWithText("Te pagó la app · se leyó $5340").assertExists()
+        compose.onNodeWithText("Te pagó la app · se leyó $5,340").assertExists()
         compose.onNodeWithText("Guardar corrección").assertIsDisplayed()
+    }
+    @Test fun `failed upload describes retained source and known period rather than raw filename`() {
+        compose.setContent { KomparaTheme { ImportContent(fixture.frame("H5e"), ImportActions()) } }
+        compose.onNodeWithText("Uber · PDF semanal · 14 – 20 sep").assertExists()
+        compose.onNodeWithText("resumen-uber.pdf").assertDoesNotExist()
+        compose.onNodeWithText("1.2 MB").assertExists()
+        compose.onNodeWithText("Reintentar").assertIsDisplayed()
+    }
+    @Test fun `shared fields retain selection through external text and saved state without emitting edits`() {
+        var value by mutableStateOf("1234")
+        var edits = 0
+        val restoration = androidx.compose.ui.test.junit4.StateRestorationTester(compose)
+        restoration.setContent { KomparaTheme {
+            mx.kompara.ui.components.KomparaTextField(value, { value = it; edits++ }, "Número")
+        } }
+        val field = compose.onNodeWithContentDescription("Número")
+        field.performTextInputSelection(androidx.compose.ui.text.TextRange(1, 3))
+        compose.runOnIdle { value = "12345" }
+        assertEquals(androidx.compose.ui.text.TextRange(1, 3), field.fetchSemanticsNode()
+            .config[androidx.compose.ui.semantics.SemanticsProperties.TextSelectionRange])
+        restoration.emulateSavedInstanceStateRestore()
+        assertEquals(androidx.compose.ui.text.TextRange(1, 3), field.fetchSemanticsNode()
+            .config[androidx.compose.ui.semantics.SemanticsProperties.TextSelectionRange])
+        assertEquals(0, edits)
     }
     @Test fun `live correction focuses payment for native numeric entry`() {
         compose.setContent { KomparaTheme { ImportContent(fixture.frame("H5d"), ImportActions(), focusCorrection = true) } }
         compose.onNodeWithContentDescription("Te pagó la app").assertIsFocused()
+        assertEquals(androidx.compose.ui.text.TextRange(4), compose.onNodeWithContentDescription("Te pagó la app")
+            .fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.TextSelectionRange])
+        val hours = compose.onNodeWithContentDescription("Horas en línea").fetchSemanticsNode().boundsInRoot
+        val suffix = compose.onNodeWithText("h").fetchSemanticsNode().boundsInRoot
+        assertTrue("fixed h stays beside its number", suffix.left - hours.left < 50f)
     }
     @Test fun `partial statement gives consequence before Use PDF and no fabricated net`() {
         var used = 0

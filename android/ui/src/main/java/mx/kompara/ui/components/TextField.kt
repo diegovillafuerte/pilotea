@@ -2,6 +2,8 @@ package mx.kompara.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +17,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -29,6 +32,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -65,8 +70,18 @@ fun KomparaTextField(
     visualTransformation: VisualTransformation = VisualTransformation.None,
     underlined: Boolean = false,
     suffix: String? = null,
+    inlineAffixes: Boolean = false,
+    cursorAtEndOnFocus: Boolean = false,
 ) {
     var focused by remember { mutableStateOf(false) }
+    var input by rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue(value)) }
+    if (input.text != value) input = input.copy(text = value)
+    LaunchedEffect(focused) {
+        if (focused && cursorAtEndOnFocus) {
+            withFrameNanos { }
+            input = input.copy(selection = TextRange(input.text.length))
+        }
+    }
     val borderColor = if (error != null) {
         MaterialTheme.colorScheme.error
     } else if (focused) {
@@ -84,8 +99,12 @@ fun KomparaTextField(
             fontWeight = FontWeight.Medium,
         )
         BasicTextField(
-            value = value,
-            onValueChange = onValueChange,
+            value = input,
+            onValueChange = {
+                val changed = input.text != it.text
+                input = it
+                if (changed) onValueChange(it.text)
+            },
             singleLine = singleLine,
             readOnly = readOnly,
             enabled = enabled,
@@ -94,7 +113,7 @@ fun KomparaTextField(
             textStyle = inputStyle.copy(
                 color = MaterialTheme.colorScheme.onSurface,
             ),
-            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+            cursorBrush = SolidColor(if (inlineAffixes) ink else MaterialTheme.colorScheme.primary),
             modifier = Modifier
                 .onFocusChanged { focused = it.isFocused }
                 .semantics { contentDescription = label; if (error != null) error(error) }
@@ -110,7 +129,7 @@ fun KomparaTextField(
             decorationBox = { innerTextField ->
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(if (inlineAffixes) 0.dp else 8.dp),
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = if (underlined) 0.dp else 14.dp, vertical = 10.dp),
@@ -118,12 +137,12 @@ fun KomparaTextField(
                     if (prefix != null) {
                         Text(
                             text = prefix,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = if (inlineAffixes) ink else MaterialTheme.colorScheme.onSurfaceVariant,
                             style = if (underlined) inputStyle else MaterialTheme.typography.bodyLarge,
                             fontWeight = FontWeight.SemiBold,
                         )
                     }
-                    Box(modifier = Modifier.weight(1f)) {
+                    Box(modifier = if (inlineAffixes && suffix != null) Modifier.width(IntrinsicSize.Min) else Modifier.weight(1f)) {
                         if (value.isEmpty() && placeholder != null) {
                             Text(
                                 text = placeholder,
@@ -133,7 +152,8 @@ fun KomparaTextField(
                         }
                         innerTextField()
                     }
-                    if (suffix != null) Text(suffix, style = KomparaType.body, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (suffix != null) Text(suffix, Modifier.padding(start = if (inlineAffixes) 8.dp else 0.dp),
+                        style = KomparaType.body, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             },
         )
