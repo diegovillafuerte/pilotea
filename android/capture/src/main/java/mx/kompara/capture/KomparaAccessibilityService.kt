@@ -1,8 +1,13 @@
 package mx.kompara.capture
 
 import android.accessibilityservice.AccessibilityService
+import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineName
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.isActive
@@ -41,7 +46,32 @@ class KomparaAccessibilityService : AccessibilityService() {
 
     @Inject lateinit var screenReaderLane: ScreenReaderLane
 
-    private val scope = pipelineScope(kotlinx.coroutines.Dispatchers.Default)
+    private val scope = pipelineScope(kotlinx.coroutines.Dispatchers.Default) { context, error ->
+        val component = context[CoroutineName]?.name ?: "capture"
+        handleComponentFailure(component, error)
+    }
+
+    private fun handleComponentFailure(component: String, error: Throwable) {
+        // Do not log exception messages: parser/framework errors may contain host screen text.
+        Log.e(TAG, "$component stopped after ${error.javaClass.simpleName}")
+        // The failed job/start has already stopped. Clear its state without stopping siblings.
+        runCatching {
+            when (component) {
+                "silent-lane" -> {
+                    ScreenReaderState.setSilentLaneFailed(true)
+                    screenReaderLane.stop()
+                    if (!ScreenReaderState.running.value) readiness.captureFailed()
+                }
+                "host-poll" -> {
+                    foregroundOcrOwnedApp.value = null
+                    HostGeometryEvidence.publish(null)
+                    mx.kompara.data.service.DrivingActivity.unknown()
+                }
+            }
+        }.onFailure { Log.e(TAG, "$component cleanup failed: ${it.javaClass.simpleName}") }
+    }
+
+    private fun componentScope(name: String) = CoroutineScope(scope.coroutineContext + CoroutineName(name))
 
     /** Host identity makes C6 once per foreground visit, including direct Uber → DiDi switches. */
     private val foregroundOcrOwnedApp = MutableStateFlow<String?>(null)
@@ -59,11 +89,11 @@ class KomparaAccessibilityService : AccessibilityService() {
             },
             displayProvider = ::readHostDisplay,
         )
-        pipeline.start(scope)
+        pipeline.start(componentScope("snapshot-pipeline"))
         // Keep the active spec set current as the OTA layer applies new bundles / kill switches
         // (B-033). The pipeline starts on the bundled baseline; this upgrades it as the
         // SpecConfigRepository emits remote-cached/verified specs.
-        offerPipeline.trackActiveSpecs(scope)
+        offerPipeline.trackActiveSpecs(componentScope("active-specs"))
         // Run each coalesced snapshot through the spec engine and publish OfferEvents to the shared
         // OfferEventBus, which the OCR path (design §7) also publishes to. (The trip log + telemetry
         // still collect offerPipeline.offers directly.)
@@ -79,23 +109,30 @@ class KomparaAccessibilityService : AccessibilityService() {
         offerPipeline.offers
             .filterNot { it.packageName in OCR_OWNED_PACKAGES }
             .onEach { OfferEventBus.tryEmit(it) }
-            .launchIn(scope)
+            .launchIn(componentScope("offer-pipeline"))
         // Drive the verdict overlay from the unified bus. The service is the only place allowed to
         // attach the TYPE_ACCESSIBILITY_OVERLAY window; the presenter (an :overlay OverlayController,
         // injected as an interface to avoid a :capture -> :overlay cycle) does the window plumbing.
-        overlayPresenter.start(scope, OfferEventBus.events, this, foregroundOcrOwnedApp)
+        overlayPresenter.start(componentScope("overlay"), OfferEventBus.events, this, foregroundOcrOwnedApp)
         // Primary capture lane on API 30+ (B-091): silent AccessibilityService.takeScreenshot → OCR,
-        // no MediaProjection consent/indicator, survives screen lock. Returns false below API 30,
-        // where the MediaProjection OcrCaptureService stays the only lane (started from the Lector tab).
+        // no MediaProjection consent/indicator. If unavailable or its grant is stale, the manual
+        // MediaProjection OcrCaptureService remains available from the Lector tab.
         serviceState.setConnected(true)
-        screenReaderLane.start(scope, this)
+        try {
+            // Capability/readiness setup is synchronous, before a child coroutine exists.
+            screenReaderLane.start(componentScope("silent-lane"), this)
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (error: Throwable) {
+            handleComponentFailure("silent-lane", error)
+        }
         pollToClearForeground()
     }
 
     /** Keep host identity and its measured bounds fresh even on a static map. Node geometry also
      * supplies C6 while capture is stopped; no OCR or offer evaluation is started for that tab. */
     private fun pollToClearForeground() {
-        scope.launch {
+        scope.launch(CoroutineName("host-poll")) {
             while (kotlinx.coroutines.currentCoroutineContext().isActive) {
                 val root = rootInActiveWindow
                 val current = try { root?.packageName?.toString() } finally {
@@ -174,6 +211,7 @@ class KomparaAccessibilityService : AccessibilityService() {
     }
 
     companion object {
+        private const val TAG = "KomparaCapture"
         // Verified on-device (Samsung S25, MX, 2026-06-10) via `adb shell pm list packages`.
         const val UBER_DRIVER_PACKAGE = "com.ubercab.driver"
         const val DIDI_DRIVER_PACKAGE = "com.didiglobal.driver"

@@ -1,6 +1,7 @@
 package mx.kompara.overlay
 
 import android.content.Context
+import android.os.Looper
 import androidx.compose.ui.platform.ComposeView
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
@@ -8,6 +9,16 @@ import androidx.datastore.preferences.core.emptyPreferences
 import androidx.lifecycle.Lifecycle
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
 import mx.kompara.data.db.dao.CostProfileDao
 import mx.kompara.data.db.dao.OfferDao
 import mx.kompara.data.db.dao.OfferPresentationDao
@@ -24,12 +35,46 @@ import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
+import org.robolectric.shadows.ShadowLog
 import org.robolectric.annotation.Config
 import java.lang.reflect.Proxy
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class OverlayControllerBannerTest {
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test fun `collector failure stops overlay without failing the service scope or logging content`() = runTest {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val store = object : DataStore<Preferences> {
+            override val data = flow<Preferences> { throw IllegalStateException("private offer content") }
+            override suspend fun updateData(transform: suspend (Preferences) -> Preferences) = error("No writes")
+        }
+        val settings = SettingsRepository(store)
+        val controller = OverlayController(OfferRecorder(dao<OfferDao>(), CostProfileRepository(dao<CostProfileDao>()), settings, NetProfitEngine()),
+            settings, OverlayPrefs(store), PresentationRecorder(dao<OfferPresentationDao>()), ReaderReadinessRepository(context))
+        val serviceScope = CoroutineScope(SupervisorJob() + StandardTestDispatcher(testScheduler))
+        fun field(name: String) = OverlayController::class.java.getDeclaredField(name).apply { isAccessible = true }
+        try {
+            controller.start(serviceScope, emptyFlow(), context, flowOf(null))
+            runCurrent()
+            shadowOf(Looper.getMainLooper()).idle()
+            assertNull("Failed component must release its context and jobs", field("serviceScope").get(controller))
+            assertNull(field("overlayContext").get(controller))
+            assertTrue(serviceScope.isActive)
+            var siblingRan = false
+            serviceScope.launch { siblingRan = true }
+            runCurrent()
+            assertTrue(siblingRan)
+            val messages = ShadowLog.getLogsForTag("OverlayController").map { it.msg }
+            assertTrue(messages.any { it == "overlay stopped after IllegalStateException" })
+            assertFalse(messages.any { "private offer content" in it })
+        } finally {
+            controller.stop()
+            serviceScope.cancel()
+        }
+    }
+
     @Test fun `stopped tab attaches from idle host evidence with no previous offer`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val store = object : DataStore<Preferences> {

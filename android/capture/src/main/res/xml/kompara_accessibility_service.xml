@@ -3,6 +3,8 @@
     Read-only accessibility service configuration.
 
     - canRetrieveWindowContent: required to flatten the host app's node tree into snapshots.
+    - canTakeScreenshot: required for the API 30+ screenshot-to-OCR lane. Taking a screenshot
+      reads the screen; it is not an action. The service still never performs actions.
     - accessibilityEventTypes: only content/state changes from the target apps; this plus
       packageNames keeps non-target events out of the pipeline entirely.
     - packageNames: com.ubercab.driver (Uber Driver), com.didiglobal.driver (DiDi Conductor).
@@ -17,6 +19,7 @@
     android:accessibilityFeedbackType="feedbackGeneric"
     android:accessibilityFlags="flagRetrieveInteractiveWindows|flagReportViewIds"
     android:canRetrieveWindowContent="true"
+    android:canTakeScreenshot="true"
     android:description="@string/capture_service_description"
     android:isAccessibilityTool="false"
     android:notificationTimeout="100"

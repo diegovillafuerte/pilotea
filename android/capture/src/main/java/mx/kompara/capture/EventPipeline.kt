@@ -1,6 +1,7 @@
 package mx.kompara.capture
 
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.BufferOverflow
@@ -16,6 +17,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.coroutines.CoroutineContext
 
 /**
  * Coalesces accessibility-event bursts into at most one [ScreenSnapshot] per quiet window.
@@ -114,6 +116,8 @@ data class CaptureEvent(
     val timestampMs: Long,
 )
 
-/** Convenience for constructing a [CoroutineScope] bound to a dispatcher with a supervisor job. */
-internal fun pipelineScope(dispatcher: CoroutineDispatcher): CoroutineScope =
-    CoroutineScope(SupervisorJob() + dispatcher)
+/** A supervisor isolates siblings; the handler also keeps a failed child from killing the process. */
+internal fun pipelineScope(
+    dispatcher: CoroutineDispatcher,
+    onFailure: (CoroutineContext, Throwable) -> Unit,
+): CoroutineScope = CoroutineScope(SupervisorJob() + dispatcher + CoroutineExceptionHandler(onFailure))

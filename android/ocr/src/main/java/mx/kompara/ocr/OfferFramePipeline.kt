@@ -1,7 +1,6 @@
 package mx.kompara.ocr
 
 import android.os.SystemClock
-import android.util.Log
 import mx.kompara.capture.OfferEvent
 import mx.kompara.capture.OfferEventBus
 import mx.kompara.capture.lifecycle.OcrLifecycleBus
@@ -44,6 +43,7 @@ class OfferFramePipeline(private val readiness: mx.kompara.data.service.ReaderRe
     private val lifecycleClassifier = OcrLifecycleClassifier()
     private var lastOfferKey: String? = null
     private var lastOfferPackage: String? = null
+    private val diagnostics = OcrDiagnostics()
 
     /**
      * Process one recognized frame. [chipRect] is the overlay chip's on-screen rect at capture time
@@ -58,16 +58,17 @@ class OfferFramePipeline(private val readiness: mx.kompara.data.service.ReaderRe
         density: Float = 1f,
         accessibility: mx.kompara.capture.HostWindowEvidence? = null,
         appearance: HostAppearanceSamples? = null) {
-        if (readiness?.canRead(token = token) == false) return
+        if (readiness?.canRead(token = token) == false) {
+            diagnostics.blocked("pipeline readiness/canRead false or stale capture token")
+            return
+        }
         // Strip our own chip's text FIRST: the capture mirrors the whole screen including the floating
         // verdict chip, whose "MXN…"/"$…" amount otherwise gets parsed as the offer fare — the
         // self-capture loop that collapsed the live verdict to $0. [chipRect] is the rect snapshotted
         // when THIS frame was captured (a null rect = chip hidden ⇒ no-op).
         val blocks = ChipMask.maskOwnChip(rawBlocks, chipRect)
         val joined = blocks.joinToString(" | ") { it.text }
-        // Raw OCR text is screen content — log in debug builds only (Play data-safety posture);
-        // release logcat must never expose it.
-        if (BuildConfig.DEBUG) Log.d(TAG, "OCR(${blocks.size}): $joined")
+        // Recognized screen text stays out of logcat, including debug device diagnostics.
 
         // Parse → publish to the shared bus so the accessibility-service-hosted overlay shows the
         // verdict. Dedup identical offers; emit NoCard once the card actually leaves the screen —
@@ -83,15 +84,31 @@ class OfferFramePipeline(private val readiness: mx.kompara.data.service.ReaderRe
         val parsed = if (ownUi) null else selectOfferCard(uberParser, didiParser, blocks, capturedAtMs, hostObservation,
             displayBounds = displayBounds, density = density, accessibility = accessibility, appearance = appearance)
         parsed?.let {
-            Log.d(TAG, "geometry host=${it.platform} source=${it.hostGeometry?.source ?: "MISSING"}")
+            if (it.hostGeometry == null) diagnostics.blocked("geometry missing",
+                "display=$displayBounds capturedAtMs=$capturedAtMs ageMs=${System.currentTimeMillis() - capturedAtMs}")
         }
         // Drop a single gross OCR outlier (a ×10 distance, a gross fare garble) before it reaches the
         // chip OR the ledger; the signature below still holds the verdict across it, as for any garble.
-        val card = parsed?.takeIf { readiness?.canRead(it.platform, token) != false && frameOutlierGuard.accept(it, now) }
+        val card = parsed?.takeIf {
+            when {
+                readiness?.canRead(it.platform, token) == false -> {
+                    diagnostics.blocked("host readiness/canRead false")
+                    false
+                }
+                !frameOutlierGuard.accept(it, now) -> {
+                    diagnostics.blocked("OCR outlier withheld")
+                    false
+                }
+                else -> true
+            }
+        }
         // The offer-card signature (fare + leg) survives the OCR garble that fails a full parse;
         // shared by the presence tracker (hold the chip) and the lifecycle classifier (hold OFFER).
         val signature = !ownUi &&
             (uberParser.hasCardSignature(blocks) || didiParser.hasCardSignature(blocks))
+        if (signature && (parsed == null || parsed.fare == null)) {
+            diagnostics.blocked("incomplete reading", "parsed=${parsed != null} paymentRead=${parsed?.fare != null}")
+        }
         // Replace the raw parsed fare with the stabilized one so a one-frame OCR garble can't flip
         // the verdict. Keyed on the trip leg (stable), not the fare. Null when no card this frame.
         val shownCard = card?.let { sessions.parsed(fareStabilizer.onParsed(it, System.currentTimeMillis()), System.currentTimeMillis()) }
@@ -110,13 +127,10 @@ class OfferFramePipeline(private val readiness: mx.kompara.data.service.ReaderRe
             val key = "${shownCard.platform}_${shownCard.fare}_${shownCard.pickupDistanceKm}_${shownCard.tripDistanceKm}"
             if (key != lastOfferKey) {
                 lastOfferKey = key
-                // Fare/distance are screen-derived — debug-only log (see process()'s note).
-                if (BuildConfig.DEBUG) {
-                    Log.d(TAG, "emitted ${shownCard.platform} offer: fare=${shownCard.fare} pickup=${shownCard.pickupDistanceKm}km trip=${shownCard.tripDistanceKm}km")
-                }
             }
         } else if (lastOfferKey != null) {
             if (presence.onMiss(signature, now)) {
+                diagnostics.blocked(if (ownUi) "hidden: Kompara foreground" else "hidden: offer no longer detected")
                 // Hide the chip for whichever platform's card we last showed (NOT always DiDi).
                 val gonePackage = lastOfferPackage ?: DidiOcrParser.DIDI_PACKAGE
                 lastOfferKey = null
@@ -174,6 +188,7 @@ class OfferFramePipeline(private val readiness: mx.kompara.data.service.ReaderRe
      */
     fun onCaptureEnd(nowWallMs: Long) {
         if (lastOfferKey != null) {
+            diagnostics.blocked("hidden: capture ended")
             val gonePackage = lastOfferPackage ?: DidiOcrParser.DIDI_PACKAGE
             lastOfferKey = null
             lastOfferPackage = null
@@ -200,7 +215,6 @@ class OfferFramePipeline(private val readiness: mx.kompara.data.service.ReaderRe
         }
 
     companion object {
-        private const val TAG = "KomparaOCR"
         // How recently the accessibility service must have seen a target app foreground for an OCR
         // frame (without a parsed card) to be attributed to the trip ledger. NEEDS ON-DEVICE CALIBRATION.
         private const val HOST_FOREGROUND_FRESHNESS_MS = 8_000L

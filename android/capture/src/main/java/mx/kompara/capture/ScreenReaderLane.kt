@@ -22,8 +22,8 @@ interface ScreenReaderLane {
      * token is used; capturing is collected on [scope] (the service scope) so it stops when the
      * service is destroyed.
      *
-     * @return true if the lane started (API 30+), false if unsupported (<30) — the caller then keeps
-     *   the MediaProjection path as the only lane.
+     * @return true if the lane started (API 30+ with the screenshot capability), false if unsupported
+     *   or the grant is missing/stale — the caller then keeps the MediaProjection fallback available.
      */
     fun start(scope: CoroutineScope, service: AccessibilityService): Boolean
 

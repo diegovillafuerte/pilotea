@@ -5,6 +5,10 @@ import android.content.Context
 import android.content.res.Configuration
 import android.graphics.PixelFormat
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
+import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.view.WindowInsets
@@ -17,8 +21,12 @@ import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.lifecycle.setViewTreeViewModelStoreOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineExceptionHandler
+import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.filter
@@ -83,23 +91,38 @@ class OverlayController @Inject constructor(
     @Volatile private var settingsSnapshot: mx.kompara.data.settings.Settings? = null
     private var configurationCallbacks: ComponentCallbacks? = null
     private var generation = 0
+    private val diagnostics = OverlayDiagnosticThrottle()
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     override fun start(scope: CoroutineScope, events: Flow<OfferEvent>, overlayContext: Context,
         foregroundOcrOwnedApp: Flow<String?>) {
+        val job = SupervisorJob(scope.coroutineContext[Job])
+        val failures = CoroutineExceptionHandler { _, error ->
+            // A failed collector/persistence job must never reach Android's uncaught handler.
+            // Log only the type: exception messages can contain parsed offer content.
+            Log.e(TAG, "overlay stopped after ${error.javaClass.simpleName}")
+            job.cancel()
+            Handler(Looper.getMainLooper()).post {
+                // A replacement service session may already have started while this was queued.
+                if (serviceScope?.coroutineContext?.get(Job) === job) {
+                    runCatching { stop() }.onFailure { Log.e(TAG, "overlay cleanup failed: ${it.javaClass.simpleName}") }
+                }
+            }
+        }
+        val overlayScope = CoroutineScope(scope.coroutineContext + job + CoroutineName("overlay") + failures)
         this.overlayContext = overlayContext
-        serviceScope = scope
+        serviceScope = overlayScope
         configurationCallbacks = object : ComponentCallbacks {
             override fun onConfigurationChanged(newConfig: Configuration) {
                 // Remeasure on font/inset/orientation changes, including while no window is attached.
                 detach(); detachBanner()
-                event?.let { show(scope, it) }
+                event?.let { show(overlayScope, it) }
             }
             override fun onLowMemory() = Unit
         }.also { overlayContext.registerComponentCallbacks(it) }
-        scope.launch {
+        overlayScope.launch {
             settingsSnapshot = settings.settings.first()
-            settings.settings.onEach { settingsSnapshot = it }.launchIn(scope)
+            settings.settings.onEach { settingsSnapshot = it }.launchIn(overlayScope)
             // Tiny scoped preference set; never block a parse on DataStore IO.
             for (host in mx.kompara.parsers.model.HostGeometryAdapter.SUPPORTED_HOSTS)
                 for (orientation in HostOrientation.entries) {
@@ -110,13 +133,23 @@ class OverlayController @Inject constructor(
                 (reader.canRead && reader.captureRunning) to reader.apps.filterValues { it.supported }.keys
             }.distinctUntilChanged().flatMapLatest { (allowed, _) ->
                 if (allowed) OverlayStateMachine(evaluate = ::evaluate)
-                    .visibility(events.filter { readiness.canRead(it.packageName) })
+                    .visibility(events.filter {
+                        val canRead = readiness.canRead(it.packageName)
+                        if (!canRead && it is OfferEvent.Parsed) diagnostic("READINESS", readinessDetails())
+                        canRead
+                    }.onEach {
+                        when (it) {
+                            is OfferEvent.NoCard -> diagnostic("NO_CARD_${it.reason}")
+                            is OfferEvent.SpecDisabled -> diagnostic("SPEC_DISABLED")
+                            is OfferEvent.Parsed -> Unit
+                        }
+                    })
                     .onStart { emit(OverlayVisibility.Hidden) }
                 else flowOf(OverlayVisibility.Hidden)
-            }.onEach { render(scope, it) }.launchIn(scope)
+            }.onEach { render(overlayScope, it) }.launchIn(overlayScope)
         }
         val tabGate = ReaderStoppedTabGate()
-        scope.launch {
+        overlayScope.launch {
             combine(readiness.state, foregroundOcrOwnedApp, HostGeometryEvidence.state) { reader, host, evidence ->
                 Triple(host, reader.canShowStoppedTab && reader.apps[host]?.supported == true, evidence)
             }.distinctUntilChanged().collectLatest { (host, eligible, _) ->
@@ -147,6 +180,7 @@ class OverlayController @Inject constructor(
 
     private suspend fun render(scope: CoroutineScope, visibility: OverlayVisibility) = withContext(Dispatchers.Main.immediate) {
         if (!readiness.state.value.canRead || !readiness.state.value.captureRunning) {
+            diagnostic("READINESS", readinessDetails())
             event = null; chipVisible = false; chipState = null; detach(); return@withContext
         }
         when (visibility) {
@@ -163,19 +197,25 @@ class OverlayController @Inject constructor(
                 chipState = visibility.state.regla; evaluated = true; chipVisible = true
                 show(scope, visibility.event)
             }
-            OverlayVisibility.Exiting -> chipVisible = false
-            OverlayVisibility.Hidden -> { event = null; chipVisible = false; chipState = null; detach() }
+            OverlayVisibility.Exiting -> { diagnostic("OFFER_ABSENT"); chipVisible = false }
+            OverlayVisibility.Hidden -> {
+                if (event != null) diagnostic("OFFER_HIDDEN")
+                event = null; chipVisible = false; chipState = null; detach()
+            }
         }
     }
 
     private fun show(scope: CoroutineScope, next: OfferEvent.Parsed) {
-        if (!readiness.canRead(next.packageName) || !readiness.state.value.captureRunning) { detach(); return }
+        if (!readiness.canRead(next.packageName) || !readiness.state.value.captureRunning) {
+            diagnostic("READINESS", readinessDetails()); detach(); return
+        }
         event = next
         val v = readViewport()
         val g = next.card.hostGeometry
         geometryExpiry?.cancel()
         val problem = OverlayPositioning.geometryProblem(g, next.packageName, v, System.currentTimeMillis())
         if (problem != null) {
+            diagnostic(problem, geometryDetails(g, v))
             detach()
             record(OverlayPlacement.Unsupported(problem))
             return
@@ -240,7 +280,7 @@ class OverlayController @Inject constructor(
         view.viewTreeObserver.addOnPreDrawListener { settleWindow(); true }
         owner.onResume()
         runCatching { windowManager.addView(view, params) }.onFailure {
-            android.util.Log.e("OverlayController", "overlay attach failed", it)
+            diagnostic("WINDOW_UNAVAILABLE", it.javaClass.simpleName)
             detach(); record(OverlayPlacement.Unsupported("WINDOW_UNAVAILABLE"))
         }
     }
@@ -249,10 +289,14 @@ class OverlayController @Inject constructor(
         if (decision !is OverlayPlacement.Displayed) {
             record(decision); detach(); return
         }
-        val g = geometry ?: return
-        val v = viewport ?: return
-        if (!readiness.canRead(g.packageName) || !readiness.state.value.captureRunning) { detach(); return }
-        if (OverlayPositioning.geometryProblem(g, event?.packageName.orEmpty(), v, System.currentTimeMillis()) != null) {
+        val g = geometry ?: run { diagnostic("UNVALIDATED_GEOMETRY"); return }
+        val v = viewport ?: run { diagnostic("VIEWPORT_MISSING"); return }
+        if (!readiness.canRead(g.packageName) || !readiness.state.value.captureRunning) {
+            diagnostic("READINESS", readinessDetails()); detach(); return
+        }
+        val problem = OverlayPositioning.geometryProblem(g, event?.packageName.orEmpty(), v, System.currentTimeMillis())
+        if (problem != null) {
+            diagnostic(problem, geometryDetails(g, v))
             detach(); return
         }
         val view = composeView ?: return
@@ -262,7 +306,9 @@ class OverlayController @Inject constructor(
             hideUntilSettled()
             placement = decision
             params.x = target.x; params.y = target.y
-            runCatching { windowManager.updateViewLayout(view, params) }.onFailure { detach() }
+            runCatching { windowManager.updateViewLayout(view, params) }.onFailure {
+                diagnostic("WINDOW_UPDATE_FAILED", it.javaClass.simpleName); detach()
+            }
             return // wait for WindowManager's traversal; immediate location reads are stale
         }
         settleWindow()
@@ -275,30 +321,40 @@ class OverlayController @Inject constructor(
         val shown = placement ?: return
         if (!view.isLaidOut) return
         if (view.width != shown.size.width || view.height != shown.size.height) {
-            hideUntilSettled() // a larger phrase/limit must not paint once at the old position
+            // A larger phrase/limit must not paint once at the old position.
+            hideUntilSettled("SIZE_CHANGED", "actual=${view.width}x${view.height} expected=${shown.size.width}x${shown.size.height}")
             return
         }
         val g = geometry ?: return
         val v = viewport ?: return
-        if (OverlayPositioning.geometryProblem(g, event?.packageName.orEmpty(), v, System.currentTimeMillis()) != null) {
+        val problem = OverlayPositioning.geometryProblem(g, event?.packageName.orEmpty(), v, System.currentTimeMillis())
+        if (problem != null) {
+            diagnostic(problem, geometryDetails(g, v))
             detach(); return
         }
         val location = IntArray(2); view.getLocationOnScreen(location)
         val actual = OverlayPosition(location[0], location[1])
         if (actual != shown.position) {
+            diagnostic("POSITION_PENDING", "actual=${actual.x},${actual.y} expected=${shown.position.x},${shown.position.y}")
             // Only refine from a completed layout; getLocationOnScreen can lag updateViewLayout.
             if (view.isLayoutRequested) return
             windowOrigin = OverlayPosition(actual.x - params.x, actual.y - params.y)
             val target = shown.position.inWindow(windowOrigin)
             params.x = target.x; params.y = target.y
-            runCatching { windowManager.updateViewLayout(view, params) }.onFailure { detach() }
+            runCatching { windowManager.updateViewLayout(view, params) }.onFailure {
+                diagnostic("WINDOW_UPDATE_FAILED", it.javaClass.simpleName); detach()
+            }
             return
         }
-        if (!OverlayPositioning.valid(actual, shown.size, g, v, shown.overMarker)) { hideUntilSettled(); return }
+        if (!OverlayPositioning.valid(actual, shown.size, g, v, shown.overMarker)) {
+            hideUntilSettled("SUPPRESSED_OCCLUSION", geometryDetails(g, v)); return
+        }
         view.alpha = 1f
         if (params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE != 0) {
             params.flags = params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
-            runCatching { windowManager.updateViewLayout(view, params) }.onFailure { detach() }
+            runCatching { windowManager.updateViewLayout(view, params) }.onFailure {
+                diagnostic("WINDOW_UPDATE_FAILED", it.javaClass.simpleName); detach(); return
+            }
         }
         val rect = actual.bounds(shown.size)
         ScreenReaderState.setOverlayChipRect(ScreenRect(rect.left, rect.top, rect.right, rect.bottom))
@@ -307,6 +363,11 @@ class OverlayController @Inject constructor(
 
     private var lastRecord: Triple<String, OverlayPlacement, Boolean>? = null
     private fun record(decision: OverlayPlacement) {
+        when (decision) {
+            is OverlayPlacement.Unsupported -> diagnostic(decision.cause, geometryDetails(geometry, viewport))
+            is OverlayPlacement.Suppressed -> diagnostic("SUPPRESSED_${decision.cause}", geometryDetails(geometry, viewport))
+            is OverlayPlacement.Displayed -> Unit
+        }
         if (!evaluated) return // Leyendo is transitional, never evidence that the judged offer was seen.
         val current = event ?: return
         val rated = chipState?.band is ReglaBand.Rated
@@ -317,13 +378,16 @@ class OverlayController @Inject constructor(
         serviceScope?.launch { presentations.record(key.first, decision, rated, at) }
     }
 
-    private fun hideUntilSettled() {
+    private fun hideUntilSettled(reason: String = "LAYOUT_PENDING", details: String = "") {
+        if (event != null) diagnostic(reason, details)
         composeView?.alpha = 0f
         val params = layoutParams
         val view = composeView
         if (params != null && view != null && params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE == 0) {
             params.flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
-            runCatching { windowManager.updateViewLayout(view, params) }
+            runCatching { windowManager.updateViewLayout(view, params) }.onFailure {
+                diagnostic("WINDOW_UPDATE_FAILED", it.javaClass.simpleName)
+            }
         }
         // Keep the last visible footprint masked until the window settles or detaches. The
         // compositor may still contain those pixels while the transparent update is in flight.
@@ -497,6 +561,7 @@ class OverlayController @Inject constructor(
     }
 
     override fun stop() {
+        serviceScope?.cancel()
         configurationCallbacks?.let { overlayContext?.unregisterComponentCallbacks(it) }
         configurationCallbacks = null
         detach(); detachBanner()
@@ -505,4 +570,32 @@ class OverlayController @Inject constructor(
         serviceScope = null; overlayContext = null
     }
 
+    private fun readinessDetails(): String = readiness.state.value.let {
+        "canRead=${it.canRead} captureRunning=${it.captureRunning}"
+    }
+
+    private fun geometryDetails(g: HostGeometry?, v: OverlayViewport?): String =
+        "ageMs=${g?.let { System.currentTimeMillis() - it.capturedAtMs }} maxAgeMs=${OverlayPositioning.MAX_GEOMETRY_AGE_MS}" +
+            " display=${g?.displayBounds} viewport=${v?.bounds} orientation=${g?.orientation}/${v?.orientation}" +
+            " card=${g?.offerCard} chrome=${g?.topChrome} controls=${g?.protectedControls}" +
+            " markers=${g?.markers?.map { it.outerBounds }}"
+
+    /** Fixed reason keys keep changing frame coordinates from defeating the log limit. */
+    private fun diagnostic(reason: String, details: String = "") {
+        if (diagnostics.shouldLog(reason, SystemClock.elapsedRealtime()))
+            Log.d(TAG, "chip hidden reason=$reason $details")
+    }
+
+    companion object { private const val TAG = "OverlayController" }
+}
+
+internal class OverlayDiagnosticThrottle(private val intervalMs: Long = 5_000L) {
+    private val lastAt = mutableMapOf<String, Long>()
+
+    @Synchronized fun shouldLog(reason: String, nowMs: Long): Boolean {
+        val previous = lastAt[reason]
+        if (previous != null && nowMs - previous in 0 until intervalMs) return false
+        lastAt[reason] = nowMs
+        return true
+    }
 }

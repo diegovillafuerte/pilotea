@@ -87,6 +87,15 @@ class ReaderReadinessRepository(
             else -> memory
         })
     }
+    /** A capability refusal can happen before capture ever ran. Keep the reader-down tab available
+     * without inventing a successful start. A live fallback retains ownership of its running state. */
+    @Synchronized fun captureFailed() {
+        if (signals.captureRunning == true) return
+        generation++
+        signals = signals.copy(captureRunning = false)
+        publish(if (signals.binding != null && signals.permission == true)
+            withIncident(ReaderIncidentCause.CAPTURE_STOPPED) else memory)
+    }
     @Synchronized fun supportedApps(apps: Set<String>) {
         if (signals.supportedApps != apps) generation++
         signals = signals.copy(supportedApps = apps.intersect(ReaderReadinessReducer.apps))

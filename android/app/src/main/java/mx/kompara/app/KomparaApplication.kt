@@ -5,6 +5,8 @@ import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import androidx.work.WorkManager
 import dagger.hilt.android.HiltAndroidApp
+import kotlinx.coroutines.CoroutineExceptionHandler
+import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -88,7 +90,16 @@ class KomparaApplication : Application(), Configuration.Provider {
     @Inject lateinit var dailySummaryScheduler: mx.kompara.ui.notifications.DailySummaryScheduler
     @Inject lateinit var importReminderScheduler: mx.kompara.ui.notifications.ImportReminderScheduler
 
-    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    // These collectors share the accessibility service's process. SupervisorJob alone only
+    // isolates siblings; a handler is also required to contain an uncaught collector failure.
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default +
+        CoroutineExceptionHandler { context, error ->
+            val component = context[CoroutineName]?.name ?: "application-worker"
+            android.util.Log.e("KomparaCapture", "$component stopped after ${error.javaClass.simpleName}")
+            context[kotlinx.coroutines.Job]?.cancel()
+        })
+
+    private fun componentScope(name: String) = CoroutineScope(appScope.coroutineContext + CoroutineName(name))
 
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
@@ -101,11 +112,11 @@ class KomparaApplication : Application(), Configuration.Provider {
 
         // Observe the offer-event flow and accumulate privacy-safe counters. No screen content
         // enters telemetry — see TelemetryCollector (B-034).
-        appScope.launch {
+        appScope.launch(CoroutineName("parse-telemetry")) {
             telemetryCollector.collect(offerEventPipeline.offers)
         }
         // A restart must not re-arm work the driver revoked in Tus datos.
-        appScope.launch {
+        appScope.launch(CoroutineName("sync-scheduling")) {
             if (settingsRepository.isTelemetryEnabled()) telemetryScheduler.ensurePeriodic()
             if (settingsRepository.isShareAggregatesEnabled()) aggregateSyncScheduler.ensurePeriodic()
         }
@@ -118,7 +129,7 @@ class KomparaApplication : Application(), Configuration.Provider {
         // the OCR path (design §7.1 — the only source that sees real offer cards today, since
         // DiDi/inDrive/Uber all render them outside the node tree). The mapper drops OCR-owned
         // packages, so the two never both speak for one platform.
-        appScope.launch {
+        appScope.launch(CoroutineName("trip-ledger")) {
             tripLifecycleTracker.collect(
                 merge(lifecycleMapper.signals(), OcrLifecycleBus.signals),
             )
@@ -140,13 +151,13 @@ class KomparaApplication : Application(), Configuration.Provider {
 
         // Watch reader-service health once onboarding completes; alert (notification + in-app
         // banner) if an OEM task killer disables the accessibility service mid-shift (B-036).
-        readerReadinessMonitor.start(appScope)
-        serviceWatchdog.start(appScope)
+        readerReadinessMonitor.start(componentScope("reader-readiness"))
+        serviceWatchdog.start(componentScope("reader-watchdog"))
 
         // B-049: hydrate last-known entitlement (offline grace) then track live Play purchases —
         // acknowledging + syncing to the backend. App-scoped so a transient failure never crashes
         // the app; when Play is unavailable the repo logs loudly and stays on the last-known value.
-        entitlementRepository.start(appScope)
+        entitlementRepository.start(componentScope("billing-entitlement"))
 
         // B-050: refresh the cached paywall kill switch so a promo flip applies this session. TTL-gated
         // and best-effort — a failed fetch keeps the last-known flag (or the gating-ON default), so a
@@ -171,6 +182,6 @@ class KomparaApplication : Application(), Configuration.Provider {
         weekCloseScheduler.runNow()
         dailySummaryScheduler.ensureScheduled()
         dailySummaryScheduler.runNow()
-        importReminderScheduler.start(appScope)
+        importReminderScheduler.start(componentScope("import-reminder"))
     }
 }

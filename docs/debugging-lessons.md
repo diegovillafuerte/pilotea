@@ -112,6 +112,21 @@ Re-integrate and adapt it.
 
 ---
 
+### 10. Declare reading capabilities and contain coroutine failures
+
+The silent screenshot lane had never declared `android:canTakeScreenshot="true"`. On the Galaxy
+S25 / API 36, Android therefore threw a synchronous `SecurityException` before any screenshot
+callback. It escaped the coroutine and killed the accessibility process; after repeated crashes,
+Android disabled the service. A `SupervisorJob` alone does not contain uncaught child exceptions.
+
+**Apply:** Verify both the XML declaration and the granted runtime capability. Catch synchronous
+platform-call failures as well as callback failures, preserve cancellation, and pair supervised
+service/component scopes with exception handlers. Capability refusal must stand down to the
+fallback and reader-down banner, including before the first frame. Test these paths and confirm
+on-device service survival; passing parser tests cannot prove platform permission premises.
+
+---
+
 ## What worked — keep doing
 
 - **Adversarial review (codex / multi-agent) before shipping** caught real regressions unit tests

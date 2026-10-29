@@ -1,8 +1,26 @@
-# Kompara 0.2.1 — F3 QA and APK handoff
+# Kompara 0.2.2 — capture crash fix and APK handoff
+
+## 0.2.2 — screenshot capability and service survival (2026-10-29)
+
+Version **0.2.2**, version code **4**. Debug APK: `android/app/build/outputs/apk/debug/app-debug.apk`.
+
+SHA-256: **`d36ff7e0962a406bc8e0d6517dffc0703155bd0e2a67a31a8c21c1ef3ca788f2`**. `aapt dump badging` and `output-metadata.json` confirm 0.2.2 / 4. The packaged service XML has screenshot capability enabled, `isAccessibilityTool=false`, and no gesture capability. `apksigner verify --verbose` passes (v2, one signer).
+
+**Device finding:** On Galaxy S25 SM-S931B / API 36, debug 0.2.1 crashed twice about three seconds apart after Accessibility was enabled. `takeScreenshot()` threw synchronous `SecurityException: Services don't have the capability of taking the screenshot.` Android then reported no bound services, marked `KomparaAccessibilityService` crashed and set `accessibility_enabled=0`; the chip never appeared. The screenshot capability was never declared, including on main, so choosing the silent lane on 2026-06-18 had not established a working device capture path.
+
+**Fix:** The service XML now declares `canTakeScreenshot="true"`, retains `isAccessibilityTool="false"`, and grants no action capability. The lane checks the granted capability before launch; a missing/stale grant or synchronous SecurityException immediately stands it down to manual MediaProjection and the reader-down banner. Other synchronous RuntimeExceptions count toward the existing hard-failure threshold. Cancellation remains cancellation, callback completion is once-only, and running state is released only by its owner. Startup refusal now records a capture incident even before a first frame, without overwriting a running fallback.
+
+The coroutine audit added exception handlers alongside supervisor jobs to the Accessibility service (snapshot/spec/offer collectors, silent lane and foreground polling), overlay controller (collectors, expiry and persistence), MediaProjection (readiness and frame pipeline), and application collectors sharing the service process (including telemetry, ledger and readiness). Failed components stop and log their error type; the silent loop also contains unexpected failures and cleanup errors. MediaProjection setup/image callbacks and teardown are guarded. Rate-limited `KomparaOCR` / `OverlayController` diagnostics explain incomplete reads, readiness rejection, idle foreground gates, geometry rejection with bounds/age, occlusion and hidden windows. `KomparaSilentLane` / `KomparaOCR` identify the selected lane and reason once per start. Raw OCR, payment amounts, addresses and names are absent from these diagnostics.
+
+**Automated evidence:** Required gate **PASS** (`:app:assembleDebug testDebugUnitTest verifyReadOnlyCapture --console=plain`), **12s; 373 actionable tasks: 49 executed, 324 up-to-date**. Log: `/private/tmp/kompara-0.2.2-final-gate.log`. JVM reports total **1,453 tests, zero failures/errors/skips**: app 1, billing 48, capture 63, data 111, metrics 156, OCR 109, overlay 88, parsers 220, sync 110, UI 547. **15 added regression cases** cover the actual XML declaration, SecurityException/IllegalStateException/cancellation classification, missing capability, startup incident/fallback ownership, failed pipeline/overlay collector isolation, and diagnostic throttling/privacy. The first run caught a test's assumption about exception object identity; the corrected test verifies the type and original cause across coroutine stack-trace recovery. No tests were excluded or assertions weakened. Kotlin used its normal in-process fallback after the sandbox denied its daemon marker. `git diff --check` passes.
+
+**Still unverified:** This change has not been installed or replayed on the Galaxy S25. Verify the service stays bound, screenshots/OCR succeed and the chip attaches with fresh valid geometry; test complete/incomplete Uber and DiDi offers, missing/stale geometry and occlusion, and confirm the reason logs. Test an upgrade with a stale grant, service off/on to refresh the grant, manual MediaProjection consent/recovery, and the reader-down banner. Existing physical calibration, OEM recovery and human QA below remain open. Missing, invalid or stale geometry still prevents attachment; the fix does not bypass that gate. `verifyReadOnlyCapture` remains unchanged, with no action APIs, auto-accept or secure-window flag added.
+
+## Historical 0.2.1 — F3 handoff
 
 Date: 2026-10-29. Branch: `feat/v3-redesign`; base `a046678` (F2). This handoff supersedes the artifact and capability inventory in [S21's 0.2.0 QA](v3-s21-release-qa.md). The [0.2.0 coverage audit](v3-coverage-audit.md) remains unchanged as historical evidence. The design reference at `/Users/panama/pilotea` is read-only. No staging, commit, push or publication is part of this run.
 
-## Artifact and automated evidence
+### F3 artifact and automated evidence (historical)
 
 Version **0.2.1**, version code **3**. Debug application ID `mx.kompara.app`; min SDK 26, target SDK 36. APK: `android/app/build/outputs/apk/debug/app-debug.apk`.
 

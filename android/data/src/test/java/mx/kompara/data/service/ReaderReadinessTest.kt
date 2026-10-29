@@ -31,6 +31,24 @@ class ReaderReadinessTest {
         read()
         assertEquals(ReaderPhase.WORKING, repo.state.value.phase)
     }
+    @Test fun `capability refusal before first frame shows stopped tab until fallback starts`() {
+        repo.bound()
+        assertFalse(repo.state.value.captureRunning)
+        repo.captureFailed()
+        assertEquals(ReaderIncidentCause.CAPTURE_STOPPED, repo.state.value.incident?.cause)
+        assertTrue(repo.state.value.canShowStoppedTab)
+        repo.captureRunning(true)
+        assertNull(repo.state.value.incident)
+        assertFalse(repo.state.value.canShowStoppedTab)
+    }
+    @Test fun `capability refusal does not stop a running fallback`() {
+        bind()
+        val token = repo.captureToken()
+        repo.captureFailed()
+        assertTrue(repo.state.value.captureRunning)
+        assertNull(repo.state.value.incident)
+        assertEquals(token, repo.captureToken())
+    }
     @Test fun `midnight decays proof but retains yesterday time`() {
         bind(); read()
         val at = clock.millis()
