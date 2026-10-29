@@ -1,0 +1,72 @@
+# Screens in this prototype (id: what it is)
+- A1: Demo
+- A2: Aviso (prominent disclosure)
+- A3: Activar
+- A4: Batería (only when a restriction is detected)
+- A5: Costos, one question after the permission cliff
+- A6: Tu número (optional)
+- A7: Código
+- B1: Hoy, mid-shift (lunes 19 oct, 14:40)
+- B2: Hoy, reader off (martes 20 oct, 8:05)
+- B3: Hoy, first run (9:44)
+- B4: Hoy, lunes 19 oct 7:30, the moment before confirming costs
+- B5: Hoy, en pausa (13:10)
+- B6: Hoy, partial support (the fixture's partial-support day, 10:20)
+- C1: Verde
+- C2: Amarillo
+- C3: Rojo
+- C7: Rojo with a negative deciding amount
+- C4: Gris, the fare was not read
+- C5: Gris, the deciding unit is missing
+- C6: Lector detenido, a different object
+- C8: Tall offer
+- C9: Navigation banner
+- C10: 1.3× font scale
+- C11: No room — suppressed
+- C12: Uber-proportioned offer
+- D1: Tu día
+- D2: Detalle de oferta (sheet)
+- D3: Cómo se calculó · hoy (sheet)
+- D3b: Cómo se calculó · octubre (sheet)
+- E1: Semana (closed week, 12 – 18 oct)
+- E1b: Por día (sheet, one tap from "Tu mejor día fue el viernes" or from any bar)
+- E2: Semana outside the free window (5 – 11 oct as seen on lunes 2 nov, the first Monday it leaves the this-week-plus-three window)
+- E3: Mes (en curso)
+- E3d: Por semana (sheet, one tap from "La mejor fue 12 – 18 oct" or from any bar)
+- E3b: Mes with only an undated imported week (septiembre)
+- E3c: Mixed month — ALTERNATE FIXTURE, labelled above the phone (septiembre if the reader had been active from 21 sep)
+- E4: IMSS del mes — the state that ships first
+- E5: IMSS del mes — only after the legal gate clears (B-038), marked Ejemplo
+- E6: Elegir periodo (sheet)
+- E7: Loading (local skeleton)
+- E7b: Offline
+- E8: Semana en curso (lunes 19 oct, 14:40)
+- F1: Comparar › Tus apps (free within the window)
+- F2: Comparar › Tu ciudad (Premium)
+- F3: Comparar › Tu ciudad (free)
+- F4: Comparar › Tu ciudad, no valid cohort (same driver: DiDi in CDMX has no cohort yet)
+- F5: Comparar › Tu ciudad, 5 – 11 oct, a week not confirmed by a statement (free or paid)
+- G1: Cuenta (from the account icon in any tab root's top bar)
+- G2: Tu semáforo, mid-edit
+- G3: Tus costos
+- G4: Lector (drill-in)
+- G5: Lo del coche (sheet over Cuenta)
+- G6: Tus datos
+- G6b: Eliminar cuenta (confirm)
+- G7: Avisos (OS notifications blocked)
+- G8: Ayuda
+- G9: Tu perfil, with the city-change confirm
+- H1: Premium (trial eligible)
+- H2: Tu plan (trial active)
+- H2b: Suscribirme
+- H2c: Tu plan, payment needs attention
+- H2d: Tu plan, purchase pending (driver with promotional access)
+- H1b: Trial without an account
+- H3: Compartir
+- H4: Importar (consent step, on every route including Android Share)
+- H5: Importar › Revisa tu semana (pre-install week)
+- H5b: Importar › reconciliation (a 7-day statement over a week the reader saw for 4 days)
+- H5c: Importar › recovery (missing second capture)
+- H5d: Importar › Corregir
+- H5e: Importar › failed upload
+- H6: Notifications

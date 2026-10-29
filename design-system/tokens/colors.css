@@ -42,7 +42,7 @@
   /* ── Primitive · Verdict (semáforo) ────────────────────────────────────── */
   /* The heart of the system. Reserve these three for verdicts ONLY — never
      decorative. Each pairs with an explicit on-colour for legible text. */
-  --verde:  #1b8a3a; --on-verde:  #ffffff; /* el viaje conviene */
+  --verde:  #187a36; --on-verde:  #ffffff; /* el viaje conviene */
   --amarillo: #f2b705; --on-amarillo: #1a1300; /* viaje regular / marginal */
   --rojo:   #d32f2f; --on-rojo:   #ffffff; /* el viaje no conviene */
 

@@ -1,0 +1,349 @@
+{
+ "_about": "Golden fixture for the Kompara v2 mockups and docs/ux-elevation-spec.md. Raw inputs only; check-fixture.py derives every displayed figure and asserts the strings exist in index.html (and the spec where noted).",
+ "today": "2026-10-19",
+ "now": "14:40",
+ "city": "CDMX",
+ "deciding_unit": "km",
+ "costs": {
+  "fuel_price_per_l": 24.5,
+  "km_per_l": 12,
+  "wear_per_km": 0.8,
+  "confirmed_on": "2026-10-19"
+ },
+ "floors": {
+  "verde_min_per_km": 8.0,
+  "rojo_below_per_km": 6.0
+ },
+ "car_cost": {
+  "weekly": 1500,
+  "from": "2026-09-28"
+ },
+ "chips": {
+  "verde": {
+   "fare": 148,
+   "km": 12.0,
+   "min": 24
+  },
+  "amarillo": {
+   "fare": 120,
+   "km": 12.0,
+   "min": 27
+  },
+  "rojo": {
+   "fare": 62,
+   "km": 12.3,
+   "min": 30
+  },
+  "rojo_negativo": {
+   "fare": 22,
+   "km": 12.3,
+   "min": 30,
+   "_note": "C7: negative deciding amount; la regla keeps its 240×100 plate (Round 14): the band's insets go 12/12 and the figures are tracked tighter, minus kerned to the $; no growth step, nothing shrinks"
+  }
+ },
+ "today_shifts": [
+  {
+   "start": "08:00",
+   "end": "12:30",
+   "trips": 5,
+   "gross": 831,
+   "km": 64.3
+  },
+  {
+   "start": "14:20",
+   "end": "18:00",
+   "trips": 4,
+   "gross": 759,
+   "km": 58.9
+  }
+ ],
+ "today_pause": {
+  "start": "12:40",
+  "end": "14:20"
+ },
+ "today_at_1440": {
+  "trips": 6,
+  "shift1_net_plus_offer": "shift 1 net + the 14:32 verde offer"
+ },
+ "today_by_app": {
+  "_note": "Round 24c: the whole 19 oct is Uber (see today_by_app_1440)",
+  "uber": 1590,
+  "didi": 0
+ },
+ "weeks": {
+  "2026-10-12": {
+   "label": "12 – 18 oct",
+   "trips": 62,
+   "gross": 8400,
+   "km": 675.8,
+   "hours": 41,
+   "closed": true,
+   "by_app": {
+    "uber": {
+     "trips": 34,
+     "gross": 5028,
+     "km": 420.0
+    },
+    "didi": {
+     "trips": 28,
+     "gross": 3372,
+     "km": 255.8
+    }
+   },
+   "statement_uber": {
+    "paid": 5062,
+    "trips": 34,
+    "hours": 24,
+    "source": "PDF semanal"
+   },
+   "days": {
+    "L": {
+     "trips": 8,
+     "gross": 1050,
+     "km": 85.0
+    },
+    "M1": {
+     "trips": 9,
+     "gross": 1230,
+     "km": 98.4
+    },
+    "M2": {
+     "trips": 9,
+     "gross": 1180,
+     "km": 95.1
+    },
+    "J": {
+     "trips": 10,
+     "gross": 1350,
+     "km": 108.6
+    },
+    "V": {
+     "trips": 14,
+     "gross": 1900,
+     "km": 183.0
+    },
+    "S": {
+     "trips": 8,
+     "gross": 1090,
+     "km": 70.0
+    },
+    "D": {
+     "trips": 4,
+     "gross": 600,
+     "km": 35.7,
+     "last_read": "20:10"
+    }
+   }
+  },
+  "2026-10-05": {
+   "label": "5 – 11 oct",
+   "trips": 60,
+   "gross": 8100,
+   "km": 652.1,
+   "hours": 40,
+   "closed": true,
+   "by_app": {
+    "uber": {
+     "trips": 31,
+     "gross": 5000,
+     "km": 405.0
+    },
+    "didi": {
+     "trips": 29,
+     "gross": 3100,
+     "km": 247.1
+    }
+   }
+  },
+  "2026-09-28": {
+   "label": "28 sep – 4 oct",
+   "reader_days": [
+    "2026-10-01",
+    "2026-10-04"
+   ],
+   "trips": 27,
+   "gross": 2950,
+   "km": 237.8,
+   "hours": 17,
+   "closed": true,
+   "by_app": {
+    "uber": {
+     "trips": 14,
+     "gross": 1480,
+     "km": 150.6
+    },
+    "didi": {
+     "trips": 13,
+     "gross": 1470,
+     "km": 87.2
+    }
+   }
+  },
+  "2026-09-14": {
+   "label": "14 – 20 sep",
+   "imported": true,
+   "app": "uber",
+   "paid": 5340,
+   "trips": 29,
+   "km": null,
+   "undated": true,
+   "hours": 26,
+   "commission_pct": 24
+  }
+ },
+ "h5b_partial_import": {
+  "uber_week": "2026-09-28",
+  "statement": {
+   "paid": 2210,
+   "trips": 20,
+   "hours": 18,
+   "source": "PDF semanal"
+  },
+  "reader_trips_with_km": 14,
+  "km_known": 150.6,
+  "trips_without_km": 6,
+  "_note": "the statement covers 7 days; the reader was installed on 2026-10-01 and saw 4"
+ },
+ "cohort": {
+  "city": "CDMX",
+  "app": "uber",
+  "week": "2026-10-12",
+  "drivers": 1240,
+  "per_trip_deciles": {
+   "10": 95,
+   "20": 105,
+   "30": 112,
+   "40": 119,
+   "50": 126,
+   "60": 133,
+   "70": 142,
+   "80": 151,
+   "90": 170
+  },
+  "sum_driver_per_trip": 162440,
+  "_note": "mean = sum_driver_per_trip / drivers; the median is the 50th decile; percentile by linear interpolation between deciles"
+ },
+ "imss": {
+  "min_monthly_2026": 9582,
+  "example_factor": 0.94,
+  "source": "CONASAMI tabla 2026 · DOF nota 5777156 (ejemplo, regla pendiente)"
+ },
+ "plan": {
+  "trial_until": "2026-11-02",
+  "referral_days": 7,
+  "price_monthly": 79,
+  "premium_until": "2026-11-09",
+  "h2b_viewed_on": "2026-10-19",
+  "purchase_date": "2026-10-19",
+  "grace_days": 7,
+  "_grace_rule": "grace_until = first renewal (purchase + 1 month) + grace_days",
+  "banked_days_rule": "on a failed renewal: Play grace period first, then the banked promotional days (premium_until − purchase_date), then access ends"
+ },
+ "today_hourly_net_shift1": {
+  "8": 120,
+  "9": 185,
+  "10": 150,
+  "11": 130,
+  "12": 63
+ },
+ "free_window": {
+  "weeks": "this week + 3 previous calendar weeks",
+  "months": "current month"
+ },
+ "b6_partial_support": {
+  "time": "10:20",
+  "trips": 3,
+  "net": 380,
+  "hours": "2 h 20 min",
+  "_note": "a DiDi-unsupported day; net is given, not derived"
+ },
+ "city_proposals": {
+  "Monterrey": {
+   "verde_min_per_km": 7.7
+  }
+ },
+ "alt_scenarios": {
+  "E3c_sept_mixed": {
+   "_about": "Explicitly labelled alternate: the reader active from 2026-09-21; the 14–20 sep import (no km) sits in the same month",
+   "weeks": {
+    "2026-09-21": {
+     "trips": 55,
+     "gross": 7400,
+     "km": 590.0
+    },
+    "2026-09-28_partial": {
+     "days": 3,
+     "trips": 20,
+     "gross": 2700,
+     "km": 215.0
+    }
+   }
+  }
+ },
+ "floors_per_hour_example": {
+  "verde_min_per_hour": 200,
+  "rojo_below_per_hour": 150,
+  "_note": "Ejemplo — only C5, a driver who chose Por hora in Tu meta y tu mínimo; not part of the 19 oct timeline (that driver decides by km)"
+ },
+ "today_afternoon_trips": {
+  "_note": "Round 19 (Opus R19-M1): the two newest D1 rows, split out of shift 2 so each shows its own rate; shift 2's sums are unchanged",
+  "16:04": {
+   "fare": 236,
+   "km": 17.0,
+   "outcome": "tomada"
+  },
+  "17:21": {
+   "fare": 255,
+   "km": 17.9,
+   "outcome": "tomada"
+  }
+ },
+ "today_morning_trips": {
+  "_note": "Shift 1's five trips (they sum to its $831 over 64.3 km), drawn in D1a/D1b under the 11:48 row; with the two verdes that left (today_morning_missed) Tu día at 14:40 lists every offer of the day so far, 10 rows down to 08:15, and scrolls (Round 20, Opus N6)",
+  "11:20": {
+   "fare": 172,
+   "km": 13.6,
+   "outcome": "tomada",
+   "min": 26,
+   "pickup_km": 2.4
+  },
+  "10:41": {
+   "fare": 158,
+   "km": 12.9,
+   "outcome": "tomada"
+  },
+  "10:02": {
+   "fare": 165,
+   "km": 12.4,
+   "outcome": "tomada"
+  },
+  "9:24": {
+   "fare": 178,
+   "km": 13.1,
+   "outcome": "tomada"
+  },
+  "8:15": {
+   "fare": 158,
+   "km": 12.3,
+   "outcome": "tomada"
+  }
+ },
+ "today_by_app_1440": {
+  "_note": "Round 24c (Opus 322): every trip of 19 oct is Uber (C1–C3 are Uber offers and G4 reads «DiDi · Esperando una oferta»), so at 14:40 Uber has the whole $979 and DiDi none",
+  "uber": 979,
+  "didi": 0
+ },
+ "today_morning_missed": {
+  "_note": "The two verde offers that left without being taken (D1's observation '2 ofertas verdes se fueron sin tomar'), both in shift 1",
+  "9:51": {
+   "fare": 132,
+   "km": 11.0,
+   "outcome": "se fue"
+  },
+  "8:40": {
+   "fare": 118,
+   "km": 9.8,
+   "outcome": "se fue"
+  }
+ }
+}

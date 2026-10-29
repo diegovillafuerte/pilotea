@@ -1,0 +1,25 @@
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600&display=swap');
+.g-b,.g-b *{box-sizing:border-box}
+.g-b{position:absolute;top:417px;right:12px;width:240px;height:112px;overflow:hidden;border-radius:14px;background:#0E0F10;color:#fff;font-family:'Barlow Semi Condensed','Arial Narrow',sans-serif;font-variant-numeric:tabular-nums;box-shadow:0 4px 10px #0003}
+.g-b-band{position:absolute;left:0;top:0;width:140px;height:112px;background:var(--g-color);color:var(--g-on)}
+.g-b-cue{position:absolute;left:10px;top:12px;width:30px;height:30px;fill:currentColor}
+.g-b-rate{position:absolute;left:48px;top:8px;font-size:32px;line-height:36px;font-weight:600;white-space:nowrap}
+.g-b-unit{position:absolute;left:48px;top:43px;font-size:14px;line-height:18px;font-weight:500}
+.g-b-phrase{position:absolute;left:10px;right:8px;top:65px;font-size:19px;line-height:20px;font-weight:600}
+.g-b-limit{position:absolute;left:148px;right:10px;height:22px;font-size:15px;line-height:18px;font-weight:600;color:#DADBDD;white-space:nowrap}
+.g-b-meta{top:30px}.g-b-min{top:70px}
+.g-b-line{position:absolute;left:0;right:6px;bottom:0;height:2px;background:rgba(255,255,255,.75)}
+.g-b-marker{position:absolute;right:2px;top:var(--g-marker-y);width:8px;height:8px;fill:#fff}
+</style>
+<div class="g-b" style="--g-color:#F2B705;--g-on:#1A1300;--g-marker-y:60px" role="img" aria-label="7.16 pesos netos por kilómetro. Entre tu meta de 8 y tu mínimo de 6.">
+  <div class="g-b-band">
+    <svg class="g-b-cue" viewBox="0 0 30 30" aria-hidden="true"><path d="M15 0 30 15 15 30 0 15Z"/></svg>
+    <b class="g-b-rate">$7.16</b>
+    <span class="g-b-unit">/km neto</span>
+    <span class="g-b-phrase">Entre tu meta<br>y tu mínimo</span>
+  </div>
+  <div class="g-b-limit g-b-meta">tu meta $8<span class="g-b-line" aria-hidden="true"></span></div>
+  <div class="g-b-limit g-b-min">tu mínimo $6<span class="g-b-line" aria-hidden="true"></span></div>
+  <svg class="g-b-marker" viewBox="0 0 8 8" aria-hidden="true"><path d="M8 0 0 4 8 8Z"/></svg>
+</div>

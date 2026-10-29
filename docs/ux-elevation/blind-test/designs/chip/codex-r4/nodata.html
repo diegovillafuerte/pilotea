@@ -1,0 +1,58 @@
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Barlow:wght@500;600&family=Barlow+Semi+Condensed:wght@500;600&display=swap');
+
+.g-nodata, .g-nodata * { box-sizing:border-box; }
+.g-nodata {
+  position:absolute; top:440px; right:12px;
+  width:240px; height:100px;
+  display:flex; flex-direction:column;
+  overflow:hidden; border-radius:12px;
+  background:#303537; color:#F5F5F2;
+  box-shadow:0 2px 4px rgb(0 0 0 / 18%);
+  font-family:"Barlow Semi Condensed",sans-serif;
+  font-variant-numeric:tabular-nums;
+}
+.g-nodata .g-message {
+  flex:none; height:56px; padding:0 12px;
+  display:flex; flex-direction:column; justify-content:center;
+}
+.g-nodata .g-title {
+  font-size:27px; line-height:29px; font-weight:600;
+}
+.g-nodata .g-reason {
+  font-family:"Barlow",sans-serif;
+  font-size:14px; line-height:18px; font-weight:500;
+  color:#D3D6D4;
+}
+.g-nodata .g-limit {
+  flex:none; height:22px; padding:0 12px;
+  display:flex; align-items:center; gap:10px;
+  font-family:"Barlow",sans-serif;
+  font-size:14px; line-height:18px; font-weight:500;
+  color:#D3D6D4;
+}
+.g-nodata .g-limit-name {
+  flex:none; width:94px; white-space:nowrap;
+}
+.g-nodata .g-limit-name b {
+  margin-left:4px; font-weight:600; color:#F5F5F2;
+}
+.g-nodata .g-rule {
+  flex:1; height:2px; background:#A5ACAF;
+}
+</style>
+<div class="g-nodata" lang="es-MX" role="img"
+     aria-label="Sin lectura: falta la tarifa. No hay estimación. Tu meta es 8 pesos por kilómetro y tu mínimo es 6 pesos por kilómetro.">
+  <div class="g-message">
+    <span class="g-title">Sin lectura</span>
+    <span class="g-reason">falta la tarifa</span>
+  </div>
+  <div class="g-limit">
+    <span class="g-limit-name">tu meta<b>$8</b></span>
+    <span class="g-rule" aria-hidden="true"></span>
+  </div>
+  <div class="g-limit">
+    <span class="g-limit-name">tu mínimo<b>$6</b></span>
+    <span class="g-rule" aria-hidden="true"></span>
+  </div>
+</div>

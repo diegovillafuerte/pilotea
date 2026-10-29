@@ -1,0 +1,28 @@
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600&display=swap');
+.g-a,.g-a *{box-sizing:border-box}
+.g-a{position:absolute;top:429px;right:12px;width:240px;height:100px;overflow:hidden;border-radius:14px;background:#0E0F10;color:#fff;font-family:'Barlow Semi Condensed','Arial Narrow',sans-serif;font-variant-numeric:tabular-nums;box-shadow:0 5px 12px #0003}
+.g-a-band{position:absolute;inset:0 0 auto;height:46px;display:grid;grid-template-columns:18px 88px 1fr;gap:8px;align-items:center;padding:0 14px;background:var(--g-band);color:var(--g-text)}
+.g-a-cue{display:block;width:18px;height:18px;fill:currentColor}
+.g-a-rate{font-size:34px;line-height:40px;font-weight:600;white-space:nowrap}
+.g-a-unit{font-size:14px;line-height:18px;font-weight:500;white-space:nowrap}
+.g-a-label{position:absolute;left:14px;font-size:15px;line-height:18px;font-weight:600;color:#DADBD9;white-space:nowrap}
+.g-a-meta{top:55px}.g-a-min{top:75px}
+.g-a-rule{position:absolute;left:130px;width:88px;height:2px;background:#C6C7C7}
+.g-a-upper{top:63px}.g-a-lower{top:83px}
+.g-a-spine{position:absolute;left:217px;top:54px;width:2px;height:40px;background:#858687}
+.g-a-pointer{position:absolute;left:212px;top:calc(var(--g-y) - 6px);width:12px;height:12px;fill:#fff}
+</style>
+<div class="g-a" style="--g-band:#187A36;--g-text:#fff;--g-y:54px" role="img" aria-label="9.49 pesos netos por kilómetro. Por encima de tu meta de 8. Tu mínimo es 6.">
+  <div class="g-a-band">
+    <svg class="g-a-cue" viewBox="0 0 18 18" aria-hidden="true"><path d="M9 2 18 17H0Z"/></svg>
+    <b class="g-a-rate">$9.49</b>
+    <span class="g-a-unit">/km neto</span>
+  </div>
+  <span class="g-a-label g-a-meta">tu meta $8</span>
+  <span class="g-a-label g-a-min">tu mínimo $6</span>
+  <i class="g-a-spine" aria-hidden="true"></i>
+  <i class="g-a-rule g-a-upper" aria-hidden="true"></i>
+  <i class="g-a-rule g-a-lower" aria-hidden="true"></i>
+  <svg class="g-a-pointer" viewBox="0 0 12 12" aria-hidden="true"><path d="M1 1 11 6 1 11Z"/></svg>
+</div>

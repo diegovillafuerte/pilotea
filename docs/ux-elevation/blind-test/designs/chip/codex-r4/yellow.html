@@ -1,0 +1,80 @@
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Barlow:wght@500;600&family=Barlow+Semi+Condensed:wght@500;600&display=swap');
+
+.g-yellow, .g-yellow * { box-sizing:border-box; }
+.g-yellow {
+  position:absolute; top:440px; right:12px;
+  width:240px; height:100px;
+  display:flex; flex-direction:column;
+  overflow:hidden; border-radius:12px;
+  background:#111313; color:#F5F5F2;
+  box-shadow:0 2px 4px rgb(0 0 0 / 18%);
+  font-family:"Barlow Semi Condensed",sans-serif;
+  font-variant-numeric:tabular-nums;
+}
+.g-yellow .g-band {
+  flex:none; height:56px; padding:0 12px;
+  display:flex; align-items:center; justify-content:space-between;
+  gap:10px; white-space:nowrap;
+  background:#F2B705; color:#1A1300;
+}
+.g-yellow .g-fare {
+  display:flex; align-items:center; gap:5px;
+}
+.g-yellow .g-amount {
+  font-size:40px; line-height:42px;
+  font-weight:600; letter-spacing:-.5px;
+}
+.g-yellow .g-unit {
+  display:flex; flex-direction:column;
+  font-family:"Barlow",sans-serif;
+  font-size:13px; line-height:14px; font-weight:500;
+}
+.g-yellow .g-aside {
+  flex:none; display:flex; flex-direction:column;
+  align-items:flex-end;
+}
+.g-yellow .g-relation {
+  font-size:22px; line-height:24px; font-weight:600;
+}
+.g-yellow .g-hour {
+  font-size:18px; line-height:20px; font-weight:500;
+}
+.g-yellow .g-limit {
+  flex:none; height:22px; padding:0 12px;
+  display:flex; align-items:center; gap:10px;
+  font-family:"Barlow",sans-serif;
+  font-size:14px; line-height:18px; font-weight:500;
+  color:#D3D6D4;
+}
+.g-yellow .g-limit-name {
+  flex:none; width:94px; white-space:nowrap;
+}
+.g-yellow .g-limit-name b {
+  margin-left:4px; font-weight:600; color:#F5F5F2;
+}
+.g-yellow .g-rule {
+  flex:1; height:2px; background:#929A95;
+}
+</style>
+<div class="g-yellow" lang="es-MX" role="img"
+     aria-label="7.16 pesos netos por kilómetro y 191 pesos por hora. Entre tu mínimo de 6 y tu meta de 8 pesos por kilómetro; por debajo de tu meta.">
+  <div class="g-limit">
+    <span class="g-limit-name">tu meta<b>$8</b></span>
+    <span class="g-rule" aria-hidden="true"></span>
+  </div>
+  <div class="g-band">
+    <div class="g-fare">
+      <span class="g-amount">$7.16</span>
+      <span class="g-unit"><span>/km</span><span>neto</span></span>
+    </div>
+    <div class="g-aside">
+      <span class="g-relation">$6–8</span>
+      <span class="g-hour">$191/h</span>
+    </div>
+  </div>
+  <div class="g-limit">
+    <span class="g-limit-name">tu mínimo<b>$6</b></span>
+    <span class="g-rule" aria-hidden="true"></span>
+  </div>
+</div>

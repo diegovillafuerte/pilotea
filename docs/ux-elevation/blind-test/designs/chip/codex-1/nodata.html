@@ -1,0 +1,34 @@
+<style>
+.g-nodata, .g-nodata * { box-sizing: border-box; }
+.g-nodata {
+  position: absolute; top: 120px; left: 16px; right: 16px;
+  z-index: 20; pointer-events: none;
+  padding: 14px 16px 16px;
+  background: #fff; color: #28323b;
+  border: 1px solid #dce2e7; border-left: 4px solid #89959f;
+  border-radius: 18px;
+  box-shadow: 0 6px 24px rgba(20, 38, 29, .15);
+  font-family: Roboto, "Segoe UI", Arial, sans-serif;
+}
+.g-nodata .g-state {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 4px 9px; border-radius: 7px;
+  background: #eef1f4; color: #52616e;
+  font-size: 13px; font-weight: 700; line-height: 18px;
+}
+.g-nodata .g-symbol { font-size: 15px; }
+.g-nodata .g-title {
+  margin: 14px 0 0;
+  font-size: 21px; font-weight: 700; line-height: 27px;
+  letter-spacing: -.4px;
+}
+.g-nodata .g-detail {
+  margin: 6px 0 0; max-width: 290px;
+  color: #5c6873; font-size: 13px; line-height: 19px;
+}
+</style>
+<section class="g-nodata" lang="es-MX" role="status" aria-live="polite" aria-atomic="true">
+  <div class="g-state"><span class="g-symbol" aria-hidden="true">—</span> Sin datos</div>
+  <h2 class="g-title">No se pudo leer la tarifa</h2>
+  <p class="g-detail">Sin ese dato no podemos calcular cuánto te queda después de tus costos.</p>
+</section>

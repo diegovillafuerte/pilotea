@@ -1,0 +1,44 @@
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&display=swap');
+.g-ov{position:absolute;top:420px;left:12px;right:12px;height:116px;box-sizing:border-box;padding:13px 14px 10px;border-radius:20px;background:linear-gradient(100deg,var(--g-tint) 0%,rgba(11,17,32,0) 58%),rgba(11,17,32,.95);border:1px solid var(--g-edge);box-shadow:0 12px 32px rgba(2,6,23,.45),0 2px 8px rgba(2,6,23,.35),inset 0 1px 0 rgba(255,255,255,.07);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;font-feature-settings:'tnum' 1;-webkit-font-smoothing:antialiased;color:#F8FAFC;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden;pointer-events:none;z-index:30}
+.g-ov *{box-sizing:border-box}
+.g-row{display:flex;align-items:center;gap:12px;height:56px}
+.g-badge{flex:none;width:56px;height:56px;border-radius:16px;background:var(--g-solid);display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 3px var(--g-ring),0 6px 18px var(--g-glow)}
+.g-badge svg{width:30px;height:30px;fill:none;stroke:var(--g-ink);stroke-width:3.2;stroke-linecap:round;stroke-linejoin:round}
+.g-main{flex:1;min-width:0}
+.g-verdict{font-size:13px;line-height:16px;font-weight:700;letter-spacing:.01em;color:var(--g-text);white-space:nowrap}
+.g-fig{display:flex;align-items:baseline;gap:5px;margin-top:2px;white-space:nowrap}
+.g-num{font-size:34px;line-height:36px;font-weight:800;letter-spacing:-.025em;color:#fff}
+.g-cur{position:relative;top:-11px;font-size:19px;font-weight:700;color:#CBD5E1;margin-right:1px}
+.g-unit{font-size:13px;font-weight:600;color:#94A3B8}
+.g-side{flex:none;align-self:center;padding-left:12px;border-left:1px solid rgba(148,163,184,.22);text-align:right}
+.g-hrlab{font-size:10.5px;line-height:14px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#94A3B8}
+.g-hr{font-size:22px;line-height:28px;font-weight:700;letter-spacing:-.02em;color:#F1F5F9}
+.g-scale{position:relative;height:25px}
+.g-seg{position:absolute;top:4px;height:6px;border-radius:3px}
+.g-s1{left:0;width:calc(50% - 1.5px);background:rgba(239,68,68,.26)}
+.g-s2{left:calc(50% + 1.5px);width:calc(16.667% - 3px);background:rgba(250,204,21,.26)}
+.g-s3{left:calc(66.667% + 1.5px);right:0;background:rgba(34,197,94,.26)}
+.g-mark{position:absolute;top:0;left:var(--g-pos);width:14px;height:14px;margin-left:-7px;border-radius:50%;background:#fff;box-shadow:0 0 0 3px #0B1120,0 2px 6px rgba(0,0,0,.6)}
+.g-lab{position:absolute;top:13px;transform:translateX(-50%);font-size:10.5px;line-height:12px;font-weight:600;color:#94A3B8;white-space:nowrap}
+.g-l1{left:50%}
+.g-l2{left:66.667%}
+.g-green{--g-solid:#22C55E;--g-ink:#052E16;--g-text:#4ADE80;--g-tint:rgba(34,197,94,.24);--g-edge:rgba(74,222,128,.42);--g-ring:rgba(34,197,94,.18);--g-glow:rgba(34,197,94,.35);--g-pos:79.08%}
+.g-green .g-s3{background:#22C55E}
+.g-green .g-l2{color:#BBF7D0}
+</style>
+<div class="g-ov g-green" role="status" aria-live="polite" aria-label="Sí te sale. $9.49 por km neto, $285 por hora. Arriba de tu meta de $8.00 por km.">
+  <div class="g-row" aria-hidden="true">
+    <div class="g-badge"><svg viewBox="0 0 24 24"><path d="M5.5 12.5l4.2 4.2L18.5 7.8"/></svg></div>
+    <div class="g-main">
+      <div class="g-verdict">Sí te sale</div>
+      <div class="g-fig"><span class="g-num"><span class="g-cur">$</span>9.49</span><span class="g-unit">/km neto</span></div>
+    </div>
+    <div class="g-side"><div class="g-hrlab">Por hora</div><div class="g-hr">$285</div></div>
+  </div>
+  <div class="g-scale" aria-hidden="true">
+    <i class="g-seg g-s1"></i><i class="g-seg g-s2"></i><i class="g-seg g-s3"></i>
+    <i class="g-mark"></i>
+    <span class="g-lab g-l1">mín $6</span><span class="g-lab g-l2">meta $8</span>
+  </div>
+</div>

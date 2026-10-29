@@ -1,0 +1,45 @@
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&display=swap');
+.g-ov{position:absolute;top:444px;left:12px;right:12px;height:88px;box-sizing:border-box;display:flex;align-items:stretch;background:#0F172A;border:1px solid rgba(255,255,255,.08);border-radius:20px;box-shadow:0 6px 16px -6px rgba(2,6,23,.55),0 1px 3px rgba(2,6,23,.4);color:#F8FAFC;font-family:'Inter',system-ui,-apple-system,Roboto,'Segoe UI',sans-serif;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;z-index:20;animation:g-in .22s cubic-bezier(.2,.8,.2,1) both}
+.g-ov *{box-sizing:border-box}
+.g-ov::after{content:"";position:absolute;right:46px;bottom:-6px;width:11px;height:11px;background:#0F172A;border-right:1px solid rgba(255,255,255,.08);border-bottom:1px solid rgba(255,255,255,.08);border-bottom-right-radius:3px;transform:rotate(45deg)}
+@keyframes g-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.g-ov{animation:none}}
+.g-band{flex:0 0 82px;margin:-1px 0 -1px -1px;padding:0 6px;border-radius:20px 0 0 20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;background:var(--g-c);color:var(--g-on);text-align:center}
+.g-ic{position:relative;flex:none;width:30px;height:30px;border-radius:50%;background:var(--g-icbg)}
+.g-ic::before,.g-ic::after{content:"";position:absolute;box-sizing:border-box}
+.g-mid::before{left:8px;top:13px;width:14px;height:4px;border-radius:2px;background:currentColor}
+.g-word{font-size:11px;line-height:1.15;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+.g-body{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;padding:0 16px 0 14px}
+.g-row{display:flex;align-items:baseline;justify-content:space-between;gap:8px;white-space:nowrap}
+.g-km{font-size:32px;line-height:1;font-weight:800;letter-spacing:-.03em}
+.g-hr{font-size:19px;line-height:1;font-weight:700;letter-spacing:-.01em;color:#E2E8F0}
+.g-u{margin-left:4px;font-size:12px;font-weight:600;letter-spacing:0;color:#94A3B8}
+.g-scale{position:relative;height:22px;margin-top:11px}
+.g-track{position:absolute;top:0;left:0;right:0;height:6px;border-radius:3px;background:linear-gradient(90deg,var(--g-zr) 0 calc(50% - 1px),#0F172A 0 calc(50% + 1px),var(--g-zy) 0 calc(66.667% - 1px),#0F172A 0 calc(66.667% + 1px),var(--g-zg) 0)}
+.g-mark{position:absolute;top:-4px;width:14px;height:14px;margin-left:-7px;border-radius:50%;background:var(--g-c);box-shadow:0 0 0 3px #0F172A,0 0 0 4.5px rgba(248,250,252,.85)}
+.g-tick{position:absolute;top:11px;transform:translateX(-50%);font-size:10px;line-height:11px;font-weight:600;color:#8796AC;white-space:nowrap}
+.g-tick b{font-weight:700;color:#CBD5E1}
+.g-t6{left:50%}
+.g-t8{left:66.667%}
+.g-is-yellow{--g-c:#FACC15;--g-on:#3F2A00;--g-icbg:rgba(63,42,0,.12);--g-zr:rgba(239,68,68,.26);--g-zy:#FACC15;--g-zg:rgba(34,197,94,.26)}
+.g-is-yellow .g-mark{left:59.67%}
+</style>
+<div class="g-ov g-is-yellow" role="status" aria-label="Regular: $7.16 por km neto y $191 por hora, entre tu mínimo de $6.00 y tu meta de $8.00 por km.">
+  <div class="g-band">
+    <span class="g-ic g-mid" aria-hidden="true"></span>
+    <span class="g-word">Regular</span>
+  </div>
+  <div class="g-body">
+    <div class="g-row">
+      <div><span class="g-km">$7.16</span><span class="g-u">/km neto</span></div>
+      <div class="g-hr">$191<span class="g-u">/hora</span></div>
+    </div>
+    <div class="g-scale" aria-hidden="true">
+      <div class="g-track"></div>
+      <span class="g-mark"></span>
+      <span class="g-tick g-t6">mín <b>$6</b></span>
+      <span class="g-tick g-t8">meta <b>$8</b></span>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,25 @@
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600&display=swap');
+.g-a,.g-a *{box-sizing:border-box}
+.g-a{position:absolute;top:417px;right:12px;width:240px;height:112px;overflow:hidden;border-radius:14px;background:#0E0F10;color:#fff;font-family:'Barlow Semi Condensed','Arial Narrow',sans-serif;font-variant-numeric:tabular-nums;box-shadow:0 4px 10px #0003}
+.g-a-band{position:absolute;inset:0 0 auto;height:72px;background:var(--g-color);color:var(--g-on)}
+.g-a-cue{position:absolute;left:12px;top:20px;width:32px;height:32px;fill:currentColor}
+.g-a-phrase{position:absolute;left:54px;right:10px;top:4px;font-size:18px;line-height:18px;font-weight:600}
+.g-a-value{position:absolute;left:54px;top:40px;height:30px;display:flex;align-items:baseline;gap:6px;white-space:nowrap}
+.g-a-rate{font-size:30px;line-height:30px;font-weight:600}
+.g-a-unit{font-size:14px;line-height:18px;font-weight:500}
+.g-a-limits{position:absolute;left:12px;right:12px;top:75px;display:grid;grid-template-rows:17px 17px}
+.g-a-limit{display:flex;align-items:center;gap:10px;font-size:15px;line-height:17px;font-weight:600;color:#DADBDD;white-space:nowrap}
+.g-a-line{flex:1;height:2px;background:rgba(255,255,255,.75)}
+</style>
+<div class="g-a" style="--g-color:#D32F2F;--g-on:#fff" role="img" aria-label="Abajo de tu mínimo. 2.20 pesos netos por kilómetro. Tu meta es 8; tu mínimo es 6.">
+  <div class="g-a-band">
+    <svg class="g-a-cue" viewBox="0 0 32 32" aria-hidden="true"><path d="M0 2H32L16 30Z"/></svg>
+    <span class="g-a-phrase">Abajo de<br>tu mínimo</span>
+    <div class="g-a-value"><b class="g-a-rate">$2.20</b><span class="g-a-unit">/km neto</span></div>
+  </div>
+  <div class="g-a-limits">
+    <div class="g-a-limit"><span>tu meta $8</span><span class="g-a-line" aria-hidden="true"></span></div>
+    <div class="g-a-limit"><span>tu mínimo $6</span><span class="g-a-line" aria-hidden="true"></span></div>
+  </div>
+</div>

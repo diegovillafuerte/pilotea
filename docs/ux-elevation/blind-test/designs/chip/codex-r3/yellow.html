@@ -1,0 +1,69 @@
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&display=swap');
+
+.g-yellow, .g-yellow * { box-sizing:border-box; }
+.g-yellow {
+  position:absolute; top:112px; right:12px;
+  width:240px; height:100px; padding:4px;
+  background:#151a17; color:#f5f5ef;
+  border-radius:6px;
+  box-shadow:inset 0 0 0 1px #454d47;
+  font-family:"Barlow Semi Condensed",sans-serif;
+  font-size:13px; font-weight:500;
+  font-variant-numeric:tabular-nums;
+  user-select:none; touch-action:none; cursor:grab;
+}
+.g-yellow .g-reading {
+  height:52px; padding:2px 8px;
+  background:#f2c94c; color:#111714; border-radius:2px;
+}
+.g-yellow .g-main {
+  display:flex; align-items:center; gap:5px;
+  height:32px; white-space:nowrap;
+}
+.g-yellow .g-price {
+  font-size:32px; line-height:32px; font-weight:700;
+  letter-spacing:-.5px;
+}
+.g-yellow .g-unit {
+  display:flex; flex-direction:column;
+  font-size:13px; line-height:13px; font-weight:600;
+}
+.g-yellow .g-comparison {
+  margin-left:auto;
+  font-size:24px; line-height:28px; font-weight:700;
+}
+.g-yellow .g-detail {
+  display:flex; align-items:baseline; justify-content:space-between;
+  height:16px; font-size:13px; line-height:16px; font-weight:600;
+}
+.g-yellow .g-hour { font-size:16px; font-weight:700; }
+.g-yellow .g-limit {
+  display:flex; align-items:center; justify-content:space-between;
+  height:20px; padding:0 8px;
+  font-size:13px; line-height:18px;
+}
+.g-yellow .g-upper { border-bottom:1px solid #a5afa7; }
+.g-yellow .g-lower { border-top:1px solid #a5afa7; }
+.g-yellow .g-limit-value { font-weight:600; }
+</style>
+<div class="g-yellow" lang="es-MX" role="img"
+     aria-label="Estimación neta: 7.16 pesos por kilómetro y 191 pesos por hora. Entre tus límites: desde 6 y menos de 8 pesos por kilómetro.">
+  <div class="g-limit g-upper">
+    <span>Tu meta</span><span class="g-limit-value">$8.00/km</span>
+  </div>
+  <div class="g-reading">
+    <div class="g-main">
+      <span class="g-price">$7.16</span>
+      <span class="g-unit"><span>/km</span><span>neto</span></span>
+      <span class="g-comparison">$6–8</span>
+    </div>
+    <div class="g-detail">
+      <span>Entre tus límites</span>
+      <span class="g-hour">$191/h</span>
+    </div>
+  </div>
+  <div class="g-limit g-lower">
+    <span>Tu mínimo</span><span class="g-limit-value">$6.00/km</span>
+  </div>
+</div>

@@ -1,0 +1,50 @@
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&display=swap');
+.g-root{position:absolute;top:116px;left:16px;right:16px;z-index:20;pointer-events:none;font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;color:#0F172A;-webkit-font-smoothing:antialiased}
+.g-card{display:flex;background:#FFFFFF;border-radius:18px;box-shadow:0 10px 28px rgba(15,23,42,.22),0 1px 3px rgba(15,23,42,.12);overflow:hidden}
+.g-edge{width:6px;flex:none;background:#DC2626}
+.g-main{flex:1;min-width:0;padding:12px 14px 13px}
+.g-head{display:flex;align-items:center;justify-content:space-between;gap:8px;height:26px}
+.g-brand{display:flex;align-items:center;gap:6px;font-size:11px;line-height:16px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#64748B;white-space:nowrap}
+.g-mark{display:inline-block;width:16px;height:16px;border-radius:5px;background:#0F172A;color:#FFFFFF;font-size:10px;line-height:16px;font-weight:800;text-align:center;letter-spacing:0}
+.g-pill{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px 0 9px;border-radius:999px;font-size:13px;font-weight:700;white-space:nowrap;background:#FEE2E2;color:#991B1B}
+.g-dot{display:block;width:8px;height:8px;border-radius:50%;background:#DC2626}
+.g-nums{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-top:8px}
+.g-km{font-size:34px;line-height:34px;font-weight:800;letter-spacing:-.025em;font-variant-numeric:tabular-nums;white-space:nowrap;color:#0F172A}
+.g-km span{font-size:14px;line-height:14px;font-weight:600;letter-spacing:0;color:#475569;margin-left:4px}
+.g-hr{flex:none;text-align:right}
+.g-hrv{font-size:20px;line-height:22px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;color:#0F172A}
+.g-hrl{font-size:11px;line-height:14px;font-weight:600;color:#64748B;white-space:nowrap}
+.g-track{position:relative;display:flex;height:8px;margin-top:12px;border-radius:999px}
+.g-seg{display:block;flex:none;height:8px}
+.g-seg-r{width:50%;background:#EF4444;border-radius:999px 0 0 999px}
+.g-seg-y{width:16.67%;background:#FBBF24}
+.g-seg-g{width:33.33%;background:#059669;border-radius:0 999px 999px 0}
+.g-needle{position:absolute;top:-4px;width:4px;height:16px;margin-left:-2px;border-radius:2px;background:#0F172A;box-shadow:0 0 0 2px #FFFFFF}
+.g-ticks{position:relative;height:14px;margin-top:6px}
+.g-tick{position:absolute;top:0;transform:translateX(-50%);font-size:11px;line-height:14px;font-weight:600;color:#64748B;white-space:nowrap}
+.g-tick-min{left:50%}
+.g-tick-goal{left:66.67%}
+.g-note{margin-top:6px;font-size:12px;line-height:16px;font-weight:600;color:#991B1B;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+</style>
+<div class='g-root' role='status' aria-label='Poco rentable: 2.20 pesos por kilómetro neto y 54 pesos por hora neta'>
+  <div class='g-card'>
+    <div class='g-edge'></div>
+    <div class='g-main'>
+      <div class='g-head'>
+        <div class='g-brand'><span class='g-mark'>K</span>Kompara</div>
+        <div class='g-pill'><span class='g-dot'></span>Poco rentable</div>
+      </div>
+      <div class='g-nums'>
+        <div class='g-km'>$2.20<span>/km neto</span></div>
+        <div class='g-hr'><div class='g-hrv'>$54</div><div class='g-hrl'>por hora neta</div></div>
+      </div>
+      <div class='g-track'>
+        <span class='g-seg g-seg-r'></span><span class='g-seg g-seg-y'></span><span class='g-seg g-seg-g'></span>
+        <span class='g-needle' style='left:18.33%'></span>
+      </div>
+      <div class='g-ticks'><span class='g-tick g-tick-min'>$6 mín.</span><span class='g-tick g-tick-goal'>$8 meta</span></div>
+      <div class='g-note'>Debajo de tu mínimo de $6.00/km neto</div>
+    </div>
+  </div>
+</div>

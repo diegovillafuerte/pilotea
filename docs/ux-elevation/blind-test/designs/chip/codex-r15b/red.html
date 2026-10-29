@@ -1,0 +1,28 @@
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600&display=swap');
+.g-b,.g-b *{box-sizing:border-box}
+.g-b{position:absolute;top:437px;right:12px;width:240px;height:92px;overflow:hidden;border-radius:14px;background:#0E0F10;color:#fff;font-family:'Barlow Semi Condensed','Arial Narrow',sans-serif;font-variant-numeric:tabular-nums;box-shadow:0 5px 12px #0003}
+.g-b-band{position:absolute;left:0;top:0;width:124px;height:92px;background:var(--g-band);color:var(--g-text)}
+.g-b-cue{position:absolute;left:11px;top:31px;width:16px;height:16px;fill:currentColor}
+.g-b-rate{position:absolute;left:34px;top:19px;font-size:32px;line-height:38px;font-weight:600;white-space:nowrap}
+.g-b-unit{position:absolute;left:34px;top:55px;font-size:14px;line-height:18px;font-weight:500;white-space:nowrap}
+.g-b-label{position:absolute;left:154px;font-size:15px;line-height:18px;font-weight:600;color:#DADBD9;white-space:nowrap}
+.g-b-meta{top:24px}.g-b-min{top:52px}
+.g-b-rule{position:absolute;left:128px;width:22px;height:2px;background:#C6C7C7}
+.g-b-upper{top:32px}.g-b-lower{top:60px}
+.g-b-spine{position:absolute;left:137px;top:17px;width:2px;height:60px;background:#858687}
+.g-b-pointer{position:absolute;left:132px;top:calc(var(--g-y) - 6px);width:12px;height:12px;fill:#fff}
+</style>
+<div class="g-b" style="--g-band:#D32F2F;--g-text:#fff;--g-y:77px" role="img" aria-label="2.20 pesos netos por kilómetro. Por debajo de tu mínimo de 6. Tu meta es 8.">
+  <div class="g-b-band">
+    <svg class="g-b-cue" viewBox="0 0 18 18" aria-hidden="true"><path d="M0 1H18L9 16Z"/></svg>
+    <b class="g-b-rate">$2.20</b>
+    <span class="g-b-unit">/km neto</span>
+  </div>
+  <span class="g-b-label g-b-meta">tu meta $8</span>
+  <span class="g-b-label g-b-min">tu mínimo $6</span>
+  <i class="g-b-spine" aria-hidden="true"></i>
+  <i class="g-b-rule g-b-upper" aria-hidden="true"></i>
+  <i class="g-b-rule g-b-lower" aria-hidden="true"></i>
+  <svg class="g-b-pointer" viewBox="0 0 12 12" aria-hidden="true"><path d="M1 1 11 6 1 11Z"/></svg>
+</div>

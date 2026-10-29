@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="es-MX">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#ffffff">
+  <title>Hoy</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;550;600;650;700&display=swap');
+
+    * { box-sizing: border-box; }
+    html { margin: 0; padding: 0; background: #fff; }
+    body {
+      width: 393px;
+      height: 852px;
+      margin: 0;
+      overflow: hidden;
+      background: #fff;
+      color: #161918;
+      font-family: 'Inter', Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      font-variant-numeric: tabular-nums;
+    }
+    a { color: inherit; text-decoration: none; -webkit-tap-highlight-color: transparent; }
+    a:focus-visible { outline: 2px solid #087f55; outline-offset: 4px; }
+    .status-bar {
+      height: 32px;
+      padding: 11px 25px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      line-height: 16px;
+      font-weight: 600;
+    }
+    .system-icons { display: flex; align-items: center; gap: 6px; height: 14px; }
+    .signal { display: flex; height: 11px; align-items: flex-end; gap: 2px; }
+    .signal i { display: block; width: 3px; background: #161918; border-radius: 1px 1px 0 0; }
+    .signal i:nth-child(1) { height: 4px; }
+    .signal i:nth-child(2) { height: 6px; }
+    .signal i:nth-child(3) { height: 8px; }
+    .signal i:nth-child(4) { height: 11px; }
+    .battery { width: 19px; height: 10px; padding: 1.5px; border: 1.3px solid #161918; border-radius: 2px; position: relative; margin-right: 2px; }
+    .battery::before { content: ''; display: block; width: 12px; height: 100%; background: #161918; border-radius: .5px; }
+    .battery::after { content: ''; position: absolute; width: 2px; height: 4px; right: -3px; top: 2px; background: #161918; border-radius: 0 1px 1px 0; }
+    main { height: 724px; padding: 18px 24px 0; }
+    .page-header { height: 44px; display: flex; align-items: center; justify-content: space-between; }
+    h1 { margin: 0; font-size: 32px; line-height: 40px; font-weight: 650; letter-spacing: -1.1px; }
+    .account { width: 44px; height: 44px; border: 1px solid #e4e7e5; border-radius: 50%; display: grid; place-items: center; }
+    .person { width: 22px; height: 24px; position: relative; }
+    .person::before { content: ''; position: absolute; top: 2px; left: 7px; width: 8px; height: 8px; border: 1.7px solid currentColor; border-radius: 50%; }
+    .person::after { content: ''; position: absolute; bottom: 3px; left: 3px; width: 16px; height: 9px; border: 1.7px solid currentColor; border-radius: 10px 10px 3px 3px; }
+    .reader { display: flex; align-items: center; gap: 7px; width: fit-content; height: 30px; margin-top: 20px; padding: 0 10px; border-radius: 7px; background: #edf7f0; color: #256b43; font-size: 12px; font-weight: 550; }
+    .reader-dot { width: 6px; height: 6px; border-radius: 50%; background: #27864f; }
+    .earnings { margin-top: 30px; }
+    .earnings h2 { margin: 0; font-size: 17px; font-weight: 500; line-height: 22px; letter-spacing: -.25px; }
+    .amount { display: flex; align-items: baseline; gap: 10px; margin-top: 4px; height: 86px; }
+    .amount strong { font-size: 76px; line-height: 86px; font-weight: 600; letter-spacing: -4.5px; }
+    .amount span { font-size: 14px; color: #6d736f; font-weight: 450; }
+    .costs { margin: 2px 0 0; font-size: 14px; line-height: 22px; color: #626963; letter-spacing: -.15px; }
+    .trips { margin: 8px 0 0; font-size: 14px; line-height: 20px; font-weight: 550; }
+    .insight { height: 76px; margin-top: 26px; padding: 16px; display: flex; gap: 13px; align-items: center; background: #f5f6f4; border-radius: 14px; }
+    .clock { position: relative; width: 24px; height: 24px; flex: 0 0 24px; border: 1.6px solid #4e5d52; border-radius: 50%; margin: 0 3px; }
+    .clock::before { content: ''; position: absolute; top: 4px; left: 10px; height: 7px; width: 1.6px; background: #4e5d52; border-radius: 1px; }
+    .clock::after { content: ''; position: absolute; top: 10px; left: 10px; height: 1.6px; width: 6px; background: #4e5d52; transform: rotate(25deg); transform-origin: left center; border-radius: 1px; }
+    .insight p { margin: 0; font-size: 13px; line-height: 19px; color: #626963; }
+    .insight strong { display: block; margin-top: 1px; font-size: 17px; line-height: 23px; font-weight: 600; letter-spacing: -.3px; }
+    .offers { margin-top: 30px; }
+    .section-header { height: 26px; display: flex; align-items: center; justify-content: space-between; }
+    .section-header h2 { margin: 0; font-size: 18px; line-height: 24px; letter-spacing: -.5px; font-weight: 650; }
+    .day-link { display: flex; gap: 6px; align-items: center; min-height: 44px; font-size: 12px; line-height: 18px; font-weight: 550; }
+    .chevron { display: block; width: 6px; height: 6px; border-top: 1.5px solid currentColor; border-right: 1.5px solid currentColor; transform: rotate(45deg); margin-right: 2px; }
+    .offer-list { list-style: none; margin: 12px 0 0; padding: 0; }
+    .offer { height: 72px; display: flex; align-items: center; gap: 12px; }
+    .offer + .offer { border-top: 1px solid #eef0ed; }
+    .offer-icon { position: relative; width: 36px; height: 36px; flex: 0 0 36px; border-radius: 50%; display: grid; place-items: center; }
+    .good .offer-icon { background: #eaf5ed; color: #237747; }
+    .bad .offer-icon { background: #fbeeed; color: #b5483e; }
+    .unknown .offer-icon { background: #f1f3f1; color: #747b75; }
+    .check { width: 12px; height: 7px; border-left: 1.8px solid currentColor; border-bottom: 1.8px solid currentColor; transform: translateY(-2px) rotate(-45deg); }
+    .minus { width: 12px; height: 1.8px; background: currentColor; border-radius: 1px; }
+    .scan { position: relative; width: 15px; height: 15px; border: 1.5px dashed currentColor; border-radius: 3px; }
+    .scan::after { content: ''; position: absolute; top: 5px; left: 3px; width: 6px; height: 1.5px; background: currentColor; }
+    .offer-copy { flex: 1; min-width: 0; }
+    .offer time { display: block; font-size: 15px; line-height: 22px; font-weight: 600; letter-spacing: -.2px; }
+    .offer p { margin: 1px 0 0; font-size: 13px; line-height: 19px; color: #6d736f; letter-spacing: -.1px; }
+    .rating { font-size: 12px; line-height: 20px; font-weight: 550; padding: 2px 8px; border-radius: 5px; }
+    .good .rating { background: #eaf5ed; color: #237747; }
+    .bad .rating { background: #fbeeed; color: #a53f37; }
+    .bottom-nav { height: 72px; display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid #eceeeb; padding: 9px 12px 0; }
+    .nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; color: #747a76; font-size: 11px; line-height: 16px; font-weight: 500; }
+    .nav-icon { display: grid; place-items: center; width: 54px; height: 30px; border-radius: 18px; }
+    .nav-item[aria-current="page"] { color: #161918; font-weight: 650; }
+    .nav-item[aria-current="page"] .nav-icon { background: #edf0eb; }
+    .home { width: 15px; height: 12px; background: currentColor; position: relative; margin-top: 6px; border-radius: 0 0 2px 2px; }
+    .home::before { content: ''; position: absolute; top: -6px; left: 1px; width: 13px; height: 13px; background: currentColor; transform: rotate(45deg); border-radius: 2px; }
+    .home::after { content: ''; position: absolute; width: 4px; height: 7px; bottom: 0; left: 5.5px; background: #edf0eb; border-radius: 1px 1px 0 0; }
+    .chart { display: flex; align-items: flex-end; gap: 3px; height: 20px; }
+    .chart i { display: block; width: 4px; border: 1.5px solid currentColor; border-radius: 1px; }
+    .chart i:nth-child(1) { height: 9px; }
+    .chart i:nth-child(2) { height: 15px; }
+    .chart i:nth-child(3) { height: 20px; }
+    .compare { width: 21px; height: 20px; position: relative; }
+    .compare i { display: block; position: absolute; width: 19px; height: 1.6px; background: currentColor; border-radius: 1px; }
+    .compare i:first-child { top: 5px; left: 0; }
+    .compare i:last-child { bottom: 5px; right: 0; }
+    .compare i::after { content: ''; position: absolute; width: 6px; height: 6px; border-top: 1.6px solid currentColor; border-right: 1.6px solid currentColor; }
+    .compare i:first-child::after { right: 0; top: -2.5px; transform: rotate(45deg); }
+    .compare i:last-child::after { left: 0; top: -2.5px; transform: rotate(-135deg); }
+    .system-navigation { height: 24px; display: flex; justify-content: center; align-items: center; }
+    .system-navigation::after { content: ''; width: 108px; height: 4px; background: #202320; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <div class="status-bar" aria-hidden="true">
+    <span>14:32</span>
+    <div class="system-icons"><span class="signal"><i></i><i></i><i></i><i></i></span><span class="battery"></span></div>
+  </div>
+
+  <main>
+    <header class="page-header">
+      <h1>Hoy</h1>
+      <a class="account" href="#cuenta" aria-label="Cuenta"><span class="person" aria-hidden="true"></span></a>
+    </header>
+
+    <div class="reader" role="status"><span class="reader-dot" aria-hidden="true"></span>Lector funcionando</div>
+
+    <section class="earnings" aria-labelledby="earnings-title">
+      <h2 id="earnings-title">Te quedan hoy</h2>
+      <div class="amount"><strong>$762</strong><span>aprox.</span></div>
+      <p class="costs">Después de gasolina y desgaste</p>
+      <p class="trips">6 viajes tomados</p>
+    </section>
+
+    <aside class="insight" aria-label="Observación del día">
+      <span class="clock" aria-hidden="true"></span>
+      <div><p>Tu mejor hora hoy</p><strong>De 9 a 10</strong></div>
+    </aside>
+
+    <section class="offers" aria-labelledby="offers-title">
+      <div class="section-header">
+        <h2 id="offers-title">Últimas ofertas</h2>
+        <a class="day-link" href="#dia">Ver todo el día<span class="chevron" aria-hidden="true"></span></a>
+      </div>
+      <ul class="offer-list">
+        <li class="offer good">
+          <span class="offer-icon" aria-hidden="true"><span class="check"></span></span>
+          <div class="offer-copy"><time datetime="14:32">14:32</time><p>La tomaste</p></div>
+          <span class="rating">Buena</span>
+        </li>
+        <li class="offer bad">
+          <span class="offer-icon" aria-hidden="true"><span class="minus"></span></span>
+          <div class="offer-copy"><time datetime="12:10">12:10</time><p>La dejaste pasar</p></div>
+          <span class="rating">Mala</span>
+        </li>
+        <li class="offer unknown">
+          <span class="offer-icon" aria-hidden="true"><span class="scan"></span></span>
+          <div class="offer-copy"><time datetime="11:48">11:48</time><p>No se pudo leer la tarifa</p></div>
+        </li>
+      </ul>
+    </section>
+  </main>
+
+  <nav class="bottom-nav" aria-label="Navegación principal">
+    <a class="nav-item" href="#hoy" aria-current="page"><span class="nav-icon" aria-hidden="true"><span class="home"></span></span>Hoy</a>
+    <a class="nav-item" href="#ganancias"><span class="nav-icon" aria-hidden="true"><span class="chart"><i></i><i></i><i></i></span></span>Ganancias</a>
+    <a class="nav-item" href="#comparar"><span class="nav-icon" aria-hidden="true"><span class="compare"><i></i><i></i></span></span>Comparar</a>
+  </nav>
+  <div class="system-navigation" aria-hidden="true"></div>
+</body>
+</html>

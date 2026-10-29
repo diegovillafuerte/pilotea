@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="es-MX">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=393, initial-scale=1">
+<title>Hoy</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:393px;height:852px;overflow:hidden;background:#F2F2F2}
+body{
+  display:flex;flex-direction:column;
+  font-family:'Inter','Roboto',system-ui,-apple-system,sans-serif;
+  font-size:15px;color:#000;
+  -webkit-font-smoothing:antialiased;
+}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit}
+.num{font-variant-numeric:tabular-nums}
+
+/* Header */
+.top{flex:none;padding:50px 20px 0}
+.top-row{display:flex;align-items:center;justify-content:space-between;height:44px}
+.top h1{font-size:30px;font-weight:800;letter-spacing:-.02em;line-height:1}
+.avatar{width:40px;height:40px;border:0;border-radius:50%;background:#E3E3E3;color:#000;display:grid;place-items:center;cursor:pointer}
+.reader{display:inline-flex;align-items:center;gap:8px;margin-top:10px;height:28px;padding:0 12px 0 10px;border-radius:999px;background:#fff;font-size:13px;font-weight:600;color:#262626}
+.dot{width:8px;height:8px;border-radius:50%;background:#06A94D;box-shadow:0 0 0 3px rgba(6,169,77,.18)}
+
+main{flex:1;min-height:0;display:flex;flex-direction:column}
+
+/* Hero: what is left today */
+.hero{flex:none;margin:16px 16px 0;padding:20px 20px 22px;border-radius:22px;background:#000;color:#fff}
+.hero-top{display:flex;align-items:center;justify-content:space-between;height:22px}
+.eyebrow{font-size:14px;font-weight:600;color:#D4D4D4}
+.pill{font-size:11px;font-weight:600;line-height:13px;padding:4px 9px;border-radius:999px;background:rgba(255,255,255,.14);color:#fff}
+.amt{margin-top:10px;font-size:68px;font-weight:800;line-height:68px;letter-spacing:-.03em}
+.amt .cur{font-size:36px;letter-spacing:0;margin-right:3px}
+.hero-sub{margin-top:12px;font-size:14px;line-height:20px;color:#BDBDBD}
+
+/* Observation */
+.obs{flex:none;display:flex;align-items:center;gap:14px;margin:12px 16px 0;padding:16px;border-radius:18px;background:#fff}
+.obs-ic{flex:none;width:40px;height:40px;border-radius:12px;background:#F2F2F2;display:grid;place-items:center}
+.label{font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#6B6B6B}
+.obs p{margin-top:3px;font-size:16px;line-height:22px;font-weight:500}
+.obs b{font-weight:800}
+
+/* Last offers */
+.sec{flex:none;margin:26px 20px 10px}
+.sec h2{font-size:17px;font-weight:700;line-height:22px}
+.list{flex:none;list-style:none;margin:0 16px;border-radius:18px;background:#fff;overflow:hidden}
+.row{display:grid;grid-template-columns:44px 32px 1fr;align-items:center;column-gap:12px;height:66px;padding:0 16px}
+.row+.row{border-top:1px solid #EFEFEF}
+.time{font-size:15px;font-weight:700;color:#000;font-variant-numeric:tabular-nums}
+.ic{width:32px;height:32px;border-radius:50%;display:grid;place-items:center}
+.good .ic{background:#E5F5EB;color:#067D3A}
+.bad .ic{background:#FCE7E7;color:#C62828}
+.unk .ic{background:#EDEDED;color:#555}
+.title{font-size:15px;font-weight:600;line-height:20px}
+.sub{font-size:13px;line-height:18px;color:#636363}
+.unk .title{font-weight:500;color:#333}
+
+/* Link to full day */
+.more{flex:none;display:flex;align-items:center;justify-content:center;gap:4px;height:50px;margin:12px 16px 0;border:1px solid #CFCFCF;border-radius:999px;background:#fff;font-size:15px;font-weight:600}
+
+/* Bottom navigation */
+.tabs{flex:none;display:grid;grid-template-columns:repeat(3,1fr);height:86px;padding:8px 12px 26px;background:#fff;border-top:1px solid #E3E3E3}
+.tab{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;font-weight:600;color:#707070}
+.tw{width:56px;height:30px;border-radius:999px;display:grid;place-items:center}
+.tab.on{color:#000}
+.tab.on .tw{background:#E6E6E6}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="top-row">
+    <h1>Hoy</h1>
+    <button class="avatar" type="button" aria-label="Tu cuenta">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8.5" r="4"/><path d="M4.5 20.5c1.4-3.6 4.2-5.5 7.5-5.5s6.1 1.9 7.5 5.5"/></svg>
+    </button>
+  </div>
+  <div class="reader" role="status"><span class="dot" aria-hidden="true"></span>Lector funcionando</div>
+</header>
+
+<main>
+  <section class="hero" aria-labelledby="hero-label">
+    <div class="hero-top">
+      <span class="eyebrow" id="hero-label">Lo que te queda hoy</span>
+      <span class="pill">Aprox.</span>
+    </div>
+    <div class="amt num"><span class="cur">$</span>762</div>
+    <p class="hero-sub">De 6 viajes, ya descontando gasolina y desgaste</p>
+  </section>
+
+  <section class="obs">
+    <span class="obs-ic" aria-hidden="true">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 16.5l5.5-5.5 3.5 3.5L20.5 7.5"/><path d="M15 7.5h5.5V13"/></svg>
+    </span>
+    <div>
+      <div class="label">Observación</div>
+      <p>Tu mejor hora hoy fue de <b>9 a 10</b>.</p>
+    </div>
+  </section>
+
+  <div class="sec"><h2>Últimas 3 ofertas</h2></div>
+
+  <ol class="list">
+    <li class="row good">
+      <span class="time">14:32</span>
+      <span class="ic" aria-hidden="true">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.3 4.3L19 7"/></svg>
+      </span>
+      <div>
+        <div class="title">Buena oferta</div>
+        <div class="sub">La tomaste</div>
+      </div>
+    </li>
+    <li class="row bad">
+      <span class="time">12:10</span>
+      <span class="ic" aria-hidden="true">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></svg>
+      </span>
+      <div>
+        <div class="title">Mala oferta</div>
+        <div class="sub">La dejaste</div>
+      </div>
+    </li>
+    <li class="row unk">
+      <span class="time">11:48</span>
+      <span class="ic" aria-hidden="true">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 9.6a2.5 2.5 0 1 1 3.4 2.3c-.6.3-.9.8-.9 1.4v.5"/><path d="M12 17.6h.01"/></svg>
+      </span>
+      <div>
+        <div class="title">No se pudo leer la tarifa</div>
+      </div>
+    </li>
+  </ol>
+
+  <a class="more" href="#">
+    Ver el día completo
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 6l6 6-6 6"/></svg>
+  </a>
+</main>
+
+<nav class="tabs" aria-label="Principal">
+  <a class="tab on" href="#" aria-current="page">
+    <span class="tw">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10.5L12 4l8 6.5V19a1 1 0 0 1-1 1h-4.5v-5.5h-5V20H5a1 1 0 0 1-1-1z"/></svg>
+    </span>
+    Hoy
+  </a>
+  <a class="tab" href="#">
+    <span class="tw">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="6.5" width="19" height="11" rx="2"/><circle cx="12" cy="12" r="2.3"/></svg>
+    </span>
+    Ganancias
+  </a>
+  <a class="tab" href="#">
+    <span class="tw">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8.5h14.5M14.5 5l3.5 3.5-3.5 3.5M20 15.5H5.5M9.5 12l-3.5 3.5 3.5 3.5"/></svg>
+    </span>
+    Comparar
+  </a>
+</nav>
+
+</body>
+</html>

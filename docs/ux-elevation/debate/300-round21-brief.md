@@ -1,0 +1,23 @@
+# Round 21 — from run 5 (the first walkthrough on the working prototype) to the gate
+
+**Run 5** (`../blind-test/walkthrough/results-r20c-run5.md`): six persona judges (Rosa 52 renter Uber-only low-tech · Luis 28 owner fast · Martha 41 renter with red-green CVD · Jorge 60 owner large text · Ana 34 renter practical · Diego 23 power user) drove the clickable prototype in participant mode through a CLI harness. **Objective success 54/54** (every task reached its answer screen in the prototype's own log), 0.2 misses per task at most. **Mean SEQ 5.83/7** (static runs 1–4: 5.48 · 5.50 · 5.60 · 5.46), **ease vs Uber 7.0/10** (was 6.5), **understood 7.0/10** (was ~5.7). Matched to Uber (judges' estimates of their own Uber app): today 6.17 vs 5.83, last week 5.83 vs 4.67, trip detail 6.17 vs 4.67. **Gate not met:** mean ≥ 6.0, vs Uber ≥ 7.5, no task < 5.5.
+
+| Task | SEQ | Log taps | Named problems |
+|---|---|---|---|
+| 8 First day | **5.00** | 4.7 | 5/6: two screens in a row with the same "Abrir ajustes" (A3 → A3b), the example pictures look tappable (judges tapped the drawn switch / Permitir), «control total» and "Uber o DiDi podrían no permitirlo" are scary, no clear "it worked" on return |
+| 6 Change tu mínimo | **5.00** | 9.7 | 5/6: Guardar gives no confirmation and stays on the screen; ±$0.10 steps (5–10 taps for 50 cents); typing hidden behind a dotted underline; limits two screens deep. (Also a prototype bug, fixed: limits reset at every task start, so a saved $6.50 vanished by task 9.) |
+| 2 Offer at a glance | 5.67 | 0 | 2/6: the yellow "Entre tu meta y tu mínimo" gives no take/skip word ("Aceptable", "Solo si no hay algo mejor"); small low-contrast limit labels with reading glasses |
+| 4 Last week | 5.83 | 2.3 | "Tu resumen de Uber dice $34 más" — more than what?; the ‹ to last week is small and unlabelled; Ganancias opens on this week ($548 = today) |
+| 1, 3, 5, 7, 9 | 6.0–6.5 | ≤ 2.7 | money words: "Te quedan hoy · aprox." read as money still to come (2/6); colour words ("ofertas verdes", "verde desde", "rojo abajo de") meaningless with CVD; Comparar's per-km basis ("gasolina y desgaste") vs Ganancias' (with the car) read as inconsistent; a trip's "Te deja $114" (no car) vs the day's "Te quedan" (with car) |
+
+Current copy (for reference): A2 "Lee cada oferta con la accesibilidad de Android: … Uber o DiDi podrían no permitirlo." · A3 "Enciende Kompara en Accesibilidad / Kompara solo lee tu pantalla y nunca toca nada. / Si ves una lista, busca Kompara · Activa el interruptor · Toca Permitir y regresa / Android lo llama «control total» en todas las apps de accesibilidad; Kompara solo lee. / Así se verá [drawn dialog: Rechazar · Permitir] / Abrir ajustes · Ahora no" · A3b "Toca Kompara y activa el interruptor / Así se verá [drawn list: Kompara · Desactivado] / Al volver, verás «Permiso listo» / Abrir ajustes" · G2b "Tu meta · verde desde $8.00 /km [− +] de $0.10 en $0.10 / Tu mínimo · rojo abajo de $6.00 /km [− +] / Toca la cifra para escribirla. / Guardar" · E1 "Tu resumen de Uber dice $34 más" · F1 "Ya restamos gasolina y desgaste".
+
+## Deliver (short, decisive markdown)
+1. **Task 6 — the limits editor.** Exact design: how a change is made (typing vs steppers, step size), how Guardar confirms and where it lands, the input affordance, and whether the editor should be one tap closer from Hoy. Copy in Spanish.
+2. **Task 8 — the first-day permission flow.** Exact screens (merge A3/A3b or not), how the example pictures read as non-interactive, the «control total» reassurance, where the Uber/DiDi risk line lives (it is a required honest disclosure — keep it, but say where and how), and the return state.
+3. **Task 2 — the yellow state.** Keep the position phrase, add a word, or change it? (Prior blind tests favoured position over verdict words for template-ness; the founder holds this decision — spec §11 R14.) Give your recommendation and the exact chip text if it changes.
+4. **The smaller ones:** colour words → shape/position words; "Te quedan" ambiguity (keep, or e.g. "Llevas hoy" for open periods and "Te quedaron" for closed ones?); "$34 más" wording; Comparar's basis line; the trip's "Te deja" vs the car; the last-week arrow.
+5. **What, if anything, would move "ease vs Uber" from 7.0 to ≥ 7.5** without adding features.
+Only design decisions with exact copy; no code. Ground each in the run-5 evidence.
+
+Inputs: `../blind-test/walkthrough/results-r20c-run5.md` (tally + six full reports); the kit `design-system/ui_kits/android-app-v2/` (frames A2, A3, A3b, B3, G2b, G2, G2c, G2d, G4, C2, E1, E8, F1, D1a, D2); spec `docs/ux-elevation-spec.md`; rubrics `02`, `03`.

@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="es-MX">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=393, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Hoy</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@600;700&display=swap');
+
+:root{
+  --ink:#000000;
+  --ink-2:#5e5e5e;      /* secondary text, 6.5:1 on white */
+  --ink-3:#757575;      /* inactive tabs, 4.6:1 on white */
+  --line:#ebebeb;
+  --surface:#f3f3f3;
+  --good:#06833f;       /* white on it: 4.9:1 */
+  --bad:#e11900;        /* white on it: 4.8:1 */
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html{background:#fff}
+body{
+  width:393px;height:852px;overflow:hidden;
+  display:flex;flex-direction:column;
+  background:#fff;color:var(--ink);
+  font:400 16px/1.35 'Inter',system-ui,Roboto,'Segoe UI',sans-serif;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+a{color:inherit;text-decoration:none}
+ul{list-style:none}
+b{font-weight:600}
+.num{font-variant-numeric:tabular-nums}
+
+/* ---------- Android status bar ---------- */
+.sb{
+  flex:none;height:40px;padding:0 22px 0 26px;
+  display:flex;align-items:center;justify-content:space-between;
+  font-size:14px;font-weight:600;letter-spacing:.01em;
+}
+.sb-r{display:flex;align-items:center;gap:8px}
+.sb-r i{display:block}
+.wifi{
+  width:11px;height:11px;background:#000;
+  border-top-left-radius:100%;
+  transform:rotate(45deg);
+  position:relative;top:-2px;margin:0 2px;
+}
+.sig{width:0;height:0;border-left:13px solid transparent;border-bottom:13px solid #000}
+.bat{width:8px;height:14px;border-radius:2px;background:#000;position:relative;margin-top:2px}
+.bat::before{content:"";position:absolute;top:-2px;left:2.5px;width:3px;height:2px;background:#000;border-radius:1px 1px 0 0}
+
+/* ---------- Header ---------- */
+.top{flex:none;padding:6px 20px 0}
+.titlerow{display:flex;align-items:center;justify-content:space-between;height:48px}
+h1{
+  font-family:'Inter Tight','Inter',sans-serif;
+  font-size:32px;line-height:40px;font-weight:700;letter-spacing:-.02em;
+}
+.acct{
+  display:block;position:relative;overflow:hidden;
+  width:44px;height:44px;border-radius:50%;background:#ededed;
+}
+.acct::before{
+  content:"";position:absolute;left:50%;top:10px;
+  width:14px;height:14px;margin-left:-7px;border-radius:50%;background:#545454;
+}
+.acct::after{
+  content:"";position:absolute;left:50%;top:27px;
+  width:28px;height:24px;margin-left:-14px;border-radius:50%;background:#545454;
+}
+
+.reader{
+  display:inline-flex;align-items:center;gap:9px;
+  height:32px;margin-top:10px;padding:0 14px 0 12px;
+  border-radius:999px;background:#e9f6ee;color:#0a5c30;
+  font-size:14px;font-weight:600;
+}
+.dot{position:relative;width:8px;height:8px;border-radius:50%;background:#0b8a46}
+.dot::after{
+  content:"";position:absolute;inset:0;border-radius:50%;background:#0b8a46;
+  animation:pulse 2.4s ease-out infinite;
+}
+@keyframes pulse{0%{transform:scale(1);opacity:.45}100%{transform:scale(2.8);opacity:0}}
+@media (prefers-reduced-motion:reduce){.dot::after{animation:none;opacity:0}}
+
+/* ---------- Main ---------- */
+main{flex:1;min-height:0}
+
+.hero{padding:30px 20px 0}
+.label{font-size:16px;line-height:22px;font-weight:500;color:var(--ink-2)}
+.amount{display:flex;align-items:baseline;gap:10px;margin-top:6px}
+.big{
+  font-family:'Inter Tight','Inter',sans-serif;
+  font-size:72px;line-height:1;font-weight:700;letter-spacing:-.035em;
+}
+.cur{font-size:36px;font-weight:600;letter-spacing:0;vertical-align:26px;margin-right:3px}
+.approx{font-size:16px;font-weight:500;color:var(--ink-2)}
+.meta{margin-top:12px;font-size:15px;line-height:20px;color:var(--ink-2)}
+.meta b{color:var(--ink)}
+
+.tip{
+  margin:24px 20px 0;padding:14px 16px;
+  display:flex;align-items:center;gap:14px;
+  background:var(--surface);border-radius:16px;
+}
+.tip-ic{
+  flex:none;width:40px;height:40px;border-radius:50%;background:#fff;
+  display:flex;align-items:center;justify-content:center;
+}
+.clock{display:block;position:relative;width:18px;height:18px;border:2px solid #000;border-radius:50%}
+.clock::before{content:"";position:absolute;left:6px;top:2px;width:2px;height:6px;background:#000;border-radius:1px}
+.clock::after{content:"";position:absolute;left:6px;top:6px;width:5px;height:2px;background:#000;border-radius:1px}
+.tip-k{font-size:14px;line-height:20px;color:var(--ink-2)}
+.tip-v{font-size:16px;line-height:22px;font-weight:600}
+
+.sec{padding:32px 20px 0}
+h2{
+  font-family:'Inter Tight','Inter',sans-serif;
+  font-size:20px;line-height:26px;font-weight:700;letter-spacing:-.01em;
+}
+.offers{margin-top:4px}
+.offer{position:relative;display:flex;align-items:center;gap:14px;min-height:68px}
+.offer+.offer::before{content:"";position:absolute;top:0;left:50px;right:0;height:1px;background:var(--line)}
+.badge{flex:none;position:relative;width:36px;height:36px;border-radius:50%}
+.good{background:var(--good)}
+.good::after{
+  content:"";position:absolute;left:12px;top:12px;width:12px;height:7px;
+  border-left:2.5px solid #fff;border-bottom:2.5px solid #fff;
+  transform:rotate(-45deg);
+}
+.bad{background:var(--bad)}
+.bad::before,.bad::after{
+  content:"";position:absolute;left:11px;top:16.75px;width:14px;height:2.5px;
+  background:#fff;border-radius:2px;
+}
+.bad::before{transform:rotate(45deg)}
+.bad::after{transform:rotate(-45deg)}
+.unk{background:#ececec}
+.unk::after{
+  content:"?";position:absolute;inset:0;
+  display:flex;align-items:center;justify-content:center;
+  font-size:17px;font-weight:700;color:var(--ink-2);
+}
+.o-txt{flex:1;min-width:0}
+.o-t{font-size:16px;line-height:22px;font-weight:600}
+.o-s{font-size:14px;line-height:20px;color:var(--ink-2)}
+.o-time{flex:none;font-size:15px;font-weight:500;color:var(--ink-2)}
+
+.all{
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  height:48px;margin-top:12px;border-radius:999px;
+  background:var(--surface);font-size:16px;font-weight:600;
+}
+.chev{display:block;width:8px;height:8px;border-top:2px solid #000;border-right:2px solid #000;transform:rotate(45deg);margin-left:-2px}
+
+/* ---------- Bottom navigation ---------- */
+nav{flex:none;border-top:1px solid var(--line);background:#fff}
+.tabs{display:flex;height:72px}
+.tab{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  font-size:12px;line-height:16px;font-weight:500;color:var(--ink-3);
+}
+.pill{width:56px;height:30px;border-radius:999px;display:flex;align-items:center;justify-content:center}
+.tab.on{color:var(--ink);font-weight:600}
+.tab.on .pill{background:#ececec}
+
+.i-cal{
+  display:block;position:relative;width:20px;height:19px;
+  border:2px solid currentColor;border-top-width:5px;border-radius:4px;margin-top:2px;
+}
+.i-cal::before{
+  content:"";position:absolute;top:-8px;left:3px;width:2px;height:5px;
+  background:currentColor;border-radius:1px;box-shadow:8px 0 0 currentColor;
+}
+.i-cal::after{
+  content:"";position:absolute;right:2px;bottom:2px;width:5px;height:5px;
+  background:currentColor;border-radius:1px;
+}
+.i-bars{display:flex;align-items:flex-end;gap:3px;height:18px}
+.i-bars i{display:block;width:4px;background:currentColor;border-radius:1px}
+.i-bars i:nth-child(1){height:8px}
+.i-bars i:nth-child(2){height:13px}
+.i-bars i:nth-child(3){height:18px}
+.i-cmp{display:block;position:relative;width:20px;height:16px}
+.i-cmp i{position:absolute;width:16px;height:2px;background:currentColor;border-radius:1px}
+.i-cmp i:first-child{top:3px;left:3px}
+.i-cmp i:last-child{bottom:3px;left:1px}
+.i-cmp i::after{
+  content:"";position:absolute;top:-2px;width:6px;height:6px;
+  border-top:2px solid currentColor;border-right:2px solid currentColor;
+}
+.i-cmp i:first-child::after{right:1px;transform:rotate(45deg)}
+.i-cmp i:last-child::after{left:1px;transform:rotate(-135deg)}
+
+.gest{height:20px;display:flex;align-items:center;justify-content:center}
+.gest::before{content:"";width:108px;height:4px;border-radius:2px;background:#1f1f1f}
+</style>
+</head>
+<body>
+
+  <div class="sb" aria-hidden="true">
+    <span class="num">14:41</span>
+    <span class="sb-r"><i class="wifi"></i><i class="sig"></i><i class="bat"></i></span>
+  </div>
+
+  <header class="top">
+    <div class="titlerow">
+      <h1>Hoy</h1>
+      <a class="acct" href="#cuenta" aria-label="Tu cuenta"></a>
+    </div>
+    <p class="reader" role="status"><span class="dot" aria-hidden="true"></span>Lector funcionando</p>
+  </header>
+
+  <main>
+    <section class="hero" aria-label="Lo que te queda hoy">
+      <p class="label">Lo que te queda hoy</p>
+      <p class="amount">
+        <span class="big num"><span class="cur">$</span>762</span>
+        <span class="approx">aprox.</span>
+      </p>
+      <p class="meta"><b>6 viajes</b> · ya descontando gasolina y desgaste</p>
+    </section>
+
+    <div class="tip">
+      <span class="tip-ic" aria-hidden="true"><i class="clock"></i></span>
+      <div>
+        <p class="tip-k">Tu mejor hora de hoy</p>
+        <p class="tip-v">De 9 a 10 de la mañana</p>
+      </div>
+    </div>
+
+    <section class="sec" aria-labelledby="ultimas">
+      <h2 id="ultimas">Últimas ofertas</h2>
+      <ul class="offers">
+        <li class="offer">
+          <span class="badge good" aria-hidden="true"></span>
+          <div class="o-txt">
+            <p class="o-t">Buena oferta</p>
+            <p class="o-s">La tomaste</p>
+          </div>
+          <span class="o-time num">14:32</span>
+        </li>
+        <li class="offer">
+          <span class="badge bad" aria-hidden="true"></span>
+          <div class="o-txt">
+            <p class="o-t">Mala oferta</p>
+            <p class="o-s">La dejaste pasar</p>
+          </div>
+          <span class="o-time num">12:10</span>
+        </li>
+        <li class="offer">
+          <span class="badge unk" aria-hidden="true"></span>
+          <div class="o-txt">
+            <p class="o-t">No se pudo leer la tarifa</p>
+            <p class="o-s">Sin calificar</p>
+          </div>
+          <span class="o-time num">11:48</span>
+        </li>
+      </ul>
+      <a class="all" href="#dia">Ver todo el día<i class="chev" aria-hidden="true"></i></a>
+    </section>
+  </main>
+
+  <nav aria-label="Navegación principal">
+    <div class="tabs">
+      <a class="tab on" href="#hoy" aria-current="page">
+        <span class="pill" aria-hidden="true"><i class="i-cal"></i></span>Hoy
+      </a>
+      <a class="tab" href="#ganancias">
+        <span class="pill" aria-hidden="true"><span class="i-bars"><i></i><i></i><i></i></span></span>Ganancias
+      </a>
+      <a class="tab" href="#comparar">
+        <span class="pill" aria-hidden="true"><span class="i-cmp"><i></i><i></i></span></span>Comparar
+      </a>
+    </div>
+    <div class="gest" aria-hidden="true"></div>
+  </nav>
+
+</body>
+</html>
