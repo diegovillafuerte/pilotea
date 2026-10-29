@@ -3,6 +3,7 @@
   "targetPackage": "com.didiglobal.driver",
   "versionCodeRange": { "min": 1, "max": null },
   "specVersion": 1,
+  "paymentBasis": "DRIVER_PAYMENT",
   "cardDetector": {
     "allOf": [],
     "anyOf": [

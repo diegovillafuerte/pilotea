@@ -65,11 +65,12 @@ class TripLifecycleTrackerTest {
         trips: FakeTripDao,
         shifts: FakeShiftDao,
         rollups: CountingRollupTrigger,
+        costDao: FakeCostProfileDao = FakeCostProfileDao(),
     ) = TripLifecycleTracker(
         offerDao = offers,
         tripDao = trips,
         shiftDao = shifts,
-        recorder = OfferRecorder(offers, CostProfileRepository(FakeCostProfileDao()), settings, NetProfitEngine()),
+        recorder = OfferRecorder(offers, CostProfileRepository(costDao), settings, NetProfitEngine()),
         rollupTrigger = rollups,
         heuristics = TripStateHeuristics.DEFAULT,
     )
@@ -269,6 +270,51 @@ class TripLifecycleTrackerTest {
         assertEquals(1, trips.all().size)
     }
 
+    @Test fun `partial offer recovers within its session using the original costs and limits`() = runTest {
+        val offers = FakeOfferDao(); val trips = FakeTripDao(offers); val shifts = FakeShiftDao()
+        val costDao = FakeCostProfileDao()
+        val tracker = tracker(offers, trips, shifts, CountingRollupTrigger(), costDao)
+        val complete = ninePerKmCard().copy(sessionId = "recovery", sessionStartedAt = 1_000)
+        tracker.handle(LifecycleSignal.OfferSeen(uber, 1_000, complete.copy(fare = null, tripDurationMin = null)))
+        val first = offers.all().single()
+        assertEquals("FARE", first.evaluation!!.unavailableReason)
+        settings.setThreshold(PlatformThreshold(20.0, 300.0, 15.0, 200.0))
+        settings.setPreferredMetric(mx.kompara.data.settings.PreferredMetric.IPH)
+        CostProfileRepository(costDao).saveRunningCosts(
+            mx.kompara.data.accounting.RunningCostInputs(mx.kompara.data.accounting.RunningCostMode.DIRECT,
+                directPerKm = java.math.BigDecimal("8")), effectiveFrom = 1_100, recordedAt = 1_100)
+        tracker.handle(LifecycleSignal.OfferSeen(uber, 1_200, complete))
+        val recovered = offers.all().single()
+        assertEquals(first.id, recovered.id)
+        assertEquals(first.seenAt, recovered.seenAt)
+        assertEquals(first.evaluation!!.goal, recovered.evaluation!!.goal)
+        assertEquals(first.evaluation!!.costVersionId, recovered.evaluation!!.costVersionId)
+        assertEquals("GREEN", recovered.verdict)
+        assertEquals("90.00".toBigDecimal(), recovered.evaluation!!.contribution!!.toBigDecimal().setScale(2))
+        tracker.handle(LifecycleSignal.TripStateEntered(uber, 1_300))
+        val trip = trips.all().single()
+        assertEquals(90.0, trip.grossMxn!!, 0.0)
+        assertTrue(trip.estimated)
+        assertEquals("DRIVER_PAYMENT", trip.paymentBasis)
+        val income = mx.kompara.data.rollup.capturedIncomeRecords(listOf(trip), offers.all(), 1_400,
+            java.time.ZoneId.of("America/Mexico_City")).single()
+        assertEquals(mx.kompara.data.accounting.MoneySource.CAPTURED_ESTIMATE, income.source)
+        assertEquals(90.0, income.payment!!.toDouble(), 0.0)
+    }
+
+    @Test fun `partial recovery cannot merge different fares or change a resolved offer`() = runTest {
+        val offers = FakeOfferDao(); val trips = FakeTripDao(offers)
+        val tracker = tracker(offers, trips, FakeShiftDao(), CountingRollupTrigger())
+        val complete = card().copy(sessionId = "same", sessionStartedAt = 1_000)
+        tracker.handle(LifecycleSignal.OfferSeen(uber, 1_000, complete.copy(tripDurationMin = null)))
+        tracker.handle(LifecycleSignal.OfferSeen(uber, 1_100, complete.copy(fare = 200.0)))
+        assertNull(offers.all().single().tripMin)
+        tracker.handle(LifecycleSignal.IdleStateEntered(uber, 1_200))
+        tracker.handle(LifecycleSignal.OfferSeen(uber, 1_300, complete))
+        assertNull(offers.all().single().tripMin)
+        assertEquals("NOT_TAKEN", offers.all().single().outcome)
+    }
+
     @Test fun `host switch cannot accept or finish another apps trip`() = runTest {
         val offers = FakeOfferDao(); val trips = FakeTripDao(offers); val shifts = FakeShiftDao()
         val tracker = tracker(offers, trips, shifts, CountingRollupTrigger())
@@ -401,6 +447,11 @@ private class FakeOfferDao : OfferDao {
         rows[offer.id] = offer
     }
 
+    override suspend fun resolvePending(id: Long, outcome: String, at: Long, lastSeenAtMost: Long) {
+        rows[id]?.takeIf { it.outcome == "PENDING" && it.lastSeenAt <= lastSeenAtMost }
+            ?.let { rows[id] = it.copy(outcome = outcome, resolvedAt = at) }
+    }
+
     override fun observeAll(): Flow<List<OfferEntity>> = MutableStateFlow(all())
     override fun observeByPlatform(platform: String): Flow<List<OfferEntity>> =
         MutableStateFlow(all().filter { it.platform == platform })
@@ -432,6 +483,7 @@ private class FakeTripDao(private val offers: FakeOfferDao? = null) : TripDao {
     }
 
     override suspend fun forOffer(offerId: Long) = rows.values.firstOrNull { it.offerId == offerId }
+    override suspend fun offerForAcceptance(offerId: Long) = offers?.findById(offerId)
     override suspend fun resolveOffer(id: Long, outcome: String, accepted: Boolean, at: Long) {
         offers?.findById(id)?.let { offers.update(it.copy(outcome = outcome, accepted = accepted, resolvedAt = at)) }
     }

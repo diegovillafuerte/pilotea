@@ -3,6 +3,11 @@ package mx.kompara.ocr
 import mx.kompara.parsers.model.OfferCard
 import mx.kompara.parsers.model.HostGeometryAdapter
 import mx.kompara.parsers.model.HostLayoutObservation
+import mx.kompara.parsers.model.HostGeometryDeriver
+import mx.kompara.parsers.model.HostGeometrySource
+import mx.kompara.parsers.model.HostRect
+import mx.kompara.parsers.model.HostTextBounds
+import mx.kompara.capture.HostWindowEvidence
 
 /**
  * Picks the offer card for a frame from its OCR blocks, identifying the platform in the process.
@@ -27,8 +32,25 @@ internal fun selectOfferCard(
     capturedAtMs: Long = 0,
     observation: HostLayoutObservation? = null,
     geometryAdapter: HostGeometryAdapter = HostGeometryAdapter(),
+    displayBounds: HostRect? = null,
+    density: Float = 1f,
+    accessibility: HostWindowEvidence? = null,
 ): OfferCard? {
     val card = uber.parse(blocks)
         ?: (if (uber.hasCardSignature(blocks)) null else didi.parse(blocks)) ?: return null
-    return card.copy(hostGeometry = geometryAdapter.adapt(card.platform, capturedAtMs, observation))
+    val nodes = accessibility?.takeIf {
+        it.packageName == card.platform && it.displayBounds == displayBounds &&
+            capturedAtMs - it.capturedAtMs in 0..1_000
+    }
+    val derived = displayBounds?.let { display ->
+        HostGeometryDeriver.offer(card.platform, capturedAtMs, display, density,
+            blocks.map { HostTextBounds(it.text, HostRect(it.bounds.left, it.bounds.top, it.bounds.right, it.bounds.bottom)) } +
+                nodes?.textBounds.orEmpty(),
+            source = if (nodes != null) HostGeometrySource.OCR_AND_ACCESSIBILITY else HostGeometrySource.OCR_TEXT_BOUNDS,
+            contentBounds = card.contentBounds, topChrome = nodes?.topChrome,
+            observedCardBounds = nodes?.observedCardBounds,
+            protectedControls = nodes?.protectedControls.orEmpty(), markers = nodes?.markers.orEmpty(),
+            navigation = nodes?.navigation ?: false, recognizedOffer = true)
+    }
+    return card.copy(hostGeometry = geometryAdapter.adapt(card.platform, capturedAtMs, observation) ?: derived)
 }

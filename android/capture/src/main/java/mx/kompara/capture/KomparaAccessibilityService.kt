@@ -57,6 +57,7 @@ class KomparaAccessibilityService : AccessibilityService() {
                 val roots = windows.orEmpty().mapNotNull { it.root }
                 roots.ifEmpty { listOfNotNull(rootInActiveWindow) }
             },
+            displayProvider = ::readHostDisplay,
         )
         pipeline.start(scope)
         // Keep the active spec set current as the OTA layer applies new bundles / kill switches
@@ -91,8 +92,8 @@ class KomparaAccessibilityService : AccessibilityService() {
         pollToClearForeground()
     }
 
-    /** Root package only, never content. Poll even outside a host visit so a static map cannot
-     * time out into safety and leaving Kompara does not strand the summary gate as unknown. */
+    /** Keep host identity and its measured bounds fresh even on a static map. Node geometry also
+     * supplies C6 while capture is stopped; no OCR or offer evaluation is started for that tab. */
     private fun pollToClearForeground() {
         scope.launch {
             while (kotlinx.coroutines.currentCoroutineContext().isActive) {
@@ -104,9 +105,33 @@ class KomparaAccessibilityService : AccessibilityService() {
                 if (interactive && current == null) mx.kompara.data.service.DrivingActivity.unknown()
                 else mx.kompara.data.service.DrivingActivity.foreground(current.takeIf { interactive })
                 foregroundOcrOwnedApp.value = current.takeIf { interactive && it in OCR_OWNED_PACKAGES }
+                val host = foregroundOcrOwnedApp.value
+                if (host != null && (readiness.canRead(host) || readiness.state.value.canShowStoppedTab)) {
+                    val snapshot = snapshotSource.read(host, System.currentTimeMillis())
+                    if (snapshot?.hostWindow == null) HostGeometryEvidence.publish(null)
+                } else HostGeometryEvidence.publish(null)
                 delay(750)
             }
         }
+    }
+
+    private fun readHostDisplay(): HostDisplayFrame {
+        val manager = getSystemService(android.view.WindowManager::class.java)
+        val bounds = if (android.os.Build.VERSION.SDK_INT >= 30) manager.currentWindowMetrics.bounds else {
+            @Suppress("DEPRECATION")
+            val size = android.graphics.Point().also { manager.defaultDisplay.getRealSize(it) }
+            android.graphics.Rect(0, 0, size.x, size.y)
+        }
+        val top = if (android.os.Build.VERSION.SDK_INT >= 30) {
+            manager.currentWindowMetrics.windowInsets.getInsetsIgnoringVisibility(
+                android.view.WindowInsets.Type.statusBars() or android.view.WindowInsets.Type.displayCutout()).top
+        } else {
+            val id = resources.getIdentifier("status_bar_height", "dimen", "android")
+            if (id != 0) resources.getDimensionPixelSize(id) else 0
+        }
+        val display = mx.kompara.parsers.model.HostRect(bounds.left, bounds.top, bounds.right, bounds.bottom)
+        return HostDisplayFrame(display, resources.displayMetrics.density,
+            display.copy(bottom = (display.top + top.coerceAtLeast(1)).coerceAtMost(display.bottom)))
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {

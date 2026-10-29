@@ -35,27 +35,31 @@ class WindowSnapshotSource @Inject constructor(
     }
 
     private val provider = AtomicReference<RootProvider?>(null)
+    private var displayProvider: () -> HostDisplayFrame? = { null }
 
     /** Called by the service in `onServiceConnected`. */
-    fun attach(rootProvider: RootProvider) {
+    fun attach(rootProvider: RootProvider, displayProvider: () -> HostDisplayFrame? = { null }) {
+        this.displayProvider = displayProvider
         provider.set(rootProvider)
     }
 
     /** Called by the service in `onDestroy` so we stop reading dead windows. */
     fun detach() {
         provider.set(null)
+        displayProvider = { null }
+        HostGeometryEvidence.publish(null)
     }
 
     override fun read(packageName: String, timestampMs: Long): ScreenSnapshot? {
         val roots = provider.get()?.windowRoots().orEmpty()
         if (roots.isEmpty()) return null
         val merged = ArrayList<SnapshotNode>()
-        var targetPackage: String? = null
+        val observedPackages = ArrayList<String>()
         try {
             for (root in roots) {
                 val pkg = root.packageName?.toString() ?: continue
-                if (pkg !in KomparaAccessibilityService.TARGET_PACKAGES) continue
-                targetPackage = pkg
+                observedPackages += pkg
+                if (pkg != packageName || pkg !in KomparaAccessibilityService.TARGET_PACKAGES) continue
                 merged.addAll(flattener.flattenInfo(pkg, timestampMs, root).nodes)
             }
         } finally {
@@ -68,11 +72,13 @@ class WindowSnapshotSource @Inject constructor(
         // many nodes we kept from target apps. Remove once parser capture is validated on device.
         Log.d(
             TAG,
-            "read pkgs=${roots.mapNotNull { it.packageName?.toString() }.distinct()} " +
-                "target=$targetPackage nodes=${merged.size}",
+            "read pkgs=${observedPackages.distinct()} target=$packageName nodes=${merged.size}",
         )
-        if (targetPackage == null || merged.isEmpty()) return null
-        return ScreenSnapshot(packageName = targetPackage, timestampMs = timestampMs, nodes = merged)
+        if (merged.isEmpty()) return null
+        val snapshot = ScreenSnapshot(packageName = packageName, timestampMs = timestampMs, nodes = merged)
+        val evidence = displayProvider()?.let(snapshot::hostEvidence)
+        if (evidence != null) HostGeometryEvidence.publish(evidence)
+        return snapshot.copy(hostWindow = evidence)
     }
 
     private companion object {

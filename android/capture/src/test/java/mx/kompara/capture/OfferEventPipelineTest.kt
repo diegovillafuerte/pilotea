@@ -108,6 +108,24 @@ class OfferEventPipelineTest {
     }
 
     @Test
+    fun `accessibility offer keeps measured host geometry in its parsed event`() {
+        val pipeline = offerPipeline(eventPipeline(UnconfinedTestDispatcher()))
+        val snapshot = uberOfferSnapshot().let { original ->
+            original.copy(nodes = original.nodes.map { node ->
+                node.copy(bounds = Rect(node.bounds).apply { offset(0, 300) })
+            })
+        }
+        val display = HostDisplayFrame(mx.kompara.parsers.model.HostRect(0, 0, 1080, 1920), 1f,
+            mx.kompara.parsers.model.HostRect(0, 0, 1080, 24))
+        val evidence = snapshot.hostEvidence(display)!!
+        val event = pipeline.process(snapshot.copy(hostWindow = evidence)) as OfferEvent.Parsed
+        assertEquals(mx.kompara.parsers.model.HostGeometrySource.ACCESSIBILITY_BOUNDS,
+            event.card.hostGeometry!!.source)
+        assertEquals(123L, event.card.hostGeometry!!.capturedAtMs)
+        assertTrue(event.card.hostGeometry!!.offerCard.top < 400)
+    }
+
+    @Test
     fun `an unknown host package yields NoCard NO_SPEC`() {
         val pipeline = offerPipeline(eventPipeline(UnconfinedTestDispatcher()))
         val snap = ScreenSnapshot(

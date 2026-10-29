@@ -73,6 +73,7 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.ext.junit)
+    testImplementation(project(":ocr"))
 }
 
 // Measured host scenarios are test-only; never authorize a production layout from a fixture.

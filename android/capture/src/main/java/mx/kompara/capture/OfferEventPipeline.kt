@@ -116,10 +116,13 @@ class OfferEventPipeline @Inject constructor(
             )
         }
         recorder.record(parser, "PARSED")
+        val geometry = snapshot.hostWindow?.geometryForOffer(card.contentBounds, recognizedOffer = true)
+        android.util.Log.d("KomparaCapture", "geometry host=${snapshot.packageName} source=${geometry?.source ?: "MISSING"}")
         return OfferEvent.Parsed(
             packageName = snapshot.packageName,
             timestampMs = snapshot.timestampMs,
-            card = sessions.parsed(card, snapshot.timestampMs),
+            card = sessions.parsed(card.copy(hostGeometry = geometry),
+                snapshot.timestampMs),
         )
     }
 }

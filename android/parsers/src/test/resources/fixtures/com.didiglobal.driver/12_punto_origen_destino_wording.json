@@ -18,6 +18,7 @@
     ]
   },
   "expected": {
+    "paymentBasis": "DRIVER_PAYMENT",
     "platform": "com.didiglobal.driver",
     "variant": "standard",
     "fare": 66.9,

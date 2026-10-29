@@ -36,6 +36,21 @@ class OcrLifecycleClassifierTest {
     ) = classifier.onFrame(text, card, offerPresent, host, t)
 
     @Test
+    fun `first partial frame enriches the same session once when fields become readable`() {
+        val complete = uberCard.copy(sessionId = "same", paymentBasis = "DRIVER_PAYMENT")
+        val partial = complete.copy(fare = null, tripDurationMin = null, paymentBasis = "UNCONFIRMED")
+        assertTrue(frame(card = partial, t = 1) is LifecycleSignal.OfferSeen)
+        val amount = partial.copy(fare = complete.fare, paymentBasis = complete.paymentBasis)
+        assertTrue(frame(card = amount, t = 2) is LifecycleSignal.OfferSeen)
+        assertNull(frame(card = partial, t = 3))
+        val restored = frame(card = complete, t = 4) as LifecycleSignal.OfferSeen
+        assertEquals(complete.fare, restored.card.fare)
+        assertEquals(complete.tripDurationMin, restored.card.tripDurationMin)
+        assertNull(frame(card = complete.copy(tripDistanceKm = 113.0), t = 5))
+        assertNull(frame(card = complete, t = 6))
+    }
+
+    @Test
     fun `a new offer emits OfferSeen, re-asserting the same offer is silent`() {
         val first = frame(card = uberCard, t = 1)
         assertTrue(first is LifecycleSignal.OfferSeen)

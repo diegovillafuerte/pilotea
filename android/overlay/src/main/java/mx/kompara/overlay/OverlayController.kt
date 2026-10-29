@@ -36,6 +36,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import mx.kompara.capture.OfferEvent
+import mx.kompara.capture.HostGeometryEvidence
 import mx.kompara.capture.OverlayPresenter
 import mx.kompara.data.service.ScreenReaderState
 import mx.kompara.data.service.ScreenRect
@@ -52,8 +53,8 @@ import mx.kompara.ui.theme.KomparaTheme
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** One measured accessibility window. All decisions use display pixels; only WindowManager sees
- * window-relative coordinates. Unknown layouts retain the offer but never attach a guessed plate. */
+/** One measured accessibility window. All decisions use frame-derived display pixels;
+ * only WindowManager sees window-relative coordinates. */
 @Singleton
 class OverlayController @Inject constructor(
     private val recorder: mx.kompara.metrics.OfferRecorder,
@@ -116,13 +117,15 @@ class OverlayController @Inject constructor(
         }
         val tabGate = ReaderStoppedTabGate()
         scope.launch {
-            combine(readiness.state, foregroundOcrOwnedApp) { reader, host ->
-                host to (reader.canShowStoppedTab && reader.apps[host]?.supported == true)
-            }.distinctUntilChanged().collectLatest { (host, eligible) ->
-                val show = tabGate.visible(host, eligible, android.os.SystemClock.elapsedRealtime())
+            combine(readiness.state, foregroundOcrOwnedApp, HostGeometryEvidence.state) { reader, host, evidence ->
+                Triple(host, reader.canShowStoppedTab && reader.apps[host]?.supported == true, evidence)
+            }.distinctUntilChanged().collectLatest { (host, eligible, _) ->
+                val now = android.os.SystemClock.elapsedRealtime()
+                val show = tabGate.visible(host, eligible, now)
                 withContext(Dispatchers.Main) { if (show) attachBanner(host!!) else detachBanner() }
                 if (show) {
-                    delay(5_000)
+                    // Fresh host bounds can relocate C6; they must never extend its five seconds.
+                    delay(tabGate.remainingMs(android.os.SystemClock.elapsedRealtime()))
                     withContext(Dispatchers.Main) { detachBanner() }
                 }
             }
@@ -177,12 +180,12 @@ class OverlayController @Inject constructor(
             record(OverlayPlacement.Unsupported(problem))
             return
         }
-        if (geometry != g || viewport != v) { hideUntilSettled(); placement = null }
+        if (!OverlayPositioning.sameLayout(geometry, g!!) || viewport != v) { hideUntilSettled(); placement = null }
         geometry = g; viewport = v
         savedPosition = savedPositions[OverlayPositionKey(next.packageName, v.orientation)]
         attach()
         geometryExpiry = scope.launch(Dispatchers.Main) {
-            delay((g!!.capturedAtMs + OverlayPositioning.MAX_GEOMETRY_AGE_MS - System.currentTimeMillis() + 1).coerceAtLeast(1))
+            delay((g.capturedAtMs + OverlayPositioning.MAX_GEOMETRY_AGE_MS - System.currentTimeMillis() + 1).coerceAtLeast(1))
             detach()
             record(OverlayPlacement.Unsupported("STALE_GEOMETRY"))
         }
@@ -384,17 +387,28 @@ class OverlayController @Inject constructor(
     private var bannerView: ComposeView? = null
     private var bannerOwner: OverlayLifecycleOwner? = null
     private var bannerHost: String? = null
+    private var bannerGeometry: HostGeometry? = null
 
     /** Add the reader-down banner window if not already attached. Main-thread only. Idempotent. */
     private fun attachBanner(host: String) {
+        val context = overlayContext ?: return
+        val v = readViewport()
+        val now = System.currentTimeMillis()
+        val fresh = stoppedTabGeometry(HostGeometryEvidence.current(host, now)?.idleGeometry(),
+            geometry, bannerGeometry, host, v, now)
         if (bannerView != null) {
-            if (bannerHost == host) return
+            if (bannerHost == host) {
+                if (fresh == null) {
+                    detachBanner(); return
+                }
+                bannerGeometry = fresh
+                bannerView?.requestLayout()
+                return
+            }
             // A new foreground host must earn its own geometry; never retain the old host's tab.
             detachBanner()
         }
-        val context = overlayContext ?: return
-        val g = geometry ?: return // same validated host geometry as la regla; never guess a card top
-        val v = readViewport()
+        val g = fresh ?: return
         if (OverlayPositioning.geometryProblem(g, host, v, System.currentTimeMillis()) != null) return
 
         val owner = OverlayLifecycleOwner().apply { onCreate() }
@@ -425,6 +439,8 @@ class OverlayController @Inject constructor(
 
         bannerView = view
         bannerHost = host
+        bannerGeometry = g
+        android.util.Log.d("OverlayController", "geometry host=$host source=${g.source} idle=${g.isIdleHost}")
         view.alpha = 0f
         view.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
         var lastMoveFrom: OverlayPosition? = null
@@ -434,7 +450,7 @@ class OverlayController @Inject constructor(
             val location = IntArray(2).also(view::getLocationOnScreen)
             val actual = OverlayPosition(location[0], location[1])
             if (lastMoveFrom != actual) lastMoveFrom = null
-            val decision = stoppedTabWindowDecision(g, host, readViewport(view.rootWindowInsets),
+            val decision = stoppedTabWindowDecision(bannerGeometry ?: g, host, readViewport(view.rootWindowInsets),
                 ChipSize(view.width, view.height), actual, OverlayPosition(params.x, params.y),
                 view.isLayoutRequested, lastMoveFrom)
             view.alpha = if (decision == StoppedTabWindowDecision.Show) 1f else 0f
@@ -472,6 +488,7 @@ class OverlayController @Inject constructor(
     /** Remove the banner window if attached. Main-thread only. Idempotent. */
     private fun detachBanner() {
         bannerHost = null
+        bannerGeometry = null
         val view = bannerView ?: return
         runCatching { windowManager.removeView(view) }
         bannerOwner?.onDestroy()

@@ -5,6 +5,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
+import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
 import mx.kompara.data.db.entity.OfferEntity
 
@@ -31,6 +32,22 @@ interface OfferDao {
 
     @Update
     suspend fun update(offer: OfferEntity)
+
+    /** Change only lifecycle fields; newer economics written by capture must survive resolution. */
+    @Query("UPDATE offers SET outcome = :outcome, resolvedAt = :at WHERE id = :id AND outcome = 'PENDING' AND lastSeenAt <= :lastSeenAtMost")
+    suspend fun resolvePending(id: Long, outcome: String, at: Long, lastSeenAtMost: Long = at)
+
+    /** A frame finishing extraction cannot overwrite an acceptance resolved by the other consumer. */
+    @Transaction
+    suspend fun enrichPending(expected: OfferEntity, enriched: OfferEntity): OfferEntity {
+        val current = findById(expected.id) ?: return expected
+        if (current.outcome != "PENDING" || current.evaluation != expected.evaluation) return current
+        val updated = enriched.copy(lastSeenAt = maxOf(current.lastSeenAt, enriched.lastSeenAt),
+            shiftId = current.shiftId, outcome = current.outcome, accepted = current.accepted,
+            resolvedAt = current.resolvedAt)
+        update(updated)
+        return updated
+    }
 
     @Query("SELECT * FROM offers ORDER BY seenAt DESC")
     fun observeAll(): Flow<List<OfferEntity>>

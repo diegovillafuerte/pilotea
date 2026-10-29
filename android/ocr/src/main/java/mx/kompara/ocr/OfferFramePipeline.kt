@@ -53,7 +53,10 @@ class OfferFramePipeline(private val readiness: mx.kompara.data.service.ReaderRe
     fun process(rawBlocks: List<OcrBlock>, chipRect: ScreenRect?, fixtureDir: File?,
         capturedAtMs: Long = System.currentTimeMillis(),
         hostObservation: mx.kompara.parsers.model.HostLayoutObservation? = null,
-        token: Long = readiness?.captureToken() ?: 0L) {
+        token: Long = readiness?.captureToken() ?: 0L,
+        displayBounds: mx.kompara.parsers.model.HostRect? = null,
+        density: Float = 1f,
+        accessibility: mx.kompara.capture.HostWindowEvidence? = null) {
         if (readiness?.canRead(token = token) == false) return
         // Strip our own chip's text FIRST: the capture mirrors the whole screen including the floating
         // verdict chip, whose "MXN…"/"$…" amount otherwise gets parsed as the offer fare — the
@@ -76,7 +79,11 @@ class OfferFramePipeline(private val readiness: mx.kompara.data.service.ReaderRe
         val now = SystemClock.elapsedRealtime()
         // Pick the card (and the platform) for this frame; see [selectOfferCard] — Uber first, with a
         // cross-app hold so a garbled Uber frame can't be mis-attributed to DiDi via a "$0.00" pill.
-        val parsed = if (ownUi) null else selectOfferCard(uberParser, didiParser, blocks, capturedAtMs, hostObservation)
+        val parsed = if (ownUi) null else selectOfferCard(uberParser, didiParser, blocks, capturedAtMs, hostObservation,
+            displayBounds = displayBounds, density = density, accessibility = accessibility)
+        parsed?.let {
+            Log.d(TAG, "geometry host=${it.platform} source=${it.hostGeometry?.source ?: "MISSING"}")
+        }
         // Drop a single gross OCR outlier (a ×10 distance, a gross fare garble) before it reaches the
         // chip OR the ledger; the signature below still holds the verdict across it, as for any garble.
         val card = parsed?.takeIf { readiness?.canRead(it.platform, token) != false && frameOutlierGuard.accept(it, now) }

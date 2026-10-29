@@ -17,6 +17,7 @@
     ]
   },
   "expected": {
+    "paymentBasis": "DRIVER_PAYMENT",
     "platform": "com.didiglobal.driver",
     "variant": "bonus",
     "fare": 1250.0,

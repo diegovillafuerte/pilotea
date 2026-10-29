@@ -17,6 +17,23 @@ import mx.kompara.ui.theme.KomparaTheme
 import mx.kompara.ui.theme.KomparaType
 import mx.kompara.parsers.model.HostGeometry
 
+/** Opaque Compose/Flutter nodes cannot prove an OCR-read card disappeared when capture stops. */
+internal fun stoppedTabGeometry(observed: HostGeometry?, lastOffer: HostGeometry?, admitted: HostGeometry?,
+    host: String, viewport: OverlayViewport, nowMs: Long): HostGeometry? {
+    if (OverlayPositioning.geometryProblem(observed, host, viewport, nowMs) != null) return null
+    observed!!
+    if (!observed.isIdleHost) return observed
+    // The admitted tab lives for at most five seconds. Retain its observed card exclusion through
+    // that visit, but revalidate host/display/insets and merge newly observed controls/markers.
+    val card = admitted?.takeIf { !it.isIdleHost &&
+        OverlayPositioning.geometryProblem(it, host, viewport, it.capturedAtMs) == null }
+        ?: lastOffer?.takeIf { !it.isIdleHost && OverlayPositioning.geometryProblem(it, host, viewport, nowMs) == null }
+        ?: return observed
+    return card.copy(topChrome = observed.topChrome.copy(bottom = maxOf(observed.topChrome.bottom, card.topChrome.bottom)),
+        protectedControls = (card.protectedControls + observed.protectedControls).distinct(),
+        markers = (card.markers + observed.markers).distinct(), navigation = card.navigation || observed.navigation)
+}
+
 /** C6 is passive: no click, drag, dismiss or consent action. The window passes touches through. */
 @Composable
 fun ReaderStoppedTab(modifier: Modifier = Modifier) {
@@ -49,6 +66,8 @@ class ReaderStoppedTabGate {
         if (!shown) { shown = true; until = nowMs + 5_000 }
         return until?.let { nowMs < it } == true
     }
+
+    fun remainingMs(nowMs: Long): Long = ((until ?: nowMs) - nowMs).coerceAtLeast(0)
 }
 
 /** A requested WindowManager position is not proof of the tab's position on screen. */

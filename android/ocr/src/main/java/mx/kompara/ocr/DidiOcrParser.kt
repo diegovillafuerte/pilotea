@@ -2,6 +2,7 @@ package mx.kompara.ocr
 
 import mx.kompara.parsers.model.OfferCard
 import mx.kompara.parsers.model.OfferContentBounds
+import java.util.Locale
 
 /**
  * Parses a DiDi Conductor (MX) offer card from OCR text blocks. DiDi renders its UI on a Flutter
@@ -15,8 +16,9 @@ import mx.kompara.parsers.model.OfferContentBounds
  * - **Pickup / trip**: the two `Nmin (X.Ykm)` lines, top-to-bottom: first is pickup, second is trip.
  * - **Payment / surge**: keyword presence.
  *
- * Returns null unless it finds a fare AND both distance/time lines (the offer-card signature), so a
- * non-offer screen produces no verdict.
+ * Recognition uses the route lines and offer action independently of fare/time extraction, so a
+ * recognized card can show Sin lectura or Falta tiempo. Known two-leg offers carry estimated driver
+ * payment; other recognized shapes keep an unconfirmed payment basis.
  */
 class DidiOcrParser {
 
@@ -27,14 +29,15 @@ class DidiOcrParser {
     private val acceptRegex = Regex("""Aceptar\s*\$\s*([0-9][0-9,]*\.[0-9]{2})""", RegexOption.IGNORE_CASE)
     // Distance leg: "6min (1.2km)" OR short pickups in meters "5min (862m)".
     private val legRegex =
-        Regex("""([0-9]+)\s*min\s*\(\s*([0-9]+(?:[.,][0-9]+)?)\s*(km|m)\b""", RegexOption.IGNORE_CASE)
+        Regex("""(?:([0-9]+)\s*min\s*)?\(\s*([0-9]+(?:[.,][0-9]+)?)\s*(km|m)\b""", RegexOption.IGNORE_CASE)
     private val surgeRegex = Regex("""[0-9]+(?:\.[0-9]+)?\s*x\b""", RegexOption.IGNORE_CASE)
 
     fun parse(blocks: List<OcrBlock>): OfferCard? {
-        val fareHit = extractFare(blocks) ?: return null
+        if (!hasCardSignature(blocks)) return null
+        val fareHit = extractFare(blocks)
         val legs = extractLegs(blocks)
-        if (legs.size < 2) return null
-        val (pickup, trip) = legs[0] to legs[1]
+        val pickup = legs.getOrNull(0)
+        val trip = legs.getOrNull(1)
 
         val text = blocks.joinToString(" ") { it.text }
         val payment = when {
@@ -50,33 +53,36 @@ class DidiOcrParser {
         return OfferCard(
             platform = DIDI_PACKAGE,
             variant = if (bid) "bid" else if (surge) "surge" else null,
-            fare = fareHit.value,
+            fare = fareHit?.value,
             captureSource = "OCR",
-            // The existing bare-fare parser does not certify driver vs passenger payment.
-            paymentBasis = "UNCONFIRMED",
-            pickupDistanceKm = pickup.km,
-            pickupEtaMin = pickup.min,
-            tripDistanceKm = trip.km,
-            tripDurationMin = trip.min,
+            // The existing two-leg standard/surge/bid offers quote estimated driver payment.
+            paymentBasis = if (legs.size >= 2) "DRIVER_PAYMENT" else "UNCONFIRMED",
+            pickupDistanceKm = pickup?.km,
+            pickupEtaMin = pickup?.min,
+            tripDistanceKm = trip?.km,
+            tripDurationMin = trip?.min,
             surge = surge,
             paymentType = payment,
-            raw = mapOf("fare" to "%.2f".format(fareHit.value)),
-            contentBounds = unionBounds(fareHit.bounds, pickup.bounds, trip.bounds),
+            raw = fareHit?.let { mapOf("fare" to String.format(Locale.US, "%.2f", it.value)) } ?: emptyMap(),
+            contentBounds = unionBounds(fareHit?.bounds, pickup?.bounds, trip?.bounds),
         )
     }
 
-    /**
-     * Whether the frame still carries the offer-card *signature* — a POSITIVE fare plus at least
-     * one "Nmin (X km)" leg — even though full parsing failed (B-077). The map animating under the
-     * card garbles single frames often ("1nmin", "Zmin"), so a failed parse with the signature
-     * present means "card still up, frame garbled", not "card gone". The fare check goes through
-     * [extractFare] (which rejects ≤0) so a "$0.00" wallet/earnings pill never reads as a live card,
-     * even with a stray leg on screen — the frame then hides as "no card" instead of pinning a stale
-     * verdict, matching the zero-fare guard in [parse] (and [UberOcrParser.hasCardSignature]).
-     */
+    /** Missing fields keep a card visible; Uber signatures and zero wallet pills never claim DiDi. */
     fun hasCardSignature(blocks: List<OcrBlock>): Boolean {
         val text = blocks.joinToString(" ") { it.text }
-        return extractFare(blocks) != null && legRegex.containsMatchIn(text)
+        if (Regex("""MX[N$]|\bUber\w*""", RegexOption.IGNORE_CASE)
+                .containsMatchIn(text)) return false
+        val fare = extractFare(blocks)
+        val legs = extractLegs(blocks)
+        val action = Regex("""\bAceptar\b""", RegexOption.IGNORE_CASE).containsMatchIn(text)
+        // The wallet is independent of an offer's price; retain C4 when the action/route identify it.
+        if (fare == null && !(action && (legs.size >= 2 || text.contains("DiDi", ignoreCase = true))) &&
+            blocks.any { b -> fareRegex.findAll(b.text).any {
+                it.groupValues[1].replace(",", "").toDoubleOrNull() == 0.0
+            } }) return false
+        return (fare != null && legs.isNotEmpty()) || (action && legs.size >= 2) ||
+            (action && text.contains("DiDi", ignoreCase = true))
     }
 
     private data class FareHit(val value: Double, val bounds: OcrBounds)
@@ -96,6 +102,8 @@ class DidiOcrParser {
         }
         // Fallback: the fare is rendered far taller than any other currency text; tallest wins.
         return blocks
+            .filterNot { it.text.contains("tarifa base", ignoreCase = true) ||
+                it.text.contains("bono", ignoreCase = true) || it.text.trimStart().startsWith("+") }
             .mapNotNull { b ->
                 fareRegex.find(b.text)?.let { m ->
                     m.groupValues[1].replace(",", "").toDoubleOrNull()
@@ -107,7 +115,7 @@ class DidiOcrParser {
             ?.first
     }
 
-    private data class Leg(val min: Double, val km: Double, val bounds: OcrBounds)
+    private data class Leg(val min: Double?, val km: Double, val bounds: OcrBounds)
 
     private fun extractLegs(blocks: List<OcrBlock>): List<Leg> =
         blocks
@@ -123,7 +131,7 @@ class DidiOcrParser {
                         // so a separator-less leg can't read 10× high (DiDi mirror of the Uber fix).
                         recoverDroppedDistanceDecimal(normalized).toDoubleOrNull()
                     }
-                    if (min == null || km == null) null else Leg(min, km, b.bounds)
+                    if (km == null) null else Leg(min, km, b.bounds)
                 }
             }
             .sortedBy { it.bounds.top }

@@ -16,6 +16,10 @@ import mx.kompara.data.settings.CostProfileRepository
 import mx.kompara.data.settings.SettingsRepository
 import mx.kompara.metrics.NetProfitEngine
 import mx.kompara.metrics.OfferRecorder
+import mx.kompara.capture.HostGeometryEvidence
+import mx.kompara.capture.HostWindowEvidence
+import mx.kompara.parsers.model.HostGeometry
+import mx.kompara.parsers.model.HostRect
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -26,6 +30,37 @@ import java.lang.reflect.Proxy
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class OverlayControllerBannerTest {
+    @Test fun `stopped tab attaches from idle host evidence with no previous offer`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val store = object : DataStore<Preferences> {
+            override val data = flowOf(emptyPreferences())
+            override suspend fun updateData(transform: suspend (Preferences) -> Preferences) = error("No writes")
+        }
+        val settings = SettingsRepository(store)
+        val controller = OverlayController(OfferRecorder(dao<OfferDao>(), CostProfileRepository(dao<CostProfileDao>()), settings, NetProfitEngine()),
+            settings, OverlayPrefs(store), PresentationRecorder(dao<OfferPresentationDao>()), ReaderReadinessRepository(context))
+        fun field(name: String) = OverlayController::class.java.getDeclaredField(name).apply { isAccessible = true }
+        field("overlayContext").set(controller, context)
+        val rect = context.getSystemService(android.view.WindowManager::class.java).currentWindowMetrics.bounds
+        val bounds = HostRect(rect.left, rect.top, rect.right, rect.bottom)
+        val host = "com.ubercab.driver"
+        HostGeometryEvidence.publish(HostWindowEvidence(host, System.currentTimeMillis(), bounds, 1f,
+            bounds.copy(bottom = bounds.top + 24), emptyList()))
+        try {
+            assertNull(field("event").get(controller))
+            OverlayController::class.java.getDeclaredMethod("attachBanner", String::class.java)
+                .apply { isAccessible = true }.invoke(controller, host)
+            assertNotNull(field("bannerView").get(controller))
+            assertTrue((field("bannerGeometry").get(controller) as HostGeometry).isIdleHost)
+            val view = field("bannerView").get(controller) as ComposeView
+            val flags = (view.layoutParams as android.view.WindowManager.LayoutParams).flags
+            assertTrue(flags and android.view.WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE != 0)
+        } finally {
+            controller.stop()
+            HostGeometryEvidence.publish(null)
+        }
+    }
+
     @Test fun `switching host removes its old tab before new geometry admission`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val store = object : DataStore<Preferences> {
@@ -48,6 +83,10 @@ class OverlayControllerBannerTest {
         val attach = OverlayController::class.java.getDeclaredMethod("attachBanner", String::class.java)
             .apply { isAccessible = true }
 
+        val rect = context.getSystemService(android.view.WindowManager::class.java).currentWindowMetrics.bounds
+        val bounds = HostRect(rect.left, rect.top, rect.right, rect.bottom)
+        HostGeometryEvidence.publish(HostWindowEvidence("com.ubercab.driver", System.currentTimeMillis(), bounds, 1f,
+            bounds.copy(bottom = bounds.top + 24), emptyList()))
         attach.invoke(controller, "com.ubercab.driver")
         assertSame("Repeated evidence for one host must not recreate its window", oldView, field("bannerView").get(controller))
         assertEquals(Lifecycle.State.RESUMED, oldOwner.lifecycle.currentState)
@@ -58,6 +97,7 @@ class OverlayControllerBannerTest {
         assertNull(field("bannerHost").get(controller))
         assertNull(field("bannerOwner").get(controller))
         assertEquals(Lifecycle.State.DESTROYED, oldOwner.lifecycle.currentState)
+        HostGeometryEvidence.publish(null)
     }
 
     /** This window-only test fails if a hand-off starts doing capture, accounting or persistence. */

@@ -585,6 +585,8 @@ Conscious deferrals. Each entry: date, severity, context, why deferred, when to 
 
 ## TD-046: Certify live parser payment basis before enabling net verdicts (S3)
 
+- **F1 update — 2026-10-29:** The requested v1-compatible contract supersedes the runtime certification gate below: supported Uber/DiDi offer variants now declare estimated `DRIVER_PAYMENT`; unfamiliar shapes remain `UNCONFIRMED`. No commission is inferred and no captured amount becomes a settled payment. Itemized-payment/device comparison remains a validation task, not a prerequisite for live calculation.
+
 - **Date:** 2026-10-29
 - **Severity:** Release gate / high
 - **Context:** Existing Uber/DiDi node and OCR parsers identify a bare fare but do not carry a validated contract proving it is the driver's payment rather than a passenger fare or an amount requiring a platform adjustment. S3 persists `UNCONFIRMED` for those readings and renders `Sin confirmar` / `sin cálculo`; it never invents commission or treats an aggregate import as trip payment evidence. The parser-spec model can explicitly declare `DRIVER_PAYMENT` once certified. Authored simulator fixtures declare that basis only inside the simulator.
@@ -601,6 +603,8 @@ Conscious deferrals. Each entry: date, severity, context, why deferred, when to 
 - **Exit criterion:** In S5/S21, replay validated Uber/DiDi hosts with actual insets, full/compact/grey/night and large fonts; verify no host controls are covered, no clipping during the 16dp rise, ≤150ms appearance after parse, system reduced-motion behavior and 160ms exit after the 500ms grace. Complete the spec's mounted glance and neutral money comprehension protocol with drivers before release; native JVM and static greyscale patterns do not substitute for those results.
 
 ## TD-048: Certify measured Uber/DiDi host layouts before enabling overlay placement (S5)
+
+- **F1 update — 2026-10-29:** The requested live-placement contract supersedes the layout-ID gate below. Both OCR lanes now derive card envelopes from bounded offer text/actions and merge fresh accessibility bounds/known exclusions, logging the geometry source. C6 has idle-host evidence and retains a fresh OCR card exclusion when host nodes are opaque. Missing/invalid geometry still prevents attachment; an actual short band selects compact or suppression. Physical replay, unknown icon semantics, OCR card-edge padding and screenshot cadence still need device calibration under TD-047/TD-049; no physical pass is claimed.
 
 - **Date:** 2026-10-29
 - **Severity:** Release gate / high

@@ -34,9 +34,15 @@ sealed interface OverlayPlacement {
     data class Unsupported(val cause: String) : OverlayPlacement
 }
 
-/** No screen fractions or guessed card top. Margins are external dp, never font-scaled. */
+/** Frame-derived card bounds, with external dp margins that never scale with the font. */
 object OverlayPositioning {
-    const val MAX_GEOMETRY_AGE_MS = 1_000L
+    // takeScreenshot can need a 1s rate-limit retry after its 700ms throttle plus OCR work.
+    // Still bounded if capture stalls; host/viewport changes and NoCard hide independently.
+    const val MAX_GEOMETRY_AGE_MS = 2_500L
+
+    /** Refresh capture age/source without briefly hiding an unchanged, already settled window. */
+    fun sameLayout(previous: HostGeometry?, next: HostGeometry): Boolean =
+        previous?.copy(capturedAtMs = next.capturedAtMs, layoutId = next.layoutId, source = next.source) == next
 
     fun geometryProblem(g: HostGeometry?, host: String, viewport: OverlayViewport, nowMs: Long): String? = when {
         g == null -> "UNVALIDATED_GEOMETRY"
@@ -44,7 +50,6 @@ object OverlayPositioning {
         g.displayBounds != viewport.bounds || g.orientation != viewport.orientation -> "DISPLAY_CHANGED"
         nowMs - g.capturedAtMs !in 0..MAX_GEOMETRY_AGE_MS -> "STALE_GEOMETRY"
         !g.displayBounds.contains(g.offerCard) || !g.displayBounds.contains(g.topChrome) ||
-            g.topChrome.bottom > g.offerCard.top || g.protectedControls.isEmpty() ||
             (g.protectedControls + g.markers.map { it.outerBounds }).any { !g.displayBounds.contains(it) } -> "INCOMPLETE_GEOMETRY"
         else -> null
     }

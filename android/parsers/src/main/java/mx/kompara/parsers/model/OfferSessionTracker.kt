@@ -20,6 +20,8 @@ class OfferSessionTracker {
             host = card.platform
             fare = card.fare
         }
+        // A partial first frame must learn its eventual fare, otherwise all later fares share it.
+        if (fare == null && card.fare != null) fare = card.fare
         missingAt = null
         return card.copy(sessionId = id, sessionStartedAt = startedAt)
     }

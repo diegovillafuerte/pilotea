@@ -8,6 +8,7 @@ import androidx.room.Update
 import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
 import mx.kompara.data.db.entity.TripEntity
+import mx.kompara.data.db.entity.OfferEntity
 
 @Dao
 interface TripDao {
@@ -21,14 +22,23 @@ interface TripDao {
     @Query("UPDATE offers SET outcome = :outcome, accepted = :accepted, resolvedAt = :at WHERE id = :id")
     suspend fun resolveOffer(id: Long, outcome: String, accepted: Boolean, at: Long)
 
+    @Query("SELECT * FROM offers WHERE id = :offerId")
+    suspend fun offerForAcceptance(offerId: Long): OfferEntity?
+
     @Transaction
     suspend fun accept(trip: TripEntity): Long {
-        val offerId = trip.offerId
-        if (offerId != null) {
-            forOffer(offerId)?.let { return it.id }
-            resolveOffer(offerId, "ACCEPTED", true, trip.startedAt)
-        }
-        return insert(trip)
+        val offerId = trip.offerId ?: return insert(trip)
+        forOffer(offerId)?.let { return it.id }
+        // The overlay may have filled unread fields since the lifecycle consumer saw this offer.
+        // Read and freeze its current economics in the same transaction that marks it accepted.
+        val offer = offerForAcceptance(offerId)
+            ?.takeIf { it.outcome == "PENDING" && it.platform == trip.platform }
+        if (offer == null) return insert(trip.copy(offerId = null, grossMxn = null, distanceKm = null,
+            durationMin = null, paymentBasis = "UNCONFIRMED", lifecycle = "UNKNOWN"))
+        resolveOffer(offerId, "ACCEPTED", true, trip.startedAt)
+        return insert(trip.copy(grossMxn = offer.fareMxn, distanceKm = offer.distanceKm,
+            durationMin = offer.durationMin, paymentBasis = offer.paymentBasis, estimated = true,
+            inputProvenance = offer.inputProvenance))
     }
 
     /** An explicit correction affects only this trip and keeps all captured economics for audit. */

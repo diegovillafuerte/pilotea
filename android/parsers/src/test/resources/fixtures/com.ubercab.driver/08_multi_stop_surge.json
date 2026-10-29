@@ -16,6 +16,7 @@
     ]
   },
   "expected": {
+    "paymentBasis": "DRIVER_PAYMENT",
     "platform": "com.ubercab.driver",
     "variant": "multi_stop",
     "fare": 245.5,

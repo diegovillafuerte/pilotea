@@ -33,6 +33,7 @@ class ReaderStoppedTabGateTest {
         val gate = ReaderStoppedTabGate()
         assertTrue(gate.visible("uber", true, 100))
         assertTrue(gate.visible("uber", true, 5099))
+        assertEquals(1L, gate.remainingMs(5099))
         assertFalse(gate.visible("uber", true, 5100))
         assertFalse(gate.visible("uber", true, 8000))
         assertFalse(gate.visible(null, true, 9000))
@@ -62,6 +63,19 @@ class StoppedTabWindowPlacementTest {
         listOf(HostRect(20, 750, 373, 810)), emptyList())
     private val size = ChipSize(240, 72)
     private val foot = OverlayPosition(141, 457)
+
+    @Test fun `opaque idle nodes keep the last OCR card exclusion for only the admitted visit`() {
+        val idle = geometry.copy(offerCard = HostRect(0, 851, 393, 852), protectedControls = emptyList(), isIdleHost = true)
+        val admitted = stoppedTabGeometry(idle, geometry, null, "uber", viewport, 1_500)!!
+        assertEquals(geometry.offerCard, admitted.offerCard)
+        assertEquals(StoppedTabWindowDecision.Show, stoppedTabWindowDecision(admitted, "uber", viewport,
+            size, foot, foot, layoutPending = false))
+        val later = idle.copy(capturedAtMs = 4_000)
+        assertEquals(geometry.offerCard, stoppedTabGeometry(later, geometry, admitted, "uber", viewport, 4_000)!!.offerCard)
+        assertTrue(stoppedTabGeometry(later, geometry, null, "uber", viewport, 4_000)!!.isIdleHost)
+        assertNull(stoppedTabGeometry(null, geometry, admitted, "uber", viewport, 4_000))
+        assertNull(stoppedTabGeometry(later, geometry, admitted, "didi", viewport, 4_000))
+    }
 
     @Test fun `C6 stays hidden until actual location matches and corrects a nonzero window origin`() {
         val initial = stoppedTabWindowDecision(geometry, "uber", viewport, size,

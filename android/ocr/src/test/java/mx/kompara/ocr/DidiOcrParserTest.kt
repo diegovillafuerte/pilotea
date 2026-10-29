@@ -104,24 +104,24 @@ class DidiOcrParserTest {
     }
 
     @Test
-    fun `fare without both legs yields null`() {
+    fun `fare with only one leg recognizes an unknown incomplete offer`() {
         val partial = listOf(
             block("\$132.59", 83, 973, 543, 1085),
             block("6min (1.2km)", 139, 1692, 441, 1745),
         )
-        assertNull(parser.parse(partial))
+        assertNull(parser.parse(partial)!!.tripDistanceKm)
+        assertEquals("UNCONFIRMED", parser.parse(partial)!!.paymentBasis)
     }
 
     @Test
     fun `garbled card frame keeps the signature (B-077)`() {
-        // One leg garbled by the animating map ("1nmin"), the other intact: unparseable, but the
-        // signature says the card is still on screen.
+        // A garbled duration preserves its readable distance and card presence.
         val garbled = listOf(
             block("\$132.59", 83, 973, 543, 1085),
             block("1nmin (1.2km)", 139, 1692, 441, 1745),
             block("39min (17.3km)", 156, 1902, 514, 1960),
         )
-        assertNull(parser.parse(listOf(garbled[0], garbled[1]))) // fare + 1 leg → no parse
+        assertNull(parser.parse(listOf(garbled[0], garbled[1]))!!.pickupEtaMin) // preserve distance, no guessed time
         assertTrue(parser.hasCardSignature(garbled))
     }
 
@@ -164,6 +164,53 @@ class DidiOcrParserTest {
             block("Viaje: 36 min (12.4 km)", 191, 1100, 690, 1150),
         )
         assertNull(parser.parse(uberBroadcastOverDidi))
+    }
+
+    @Test
+    fun `known standard surge and bid offers quote estimated driver payment`() {
+        for (frame in listOf(realCard, realBidCard, realCard.filterNot { it.text.contains("dinámica") })) {
+            assertEquals("DRIVER_PAYMENT", parser.parse(frame)!!.paymentBasis)
+        }
+    }
+
+    @Test
+    fun `missing fare recognizes C4 without substituting the smaller surge amount`() {
+        val frame = realCard.filterNot { it.text == "\$132.59" } + block("Aceptar", 200, 2150, 880, 2240)
+        val card = parser.parse(frame)!!
+        assertTrue(parser.hasCardSignature(frame))
+        assertNull(card.fare)
+        assertEquals(17.3, card.tripDistanceKm!!, 0.001)
+        assertEquals("DRIVER_PAYMENT", card.paymentBasis)
+    }
+
+    @Test
+    fun `zero wallet pill cannot hide a missing-fare DiDi offer`() {
+        val frame = realCard.filterNot { it.text == "\$132.59" } +
+            block("Aceptar", 200, 2150, 880, 2240) + block("\$0.00", 300, 70, 450, 110)
+        val card = parser.parse(frame)!!
+        assertNull(card.fare)
+        assertEquals("DRIVER_PAYMENT", card.paymentBasis)
+        assertTrue(parser.hasCardSignature(frame))
+    }
+
+    @Test
+    fun `missing times preserve both distances for C5`() {
+        val frame = listOf(block("\$148.00", 80, 800, 400, 900), block("— min (2.0km)", 80, 1000, 400, 1040),
+            block("— min (10.0km)", 80, 1100, 400, 1140), block("Aceptar \$148.00", 80, 1200, 400, 1240))
+        val card = parser.parse(frame)!!
+        assertEquals(2.0, card.pickupDistanceKm!!, 0.001)
+        assertEquals(10.0, card.tripDistanceKm!!, 0.001)
+        assertNull(card.pickupEtaMin)
+        assertNull(card.tripDurationMin)
+        assertEquals("DRIVER_PAYMENT", card.paymentBasis)
+    }
+
+    @Test
+    fun `unknown DiDi offer structure stays unconfirmed`() {
+        val card = parser.parse(listOf(block("DiDi nueva modalidad", 80, 700, 400, 750),
+            block("Aceptar \$148.00", 80, 1200, 400, 1240)))!!
+        assertEquals("UNCONFIRMED", card.paymentBasis)
+        assertNull(card.tripDistanceKm)
     }
 
     private fun block(text: String, l: Int, t: Int, r: Int, b: Int) =

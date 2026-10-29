@@ -13,6 +13,7 @@ data class ScreenSnapshot(
     val packageName: String,
     val timestampMs: Long,
     val nodes: List<SnapshotNode>,
+    val hostWindow: HostWindowEvidence? = null,
 )
 
 /**

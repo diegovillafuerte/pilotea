@@ -2,9 +2,10 @@
   "targetPackage": "com.ubercab.driver",
   "versionCodeRange": {},
   "specVersion": 1,
+  "paymentBasis": "DRIVER_PAYMENT",
   "cardDetector": {
     "allOf": [
-      { "regex": "MX\\$|\\$\\s*[0-9]" }
+      { "regex": "MX\\$|\\$\\s*[0-9]|de\\s+(?:viaje|distancia)\\b|UberX|Uber\\s+(?:Comfort|Priority)|Recoger|Recogida|Punto de partida" }
     ],
     "anyOf": [
       { "regex": "de\\s+viaje\\b" },

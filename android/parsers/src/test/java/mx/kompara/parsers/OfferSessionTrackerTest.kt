@@ -24,6 +24,15 @@ class OfferSessionTrackerTest {
         sessions.missing(1_300)
         assertNotEquals(back.sessionId, sessions.parsed(card, 1_801).sessionId)
     }
+    @Test fun `a partial first frame learns its fare before the next offer`() {
+        val sessions = OfferSessionTracker()
+        val partial = sessions.parsed(card.copy(fare = null), 1_000)
+        val recovered = sessions.parsed(card, 1_100)
+        assertEquals(partial.sessionId, recovered.sessionId)
+        assertEquals(1_000L, recovered.sessionStartedAt)
+        assertEquals(recovered.sessionId, sessions.parsed(card.copy(fare = null), 1_200).sessionId)
+        assertNotEquals(recovered.sessionId, sessions.parsed(card.copy(fare = 200.0), 1_300).sessionId)
+    }
     @Test fun `restart never reuses a different offers identity`() {
         val sessions = OfferSessionTracker()
         val first = sessions.parsed(card, 1_000)

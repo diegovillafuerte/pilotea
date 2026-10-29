@@ -115,15 +115,16 @@ class UberOcrParserTest {
     }
 
     @Test
-    fun `garbled trip label keeps the card signature but does not parse (B-077)`() {
-        // "Viaje" mangled to "Vlaje": no labeled trip leg -> no verdict, but a fare + a leg remain,
-        // so the signature says the card is still on screen and the prior verdict should hold.
+    fun `garbled trip label keeps an incomplete Uber offer with unconfirmed payment`() {
+        // The amount and pickup still identify Uber. Keep the partial offer; no trip leg or
+        // payment meaning is inferred from the garbled label.
         val garbled = listOf(
             block("MXN84.63"),
             block("A9 min (2.3 km)"),
             block("Vlaje 33 min (8.7 km)"),
         )
-        assertNull(parser.parse(garbled))
+        assertNull(parser.parse(garbled)!!.tripDistanceKm)
+        assertEquals("UNCONFIRMED", parser.parse(garbled)!!.paymentBasis)
         assertTrue(parser.hasCardSignature(garbled))
     }
 
@@ -183,16 +184,15 @@ class UberOcrParserTest {
 
     @Test
     fun `DiDi parser ignores an Uber MX$ fare even when the Uber parse fails`() {
-        // The OCR service tries Uber then DiDi. If an "MX$" Uber offer garbles its "Viaje:" label,
-        // UberOcrParser returns null — DiDi must NOT step in: its bare-$ fare regex must not match the
-        // "$" inside "MX$", or the ledger would mis-attribute a live Uber offer to DiDi.
+        // The OCR service tries Uber then DiDi. An unread trip label keeps an incomplete Uber
+        // card; DiDi must not interpret the "$" inside "MX$" as its own payment.
         val uberMxDollarGarbledTrip = listOf(
             block("UberX Exclusivo"),
             block("MX\$135.00"),
             block("A 5 min (0.8 km)"),
             block("Vlaje 14 min (4.2 km)"), // "Viaje" mangled → no labelled trip leg
         )
-        assertNull(parser.parse(uberMxDollarGarbledTrip)) // Uber: no trip leg → null
+        assertNull(parser.parse(uberMxDollarGarbledTrip)!!.tripDistanceKm) // Uber: incomplete trip
         assertNull(DidiOcrParser().parse(uberMxDollarGarbledTrip)) // DiDi must not steal the MX$ fare
         // And the same offer, un-garbled, IS a clean Uber parse (MX$ fare supported).
         val intact = uberMxDollarGarbledTrip.dropLast(1) + block("Viaje: 14 min (4.2 km)")
@@ -267,10 +267,8 @@ class UberOcrParserTest {
     }
 
     @Test
-    fun `rejects a zero fare so no zero verdict reaches the chip`() {
-        // The cross-app "$0.00" chip bug, at the parser boundary: an MXN amount cleaned/garbled to
-        // "0.00" must NOT produce a card — a real ride always has a positive fare. A $0-only frame is
-        // therefore not even a live-card signature (nothing to hold).
+    fun `recognized offer with unread zero amount emits C4 without a zero fare`() {
+        // Zero is never treated as payment. Independent offer anchors retain a grey partial card.
         val zeroFare = listOf(
             block("2 Reservar UberX"),
             block("MXN0.00"),
@@ -278,8 +276,59 @@ class UberOcrParserTest {
             block("Viaje: 51 min (13.0 km)"),
             block("Aceptar"),
         )
-        assertNull(parser.parse(zeroFare))
-        assertFalse(parser.hasCardSignature(zeroFare))
+        assertNull(parser.parse(zeroFare)!!.fare)
+        assertTrue(parser.hasCardSignature(zeroFare))
+        val walletOnly = listOf(block("MXN0.00"), block("A 5 min (1.0 km)"))
+        assertNull(parser.parse(walletOnly))
+        assertFalse(parser.hasCardSignature(walletOnly))
+    }
+
+    @Test
+    fun `known variants quote estimated driver payment`() {
+        for (frame in listOf(exclusivo, priorityWithBonus, garbledDistance, commaDecimalFare,
+            exclusivo + block("Reserva"), exclusivo + block("2 paradas"), exclusivo + block("Tarifa dinámica"))) {
+            assertEquals("DRIVER_PAYMENT", parser.parse(frame)!!.paymentBasis)
+        }
+    }
+
+    @Test
+    fun `missing fare still recognizes C4 and retains route bounds`() {
+        val frame = exclusivo.filterNot { it.text == "MXN96.17" }
+        val card = parser.parse(frame)!!
+        assertTrue(parser.hasCardSignature(frame))
+        assertNull(card.fare)
+        assertEquals(11.3, card.tripDistanceKm!!, 0.001)
+        assertEquals("DRIVER_PAYMENT", card.paymentBasis)
+    }
+
+    @Test
+    fun `an unrelated zero wallet pill cannot erase a missing-fare offer`() {
+        val frame = exclusivo.filterNot { it.text == "MXN96.17" } +
+            block("MXN0.00", left = 300, top = 70, right = 450, bottom = 110)
+        val card = parser.parse(frame)!!
+        assertNull(card.fare)
+        assertEquals("DRIVER_PAYMENT", card.paymentBasis)
+        assertTrue(parser.hasCardSignature(frame))
+    }
+
+    @Test
+    fun `missing times retain distances for C5 without inventing zero minutes`() {
+        val frame = listOf(block("UberX"), block("MXN148.00"), block("A — min (2.0 km)"),
+            block("Viaje: — min (10.0 km)"), block("Aceptar"))
+        val card = parser.parse(frame)!!
+        assertEquals(148.0, card.fare!!, 0.001)
+        assertEquals(2.0, card.pickupDistanceKm!!, 0.001)
+        assertEquals(10.0, card.tripDistanceKm!!, 0.001)
+        assertNull(card.pickupEtaMin)
+        assertNull(card.tripDurationMin)
+        assertEquals("DRIVER_PAYMENT", card.paymentBasis)
+    }
+
+    @Test
+    fun `unknown Uber offer structure is recognized without certifying payment`() {
+        val card = parser.parse(listOf(block("Uber nueva modalidad"), block("MXN148.00"), block("Aceptar")))!!
+        assertEquals("UNCONFIRMED", card.paymentBasis)
+        assertNull(card.tripDistanceKm)
     }
 
     private fun block(text: String) = OcrBlock(text, OcrBounds(0, 0, 0, 0))

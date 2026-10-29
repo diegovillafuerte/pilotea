@@ -33,11 +33,10 @@ class TripLifecycleTracker @Inject constructor(
             is LifecycleSignal.OfferSeen -> {
                 val card = signal.card
                 val session = card.sessionId ?: "${signal.packageName}:$now"
-                val existing = offerDao.forSession(session)
                 offerDao.retireOlderPending(platform, card.sessionStartedAt ?: now, now)
-                val row = existing ?: recorder.record(session, card.sessionStartedAt ?: now,
+                val row = recorder.record(session, card.sessionStartedAt ?: now,
                     TripOffer(platform.lowercase(), card.fare, card.pickupDistanceKm, card.pickupEtaMin,
-                        card.tripDistanceKm, card.tripDurationMin, card.paymentBasis), card.captureSource, card.surge)
+                        card.tripDistanceKm, card.tripDurationMin, card.paymentBasis), card.captureSource, card.surge, observedAt = now)
                 offerDao.attachShift(row.id, shiftId)
                 offerDao.touch(row.id, now)
             }
@@ -51,7 +50,8 @@ class TripLifecycleTracker @Inject constructor(
                     val pending = offerDao.latestPending(platform)
                     val linked = pending?.takeIf { now - it.lastSeenAt in 0..heuristics.acceptWindowMs }
                     if (pending != null && linked == null && now >= pending.lastSeenAt) {
-                        offerDao.update(pending.copy(outcome = OfferOutcome.UNKNOWN.name, resolvedAt = now))
+                        offerDao.resolvePending(pending.id, OfferOutcome.UNKNOWN.name, now,
+                            lastSeenAtMost = now - heuristics.acceptWindowMs - 1)
                     }
                     tripDao.accept(TripEntity(offerId = linked?.id, shiftId = shiftId ?: linked?.shiftId,
                         startedAt = now, platform = platform, grossMxn = linked?.fareMxn,
@@ -91,7 +91,7 @@ class TripLifecycleTracker @Inject constructor(
 
     private suspend fun resolvePending(platform: String, now: Long, outcome: OfferOutcome) {
         val pending = offerDao.latestPending(platform) ?: return
-        if (now >= pending.lastSeenAt) offerDao.update(pending.copy(outcome = outcome.name, resolvedAt = now))
+        offerDao.resolvePending(pending.id, outcome.name, now)
     }
 
     private suspend fun ensureShift(now: Long): Long? {

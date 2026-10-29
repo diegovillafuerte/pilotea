@@ -10,6 +10,7 @@ import mx.kompara.data.db.entity.OfferEvaluation
 import mx.kompara.data.settings.CostProfileRepository
 import mx.kompara.data.settings.SettingsRepository
 import mx.kompara.data.settings.PreferredMetric
+import mx.kompara.data.settings.PlatformThreshold
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -24,9 +25,27 @@ class OfferRecorder @Inject constructor(
     private val mutex = Mutex()
 
     suspend fun record(sessionId: String, seenAt: Long, offer: TripOffer, source: String, surge: Boolean, observedAt: Long = seenAt): OfferEntity = mutex.withLock {
-        offers.forSession(sessionId)?.let {
-            offers.touch(it.id, observedAt)
-            return@withLock it.copy(lastSeenAt = maxOf(it.lastSeenAt, observedAt))
+        offers.forSession(sessionId)?.let { existing ->
+            val saved = existing.evaluation
+            val enriched = existing.enrichMissingInputs(offer, observedAt)
+            val updated = if (saved != null && enriched != existing) {
+                val unit = PreferredMetric.valueOf(saved.unit)
+                val goal = saved.goal.toDouble()
+                val minimum = saved.minimum.toDouble()
+                val threshold = PlatformThreshold(goal, goal, minimum, minimum)
+                val version = costs.runningVersions().firstOrNull { it.id == saved.costVersionId }
+                val result = engine.evaluate(TripOffer(offer.platform, enriched.fareMxn, enriched.pickupKm,
+                    enriched.pickupMin, enriched.tripKm, enriched.tripMin, enriched.paymentBasis),
+                    version?.inputs?.costPerKm, threshold, unit)
+                enriched.copy(distanceKm = result.totalKm, durationMin = result.totalMin,
+                    verdict = result.verdict.level.name, evaluation = saved.copy(
+                        paymentBasis = enriched.paymentBasis, contribution = result.contributionDecimal,
+                        perKm = result.perKmDecimal, perHour = result.perHourDecimal,
+                        unavailableReason = result.verdict.unavailableReason))
+                    .let { offers.enrichPending(existing, it) }
+            } else existing
+            offers.touch(existing.id, observedAt)
+            return@withLock updated.copy(lastSeenAt = maxOf(updated.lastSeenAt, observedAt))
         }
         val saved = settings.settings.first()
         val version = CostSchedule(costs.runningVersions()).runningAt(seenAt)
@@ -61,4 +80,18 @@ fun OfferEntity.recordedMetrics(): OfferMetrics {
         missing, preferredMetric = PreferredMetric.valueOf(saved.unit), unavailableReason = saved.unavailableReason)
     return OfferMetrics(fareMxn, net, distanceKm, durationMin, grossKm, grossMin, km, hour?.div(60), hour, verdict,
         saved.contribution, saved.perKm, saved.perHour)
+}
+
+/** Fill unread fields while the same offer is pending; never replace already captured economics. */
+internal fun OfferEntity.enrichMissingInputs(incoming: TripOffer, observedAt: Long): OfferEntity {
+    if (outcome != "PENDING" || observedAt < lastSeenAt || platform != incoming.platform.uppercase()) return this
+    val pairs = listOf(fareMxn to incoming.fareMxn, pickupKm to incoming.pickupKm, tripKm to incoming.tripKm,
+        pickupMin to incoming.pickupMin, tripMin to incoming.tripMin)
+    if (pairs.any { (old, fresh) -> old != null && fresh != null && old != fresh }) return this
+    fun readable(value: Double?) = value?.takeIf { it.isFinite() && it >= 0 }
+    return copy(fareMxn = fareMxn ?: readable(incoming.fareMxn), pickupKm = pickupKm ?: readable(incoming.pickupKm),
+        tripKm = tripKm ?: readable(incoming.tripKm), pickupMin = pickupMin ?: readable(incoming.pickupMin),
+        tripMin = tripMin ?: readable(incoming.tripMin),
+        paymentBasis = if (paymentBasis == "UNCONFIRMED" && incoming.paymentBasis == "DRIVER_PAYMENT")
+            "DRIVER_PAYMENT" else paymentBasis)
 }

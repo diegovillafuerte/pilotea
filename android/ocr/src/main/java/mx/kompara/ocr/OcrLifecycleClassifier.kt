@@ -8,16 +8,16 @@ import mx.kompara.parsers.model.OfferCard
  * [mx.kompara.capture.lifecycle.TripLifecycleTracker] consumes (via [OcrLifecycleBus]) — the OCR
  * analogue of `:capture`'s `OfferEventLifecycleMapper`.
  *
- * OCR runs ~3×/s, so this emits **only on a phase change** (or a new offer session): the tracker's
- * idle/trip handlers and shift heartbeat would otherwise be hammered with a DB write every frame.
+ * OCR runs ~3×/s, so this emits only on a phase change, a new offer session or newly read fields.
+ * The tracker's idle/trip handlers and shift heartbeat would otherwise be hammered with a DB write every frame.
  * Transitions are enough — the 30-min shift inactivity gap means a single idle signal keeps a shift
  * alive across normal between-offer waits.
  *
  * Phases:
  *  - **OFFER** — an offer card is on screen, per the caller's **debounced** [offerPresent] flag
  *    (the overlay's `CardPresenceTracker.isPresent()` — held through transient garbled frames, only
- *    false once the card is really gone). A single [LifecycleSignal.OfferSeen] is emitted per **offer
- *    session** (one continuous on-screen run), on the first frame that actually parses. The session
+ *    false once the card is really gone). [LifecycleSignal.OfferSeen] is emitted at the start of an
+ *    offer session, then only when previously missing inputs become readable. The session
  *    is NOT keyed on the OCR-derived numbers: the same card's distance can flicker frame-to-frame
  *    (TD-028: "1.4 km" ↔ "14 km"), so keying on them would spawn duplicate ledger offers; and it does
  *    not end on a single no-parse frame, so a one-frame OCR dropout can't split one offer into two.
@@ -44,6 +44,7 @@ class OcrLifecycleClassifier(private val markers: OcrTripMarkers = OcrTripMarker
 
     private var phase = Phase.NONE
     private var offerEmitted = false
+    private var emittedCard: OfferCard? = null
     private var sessionOfferKey: String? = null
     private var lastHost: String? = null
 
@@ -54,6 +55,7 @@ class OcrLifecycleClassifier(private val markers: OcrTripMarkers = OcrTripMarker
     fun reset() {
         phase = Phase.NONE
         offerEmitted = false
+        emittedCard = null
         sessionOfferKey = null
         lastHost = null
     }
@@ -106,9 +108,11 @@ class OcrLifecycleClassifier(private val markers: OcrTripMarkers = OcrTripMarker
                 offerEmitted = false
                 sessionOfferKey = key
             }
-            return if (!offerEmitted) {
+            val enriched = if (offerEmitted) emittedCard?.enrichedWith(card) else card
+            return if (!offerEmitted || enriched != emittedCard) {
                 offerEmitted = true
-                LifecycleSignal.OfferSeen(card.platform, timestampMs, card)
+                emittedCard = enriched
+                LifecycleSignal.OfferSeen(card.platform, timestampMs, requireNotNull(enriched))
             } else {
                 null // same offer session, distance/duration may have jittered — do NOT re-emit
             }
@@ -131,4 +135,15 @@ class OcrLifecycleClassifier(private val markers: OcrTripMarkers = OcrTripMarker
             else -> LifecycleSignal.ObservationLost(hostPackage, timestampMs)
         }
     }
+}
+
+/** Emit only newly readable fields, not distance/time jitter or a regression to missing input. */
+private fun OfferCard.enrichedWith(next: OfferCard): OfferCard {
+    val pairs = listOf(fare to next.fare, pickupDistanceKm to next.pickupDistanceKm,
+        tripDistanceKm to next.tripDistanceKm, pickupEtaMin to next.pickupEtaMin, tripDurationMin to next.tripDurationMin)
+    if (platform != next.platform || pairs.any { (old, fresh) -> old != null && fresh != null && old != fresh }) return this
+    return copy(fare = fare ?: next.fare, pickupDistanceKm = pickupDistanceKm ?: next.pickupDistanceKm,
+        tripDistanceKm = tripDistanceKm ?: next.tripDistanceKm, pickupEtaMin = pickupEtaMin ?: next.pickupEtaMin,
+        tripDurationMin = tripDurationMin ?: next.tripDurationMin,
+        paymentBasis = if (paymentBasis == "UNCONFIRMED" && next.paymentBasis == "DRIVER_PAYMENT") "DRIVER_PAYMENT" else paymentBasis)
 }

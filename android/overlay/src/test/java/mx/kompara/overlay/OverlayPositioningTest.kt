@@ -109,9 +109,23 @@ class OverlayPositioningTest {
     }
     @Test fun `unknown host stale future rotated or resized bounds are unsupported not no room`() {
         assertEquals("UNVALIDATED_GEOMETRY",(OverlayPositioning.place(null,"uber",viewport,1000,full,compact) as OverlayPlacement.Unsupported).cause)
-        for (g in listOf(geometry().copy(packageName="didi"),geometry().copy(capturedAtMs=-1),geometry().copy(capturedAtMs=1001),
+        for (g in listOf(geometry().copy(packageName="didi"),geometry().copy(capturedAtMs=1000-OverlayPositioning.MAX_GEOMETRY_AGE_MS-1),geometry().copy(capturedAtMs=1001),
             geometry().copy(orientation=HostOrientation.LANDSCAPE),geometry().copy(displayBounds=HostRect(0,0,1000,786))))
             assertTrue(place(g) is OverlayPlacement.Unsupported)
+    }
+    @Test fun `screenshot rate limit retry retains bounds until bounded capture expiry`() {
+        val g = geometry()
+        assertTrue(OverlayPositioning.place(g,"uber",viewport,3_000,full,compact) is OverlayPlacement.Displayed)
+        assertTrue(OverlayPositioning.place(g,"uber",viewport,3_501,full,compact) is OverlayPlacement.Unsupported)
+    }
+    @Test fun `capture timestamp and source refresh do not reset a settled window but changed bounds do`() {
+        val g = geometry()
+        assertTrue(OverlayPositioning.sameLayout(g, g.copy(capturedAtMs = 2_000, layoutId = "derived-ocr",
+            source = HostGeometrySource.OCR_TEXT_BOUNDS)))
+        assertFalse(OverlayPositioning.sameLayout(g, g.copy(offerCard = g.offerCard.copy(top = 800))))
+        assertFalse(OverlayPositioning.sameLayout(g, g.copy(markers = listOf(
+            MapMarker(MapMarkerKind.PICKUP, HostRect(200, 300, 240, 340))))))
+        assertFalse(OverlayPositioning.sameLayout(null, g))
     }
     @Test fun `display origin density cutout and Back strips are respected in landscape`() {
         val v=OverlayViewport(HostRect(50,20,1754,806),2f,HostOrientation.LANDSCAPE,

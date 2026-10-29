@@ -2,6 +2,7 @@ package mx.kompara.ocr
 
 import mx.kompara.parsers.model.OfferCard
 import mx.kompara.parsers.model.OfferContentBounds
+import java.util.Locale
 
 /**
  * Parses an Uber Driver (MX) trip-offer card from OCR text blocks.
@@ -26,10 +27,10 @@ import mx.kompara.parsers.model.OfferContentBounds
  *   "Radar de solicitud de viaje").
  *
  * Tuned against 874 real OCR frames across 12 live offers (2026-06-15). OCR garble handled: minute and
- * distance digits substitute O→0 / I,L→1; decimal separator is `.` or `,`. Returns null unless it
- * finds a fare AND the labeled trip leg, so non-offer screens and badly-garbled frames produce no
- * verdict — [CardPresenceTracker] holds the last good verdict across those. Pickup is best-effort
- * (the engine degrades gracefully on a missing leg).
+ * distance digits substitute O→0 / I,L→1; decimal separator is `.` or `,`. Offer recognition is
+ * independent of extracting the amount and times: a readable card with missing fields still yields
+ * the grey Sin lectura / Falta tiempo state. A known route structure supplies estimated driver
+ * payment; a recognized offer with an unknown structure keeps its payment basis unconfirmed.
  */
 class UberOcrParser {
 
@@ -47,9 +48,15 @@ class UberOcrParser {
     private val tripLegRegex =
         Regex("""Viaje\s*:?\s*([0-9OlI]+)\s*min\s*\(\s*([0-9OlI][0-9OlI.,]*)\s*km""", RegexOption.IGNORE_CASE)
 
+    private val distanceRegex = Regex("""([0-9OlI][0-9OlI.,]*)\s*km\b""", RegexOption.IGNORE_CASE)
+    private val minutesRegex = Regex("""([0-9OlI]+)\s*min\b""", RegexOption.IGNORE_CASE)
+    private val acceptRegex = Regex("""\b(Aceptar|Coincidir)\b""", RegexOption.IGNORE_CASE)
+    private val hostRegex = Regex("""\bUber\w*|Radar de solicitud""", RegexOption.IGNORE_CASE)
+
     fun parse(blocks: List<OcrBlock>): OfferCard? {
-        val fareHit = extractFare(blocks) ?: return null
-        val trip = extractTripLeg(blocks) ?: return null
+        if (!hasCardSignature(blocks)) return null
+        val fareHit = extractFare(blocks)
+        val trip = extractTripLeg(blocks)
         val pickup = extractPickupLeg(blocks)
 
         val text = blocks.joinToString(" ") { it.text }
@@ -68,30 +75,36 @@ class UberOcrParser {
         return OfferCard(
             platform = UBER_PACKAGE,
             variant = variant,
-            fare = fareHit.value,
+            fare = fareHit?.value,
             captureSource = "OCR",
-            // The existing bare-fare parser does not certify driver vs passenger payment.
-            paymentBasis = "UNCONFIRMED",
+            // Known Uber offer amounts estimate the driver payment, never the settled payment.
+            paymentBasis = if (trip != null) "DRIVER_PAYMENT" else "UNCONFIRMED",
             pickupDistanceKm = pickup?.km,
             pickupEtaMin = pickup?.min,
-            tripDistanceKm = trip.km,
-            tripDurationMin = trip.min,
+            tripDistanceKm = trip?.km,
+            tripDurationMin = trip?.min,
             surge = surge,
             paymentType = null,
-            raw = mapOf("fare" to "%.2f".format(fareHit.value)),
-            contentBounds = unionBounds(fareHit.bounds, trip.bounds, pickup?.bounds),
+            raw = fareHit?.let { mapOf("fare" to String.format(Locale.US, "%.2f", it.value)) } ?: emptyMap(),
+            contentBounds = unionBounds(fareHit?.bounds, trip?.bounds, pickup?.bounds),
         )
     }
 
-    /**
-     * Whether the frame still carries the offer-card *signature* — a (non-bonus) fare plus at least
-     * one leg line — even if full parsing failed. Mirrors [DidiOcrParser.hasCardSignature]: the
-     * animating map garbles single frames ("1l min", "Vlaje"), so a failed parse WITH the signature
-     * means "card still up, frame garbled", not "card gone". The searching/idle screen ("+MXN 10",
-     * "1-2 min") fails this — its only currency is a "+" bonus and it has no leg line.
-     */
-    fun hasCardSignature(blocks: List<OcrBlock>): Boolean =
-        extractFare(blocks) != null && blocks.any { legRegex.containsMatchIn(it.text) }
+    /** A card survives missing money/time, but idle bonuses and explicit zero-wallet pills do not. */
+    fun hasCardSignature(blocks: List<OcrBlock>): Boolean {
+        val fare = extractFare(blocks)
+        val text = blocks.joinToString(" ") { it.text }
+        val trip = extractTripLeg(blocks)
+        val action = acceptRegex.containsMatchIn(text)
+        val host = hostRegex.containsMatchIn(text)
+        // A zero wallet pill cannot erase an independently recognized offer with an unread fare.
+        if (fare == null && !(action && (trip != null || host)) &&
+            blocks.any { b -> fareRegex.findAll(b.text).any {
+                cleanNumber(it.groupValues[1]).toDoubleOrNull() == 0.0
+            } }) return false
+        return (fare != null && (trip != null || blocks.any { legRegex.containsMatchIn(it.text) })) ||
+            (trip != null && (action || host)) || (host && action)
+    }
 
     private data class FareHit(val value: Double, val bounds: OcrBounds)
 
@@ -114,12 +127,13 @@ class UberOcrParser {
             }
             .maxByOrNull { it.value }
 
-    private data class Leg(val min: Double, val km: Double, val bounds: OcrBounds?)
+    private data class Leg(val min: Double?, val km: Double?, val bounds: OcrBounds?)
 
     /** Per-block first (precise, keeps the block's bounds); joined-text fallback has no single block. */
     private fun extractTripLeg(blocks: List<OcrBlock>): Leg? {
-        blocks.firstNotNullOfOrNull { b -> tripLegRegex.find(b.text)?.let { toLeg(it, b.bounds) } }
-            ?.let { return it }
+        blocks.firstNotNullOfOrNull { b ->
+            if (b.text.contains("Viaje", ignoreCase = true)) partialLeg(b) else null
+        }?.let { return it }
         return tripLegRegex.find(blocks.joinToString(" ") { it.text })?.let { toLeg(it, null) }
     }
 
@@ -128,7 +142,15 @@ class UberOcrParser {
         blocks
             .asSequence()
             .filterNot { it.text.contains("Viaje", ignoreCase = true) }
-            .firstNotNullOfOrNull { b -> legRegex.find(b.text)?.let { toLeg(it, b.bounds) } }
+            .filter { it.text.contains("min", ignoreCase = true) || it.text.contains("(") }
+            .firstNotNullOfOrNull(::partialLeg)
+
+    private fun partialLeg(block: OcrBlock): Leg? {
+        val minutes = minutesRegex.find(block.text)?.groupValues?.get(1)?.let(::cleanMinutes)
+        val km = distanceRegex.find(block.text)?.groupValues?.get(1)
+            ?.let { recoverDroppedDistanceDecimal(cleanNumber(it)).toDoubleOrNull() }
+        return if (minutes == null && km == null) null else Leg(minutes, km, block.bounds)
+    }
 
     private fun toLeg(m: MatchResult, bounds: OcrBounds?): Leg? {
         val min = cleanMinutes(m.groupValues[1]) ?: return null

@@ -14,6 +14,7 @@
     ]
   },
   "expected": {
+    "paymentBasis": "DRIVER_PAYMENT",
     "platform": "com.ubercab.driver",
     "variant": "standard",
     "fare": 2480.0,

@@ -130,6 +130,70 @@ class OfferPersistenceTest {
         } finally { db.close() }
     }
 
+    @Test fun `resolving a pending snapshot preserves concurrently recovered money and newer observations`() = runTest {
+        val db = Room.inMemoryDatabaseBuilder(context, KomparaDatabase::class.java).build()
+        try {
+            val dao = db.offerDao()
+            for (outcome in listOf("NOT_TAKEN", "UNKNOWN")) {
+                val id = dao.insert(offer(outcome, null).copy(evaluation = evaluation.copy(contribution = null)))
+                val pendingSnapshot = dao.findById(id)!!
+                val recovered = dao.enrichPending(pendingSnapshot, pendingSnapshot.copy(fareMxn = 148.0,
+                    evaluation = evaluation))
+                dao.resolvePending(pendingSnapshot.id, outcome, at + 1)
+                val resolved = dao.findById(id)!!
+                assertEquals(outcome, resolved.outcome)
+                assertEquals(recovered.fareMxn, resolved.fareMxn)
+                assertEquals(recovered.evaluation, resolved.evaluation)
+                // A late outcome observation cannot change a resolved offer.
+                dao.resolvePending(id, "CANCELLED", at + 2)
+                assertEquals(outcome, dao.findById(id)!!.outcome)
+            }
+            val current = dao.insert(offer("newer"))
+            dao.touch(current, at + 10)
+            dao.resolvePending(current, "UNKNOWN", at + 20, lastSeenAtMost = at)
+            assertEquals("PENDING", dao.findById(current)!!.outcome)
+        } finally { db.close() }
+    }
+
+    @Test fun `acceptance reads recovered money after the lifecycle took a partial snapshot`() = runTest {
+        val db = Room.inMemoryDatabaseBuilder(context, KomparaDatabase::class.java).build()
+        try {
+            val offers = db.offerDao()
+            val id = offers.insert(offer("partial", null).copy(distanceKm = null, paymentBasis = "UNCONFIRMED"))
+            val snapshot = offers.findById(id)!!
+            val staleTrip = TripEntity(offerId = id, startedAt = at + 1, platform = "UBER", shiftId = 42,
+                grossMxn = snapshot.fareMxn, distanceKm = snapshot.distanceKm, durationMin = snapshot.durationMin,
+                paymentBasis = snapshot.paymentBasis, lifecycle = "ACCEPTED_ESTIMATE")
+            offers.enrichPending(snapshot, snapshot.copy(fareMxn = 148.0, distanceKm = 12.0,
+                durationMin = 24.0, paymentBasis = "DRIVER_PAYMENT"))
+            val tripId = db.tripDao().accept(staleTrip)
+            val accepted = db.tripDao().findById(tripId)!!
+            assertEquals(148.0, accepted.grossMxn!!, 0.0)
+            assertEquals(12.0, accepted.distanceKm!!, 0.0)
+            assertEquals(24.0, accepted.durationMin!!, 0.0)
+            assertEquals("DRIVER_PAYMENT", accepted.paymentBasis)
+            assertEquals(42L, accepted.shiftId)
+            assertTrue(accepted.estimated)
+            assertEquals(evaluation, offers.findById(id)!!.evaluation)
+            assertEquals(tripId, db.tripDao().accept(staleTrip))
+        } finally { db.close() }
+    }
+
+    @Test fun `a resolved candidate cannot be revived by stale acceptance`() = runTest {
+        val db = Room.inMemoryDatabaseBuilder(context, KomparaDatabase::class.java).build()
+        try {
+            val id = db.offerDao().insert(offer("resolved"))
+            val staleTrip = TripEntity(offerId = id, startedAt = at + 2, platform = "UBER",
+                grossMxn = 148.0, distanceKm = 12.0, durationMin = 24.0, lifecycle = "ACCEPTED_ESTIMATE")
+            db.offerDao().resolvePending(id, "NOT_TAKEN", at + 1)
+            val trip = db.tripDao().findById(db.tripDao().accept(staleTrip))!!
+            assertNull(trip.offerId)
+            assertNull(trip.grossMxn)
+            assertEquals("UNKNOWN", trip.lifecycle)
+            assertEquals("NOT_TAKEN", db.offerDao().findById(id)!!.outcome)
+        } finally { db.close() }
+    }
+
     @Test fun `midnight start bucket includes one estimate and observed finish only changes count`() = runTest {
         val db = Room.inMemoryDatabaseBuilder(context, KomparaDatabase::class.java).build()
         try {

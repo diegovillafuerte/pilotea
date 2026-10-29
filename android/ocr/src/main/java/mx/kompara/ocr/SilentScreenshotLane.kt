@@ -122,7 +122,7 @@ class SilentScreenshotLane(private val readiness: mx.kompara.data.service.Reader
                                 // pixels — the chip may move/hide while ML Kit runs (parity with the
                                 // MediaProjection lane's CapturedFrame.chipRect).
                                 val chipRect = ScreenReaderState.overlayChipRect
-                                processShot(shot.bitmap, chipRect, pipeline, token)
+                                processShot(shot.bitmap, chipRect, pipeline, token, service.resources.displayMetrics.density)
                                 delay(THROTTLE_MS)
                             }
                             ShotResult.RateLimited -> delay(RATE_LIMIT_BACKOFF_MS)
@@ -157,8 +157,11 @@ class SilentScreenshotLane(private val readiness: mx.kompara.data.service.Reader
         }
     }
 
-    private suspend fun processShot(bitmap: Bitmap, chipRect: ScreenRect?, pipeline: OfferFramePipeline, token: Long) {
+    private suspend fun processShot(bitmap: Bitmap, chipRect: ScreenRect?, pipeline: OfferFramePipeline, token: Long, density: Float) {
         if (!readiness.canRead(token = token)) { bitmap.recycle(); return }
+        val capturedAtMs = System.currentTimeMillis()
+        val display = mx.kompara.parsers.model.HostRect(0, 0, bitmap.width, bitmap.height)
+        val accessibility = mx.kompara.capture.HostGeometryEvidence.state.value
         val blocks = try {
             engine.recognize(bitmap)
         } catch (cancellation: kotlinx.coroutines.CancellationException) {
@@ -174,7 +177,8 @@ class SilentScreenshotLane(private val readiness: mx.kompara.data.service.Reader
         }
         // Recognition completed; ML Kit no longer touches the bitmap and the rest works off `blocks`.
         bitmap.recycle()
-        pipeline.process(blocks, chipRect, null, token = token)
+        pipeline.process(blocks, chipRect, null, capturedAtMs = capturedAtMs, token = token,
+            displayBounds = display, density = density, accessibility = accessibility)
     }
 
     private sealed interface ShotResult {

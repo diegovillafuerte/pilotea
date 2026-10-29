@@ -33,14 +33,14 @@ data class OfferCard(
      * normalization) text. Useful for debugging spec regressions in the fixture harness.
      */
     val raw: Map<String, String> = emptyMap(),
-    /** OCR fare/leg union for diagnostics only; never a full-card placement boundary. */
+    /** OCR fare/leg union used with heading/action bounds to derive the card envelope. */
     val contentBounds: OfferContentBounds? = null,
-    /** Unlabelled fares are retained, never treated as settled driver payment. */
+    /** Recognized offer variants declare estimated driver payment; unknown shapes stay unconfirmed. */
     val paymentBasis: String = "UNCONFIRMED",
     val captureSource: String = "ACCESSIBILITY",
     val sessionId: String? = null,
     val sessionStartedAt: Long? = null,
-    /** Replay-validated, complete host layout for this frame; null gates the overlay only. */
+    /** Measured/derived host bounds for this frame; null gates the overlay only. */
     val hostGeometry: HostGeometry? = null,
 )
 

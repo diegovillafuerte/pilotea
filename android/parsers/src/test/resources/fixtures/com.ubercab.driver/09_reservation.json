@@ -15,6 +15,7 @@
     ]
   },
   "expected": {
+    "paymentBasis": "DRIVER_PAYMENT",
     "platform": "com.ubercab.driver",
     "variant": "reservation",
     "fare": 410.0,

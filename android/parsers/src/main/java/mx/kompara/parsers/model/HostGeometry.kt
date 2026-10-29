@@ -13,6 +13,9 @@ data class HostRect(val left: Int, val top: Int, val right: Int, val bottom: Int
     fun overlaps(other: HostRect) = left < other.right && right > other.left &&
         top < other.bottom && bottom > other.top
     fun expanded(px: Int) = HostRect(left - px, top - px, right + px, bottom + px)
+    fun intersection(other: HostRect): HostRect? =
+        if (!valid || !other.valid) null else HostRect(maxOf(left, other.left), maxOf(top, other.top),
+            minOf(right, other.right), minOf(bottom, other.bottom)).takeIf { it.valid }
 }
 
 @Serializable
@@ -24,7 +27,10 @@ enum class MapMarkerKind { PICKUP, DESTINATION, DRIVER, NEXT_MANOEUVRE }
 @Serializable
 data class MapMarker(val kind: MapMarkerKind, val outerBounds: HostRect)
 
-/** Evidence for ONE frame. Fare/leg text bounds are deliberately not part of this contract. */
+@Serializable
+enum class HostGeometrySource { HOST_LAYOUT, OCR_TEXT_BOUNDS, ACCESSIBILITY_BOUNDS, OCR_AND_ACCESSIBILITY, IDLE_HOST }
+
+/** Measured or conservatively derived bounds for ONE frame, in physical display pixels. */
 @Serializable
 data class HostGeometry(
     val packageName: String,
@@ -37,12 +43,14 @@ data class HostGeometry(
     val protectedControls: List<HostRect>,
     val markers: List<MapMarker>,
     val navigation: Boolean = false,
+    val source: HostGeometrySource = HostGeometrySource.HOST_LAYOUT,
+    /** C6 uses the display foot when no offer is present; this boundary is not an offer card. */
+    val isIdleHost: Boolean = false,
 )
 
 /**
- * A replay-certified extractor must supply the full card, chrome, controls and a COMPLETE marker
- * inventory. null means not observed; empty means observed absent. Never infer an empty inventory
- * or card boundary from OCR text. No Uber/DiDi layout is certified in the current release (TD-048).
+ * Optional full-layout evidence. Completeness is diagnostic: known controls/markers are exclusions,
+ * but missing icon semantics or a new host layout must not disable a measured safe band.
  */
 data class HostLayoutObservation(
     val geometry: HostGeometry,
@@ -50,17 +58,14 @@ data class HostLayoutObservation(
     val markersComplete: Boolean,
 )
 
-class HostGeometryAdapter(private val validatedLayouts: Set<Pair<String, String>> = emptySet()) {
+class HostGeometryAdapter(@Suppress("UNUSED_PARAMETER") validatedLayouts: Set<Pair<String, String>> = emptySet()) {
     fun adapt(packageName: String, capturedAtMs: Long, observation: HostLayoutObservation?): HostGeometry? {
         val observed = observation ?: return null
         val g = observed.geometry
         if (packageName !in SUPPORTED_HOSTS || g.packageName != packageName ||
-            g.capturedAtMs != capturedAtMs || (packageName to g.layoutId) !in validatedLayouts ||
-            !observed.controlsComplete || !observed.markersComplete) return null
+            g.capturedAtMs != capturedAtMs) return null
         if (!g.displayBounds.contains(g.offerCard) || !g.displayBounds.contains(g.topChrome) ||
-            g.topChrome.bottom > g.offerCard.top || g.protectedControls.isEmpty() ||
-            (g.protectedControls + g.markers.map { it.outerBounds }).any { !g.displayBounds.contains(it) } ||
-            (g.navigation && g.markers.none { it.kind == MapMarkerKind.NEXT_MANOEUVRE })) return null
+            (g.protectedControls + g.markers.map { it.outerBounds }).any { !g.displayBounds.contains(it) }) return null
         return g
     }
 

@@ -80,7 +80,8 @@ class OcrCaptureService : Service() {
     // chipRect is snapshotted at CAPTURE time so the mask matches THESE pixels: OCR is async, and a
     // drag/attach/detach between capture and parse would otherwise misalign the live rect with the
     // frame (leak the old chip block, or blank host text at the new spot). See [ChipMask].
-    private data class CapturedFrame(val generation: Int, val bitmap: Bitmap, val chipRect: ScreenRect?, val token: Long)
+    private data class CapturedFrame(val generation: Int, val bitmap: Bitmap, val chipRect: ScreenRect?, val token: Long,
+        val capturedAtMs: Long, val density: Float, val accessibility: mx.kompara.capture.HostWindowEvidence?)
 
     override fun onCreate() {
         super.onCreate()
@@ -195,7 +196,9 @@ class OcrCaptureService : Service() {
                 lastOcrAt = now
                 // Hand off to the sequential consumer, tagged with this session's generation; CONFLATED
                 // replaces any unprocessed frame. Recycle if the channel is closed (teardown race).
-                val frame = CapturedFrame(generation, image.toBitmap(width, height), ScreenReaderState.overlayChipRect, token)
+                val frame = CapturedFrame(generation, image.toBitmap(width, height), ScreenReaderState.overlayChipRect, token,
+                    System.currentTimeMillis(), resources.displayMetrics.density,
+                    mx.kompara.capture.HostGeometryEvidence.state.value)
                 if (frameChannel.trySend(frame).isFailure) frame.bitmap.recycle()
             } finally {
                 image.close()
@@ -205,6 +208,7 @@ class OcrCaptureService : Service() {
 
     private suspend fun runOcr(frame: CapturedFrame) {
         if (!readiness.canRead(token = frame.token)) { frame.bitmap.recycle(); return }
+        val display = mx.kompara.parsers.model.HostRect(0, 0, frame.bitmap.width, frame.bitmap.height)
         val blocks = try {
             engine.recognize(frame.bitmap)
         } catch (cancellation: kotlinx.coroutines.CancellationException) {
@@ -225,7 +229,9 @@ class OcrCaptureService : Service() {
         // bump in teardown. Delegates the whole parse → verdict → ledger step to the shared pipeline.
         stateMutex.withLock {
             if (frame.generation == captureGeneration && readiness.canRead(token = frame.token)) {
-                pipeline.process(blocks, frame.chipRect, if (BuildConfig.DEBUG) getExternalFilesDir(null) else null, token = frame.token)
+                pipeline.process(blocks, frame.chipRect, if (BuildConfig.DEBUG) getExternalFilesDir(null) else null,
+                    capturedAtMs = frame.capturedAtMs, token = frame.token, displayBounds = display,
+                    density = frame.density, accessibility = frame.accessibility)
             }
         }
     }
