@@ -136,9 +136,12 @@ NX_A4R={'A4r':['La primera oferta','aún falta el permiso']}
 mt_=F['today_morning_trips']['11:20']; n1120=net(mt_['fare'],mt_['km'])
 ex('D2e',pesos(n1120)+' sin el coche',f"${n1120/mt_['km']:.2f}/km",pesos(mt_['fare']),'−'+pesos(mt_['km']*cpk),f"{pesos(n1120/mt_['min']*60)}/h",'Llevas hoy, con el coche',pesos(b1-per_day))  # Round 24c (Codex 321): the last finished trip at 14:40 has its own detail
 ex('B3n','Semáforo apagado','Activar el semáforo')  # Round 24c: the first day without the permission (A3's «Ahora no»)
+for _g, _s in (('G1e', 'Preparado · permiso listo'), ('G1n', 'Apagado · falta el permiso')):  # Round 24e: the first day's Ajustes (B3's and B3n's ⚙)
+    ex(_g, _s, 'Entrar con WhatsApp', f'${cpk:.2f} por km · típicos, sin confirmar', 'Sin agregar', f'${F["floors"]["verde_min_per_km"]:.2f}/km')
 NX={'B1':['4 h 50 min','en turno'],'C6':['permiso'],'C13':['Semáforo apagado'],'G4e':['ayer'],
     'G4':['hace 2 min'],'G4b':['hace 2 min'],'G4c':['hace 2 min'],'G2b':['La oferta de las'],'G2':['La oferta de las'],'G2c':['La oferta de las'],'G2d':['La oferta de las','Escribe tu mínimo','Cancelar'],
     'H6b':['Tu resumen de hoy'],'B3':['Permiso listo'],'E3d':['Redondeado'],'D3b':['Redondeado'],'E3':['21:10'],'E3d':['Redondeado','21:10'],'D3b':['Redondeado','21:10'],'D2d':['pantalla: no cupo en la pantalla'],'D1':['Ofertas · 23','· 23']}  # per-frame strings that must NOT appear
+for _g in ('G1e', 'G1n'): NX[_g] = ['Funcionando', pesos(car), 'confirmados', 'CDMX y Edomex', 'Prueba Premium']  # Round 24e: no fixture-driver setting leaks into the first day
 ex('D2b',f'${cn["rojo"]/ch["rojo"]["km"]:.2f}/km',pesos(ch['rojo']['fare'])); ex('D2c',f'${cn["amarillo"]/ch["amarillo"]["km"]:.2f}/km',pesos(ch['amarillo']['fare']))  # each offer row opens its own detail
 at=F['today_afternoon_trips']; ex('D1',*[f"${net(at[k]['fare'],at[k]['km'])/at[k]['km']:.2f}/km" for k in ('16:04','17:21')])  # Round 19: D1's newest rows carry their own rate
 

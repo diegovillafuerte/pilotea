@@ -71,6 +71,8 @@
 - **F5**: `$161/viaje`
 - **G1**: `$2.84 por km` · `$8.00/km` · `$1,500`
 - **G1b**: `Apagado`
+- **G1e**: `Preparado · permiso listo` · `Entrar con WhatsApp` · `$2.84 por km · típicos, sin confirmar` · `Sin agregar` · `$8.00/km`
+- **G1n**: `Apagado · falta el permiso` · `Entrar con WhatsApp` · `$2.84 por km · típicos, sin confirmar` · `Sin agregar` · `$8.00/km`
 - **G2b**: `Ejemplo` · `de $0.50 en $0.50` · `▲ desde` · `▼ abajo de` · `$8.00/km` · `$6.00/km`
 - **G2**: `$8.00/km` · `$6.00/km` · `Ejemplo` · `de $0.50 en $0.50` · `▲ desde` · `▼ abajo de` · `$9.49/km`
 - **G2c**: `Ejemplo` · `de $0.50 en $0.50` · `▲ desde` · `▼ abajo de`

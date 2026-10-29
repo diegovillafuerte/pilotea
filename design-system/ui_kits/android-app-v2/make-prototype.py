@@ -50,9 +50,10 @@ off state is never shown again in that attempt. "Que no se vuelva a apagar" open
 from B2 (the permission still missing) and A4r from B2r (the permission back): "Abrir ajustes" goes back to that Hoy with the note
 "En tu teléfono, aquí se abre Batería en los ajustes de Android." (@backnote), "Ahora no" and ← just go back; B2r's door, "Abrir
 Uber para probar" and ⚙ give the note.
-Task 8's first day (A1, 12:30) has Hoy B3 and Semáforo G4e; there A3's and A3n's "Ahora no" open B3n (Hoy off, the permission
-missing) as the task's root (retAt: A1 and the steps above it leave), B3n's "Activar el semáforo" goes back to A3, a later "Ya lo
-activé" lands B3 in B3n's place, and B3n's ⚙ gives the note (no first-day Ajustes in the off state is drawn; Round 24c).
+Task 8's first day (A1, 12:30) has Hoy B3, Semáforo G4e and Ajustes G1e; there A3's and A3n's "Ahora no" open B3n (Hoy off, the
+permission missing) as the task's root (retAt: A1 and the steps above it leave), B3n's "Activar el semáforo" goes back to A3, a later
+"Ya lo activé" lands B3 in B3n's place, and B3n's ⚙ opens G1n, the first day's Ajustes in the off state, whose Semáforo row opens
+A3 (Round 24e; B3n's ⚙ gave the note before).
 A task start sets the world from its start screen.
 
 LIVE is the runtime layer over the static frames:
@@ -168,6 +169,17 @@ SEMAFORO = [  # every G4 state (G4–G4h); "Qué lee Kompara" is not drawn: the 
     ("Qué lee Kompara", NOT_HERE),
 ]
 PAUSE = ("Pausar el semáforo hasta mañana", NOT_HERE)  # the G4 states that carry it (not G4d, paused, nor G4h, off): the pause is not drawn
+FIRST_DAY_AJUSTES = [  # G1e and G1n's rows but Semáforo's (G1's targets, with the number offered and lo del coche not added yet)
+    ("Entrar con WhatsApp", "A6"),
+    ("Plan gratis", NOT_HERE),  # §8: no trial before a paid result, and H1's pre-trial state is not drawn (H1 quotes the fixture's $149)
+    ("Tu meta y tu mínimo", "G2b"),
+    ("Tus costos", "G3"),
+    ("Lo del coche", NOT_HERE),
+    ("Avisos", "G7"),
+    ("Ayuda", "G8"),
+    ("Tus datos", "G6"),
+    ("Invita y gana", NOT_HERE),
+]
 PREV_DAY = ("css:.top .period > i:first-child", NOT_HERE)  # Tu día's ‹ (D1a, D1b): the day before is not drawn
 PERIOD_PICK = ("css:.period > span", "E6")  # a week's period label (… ▾): the picker, E6
 MONTH_PICK = ("css:.period > span", NOT_HERE)  # a month's period label (… ▾): E6's month list is not drawn
@@ -233,8 +245,8 @@ LINKS = {
         ("Comparar", NOT_HERE, {"in": ".nav"}),
     ],
     # B3n (Round 24c): the first day after A3's "Ahora no", Hoy off for want of the permission; its one primary goes back to A3, and
-    # its ⚙ gives the note: no first-day Ajustes in the off state is drawn (G1 reads "Funcionando", G1b is 20 oct's)
-    "B3n": [("Activar el semáforo", "A3"), ('css:use[href="#i-gear"]', NOT_HERE)],
+    # its ⚙ opens the first day's Ajustes in the off state (G1n, Round 24e; it gave the note before)
+    "B3n": [("Activar el semáforo", "A3"), ('css:use[href="#i-gear"]', "G1n")],
     "B3": [
         ("Abrir Uber para probar", "C1"),
         ("Semáforo preparado", "G4e"),
@@ -409,6 +421,10 @@ LINKS = {
         ("Tus datos", "G6"),
         ("Invita y gana", NOT_HERE),
     ],
+    # G1e / G1n (Round 24e): the first day's Ajustes, from B3's ⚙ (the world maps G1 to G1e) and B3n's; the number is offered (A6),
+    # lo del coche is not added yet (G5 draws no empty state: the note), and G1n's off row opens the fix itself (A3), as B3n's primary
+    "G1e": [*FIRST_DAY_AJUSTES, ("Semáforo", "G4e")],
+    "G1n": [*FIRST_DAY_AJUSTES, ("Semáforo", "A3")],
     "G2b": LIMITS,  # its Guardar is drawn inactive at rest: the first change moves to G2 / G2c, where it is live
     "G2": [*LIMITS, ("Guardar", "@save"), ("Volver a lo inicial", "@reset")],
     "G2c": [*LIMITS, ("Guardar", "@save"), ("Volver a lo inicial", "@reset")],
@@ -455,8 +471,8 @@ WORLDS = {
         # (C13's "Abrir Kompara", H6b's "Se apagó el semáforo", a back): the off state never shows again in that attempt (the pre-run-8 check)
     },
     "primer día": {  # task 8's first day (12:30): nothing has been read yet, so Hoy is B3, Semáforo G4e, and the 19-oct day is the note
-        "enter": ["A1"],
-        "map": {"B1": "B3", "G4": "G4e", "E8": NOT_HERE, "E3": NOT_HERE, "F1": NOT_HERE},
+        "enter": ["A1", "B3", "B3n", "G1e", "G1n"],  # Round 24e: a direct load of a first-day screen is in this world too
+        "map": {"B1": "B3", "G1": "G1e", "G4": "G4e", "E8": NOT_HERE, "E3": NOT_HERE, "F1": NOT_HERE},
         # Round 24c: A3's / A3n's "Ahora no" opens B3n (Hoy off, the permission missing) as the task's root, A1 and the steps above
         # it gone, as onboarding ends on the real phone; a later "Ya lo activé" (B3n → A3 → A3s) lands B3 in B3n's place, so back
         # never shows the off state again (Codex 321 §1, Opus 322 §2)
