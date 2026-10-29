@@ -580,3 +580,10 @@ h3.sec2{font-family:var(--font-money);font-size:22px;line-height:28px;font-weigh
 .sw{background:var(--brand)}
 .otp i.on{border-color:var(--brand)}
 .limit .lf.focus{box-shadow:inset 0 0 0 2px var(--brand)}
+
+/* ---- Round 24e · the label above an alternate scenario (spec §9w's open item). The phone draws a 10px bezel outside its box (.phone's
+   two spread shadows), which covered the bottom 6px of the old inline label at top:-18px. .alt sits 4px clear of the bezel (its 14px line
+   from -28 to -14), and the gallery makes room for it: 44px between frame rows, 40px under a section title. ---- */
+.alt{position:absolute;top:-28px;left:2px;font-size:12px;line-height:14px;color:#a6a59f;white-space:nowrap}
+.grid{row-gap:44px}
+h2.flow{margin-bottom:40px}

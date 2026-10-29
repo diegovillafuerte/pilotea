@@ -48,6 +48,7 @@ Order: **8**, then read «Ahora imagina que ya llevas semanas usando Kompara. En
 - `?screen=B1` «¿Qué quiere decir este número?» → kept so far today after costs, car included? ____
 - `?screen=B8` «¿Qué pasó hoy?» → reads −$100 as an error or a debt? ____
 - `?screen=D2e` «¿Cuánto te dejó este viaje?» ____ · «Esos $133, ¿ya tienen descontado lo que pagas del coche?» ____ · «¿Y en todo el día, cuánto llevas ya descontando el coche?» ____
+- Record only, not gated (plan §1, Opus `322` item 5): the name the driver uses for the car's cost, «lo del coche» or «el coche» ____ · takes the two for different costs? ____
 
 **End:** «Comparado con la app de Uber, ¿qué tan fácil fue? (1–10)» ____ · «¿Entendiste cada pantalla sin ayuda? (1–10)» ____ · «¿Qué fue lo más difícil?» ____ · Any money figure that seemed to contradict another? ____
 

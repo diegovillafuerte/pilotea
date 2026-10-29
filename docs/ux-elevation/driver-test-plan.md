@@ -63,6 +63,8 @@ Counterbalance: half the drivers do the Uber tasks first, half after the prototy
 
   Pass if ≥ 8 of 10 (≥ 12 of 15) answer each correctly; the second carries rule 4 (spec §11 R17: the trip's money beside the day's was the defect four model judges repeated in runs 6, 7 and 8). If 3 or more of the 5 renters still ask for the trip's figure after the car, the per-trip question goes to the founder with that evidence.
 
+  Record, not gated (Opus `322` item 5; Round 24e): in the think-aloud, which name the driver uses for the car's cost — «lo del coche» (Ajustes, the Lo del coche screen and Cómo se calculó's rows) or «el coche» («sin el coche», «con el coche») — and whether anyone takes the two for different costs. Report it with the results.
+
 ## 2. Mounted one-second glance test (spec §11 R14)
 
 **Material.** C1–C5, C7, C12 rendered at device size on an Android phone in a windshield mount at 60 cm; a road video on a second screen as the fixation task.

@@ -57,7 +57,7 @@ A task start sets the world from its start screen.
 
 LIVE is the runtime layer over the static frames:
   one moment per task  starting a task sets every screen's status bar (clock and battery) to the start screen's (B1 14:40,
-                       C2 14:50, C13 8:01, A1 12:30); the session's first task and the limits task (6) reset the limits to the
+                       C2 14:50, C13 8:01, A1 12:30; so task 7's B2 and B2r read 8:01, not the kit's 8:05 and 8:07, Opus 322 item 7); the session's first task and the limits task (6) reset the limits to the
                        fixture's $8.00/$6.00 (so task 6 never starts done); otherwise a save lasts the rest of the session; the sheets in
                        LIVE["backdrop"] (the offer details, Cómo se calculó · hoy, Lo del coche, Elegir semana) sit over the screen that
                        opened them, so a 14:40 row
@@ -68,10 +68,11 @@ LIVE is the runtime layer over the static frames:
                        a mínimo save leaves them as drawn, while D2b, D2c and D2d, which name tu mínimo, add it). Their day row (LIVE["dayRow"], Round 23; Round 24's words) takes the opener's
                        hero figure and opens what its basis line opens ("Llevas hoy, con el coche: $548" → D3a over the 14:40 screens,
                        $1,026 → D3 over D1, B5's $434 → the note). A detail opens on the lowest line of LIVE["offerTops"] for its opener
-                       at or above its drawn top where it fits, the gap before its actions taking up the slack so the 24dp inset holds:
-                       over Hoy (B1, B5, B7, B9) D2 opens at 208, between the hero's label and its figure, not at 224 through the figure;
-                       a line that wraps after " a esa hora" (+22dp) first narrows that gap (down to LIVE["offerGap"], 7dp), then opens
-                       the sheet a line higher.
+                       at or above its drawn top where it fits, its three rows (the fare, gasolina y desgaste and the day) sharing the
+                       slack evenly as the padding above and below each, so the 24dp inset holds (Round 24e: one gap above the actions took
+                       it all before, Opus 322 item 6): over Hoy (B1, B5, B7, B9) D2 opens at 208, between the hero's label and its figure,
+                       not at 224 through the figure; a line that wraps after " a esa hora" (+22dp) first narrows that padding (down to
+                       LIVE["offerPad"], 14.5dp), then opens the sheet a line higher.
   live limits          G2b shows the saved pair; a ring or a typed figure moves to G2 (tu meta) or G2c (tu mínimo) and recolours the
                        preview chip (▲ if its $9.49 >= tu meta, ◆ between, ▼ below tu mínimo). The rings step on the $0.50 grid, and from
                        a value off it go to the next mark in the direction pressed ($6.30 → + → $6.50; − → $6.00); the prototype draws
@@ -474,13 +475,15 @@ LIVE = {
     "picker": ["E6"],  # the period picker marks the opener's week (ink, 600 and the check), not the one it is drawn over
     "offers": ["D2", "D2b", "D2c", "D2d", "D2e"],  # offer details: " a esa hora" once the limit their line names differs from the fixture's
     "offerTops": {  # where an offer detail may open over each screen behind it, lowest first: lines that slice no glyph (Round 23,
-        # part-d's measurements). A detail opens on the lowest at or above its drawn top where it fits, and the gap before its actions
-        # takes up the slack, so the 24dp inset holds: Hoy's hero sits 64dp lower than Tu día's, so D2's 224 would cut through
+        # part-d's measurements). A detail opens on the lowest at or above its drawn top where it fits, and its rows' padding takes
+        # up the slack, so the 24dp inset holds: Hoy's hero sits 64dp lower than Tu día's, so D2's 224 would cut through
         # Hoy's $548 (208 lies between its label and its figure); "default" is Tu día's, the detail's own drawn backdrop
         "B1": [280, 208], "B5": [280, 208], "B7": [280, 208], "B9": [280, 208],
         "D1": [280, 224], "D1a": [280, 224], "D1b": [280, 224], "default": [280, 224],
     },
-    "offerGap": 7,  # dp: the narrowest that gap gets before the detail opens higher (" a esa hora" wraps D2c's line, +22dp, into its 29dp gap)
+    "offerPad": 14.5,  # dp: the least padding above and below each of a detail's three rows before it opens higher (" a esa hora" wraps
+    # D2c's line, +22dp, into its slack); 6 × 14.5 = 87dp, the floor of the old gap layout (12 + 12, 12 + 12, the 16dp gap, 8 + 8 and the
+    # 7dp gap), so every detail opens where it opened before Round 24e
     "dayRow": "Llevas hoy, con el coche",  # the details' day row: its figure and its door follow the opener's hero and basis line
     "underway": {  # a trip still under way at the clock the sheet shows: D2's 14:32 trip lasts 24 min, so at 14:40 (or C2's 14:50) it "deja"
         "D2": {"from": "14:32", "until": "14:56", "label": "Te deja · aprox.",
@@ -587,7 +590,7 @@ def extract(src):
             print(f"warning: duplicate frame id {sid}; keeping the first", file=sys.stderr)
             continue
         screens[sid] = frame[p.start(): div_end(frame, p.start())]
-        label = re.search(r'<div style="position:absolute;top:-18px[^"]*">(.*?)</div>', frame[: p.start()], re.S)
+        label = re.search(r'<div class="alt">(.*?)</div>', frame[: p.start()], re.S)
         if label:
             notes[sid] = html.unescape(re.sub(r"<[^>]+>", "", label.group(1))).strip()
     return links, sprite, screens, notes
@@ -936,12 +939,12 @@ body{margin:0;padding:0;color:#e8e7e2;font-family:var(--font-ui)}
     isSheet[id] = !!ph.querySelector(".dim");
   });
   LIVE.backdrop.forEach(function (id) { if (screens[id]) backdrop0[id] = phoneOf(id).querySelector(".screen"); });
-  var gap0 = {}, day0 = {};  // the offer details' gap before their actions, and their day row (LIVE.dayRow) as drawn
+  var pad0 = {}, day0 = {};  // the offer details' three rows that share the slack (the two figures and the day row) with their padding, and their day row (LIVE.dayRow) as drawn
   LIVE.offers.forEach(function (id) {  // the offer details' one comparison line and their own opening
     var sh = screens[id] && phoneOf(id).querySelector(".sheet"), sub = sh && sh.querySelector(".hero .sub");
     if (sub) { sub0[id] = sub.innerHTML; top0[id] = sh.style.top; }
-    var acts = sh && sh.querySelector(".rows.lined"), g = acts && acts.previousElementSibling;
-    if (g && !g.className && !g.children.length && /^height:\s*\d+px;?$/.test(g.getAttribute("style") || "")) gap0[id] = { el: g, h: parseFloat(g.style.height) };
+    var rows = sh ? [].slice.call(sh.querySelectorAll(":scope > .kv, :scope > .rows:not(.lined) > .row")) : [];
+    if (rows.length === 3) pad0[id] = { rows: rows, p: parseFloat(rows[0].style.paddingTop) };
     var t = sh && byText(sh, LIVE.dayRow), row = t && t.closest(".row"), m = row && row.querySelector(".money");
     if (m) day0[id] = { row: row, money: m, fig: m.textContent, to: row.dataset.ptTo };
   });
@@ -1093,20 +1096,21 @@ body{margin:0;padding:0;color:#e8e7e2;font-family:var(--font-ui)}
     if (document.fonts && document.fonts.status === "loading")  // a face first used here (the money 600) measures on its fallback: fit again once it is in
       document.fonts.ready.then(function () { if (cur === id) fitOffer(id, openerOf()); });
   }
-  function fitOffer(id, from) {  // the lowest clean line of LIVE.offerTops where the detail fits, the gap before its actions taking up the slack
-    var sh = phoneOf(id).querySelector(".sheet"), T0 = parseFloat(top0[id]), g = gap0[id];
+  function fitOffer(id, from) {  // the lowest clean line of LIVE.offerTops where the detail fits, its three rows' padding sharing the slack
+    var sh = phoneOf(id).querySelector(".sheet"), T0 = parseFloat(top0[id]), g = pad0[id];
     var tops = (LIVE.offerTops[from] || LIVE.offerTops["default"]).filter(function (t) { return t <= T0; });
     if (!tops.length) tops = [T0];
     var ph = phoneOf(id), k = ph.getBoundingClientRect().width / ph.offsetWidth || 1;  // layout dp under the fit's scale
     for (var i = 0; i < tops.length; i++) {
       sh.style.top = tops[i] + "px";
       if (!g) break;
-      g.el.style.height = g.h + "px"; sh.scrollTop = 0;
+      padRows(g, g.p); sh.scrollTop = 0;
       var R = sh.getBoundingClientRect(), need = (sh.lastElementChild.getBoundingClientRect().bottom - R.top) / k + parseFloat(getComputedStyle(sh).paddingBottom);
-      var h = Math.floor((g.h + R.height / k - need) * 10) / 10;
-      if (h >= LIVE.offerGap || i === tops.length - 1) { g.el.style.height = Math.max(h, LIVE.offerGap) + "px"; break; }
+      var p = Math.floor((g.p + (R.height / k - need) / (2 * g.rows.length)) * 10) / 10;
+      if (p >= LIVE.offerPad || i === tops.length - 1) { padRows(g, Math.max(p, LIVE.offerPad)); break; }
     }
   }
+  function padRows(g, p) { g.rows.forEach(function (r) { r.style.paddingTop = r.style.paddingBottom = p + "px"; }); }
   function openerOf() {  // the screen a sheet sits over: the nearest plain screen in history
     for (var i = hist.length - 1; i >= 0; i--) if (screens[hist[i]] && !isSheet[hist[i]] && !isHost(hist[i])) return hist[i];
     return null;
