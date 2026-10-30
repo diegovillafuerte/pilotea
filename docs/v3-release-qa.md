@@ -1,4 +1,6 @@
-# Kompara 0.2.3 — capture ownership, cancellation and diagnostics
+# Kompara 0.2.x — capture ownership, cancellation and diagnostics
+
+**0.2.4 / 6 follow-up (2026-10-29):** Intentional projection stop/destruction marks shutdown before cancelling the scope and frame channel, releases ownership intentionally, and cannot publish a stopped incident; already accepted real failures remain reportable. Six pure JVM regressions cover destruction, notification-stop resume/pause expiry, and real consumer failures. Required gate **PASS**: **1,516 tests, zero failures/errors/skips**; `verifyReadOnlyCapture` unchanged. APK SHA-256: `65482894dfeb45e9bd2b67c36092a5f12411c1b5813af1830cd7cf46d27a7f6d`.
 
 ## 0.2.3 — adversarial review fixes (2026-10-29)
 

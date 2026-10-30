@@ -33,7 +33,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.isActive
 import mx.kompara.data.service.ScreenReaderState
 import mx.kompara.data.service.ScreenRect
-import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Proof-of-concept screen-capture + OCR service for the SurfaceView platforms (DiDi/inDrive), which
@@ -50,7 +49,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 @dagger.hilt.android.AndroidEntryPoint
 class OcrCaptureService : Service() {
 
-    private val failureStopped = AtomicBoolean(false)
+    private val lifecycle = ProjectionLifecycle()
     private val mainHandler = Handler(Looper.getMainLooper())
     private val exceptionHandler = CoroutineExceptionHandler { context, error ->
         stopAfterFailure(context[CoroutineName]?.name ?: "capture coroutine", error)
@@ -108,11 +107,12 @@ class OcrCaptureService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (failureStopped.get()) {
+        if (!lifecycle.isRunning) {
             stopSelf()
             return START_NOT_STICKY
         }
         if (intent?.action == ACTION_STOP) {
+            beginIntentionalStop()
             readiness.pauseUntilTomorrow()
             teardown(restarting = true)
             stopForeground(STOP_FOREGROUND_REMOVE)
@@ -173,7 +173,7 @@ class OcrCaptureService : Service() {
             register = {
                 ownership.serialized {
                     // An immediately exited consumer must never become a retained fallback.
-                    check(!failureStopped.get() && scope.isActive)
+                    check(lifecycle.isRunning && scope.isActive)
                     session = ownership.start(CaptureLane.PROJECTION, ::closePipeline).also { captureSession = it }
                 }
             },
@@ -236,7 +236,7 @@ class OcrCaptureService : Service() {
     private fun wireReader(surface: CaptureSurface, session: () -> CaptureSession?) {
         val (reader, width, height) = surface
         reader.setOnImageAvailableListener({ r ->
-            if (imageReader !== r || failureStopped.get()) return@setOnImageAvailableListener
+            if (imageReader !== r || !lifecycle.isRunning) return@setOnImageAvailableListener
             try {
                 val image = r.acquireLatestImage() ?: return@setOnImageAvailableListener
                 try {
@@ -337,6 +337,7 @@ class OcrCaptureService : Service() {
      * stale (B-075).
      */
     private fun onProjectionLost() {
+        if (lifecycle.isIntentionalStop) return
         // One shared incident owner handles this and permission loss. Paused/denied notifications
         // must not bypass that owner through a second OCR-specific notification path.
         teardown(failed = true)
@@ -346,7 +347,7 @@ class OcrCaptureService : Service() {
 
     /** A failed supervised child still needs a handler: otherwise Android kills the shared process. */
     private fun stopAfterFailure(component: String, error: Throwable) {
-        if (!ownership.serialized { failureStopped.compareAndSet(false, true) }) return
+        if (!ownership.serialized { lifecycle.fail() }) return
         Log.e(TAG, "$component failed; stopping MediaProjection lane (${error.javaClass.simpleName})")
         scope.cancel()
         // Service/window callbacks stay on main. The failed child has released the ownership monitor.
@@ -392,13 +393,19 @@ class OcrCaptureService : Service() {
         cleanup("projection") { oldProjection?.stop() }
     }
 
+    private fun beginIntentionalStop() {
+        ownership.serialized { lifecycle.stopIntentionally() }
+        // Consumer completion and late callbacks must not report shutdown as a capture failure.
+        scope.cancel()
+    }
+
     override fun onDestroy() {
-        teardown()
+        beginIntentionalStop()
+        teardown(restarting = true)
         // Cancel the frame channel so any buffered (conflated) bitmap is handed to onUndeliveredElement
         // and recycled, instead of leaking when the scope is cancelled. Safe: the instance is dying;
         // a restart creates a fresh service with a new channel.
         frameChannel.cancel()
-        scope.cancel()
         super.onDestroy()
     }
 
