@@ -167,18 +167,29 @@ class OfferFramePipeline(private val readiness: mx.kompara.data.service.ReaderRe
         }
         val markers = OcrTripMarkers.DEFAULT
         fun lifecycleMarker(text: String) = markers.isIdle(text) || markers.isTripLike(text) || markers.isCancelled(text)
-        // To retire a semanticless card, the host screenshot must show lifecycle UI where that
-        // card was, with no surviving card signature. Idle pixels elsewhere are background too.
-        val pixelLifecycleText = if (sessions.isPresent()) blocks.filter { block ->
+        // Idle chrome can coexist with a semanticless card: require idle pixels where that card
+        // was. Accepted/navigation/cancelled UI instead proves a different screen anywhere in
+        // the owned, unmasked window (B-084's "Agenda de viajes" may be above the former card).
+        val cardRegionText = if (sessions.isPresent()) blocks.filter { block ->
             active.lastCardDisplay == displayBounds && active.lastCardBounds?.contains(
                 HostRect(block.bounds.left, block.bounds.top, block.bounds.right, block.bounds.bottom)) == true
         }.joinToString(" | ") { it.text } else joined
+        val pixelLifecycleText = when {
+            markers.isCancelled(joined) || markers.isTripLike(joined) -> joined
+            // Classify the whole window so a cancellation veto outside the card cannot be lost
+            // by cropping. The crop is only corroboration for ambiguous background-idle text.
+            markers.isIdle(joined) && markers.isIdle(cardRegionText) -> joined
+            else -> ""
+        }
         val lifecycleNodes = ownedAccessibility?.takeIf {
             active.semanticCardWindowId != null && it.windowId == active.semanticCardWindowId &&
                 it.capturedAtMs > active.lastCardObservedAtMs && it.observedCardBounds == null && nodeCard == null
         }
         val lifecycleText = if (!signature && !lifecycleMarker(pixelLifecycleText))
-            lifecycleNodes?.textBounds?.joinToString(" | ") { it.text } ?: pixelLifecycleText else pixelLifecycleText
+            lifecycleNodes?.textBounds?.joinToString(" | ") { it.text }
+                ?.takeIf(::lifecycleMarker)
+                // Semantic disappearance must also preserve exclusions seen in owned pixels.
+                ?.let { "$joined | $it" } ?: pixelLifecycleText else pixelLifecycleText
         val clearAbsence = observedAbsent || (!ownUi && !signature && lifecycleMarker(lifecycleText))
         val card = decision?.card?.takeIf {
             val accepted = frameOutlierGuard.accept(parsed, now)

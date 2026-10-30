@@ -6,12 +6,12 @@ package mx.kompara.ocr
  * against the user-visible Spanish text OCR reads (the node side matches resource-id fragments,
  * which OCR never sees).
  *
- * A frame that is not an offer card and does not match any marker is treated as **idle** (home /
- * waiting-for-request) — the same default-to-idle policy the node mapper uses.
+ * A frame without a positive lifecycle marker remains unknown. Background idle markers need
+ * separate disappearance evidence in [OfferFramePipeline] while an offer session is present.
  *
  * **PARTIALLY CALIBRATED (B-084).** The DiDi (2026-06-15) and Uber (2026-06-18) to-pickup /
  * offer-accepted anchors below are confirmed from real on-device captures; the on-trip (post-pickup)
- * and trip-completion screens are still uncaptured, so the rest stay best-guess (see techdebt TD-030).
+ * and trip-completion screens are still uncaptured, so the rest stay best-guess (TD-030 / TD-058).
  * The phrases are shared across Uber/DiDi/inDrive (all Spanish, MX), so a single list is applied to
  * every OCR-owned platform; split per-package here if further calibration shows the wording diverges.
  *

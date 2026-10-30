@@ -130,6 +130,170 @@ class OfferInstanceLedgerReplayTest {
         replay
     }
 
+    // B-084, S25 2026-06-18: only "Agenda de viajes" is an accepted-screen marker.
+    // Coordinates are modeled for this regression, not measured from a retained screenshot.
+    private fun s25AcceptedScreen(): List<OcrBlock> = listOf(
+        OcrBlock("Agenda de viajes", OcrBounds(120, 140, 960, 220)),
+        OcrBlock("Inicio UberX", OcrBounds(120, 800, 960, 880)),
+        OcrBlock("Pasajero de prueba", OcrBounds(120, 900, 960, 980)),
+        OcrBlock("Destino UberX", OcrBounds(120, 1100, 960, 1180)),
+        OcrBlock("Pasajero de prueba", OcrBounds(120, 1200, 960, 1280)),
+        OcrBlock("Hoja de ruta", OcrBounds(120, 1400, 960, 1480)),
+    )
+
+    private fun nextOffer(changedLegs: Boolean): List<OcrBlock> = fixture().map {
+        it.copy(text = when (it.text) {
+            "$79.45" -> "$147.46"
+            "1 min (0.2 km)" -> if (changedLegs) "4 min (0.7 km)" else it.text
+            "24 min (2.4 km)" -> if (changedLegs) "49 min (6.3 km)" else it.text
+            else -> it.text
+        })
+    }
+
+    @Test fun `S25 accepted header above former card resolves offer and opens one linked trip`() {
+        val result = replay {
+            frame(fixture(), 0)
+            val original = offers.all().single()
+            assertTrue("The modeled header is wholly above the observed card",
+                s25AcceptedScreen().first().bounds.bottom < parsed.single().card.hostGeometry!!.offerCard.top)
+            frame(s25AcceptedScreen(), 300)
+            frame(s25AcceptedScreen(), 900, chip = null)
+            assertEquals(listOf(original.copy(accepted = true, outcome = "ACCEPTED",
+                resolvedAt = original.seenAt + 300)), offers.all())
+        }
+        val offer = result.offers.all().single()
+        val trip = result.trips.all().single()
+        assertEquals(offer.id, trip.offerId)
+        assertEquals("ACCEPTED_ESTIMATE", trip.lifecycle)
+        assertEquals(79.45, trip.grossMxn!!, 0.001)
+        assertEquals(offer.distanceKm, trip.distanceKm)
+        assertEquals(offer.durationMin, trip.durationMin)
+        assertEquals(1, result.signals.filterIsInstance<LifecycleSignal.TripStateEntered>().size)
+        assertEquals(1, result.parsed.size)
+    }
+
+    private fun assertFreshOfferAfterS25Acceptance(changedLegs: Boolean) {
+        val result = replay {
+            frame(fixture(), 0)
+            val original = offers.all().single()
+            frame(s25AcceptedScreen(), 300)
+            frame(s25AcceptedScreen(), 900, chip = null)
+            val accepted = original.copy(accepted = true, outcome = "ACCEPTED", resolvedAt = original.seenAt + 300)
+            repeat(5) { frame(nextOffer(changedLegs), 1200 + it * 900L) }
+            val subsequent = parsed.drop(1)
+            assertEquals("Every capture of the next offer parses", 5, subsequent.size)
+            assertTrue("No capture of the next offer may reuse the accepted UUID",
+                subsequent.all { it.card.sessionId != original.sessionId })
+            assertEquals(1, subsequent.map { it.card.sessionId }.distinct().size)
+            assertTrue("The first capture already has its own confirmed payment",
+                subsequent.all { it.card.fare == 147.46 && it.card.paymentBasis == "DRIVER_PAYMENT" })
+            assertEquals("The accepted row remains byte-for-byte unchanged by later offer captures",
+                accepted, offers.all().first())
+            assertTrue("Even transient ledger writes preserve the original economics and outcome",
+                ledgerSnapshots.drop(3).all { it.first() == accepted })
+            assertEquals(2, offers.all().size)
+            val next = offers.all().last()
+            assertEquals("PENDING", next.outcome)
+            assertEquals(147.46, next.fareMxn!!, 0.001)
+            assertEquals(original.seenAt + 1200, next.seenAt)
+            assertEquals(if (changedLegs) 0.7 else 0.2, next.pickupKm!!, 0.001)
+            assertEquals(if (changedLegs) 6.3 else 2.4, next.tripKm!!, 0.001)
+            assertEquals(if (changedLegs) 4.0 else 1.0, next.pickupMin!!, 0.001)
+            assertEquals(if (changedLegs) 49.0 else 24.0, next.tripMin!!, 0.001)
+        }
+        assertEquals(result.offers.all().first().id, result.trips.all().single().offerId)
+        assertEquals(79.45, result.trips.all().single().grossMxn!!, 0.001)
+    }
+
+    @Test fun `S25 above-card acceptance then changed-leg offer gets fresh UUID and payment`() =
+        assertFreshOfferAfterS25Acceptance(changedLegs = true)
+
+    @Test fun `S25 above-card acceptance then identical-leg offer leaves accepted row untouched`() =
+        assertFreshOfferAfterS25Acceptance(changedLegs = false)
+
+    // These four to-pickup anchors are transcribed from the device capture in B-084, 2026-06-15.
+    private fun didiOffer() = listOf(
+        OcrBlock("DiDi", OcrBounds(96, 650, 400, 740)),
+        OcrBlock("$79.45", OcrBounds(96, 770, 499, 897)),
+        OcrBlock("1 min (0.2 km)", OcrBounds(190, 1420, 510, 1477)),
+        OcrBlock("24 min (2.4 km)", OcrBounds(190, 1625, 541, 1682)),
+        OcrBlock("Aceptar", OcrBounds(442, 1989, 640, 2046)),
+    )
+
+    private fun assertDocumentedDiDiAnchorAboveCard(anchor: String) {
+        val result = replay {
+            frame(didiOffer(), 0, host = "com.didiglobal.driver")
+            val accepted = listOf(OcrBlock(anchor, OcrBounds(100, 140, 980, 220)))
+            frame(accepted, 300, host = "com.didiglobal.driver")
+            frame(accepted, 900, chip = null, host = "com.didiglobal.driver")
+        }
+        val offer = result.offers.all().single()
+        assertEquals("ACCEPTED", offer.outcome)
+        assertTrue(offer.accepted)
+        assertEquals(offer.id, result.trips.all().single().offerId)
+        assertEquals(79.45, result.trips.all().single().grossMxn!!, 0.001)
+        assertEquals(1, result.signals.filterIsInstance<LifecycleSignal.TripStateEntered>().size)
+    }
+
+    @Test fun `documented Viaje aceptado above card accepts DiDi offer`() =
+        assertDocumentedDiDiAnchorAboveCard("Viaje aceptado")
+
+    @Test fun `documented Llegue por el pasajero above card accepts DiDi offer`() =
+        assertDocumentedDiDiAnchorAboveCard("Llegué por el pasajero")
+
+    @Test fun `documented recording navigation anchor above card accepts DiDi offer`() =
+        assertDocumentedDiDiAnchorAboveCard("La grabación iniciará al empezar el viaje")
+
+    @Test fun `documented Vamos anchor above card accepts DiDi offer`() =
+        assertDocumentedDiDiAnchorAboveCard("¡Vamos!")
+
+    @Test fun `documented cancellation above card retires pending without a phantom trip or inherited offer`() {
+        val cancelled = listOf(
+            OcrBlock("¿Por qué cancelaste el viaje?", OcrBounds(100, 140, 980, 220)),
+            OcrBlock("Por favor dinos por qué", OcrBounds(100, 260, 980, 340)),
+            OcrBlock("Punto de encuentro muy lejano", OcrBounds(100, 900, 980, 980)),
+            OcrBlock("Tenía otro viaje en curso", OcrBounds(100, 1100, 980, 1180)),
+        )
+        val result = replay {
+            frame(didiOffer(), 0, host = "com.didiglobal.driver")
+            val original = offers.all().single()
+            frame(cancelled, 300, host = "com.didiglobal.driver")
+            frame(cancelled, 900, chip = null, host = "com.didiglobal.driver")
+            assertEquals("UNKNOWN", offers.all().single().outcome)
+            assertTrue(trips.all().isEmpty())
+            val resolved = offers.all().single()
+            frame(didiOffer().map { if (it.text == "$79.45") it.copy(text = "$147.46") else it },
+                1200, host = "com.didiglobal.driver")
+            assertEquals(2, offers.all().size)
+            assertEquals(resolved, offers.all().first())
+            assertNotEquals(original.sessionId, offers.all().last().sessionId)
+            assertEquals(147.46, offers.all().last().fareMxn!!, 0.001)
+            assertEquals("PENDING", offers.all().last().outcome)
+        }
+        assertTrue(result.trips.all().isEmpty())
+        assertTrue(result.signals.none { it is LifecycleSignal.TripStateEntered })
+    }
+
+    @Test fun `decline X or timeout pixel idle resolves before fresh offer with its own payment`() {
+        // These endings share the observed return-to-idle screen; no host action is synthesized.
+        // Baseline control: this in-card idle path was already correct in 1301a3f.
+        for (changedLegs in listOf(false, true)) replay {
+            frame(fixture(), 0)
+            val original = offers.all().single()
+            frame(listOf(OcrBlock("Buscando viajes", OcrBounds(240, 1940, 840, 2030))), 300, chip = null)
+            val declined = original.copy(outcome = "NOT_TAKEN", resolvedAt = original.seenAt + 300)
+            assertEquals(listOf(declined), offers.all())
+            frame(nextOffer(changedLegs), 900)
+            assertEquals(2, offers.all().size)
+            assertEquals(declined, offers.all().first())
+            assertNotEquals(original.sessionId, parsed.last().card.sessionId)
+            assertEquals(147.46, parsed.last().card.fare!!, 0.001)
+            assertEquals(147.46, offers.all().last().fareMxn!!, 0.001)
+            assertEquals("PENDING", offers.all().last().outcome)
+            assertTrue(trips.all().isEmpty())
+        }
+    }
+
     @Test fun `review action jitter cannot reset first payment allowance or create ledger rows`() {
         val full = fixture()
         val jitteredMisread = full.map {
