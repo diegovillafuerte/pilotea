@@ -16,13 +16,13 @@ import java.util.Locale
  * declarative node-path `uber-driver.json` spec is dead for live offers (kept only for the simulator
  * and as a fixture reference).
  *
- * ## Strategy (textual — Uber labels its fields, unlike DiDi which needs geometry)
- * - **Fare**: `MXN<amount>` (or `MX$`) with two decimals. The per-trip bonuses
- *   ("+MXN4.00 incluido", "+MXN12.63 por inicio de viaje", "+MXN 4") carry a leading `+` and are
- *   dropped. Requiring `MX[N$]` (never a bare `$`) keeps this disjoint from [DidiOcrParser] so the two
- *   can be tried in turn without a separate platform detector.
- * - **Pickup leg**: the `N min (X.X km)` line WITHOUT a `Viaje:` prefix (often an `A`/pin glyph).
- * - **Trip leg**: the `Viaje: N min (X.X km)` line.
+ * ## Strategy (text + card geometry)
+ * - **Fare**: a standalone `$`, `MX$` or `MXN` amount with two decimals, in the card's heading/action
+ *   band. Largest glyph height wins, with reading order breaking ties. Whole-line matching excludes
+ *   bonuses, included amounts, rates and map labels. Bare `$` requires an Uber heading so a DiDi
+ *   card cannot be claimed solely by its currency. The pipeline masks our own chip before parsing.
+ * - **Pickup / trip**: the legacy pickup plus `Viaje:` pair, or two standalone `N min (X.X km)`
+ *   lines in reading order on the current Uber card. The summary above them is not a route leg.
  * - **Variant/surge**: keyword presence ("Reserva", "paradas", "Tarifa dinámica", "Exclusivo",
  *   "Radar de solicitud de viaje").
  *
@@ -34,19 +34,18 @@ import java.util.Locale
  */
 class UberOcrParser {
 
-    // Fare: an "MXN"/"MX$" amount with two decimals, NOT immediately preceded by "+". The negative
-    // lookbehind drops the incentive lines ("+MXN4.00 …"); the "+MXN 4"/"+MXN 6" badges are integers
-    // and fail the two-decimal requirement anyway. The decimal separator is "." OR "," — OCR reads
-    // the same fare as "MXN33.45" on some frames and "MXN33,45" on others (seen live on radar cards);
-    // [cleanNumber] normalizes both, so the chip no longer flickers out on the comma frames.
-    private val fareRegex = Regex("""(?<!\+)MX[N$]\s?\$?\s?([0-9][0-9.,]*[.,][0-9]{2})""")
+    // Always matchEntire: a leading +, suffix /km or any surrounding words disqualifies the block.
+    // Preserve comma decimals on old MXN radar frames and thousands separators on current $ fares.
+    private val fareRegex = Regex("""(?:MX[N$]\s*\$?|\$)\s*([0-9][0-9.,]*[.,][0-9]{2})""", RegexOption.IGNORE_CASE)
     // A distance/time leg: "N min (X.X km)". Minute and distance chars allow the O/0, l/1, I/1 OCR
     // confusions; cleaned in [cleanNumber].
     private val legRegex =
         Regex("""([0-9OlI]+)\s*min\s*\(\s*([0-9OlI][0-9OlI.,]*)\s*km""", RegexOption.IGNORE_CASE)
-    // The trip leg, distinguished from the pickup leg purely by its "Viaje:" label.
+    // The legacy trip leg, distinguished from the pickup leg by its "Viaje:" label.
     private val tripLegRegex =
         Regex("""Viaje\s*:?\s*([0-9OlI]+)\s*min\s*\(\s*([0-9OlI][0-9OlI.,]*)\s*km""", RegexOption.IGNORE_CASE)
+    private val unlabeledLegRegex =
+        Regex("""(?:[0-9OlI]+|—|-)\s*min\s*\(\s*[0-9OlI][0-9OlI.,]*\s*km\s*\)""", RegexOption.IGNORE_CASE)
 
     private val distanceRegex = Regex("""([0-9OlI][0-9OlI.,]*)\s*km\b""", RegexOption.IGNORE_CASE)
     private val minutesRegex = Regex("""([0-9OlI]+)\s*min\b""", RegexOption.IGNORE_CASE)
@@ -54,12 +53,13 @@ class UberOcrParser {
     private val hostRegex = Regex("""\bUber\w*|Radar de solicitud""", RegexOption.IGNORE_CASE)
 
     fun parse(blocks: List<OcrBlock>): OfferCard? {
-        if (!hasCardSignature(blocks)) return null
-        val fareHit = extractFare(blocks)
-        val trip = extractTripLeg(blocks)
-        val pickup = extractPickupLeg(blocks)
+        val cardBlocks = cardBlocks(blocks)
+        if (!hasCardSignature(cardBlocks)) return null
+        val fareHit = extractFare(cardBlocks)
+        val trip = extractTripLeg(cardBlocks)
+        val pickup = extractPickupLeg(cardBlocks)
 
-        val text = blocks.joinToString(" ") { it.text }
+        val text = cardBlocks.joinToString(" ") { it.text }
         val surge = text.contains("dinámica", ignoreCase = true) ||
             text.contains("dinamica", ignoreCase = true)
         val variant = when {
@@ -92,40 +92,55 @@ class UberOcrParser {
 
     /** A card survives missing money/time, but idle bonuses and explicit zero-wallet pills do not. */
     fun hasCardSignature(blocks: List<OcrBlock>): Boolean {
-        val fare = extractFare(blocks)
-        val text = blocks.joinToString(" ") { it.text }
-        val trip = extractTripLeg(blocks)
+        val cardBlocks = cardBlocks(blocks)
+        val fare = extractFare(cardBlocks)
+        val text = cardBlocks.joinToString(" ") { it.text }
+        val trip = extractTripLeg(cardBlocks)
         val action = acceptRegex.containsMatchIn(text)
         val host = hostRegex.containsMatchIn(text)
         // A zero wallet pill cannot erase an independently recognized offer with an unread fare.
         if (fare == null && !(action && (trip != null || host)) &&
-            blocks.any { b -> fareRegex.findAll(b.text).any {
-                cleanNumber(it.groupValues[1]).toDoubleOrNull() == 0.0
-            } }) return false
-        return (fare != null && (trip != null || blocks.any { legRegex.containsMatchIn(it.text) })) ||
+            cardBlocks.any { standaloneFare(it, host) == 0.0 }) return false
+        return (fare != null && (trip != null || cardBlocks.any { legRegex.containsMatchIn(it.text) })) ||
             (trip != null && (action || host)) || (host && action)
     }
 
     private data class FareHit(val value: Double, val bounds: OcrBounds)
 
-    /** The real fare (largest non-bonus "MXN" amount) and the block it was read from. */
-    private fun extractFare(blocks: List<OcrBlock>): FareHit? =
-        blocks
+    /** Keep map/chip text above the heading and map text below the action outside the card. */
+    private fun cardBlocks(blocks: List<OcrBlock>): List<OcrBlock> {
+        val ordered = blocks.sortedWith(compareBy<OcrBlock> { it.bounds.top }.thenBy { it.bounds.left })
+        val heading = ordered.firstOrNull { hostRegex.containsMatchIn(it.text) } ?: return ordered
+        val action = ordered.firstOrNull {
+            it.bounds.top >= heading.bounds.top && acceptRegex.containsMatchIn(it.text)
+        }
+        return ordered.filter {
+            it.bounds.top >= heading.bounds.top && (action == null || it.bounds.bottom <= action.bounds.bottom)
+        }
+    }
+
+    /** Bare-dollar fares need host evidence; legacy MX fares retain their existing route signature. */
+    private fun standaloneFare(block: OcrBlock, hasHost: Boolean): Double? {
+        val text = block.text.trim()
+        if (!hasHost && !text.startsWith("MX", ignoreCase = true)) return null
+        return fareRegex.matchEntire(text)?.groupValues?.get(1)?.let(::cleanNumber)?.toDoubleOrNull()
+    }
+
+    /** Card blocks are in reading order; maxByOrNull retains the first equal-height amount. */
+    private fun extractFare(blocks: List<OcrBlock>): FareHit? {
+        val hasHost = blocks.any { hostRegex.containsMatchIn(it.text) }
+        return blocks
             .asSequence()
-            .filterNot {
-                it.text.contains("incluido", ignoreCase = true) ||
-                    it.text.contains("por inicio", ignoreCase = true)
-            }
             .mapNotNull { b ->
-                fareRegex.find(b.text)?.groupValues?.get(1)
-                    ?.let { cleanNumber(it).toDoubleOrNull() }
+                standaloneFare(b, hasHost)
                     // A non-positive fare is never a real ride — it's an OCR misread (a garbled glyph
                     // cleaned to "0.00") or a captured "$0.00" pill. Drop it so no $0 verdict can reach
                     // the chip (the red "$0.00/km" seen over a cross-app Uber broadcast, 2026-06-15).
                     ?.takeIf { it > 0.0 }
                     ?.let { FareHit(it, b.bounds) }
             }
-            .maxByOrNull { it.value }
+            .maxByOrNull { it.bounds.bottom - it.bounds.top }
+    }
 
     private data class Leg(val min: Double?, val km: Double?, val bounds: OcrBounds?)
 
@@ -135,15 +150,25 @@ class UberOcrParser {
             if (b.text.contains("Viaje", ignoreCase = true)) partialLeg(b) else null
         }?.let { return it }
         return tripLegRegex.find(blocks.joinToString(" ") { it.text })?.let { toLeg(it, null) }
+            ?: unlabeledRouteLegs(blocks).getOrNull(1)
     }
 
-    /** The pickup leg is the one leg line that is NOT the labeled trip leg. */
+    /** Current cards have two standalone legs; legacy cards label the trip leg. */
     private fun extractPickupLeg(blocks: List<OcrBlock>): Leg? =
-        blocks
+        unlabeledRouteLegs(blocks).firstOrNull() ?: blocks
             .asSequence()
             .filterNot { it.text.contains("Viaje", ignoreCase = true) }
+            .filterNot { it.text.contains("•") || it.text.contains("/km", ignoreCase = true) }
             .filter { it.text.contains("min", ignoreCase = true) || it.text.contains("(") }
             .firstNotNullOfOrNull(::partialLeg)
+
+    private fun unlabeledRouteLegs(blocks: List<OcrBlock>): List<Leg> {
+        if (blocks.none { hostRegex.containsMatchIn(it.text) }) return emptyList()
+        // Exactly two standalone lines are the observed current shape. A garbled legacy "Viaje"
+        // label must not be silently promoted into a known trip/payment structure.
+        return blocks.filter { unlabeledLegRegex.matches(it.text.trim()) }
+            .mapNotNull(::partialLeg).takeIf { it.size == 2 } ?: emptyList()
+    }
 
     private fun partialLeg(block: OcrBlock): Leg? {
         val minutes = minutesRegex.find(block.text)?.groupValues?.get(1)?.let(::cleanMinutes)

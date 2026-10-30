@@ -165,8 +165,8 @@ class UberOcrParserTest {
 
     @Test
     fun `a DiDi card does not parse as Uber`() {
-        // DiDi fares are bare "$" with no "MXN" — UberOcrParser must stay silent so the two OCR
-        // parsers can be tried in turn (Uber first) without fighting on the bus.
+        // Both hosts now show bare "$" fares. Without an Uber heading or legacy MX fare signature,
+        // UberOcrParser must stay silent so DiDi can own its two-leg offer.
         val didi = listOf(
             block("\$132.59"),
             block("6min (1.2km)"),

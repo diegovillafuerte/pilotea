@@ -1,5 +1,21 @@
 # Kompara 0.2.x — capture ownership, cancellation and diagnostics
 
+## 0.2.5 / 7 — first live Uber offer (2026-10-29)
+
+Base `1779eae` (0.2.4), branch `feat/v3-redesign`; changes remain uncommitted. The Galaxy S25/API 36 offer at 19:03:53 attached the chip but showed “Sin lectura”: Uber now prints a bare-dollar fare and two unlabeled route legs. The anonymized 1080×2340 transcription now parses the main fare as **79.45**, pickup **1 min / 0.2 km**, trip **24 min / 2.4 km**, `exclusive`, the Uber Priority host signature and `Aceptar`, with **`DRIVER_PAYMENT`** and a calculable verdict. Fare selection uses a whole amount block, greatest glyph height, then reading order inside the heading/action card band. Bare `$`, thousands separators and legacy `MX$`/`MXN` work; bonuses, included amounts, per-km rates, map labels and masked own-chip text cannot supply the fare. The summary line cannot replace a route leg.
+
+**Blink finding:** content changes previously hid the visible chip and discarded placement; structural geometry changes also hid it even if its slot remained usable. Identical content with only a refreshed geometry timestamp did not inherently hide it. Content now updates in place, with re-verification on actual movement/resize or unsafe geometry. A size-independent right/bottom anchor puts the normal foot placement at its target on first attach; measurement is consumed at pre-draw in that same traversal. Screen position is read only after layout completes. A fallback move or window-origin correction remains hidden until its new layout is verified.
+
+**First-reveal path:** screenshot → bundled ML Kit OCR → mask/parse/geometry → immediate first-frame stabilization → event bus → Reading → recorder/settings/cost evaluation and Room persistence → Showing → main-thread Compose measurement → post-layout position verification → visible window (120 ms entry animation; 100 ms reduced motion). Presentation-history recording is asynchronous after verification. The silent lane waits 700 ms after processing (750 ms idle polling; 1,000 ms rate-limit retry); the projection fallback throttles at 300 ms. There is no first-verdict debounce; the 500 ms grace applies to disappearance. Five-second diagnostic throttling is not frame cadence. Actual OCR/DB/end-to-end milliseconds and this APK's physical behavior still need device replay.
+
+**DiDi:** no hard MX-prefix dependency; its parser already accepts bare `$`. It is unchanged. A current **DiDi capture is required** before changing its fare rules.
+
+**Regression evidence:** **18 new JVM tests** (nine parser/fixture, four pipeline/verdict, five controller/layout). The original parser fails five of the initial eight fixture tests and two pipeline/verdict tests; the original controller fails all five layout tests. The shared fixture contains only fake addresses. Controller tests simulate compositor coordinates; they do not establish device timing. No assertions were weakened or tests excluded.
+
+**Required gate PASS:** `cd android && ./gradlew :app:assembleDebug testDebugUnitTest verifyReadOnlyCapture --console=plain`; **1,534 tests, zero failures/errors/skips**, 12s, 373 tasks (39 executed, 334 up-to-date). Log: `/private/tmp/kompara-0.2.5-gate.log`. Read-only verification is unchanged; no action APIs, auto-accept, secure-window flag or sensitive logging added. `git diff --check` passes. APK metadata confirms **0.2.5 / 7** at `android/app/build/outputs/apk/debug/app-debug.apk`; SHA-256: **`aebe3d8a0dfeb9bf44da738d725e4004ee2259d96e62fa491a704b7455d8c905`**. This APK was not installed or replayed during this run.
+
+## 0.2.4 — follow-up
+
 **0.2.4 / 6 follow-up (2026-10-29):** Intentional projection stop/destruction marks shutdown before cancelling the scope and frame channel, releases ownership intentionally, and cannot publish a stopped incident; already accepted real failures remain reportable. Six pure JVM regressions cover destruction, notification-stop resume/pause expiry, and real consumer failures. Required gate **PASS**: **1,516 tests, zero failures/errors/skips**; `verifyReadOnlyCapture` unchanged. APK SHA-256: `65482894dfeb45e9bd2b67c36092a5f12411c1b5813af1830cd7cf46d27a7f6d`.
 
 ## 0.2.3 — adversarial review fixes (2026-10-29)

@@ -191,9 +191,8 @@ class OverlayController @Inject constructor(
                 show(scope, visibility.event)
             }
             is OverlayVisibility.Showing -> {
-                if (chipState != visibility.state.regla) {
-                    hideUntilSettled(); placement = null
-                }
+                // Content is swapped atomically. Its measured footprint decides whether a move is
+                // needed; changing the verdict alone must not blank an already verified window.
                 chipState = visibility.state.regla; evaluated = true; chipVisible = true
                 show(scope, visibility.event)
             }
@@ -220,8 +219,12 @@ class OverlayController @Inject constructor(
             record(OverlayPlacement.Unsupported(problem))
             return
         }
-        if (!OverlayPositioning.sameLayout(geometry, g!!) || viewport != v) { hideUntilSettled(); placement = null }
-        geometry = g; viewport = v
+        // A changed frame may still leave the current footprint safe and in the same slot.
+        // Keep it visible until measurement proves a move/resize is required.
+        val current = placement
+        if (current != null && !OverlayPositioning.valid(current.position, current.size, g!!, v, current.overMarker))
+            hideUntilSettled()
+        geometry = g!!; viewport = v
         savedPosition = savedPositions[OverlayPositionKey(next.packageName, v.orientation)]
         attach()
         geometryExpiry = scope.launch(Dispatchers.Main) {
@@ -236,6 +239,7 @@ class OverlayController @Inject constructor(
         val context = requireNotNull(overlayContext)
         val owner = OverlayLifecycleOwner().apply { onCreate() }
         lifecycleOwner = owner
+        var measuredPlacement: (() -> Unit)? = null
         val view = ComposeView(context).apply {
             alpha = 0f // measure invisibly; never flash at an unsafe provisional position
             setViewTreeLifecycleOwner(owner); setViewTreeSavedStateRegistryOwner(owner); setViewTreeViewModelStoreOwner(owner)
@@ -248,10 +252,10 @@ class OverlayController @Inject constructor(
                         android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
                     MeasuredVerdictChip(state, g, v, g.capturedAtMs, savedPosition, chipVisible, reduced,
                         g.appearance == HostAppearance.DARK, VerdictChipCallbacks(::onDrag) { onDragEnd() }) { decision ->
-                        // No IO or Compose mutation during measurement. Identity guards reject work
-                        // posted by a disposed composition or an older frame of this offer.
+                        // Consume this measurement at pre-draw in the SAME traversal, after layout.
+                        // No window/Compose mutation during measurement and no extra posted frame.
                         val frameGeneration = generation
-                        post {
+                        measuredPlacement = {
                             if (composeView === this && frameGeneration == generation && geometry == g && chipState == state)
                                 applyPlacement(decision)
                         }
@@ -266,18 +270,33 @@ class OverlayController @Inject constructor(
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT).apply {
-            gravity = Gravity.TOP or Gravity.LEFT
+            val v = requireNotNull(viewport)
+            val g = requireNotNull(geometry)
+            val saved = savedPosition
+            if (saved != null) {
+                gravity = Gravity.TOP or Gravity.LEFT
+                x = saved.x; y = saved.y
+            } else {
+                // Android anchors WRAP_CONTENT after measuring it: the normal right-foot slot can
+                // be verified on the first layout, without first attaching visibly at (0, 0).
+                gravity = Gravity.BOTTOM or Gravity.RIGHT
+                x = v.bounds.right - minOf(v.safeBounds.right, v.bounds.right - v.dp(12))
+                y = v.bounds.bottom - minOf(g.offerCard.top, v.safeBounds.bottom) + v.dp(16)
+            }
             if (Build.VERSION.SDK_INT >= 30) setFitInsetsTypes(0)
             if (Build.VERSION.SDK_INT >= 28) layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
         }
         layoutParams = params
         view.setOnApplyWindowInsetsListener { _, insets ->
             val current = readViewport(insets)
-            if (viewport != current) { hideUntilSettled(); placement = null; viewport = current }
+            if (viewport != current) { hideUntilSettled(); viewport = current }
             insets
         }
-        view.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> settleWindow() }
-        view.viewTreeObserver.addOnPreDrawListener { settleWindow(); true }
+        view.viewTreeObserver.addOnPreDrawListener {
+            measuredPlacement?.also { measuredPlacement = null; it() }
+            settleWindow()
+            true
+        }
         owner.onResume()
         runCatching { windowManager.addView(view, params) }.onFailure {
             diagnostic("WINDOW_UNAVAILABLE", it.javaClass.simpleName)
@@ -301,25 +320,34 @@ class OverlayController @Inject constructor(
         }
         val view = composeView ?: return
         val params = layoutParams ?: return
-        val target = decision.position.inWindow(windowOrigin)
-        if (placement != decision || params.x != target.x || params.y != target.y) {
+        val target = windowPosition(decision.position, decision.size, params, v)
+        placement = decision
+        if (params.x != target.x || params.y != target.y) {
             hideUntilSettled()
-            placement = decision
             params.x = target.x; params.y = target.y
             runCatching { windowManager.updateViewLayout(view, params) }.onFailure {
                 diagnostic("WINDOW_UPDATE_FAILED", it.javaClass.simpleName); detach()
             }
             return // wait for WindowManager's traversal; immediate location reads are stale
         }
-        settleWindow()
+        // Verification belongs to pre-draw, never the measurement or updateViewLayout call stack.
     }
+
+    private fun windowPosition(screen: OverlayPosition, size: ChipSize,
+        params: WindowManager.LayoutParams, viewport: OverlayViewport): OverlayPosition =
+        if (params.gravity == (Gravity.BOTTOM or Gravity.RIGHT))
+            OverlayPosition(viewport.bounds.right - screen.x - size.width + windowOrigin.x,
+                viewport.bounds.bottom - screen.y - size.height + windowOrigin.y)
+        else screen.inWindow(windowOrigin)
 
     /** Actual location/size must agree before visibility, touch or displayed history is published. */
     private fun settleWindow() {
         val view = composeView ?: return
         val params = layoutParams ?: return
         val shown = placement ?: return
-        if (!view.isLaidOut) return
+        // Layout-change listeners run before the root's screen transform is final. Only pre-draw
+        // after a completed layout may read getLocationOnScreen or reveal the chip.
+        if (!view.isLaidOut || view.isLayoutRequested) return
         if (view.width != shown.size.width || view.height != shown.size.height) {
             // A larger phrase/limit must not paint once at the old position.
             hideUntilSettled("SIZE_CHANGED", "actual=${view.width}x${view.height} expected=${shown.size.width}x${shown.size.height}")
@@ -336,10 +364,12 @@ class OverlayController @Inject constructor(
         val actual = OverlayPosition(location[0], location[1])
         if (actual != shown.position) {
             diagnostic("POSITION_PENDING", "actual=${actual.x},${actual.y} expected=${shown.position.x},${shown.position.y}")
-            // Only refine from a completed layout; getLocationOnScreen can lag updateViewLayout.
-            if (view.isLayoutRequested) return
-            windowOrigin = OverlayPosition(actual.x - params.x, actual.y - params.y)
-            val target = shown.position.inWindow(windowOrigin)
+            hideUntilSettled("POSITION_PENDING")
+            windowOrigin = if (params.gravity == (Gravity.BOTTOM or Gravity.RIGHT))
+                OverlayPosition(actual.x - (v.bounds.right - params.x - shown.size.width),
+                    actual.y - (v.bounds.bottom - params.y - shown.size.height))
+            else OverlayPosition(actual.x - params.x, actual.y - params.y)
+            val target = windowPosition(shown.position, shown.size, params, v)
             params.x = target.x; params.y = target.y
             runCatching { windowManager.updateViewLayout(view, params) }.onFailure {
                 diagnostic("WINDOW_UPDATE_FAILED", it.javaClass.simpleName); detach()

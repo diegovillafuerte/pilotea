@@ -80,5 +80,7 @@ dependencies {
 tasks.withType<Test>().configureEach {
     systemProperty("v3.recordScreenshots", providers.gradleProperty("v3.recordScreenshots").getOrElse("false"))
     inputs.dir("src/test/snapshots/v3")
+    // Shared anonymized capture used by both parser and end-to-end verdict regressions.
+    inputs.file("../ocr/src/test/resources/uber_priority_s25_2026_10_29.json")
     outputs.dir(layout.buildDirectory.dir("outputs/v3-screenshots"))
 }
