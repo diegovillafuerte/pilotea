@@ -12,7 +12,7 @@ class LiveOcrGeometryTest {
         box("A 4 min (2.0 km)", 600), box("Viaje: 20 min (10.0 km)", 650), box("Aceptar", 780))
     private fun select(blocks: List<OcrBlock> = frame, evidence: HostWindowEvidence? = null) =
         selectOfferCard(UberOcrParser(), DidiOcrParser(), blocks, 1_000,
-            displayBounds = display, density = 1f, accessibility = evidence)!!
+            displayBounds = display, density = 1f, accessibility = evidence, foregroundPackage = UberOcrParser.UBER_PACKAGE)!!
 
     @Test fun `OCR alone supplies geometry for a live offer without a host layout id`() {
         val card = select()

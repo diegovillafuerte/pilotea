@@ -179,22 +179,22 @@ class FareStabilizerTest {
         assertEquals(99.45, s.onParsed(next.copy(fare = 99.45), 600).fare!!, 0.001)
     }
 
-    @Test fun `lost route confidence does not grant this instance another immediate revision`() {
+    @Test fun `lost route confidence keeps payment and never grants another immediate revision`() {
         val s = FareStabilizer()
         val known = uber(79.45).copy(sessionId = "same-instance")
         s.onParsed(known, 0)
-        assertNull(s.onParsed(known.copy(pickupEtaMin = null, fare = null), 300).fare)
-        assertNull(s.onParsed(known.copy(fare = 99.45), 600).fare)
+        assertEquals(79.45, s.onParsed(known.copy(pickupEtaMin = null, fare = null), 300).fare!!, 0.001)
+        assertEquals(79.45, s.onParsed(known.copy(fare = 99.45), 600).fare!!, 0.001)
         assertEquals(99.45, s.onParsed(known.copy(fare = 99.45), 900).fare!!, 0.001)
     }
 
-    @Test fun `payment invalidation before a rejected frame requires agreement to reacquire`() {
+    @Test fun `uncertain rejected frame keeps confirmed payment and breaks revision agreement`() {
         val s = FareStabilizer()
         val known = uber(79.45).copy(sessionId = "same-instance")
         s.onParsed(known, 0)
-        s.invalidatePayment()
-        assertNull(s.onParsed(known.copy(fare = null), 300).fare)
-        assertNull(s.onParsed(known.copy(fare = 99.45), 600).fare)
+        s.breakCandidateAgreement()
+        assertEquals(79.45, s.onParsed(known.copy(fare = null), 300).fare!!, 0.001)
+        assertEquals(79.45, s.onParsed(known.copy(fare = 99.45), 600).fare!!, 0.001)
         assertEquals(99.45, s.onParsed(known.copy(fare = 99.45), 900).fare!!, 0.001)
     }
 

@@ -47,26 +47,52 @@ object OverlayPositioning {
         previous?.copy(capturedAtMs = next.capturedAtMs, layoutId = next.layoutId, source = next.source,
             appearance = next.appearance) == next
 
-    /** A moving sheet may hide its own upper edge behind the chip; that is not a larger safe band. */
+    /** A chip mask is missing evidence, never evidence that the host's upper band is empty. */
     fun lostMaskedAnchors(previous: HostGeometry?, next: HostGeometry, viewport: OverlayViewport): Boolean {
         if (next.source == HostGeometrySource.HOST_LAYOUT) return false
-        val before = previous?.ocrEvidence ?: return false
         val after = next.ocrEvidence ?: return false
-        if (previous.packageName != next.packageName || previous.displayBounds != next.displayBounds ||
-            after.independentlyMeasuredCard) return false
         val mask = after.overlayMask ?: return false
-        if (before.routeAnchors.isEmpty() || before.routeAnchors.size != after.routeAnchors.size) return false
+        val priorGeometry = previous?.takeIf {
+            it.packageName == next.packageName && it.displayBounds == next.displayBounds
+        }
         val tolerance = viewport.dp(8)
-        val dx = after.routeAnchors.first().left - before.routeAnchors.first().left
-        val dy = after.routeAnchors.first().top - before.routeAnchors.first().top
-        if (abs(dx) <= tolerance && abs(dy) <= tolerance) return false
-        // Losing one leg is not displacement. Require the visible route anchors to move together.
-        if (before.routeAnchors.zip(after.routeAnchors).any { (old, fresh) ->
+        // Controls can move independently from the route and heading. A formerly observed close
+        // disappearing under OCR cannot be explained away by stationary route anchors. Current
+        // accessibility controls stay in this list even beneath the mask, so positive node evidence
+        // still validates them and ordinary placement can avoid their actual bounds.
+        if (priorGeometry?.protectedControls?.any { old -> next.protectedControls.none { fresh ->
+            abs(old.left - fresh.left) <= tolerance && abs(old.top - fresh.top) <= tolerance
+        } } == true) return true
+        if (after.independentlyMeasuredCard) return false
+        val before = priorGeometry?.ocrEvidence ?: return after.upperAnchors.isEmpty()
+        val visibleUpper = after.upperAnchors.filterNot { it.overlaps(mask) }
+        val visibleRoutes = after.routeAnchors.filterNot { it.overlaps(mask) }
+        if (before.upperAnchors.isEmpty()) {
+            // An unobscured card may have no recognized heading at all. Stable route anchors and
+            // a mask wholly above that observed envelope keep recovery from cycling every frame.
+            val stableRoutes = before.routeAnchors.isNotEmpty() &&
+                before.routeAnchors.size == visibleRoutes.size &&
+                before.routeAnchors.zip(visibleRoutes).all { (old, fresh) ->
+                    abs(old.left - fresh.left) <= viewport.dp(8) &&
+                        abs(old.top - fresh.top) <= viewport.dp(8)
+                }
+            return visibleUpper.isEmpty() && !(stableRoutes && mask.bottom <= previous!!.offerCard.top)
+        }
+        // An unchanged visible header/amount can establish the upper boundary without route text.
+        if (before.upperAnchors.all { old -> visibleUpper.any { fresh ->
+            abs(old.left - fresh.left) <= tolerance && abs(old.top - fresh.top) <= tolerance
+        } }) return false
+        // Do not guess which leg disappeared or pair pickup with trip. A malformed line, dropout,
+        // or non-rigid movement requires a capture with this region exposed.
+        if (before.routeAnchors.isEmpty() || before.routeAnchors.size != visibleRoutes.size) return true
+        val dx = visibleRoutes.first().left - before.routeAnchors.first().left
+        val dy = visibleRoutes.first().top - before.routeAnchors.first().top
+        if (before.routeAnchors.zip(visibleRoutes).any { (old, fresh) ->
             abs(fresh.left - old.left - dx) > tolerance || abs(fresh.top - old.top - dy) > tolerance
-        }) return false
+        }) return true
         return before.upperAnchors.any { old ->
             val displaced = HostRect(old.left + dx, old.top + dy, old.right + dx, old.bottom + dy)
-            displaced.overlaps(mask) && after.upperAnchors.none { it.overlaps(displaced.expanded(tolerance)) }
+            displaced.overlaps(mask) && visibleUpper.none { it.overlaps(displaced.expanded(tolerance)) }
         }
     }
 
@@ -147,4 +173,37 @@ object OverlayPositioning {
             valid(it, current.size, g, v, current.overMarker)
         } ?: current.position
     }
+}
+
+/**
+ * Retains the last unobscured upper anchors across partial OCR frames. Without a measured card
+ * edge, an unknown masked header may extend above the mask itself. No band is then proven safe:
+ * suppress the plate for one unobscured capture instead of placing it on an inferred empty area.
+ */
+internal class PlacementEvidence {
+    private var reference: HostGeometry? = null
+
+    data class Decision(val geometry: HostGeometry, val recover: Boolean)
+
+    fun observe(next: HostGeometry, viewport: OverlayViewport, previous: HostGeometry? = null): Decision {
+        val before = (reference ?: previous)?.takeIf {
+            it.packageName == next.packageName && it.displayBounds == next.displayBounds
+        }
+        val recover = OverlayPositioning.lostMaskedAnchors(before, next, viewport)
+        if (!recover) {
+            val after = next.ocrEvidence
+            val old = before?.ocrEvidence
+            // A missing upper anchor is retained even if steady legs currently establish safety.
+            // It may be the only evidence that exposes a later movement beneath the mask.
+            if (next.source == HostGeometrySource.HOST_LAYOUT || after == null ||
+                after.independentlyMeasuredCard || after.overlayMask == null ||
+                old == null || after.upperAnchors.size >= old.upperAnchors.size) reference = next
+            else reference = before
+            return Decision(next, false)
+        }
+        reference = before
+        return Decision(next.copy(offerCard = next.offerCard.copy(top = next.topChrome.bottom)), true)
+    }
+
+    fun reset() { reference = null }
 }

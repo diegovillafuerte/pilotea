@@ -19,6 +19,10 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class OfferFramePipelineIdentityTest {
+    @org.junit.Before fun foreground() {
+        mx.kompara.data.service.ScreenReaderState.setForegroundHost(UberOcrParser.UBER_PACKAGE,
+            android.os.SystemClock.elapsedRealtime())
+    }
     private fun fixture(): List<OcrBlock> {
         val json = JSONArray(javaClass.getResource("/uber_priority_s25_2026_10_29.json")!!.readText())
         return List(json.length()) { i ->
@@ -50,17 +54,17 @@ class OfferFramePipelineIdentityTest {
         parsed
     }
 
-    @Test fun `rejected changed route invalidates retained payment before an unread old route returns`() {
+    @Test fun `rejected changed route retains confirmed payment before unread old route returns`() {
         val parsed = replay { blocks -> blocks.map {
             if (it.text == "24 min (2.4 km)") it.copy(text = "24 min (24.0 km)") else it
         } }
         assertEquals(79.45, parsed.first().card.fare!!, 0.001)
-        assertNull(parsed.last().card.fare)
+        assertEquals(79.45, parsed.last().card.fare!!, 0.001)
         assertEquals("Rejected numeric OCR noise must not split the ledger instance",
             parsed.first().card.sessionId, parsed.last().card.sessionId)
     }
 
-    @Test fun `rejected unknown route also invalidates retained payment`() {
+    @Test fun `rejected unknown route preserves confirmed payment and session`() {
         val parsed = replay { blocks -> blocks.map {
             when (it.text) {
                 "$79.45" -> it.copy(text = "$7945.00")
@@ -68,7 +72,7 @@ class OfferFramePipelineIdentityTest {
                 else -> it
             }
         } }
-        assertNull(parsed.last().card.fare)
+        assertEquals(79.45, parsed.last().card.fare!!, 0.001)
         assertEquals("Rejected numeric OCR noise must not split the ledger instance",
             parsed.first().card.sessionId, parsed.last().card.sessionId)
     }
@@ -105,4 +109,31 @@ class OfferFramePipelineIdentityTest {
             assertNotEquals(parsed.first().card.sessionId, parsed.last().card.sessionId)
         } finally { collector.cancelAndJoin() }
     }
+    @Test fun `unknown OS visibility retains identity and breaks consecutive payment votes`() = runBlocking {
+        val parsed = mutableListOf<OfferEvent.Parsed>()
+        val collector = launch(Dispatchers.Unconfined) {
+            OfferEventBus.events.collect { if (it is OfferEvent.Parsed) parsed += it }
+        }
+        try {
+            val pipeline = OfferFramePipeline()
+            val full = fixture()
+            val revision = full.map { if (it.text == "$79.45") it.copy(text = "$99.45") else it }
+            suspend fun frame(blocks: List<OcrBlock>) {
+                org.robolectric.shadows.ShadowSystemClock.advanceBy(java.time.Duration.ofMillis(900))
+                pipeline.process(blocks, null, null, displayBounds = HostRect(0, 0, 1080, 2340),
+                    density = 3f, foregroundPackage = UberOcrParser.UBER_PACKAGE)
+                yield()
+            }
+            frame(full)
+            frame(revision)
+            pipeline.onCaptureUncertain(System.currentTimeMillis())
+            frame(revision)
+            assertEquals(listOf(79.45, 79.45, 79.45), parsed.map { it.card.fare })
+            frame(revision)
+            assertEquals(99.45, parsed.last().card.fare!!, 0.001)
+            assertEquals(1, parsed.map { it.card.sessionId }.distinct().size)
+            assertEquals(1, parsed.map { it.card.sessionStartedAt }.distinct().size)
+        } finally { collector.cancelAndJoin() }
+    }
+
 }

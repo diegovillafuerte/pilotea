@@ -83,6 +83,7 @@ class OverlayController @Inject constructor(
     private var chipState by mutableStateOf<ReglaModel?>(null)
     private var chipVisible by mutableStateOf(false)
     private var geometry by mutableStateOf<HostGeometry?>(null)
+    private val placementEvidence = PlacementEvidence()
     private var viewport by mutableStateOf<OverlayViewport?>(null)
     private var savedPosition by mutableStateOf<OverlayPosition?>(null)
     private val savedPositions = mutableMapOf<OverlayPositionKey, OverlayPosition?>()
@@ -141,7 +142,7 @@ class OverlayController @Inject constructor(
                         when (it) {
                             is OfferEvent.NoCard -> diagnostic("NO_CARD_${it.reason}")
                             is OfferEvent.SpecDisabled -> diagnostic("SPEC_DISABLED")
-                            is OfferEvent.Parsed -> Unit
+                            is OfferEvent.Parsed, is OfferEvent.LayoutUncertain -> Unit
                         }
                     })
                     .onStart { emit(OverlayVisibility.Hidden) }
@@ -202,10 +203,14 @@ class OverlayController @Inject constructor(
                 chipState = visibility.state.regla; evaluated = true; chipVisible = true
                 show(scope, visibility.event)
             }
+            OverlayVisibility.AwaitingUnobscuredCapture -> {
+                detach()
+                record(OverlayPlacement.Suppressed("UNOBSCURED_CAPTURE"))
+            }
             OverlayVisibility.Exiting -> { diagnostic("OFFER_ABSENT"); chipVisible = false }
             OverlayVisibility.Hidden -> {
                 if (event != null) diagnostic("OFFER_HIDDEN")
-                event = null; chipVisible = false; chipState = null; detach()
+                event = null; chipVisible = false; chipState = null; detach(); placementEvidence.reset()
             }
         }
     }
@@ -216,11 +221,11 @@ class OverlayController @Inject constructor(
         }
         event = next
         val v = readViewport()
-        val g = next.card.hostGeometry
+        val rawGeometry = next.card.hostGeometry
         geometryExpiry?.cancel()
-        val problem = OverlayPositioning.geometryProblem(g, next.packageName, v, System.currentTimeMillis())
+        val problem = OverlayPositioning.geometryProblem(rawGeometry, next.packageName, v, System.currentTimeMillis())
         if (problem != null) {
-            diagnostic(problem, geometryDetails(g, v))
+            diagnostic(problem, geometryDetails(rawGeometry, v))
             detach()
             record(OverlayPlacement.Unsupported(problem))
             return
@@ -228,21 +233,31 @@ class OverlayController @Inject constructor(
         // A changed frame may still leave the current footprint safe and in the same slot.
         // Keep it visible until measurement proves a move/resize is required.
         val current = placement
-        val maskedAnchorsLost = OverlayPositioning.lostMaskedAnchors(geometry, g!!, v)
+        val evidence = placementEvidence.observe(rawGeometry!!, v, geometry)
+        val g = evidence.geometry
+        val maskedAnchorsLost = evidence.recover
         val currentIsSafe = current != null && !maskedAnchorsLost &&
-            OverlayPositioning.valid(current.position, current.size, g!!, v, current.overMarker)
+            OverlayPositioning.valid(current.position, current.size, g, v, current.overMarker)
         if (current != null && !currentIsSafe)
             hideUntilSettled()
-        geometry = g!!; viewport = v
+        geometry = g; viewport = v
         // Current-frame geometry still gates safety. Small OCR envelope changes must not pull an
         // already safe same-offer chip toward the headline on each measurement. New offers detach
         // in Reading, so they cannot inherit this transient position.
         // Clear both transient and persisted preferences when the chip concealed moving anchors.
         // The regular placement path moves its mask away, exposing the host on the next capture.
         savedPosition = when {
-            maskedAnchorsLost -> null
+            maskedAnchorsLost -> {
+                savedPositions.remove(OverlayPositionKey(next.packageName, v.orientation))
+                null
+            }
             currentIsSafe -> current!!.position
             else -> savedPositions[OverlayPositionKey(next.packageName, v.orientation)]
+        }
+        if (maskedAnchorsLost) {
+            detach()
+            record(OverlayPlacement.Suppressed("UNOBSCURED_CAPTURE"))
+            return
         }
         attach()
         geometryExpiry = scope.launch(Dispatchers.Main) {
@@ -615,6 +630,7 @@ class OverlayController @Inject constructor(
         detach(); detachBanner()
         event = null; chipState = null; chipVisible = false; geometry = null; viewport = null
         evaluated = false; lastRecord = null; savedPositions.clear(); savedPosition = null
+        placementEvidence.reset()
         serviceScope = null; overlayContext = null
     }
 

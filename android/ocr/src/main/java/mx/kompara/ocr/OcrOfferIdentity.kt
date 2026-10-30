@@ -1,9 +1,7 @@
 package mx.kompara.ocr
 
 import mx.kompara.parsers.model.OfferCard
-import mx.kompara.parsers.model.HostGeometrySource
 import mx.kompara.parsers.model.HostRect
-import mx.kompara.parsers.model.OfferInstanceEvidence
 import kotlin.math.abs
 import java.util.UUID
 
@@ -28,98 +26,143 @@ internal data class OcrOfferIdentity(
 }
 
 /**
- * An observed card lifetime owns one UUID. Matching numeric legs never establish that lifetime:
- * host/variant/product/action changes or displaced independent card anchors (including stack switches)
- * end it immediately. Missing tokens/legs and a single numeric misread keep the durable ID. Two
- * consecutive complete changed routes can corroborate replacement when other tokens stay alike.
- * The pipeline resets on a signature-free gap (N=1) or capture end before a new card can inherit it.
+ * Durable, presence-based session. Numbers and OCR geometry are observations, never IDs.
+ * A replacement needs two distinct positive changes, each repeated on consecutive frames.
+ * Missing evidence breaks candidate agreement while preserving the last confirmed semantics.
+ * Presence and payment use monotonic time; UUID start timestamps remain epoch milliseconds.
  */
 internal class OcrOfferSessionTracker {
+    enum class Confidence { CONFIDENT, UNCERTAIN }
+    data class Decision(val card: OfferCard?, val confidence: Confidence, val replaced: Boolean = false)
+    private val presence = CardPresenceTracker()
+    private var baseline: OfferCard? = null
     private var previous: OfferCard? = null
-    private var route: OcrOfferIdentity? = null
-    private var candidateRoute: OcrOfferIdentity? = null
-    private var candidateAt = 0L
+    private var votes = emptyMap<String, Pair<Any, Int>>()
     private var id: String? = null
     private var startedAt = 0L
 
-    /** A disappearing secondary card is ambiguous: lose money confidence, not the durable ID. */
-    fun stackChanged(card: OfferCard): Boolean {
-        val oldCount = previous?.instanceEvidence?.visibleCards ?: return false
-        val newCount = card.instanceEvidence?.visibleCards ?: return false
-        return oldCount > 1 && newCount < oldCount
+    fun isPresent() = presence.isPresent()
+    fun obscuredBy(mask: HostRect?): Boolean {
+        if (mask == null) return false
+        val known = baseline ?: return false
+        return listOfNotNull(known.instanceEvidence?.headingBounds, known.instanceEvidence?.actionBounds,
+            known.hostGeometry?.offerCard).plus(known.instanceEvidence?.cardBands.orEmpty()).any(mask::overlaps)
     }
 
-    /** Observe reliable replacement evidence even if the numeric outlier guard rejects this frame. */
-    fun observe(card: OfferCard): Boolean {
-        val old = previous
-        val replaced = old != null && replacement(old, card)
-        if (replaced) reset()
-        val base = previous
-        val evidence = card.instanceEvidence
-        val prior = base?.instanceEvidence
-        previous = card.copy(variant = card.variant ?: base?.variant,
-            instanceEvidence = OfferInstanceEvidence(
-                evidence?.product ?: prior?.product, evidence?.action ?: prior?.action,
-                prior?.headingBounds ?: evidence?.headingBounds,
-                prior?.actionBounds ?: evidence?.actionBounds,
-                evidence?.visibleCards ?: prior?.visibleCards),
-            hostGeometry = base?.hostGeometry?.takeIf {
-                it.source == HostGeometrySource.HOST_LAYOUT || it.ocrEvidence?.independentlyMeasuredCard == true
-            } ?: card.hostGeometry ?: base?.hostGeometry)
-        return replaced
+    /** Absence must be corroborated; filtered/occluded frames are uncertainty, not disappearance. */
+    fun miss(cardLike: Boolean, nowMs: Long, observedGone: Boolean = false): Boolean {
+        votes = emptyMap()
+        val gone = observedGone && presence.isPresent() || presence.onMiss(cardLike, nowMs)
+        if (gone) reset()
+        return gone
     }
 
-    fun parsed(card: OfferCard, atMs: Long, nowMs: Long = atMs): OfferCard {
-        observe(card)
-        val next = OcrOfferIdentity.from(card)
-        if (route != null && next != null && next != route) {
-            if (candidateRoute == next && nowMs - candidateAt in 0..FareStabilizer.WINDOW_MS) {
-                reset()
-                observe(card)
-                route = next
-            } else {
-                candidateRoute = next
-                candidateAt = nowMs
-            }
-        } else {
-            candidateRoute = null
-            if (route == null) route = next
+    fun stackChanged(card: OfferCard): Boolean = (previous?.instanceEvidence?.visibleCards ?: 1) >
+        (card.instanceEvidence?.visibleCards ?: 1)
+
+    fun update(card: OfferCard, atMs: Long, nowMs: Long = atMs): Decision {
+        val old = baseline
+        val route = OcrOfferIdentity.from(card)
+        val extractionCertain = card.instanceEvidence?.routeWellFormed != false &&
+            card.instanceEvidence?.selectionCertain != false
+        if (old == null) {
+            // An unread/partial first frame cannot mint a ledger ID or spend first-payment allowance.
+            val mask = card.hostGeometry?.ocrEvidence?.overlayMask
+            val maskedEvidence = mask != null && (card.hostGeometry?.offerCard?.overlaps(mask) == true ||
+                card.instanceEvidence?.cardBands.orEmpty().any(mask::overlaps) ||
+                card.instanceEvidence?.headingBounds == null)
+            if (route == null || maskedEvidence || !extractionCertain) return Decision(null, Confidence.UNCERTAIN)
+            start(card, atMs, nowMs)
+            return Decision(stamped(card), Confidence.CONFIDENT)
         }
-        if (id == null) {
-            id = UUID.randomUUID().toString()
-            startedAt = atMs
+        // Platform transitions are OS/capture boundaries, handled before parsing in the pipeline.
+        if (old.platform != card.platform) {
+            reset()
+            return update(card, atMs, nowMs)
         }
-        return card.copy(sessionId = id, sessionStartedAt = startedAt)
+        presence.onParsed(nowMs)
+        val changes = linkedMapOf<String, Any>()
+        fun changed(key: String, a: String?, b: String?) {
+            if (a != null && b != null && a != b) changes[key] = b
+        }
+        val a = old.instanceEvidence
+        val b = card.instanceEvidence
+        changed("action", a?.action, b?.action)
+        changed("product", a?.product, b?.product)
+        val priorLabels = labels(old)
+        val newLabels = labels(card)
+        // Surge/multi-stop are additive properties; their absence never contradicts a label.
+        if (priorLabels.isNotEmpty() && newLabels.isNotEmpty() && priorLabels.intersect(newLabels).isEmpty()) {
+            changes["presentation"] = newLabels
+        }
+        if (route != null && route != OcrOfferIdentity.from(old)) changes["route"] = route
+        val oldBands = a?.cardBands.orEmpty()
+        val selected = b?.cardBands?.firstOrNull()
+        val secondary = oldBands.drop(1).indexOfFirst { sameBand(it, selected) }
+        val mask = card.hostGeometry?.ocrEvidence?.overlayMask
+        val maskedCriticalEvidence = mask != null && (obscuredBy(mask) ||
+            card.hostGeometry?.offerCard?.overlaps(mask) == true ||
+            b?.cardBands.orEmpty().any(mask::overlaps) || b?.headingBounds == null)
+        if (!maskedCriticalEvidence && (a?.visibleCards ?: 1) > (b?.visibleCards ?: 1) && secondary >= 0) {
+            changes["stack-count"] = b!!.visibleCards!!
+            changes["known-secondary"] = secondary
+        }
+        if (maskedCriticalEvidence || !extractionCertain) changes.clear()
+        votes = changes.mapValues { (key, value) ->
+            val prior = votes[key]
+            value to if (prior?.first == value) prior.second + 1 else 1
+        }
+        if (votes.values.count { it.second >= 2 } >= 2) {
+            reset()
+            // Corroborated replacement can reveal a missing fare, but must have a readable route.
+            if (route == null) return Decision(null, Confidence.UNCERTAIN, true)
+            start(card, atMs, nowMs)
+            return Decision(stamped(card), Confidence.CONFIDENT, true)
+        }
+        val movement = moved(previous?.instanceEvidence?.headingBounds, b?.headingBounds) ||
+            moved(previous?.instanceEvidence?.actionBounds, b?.actionBounds)
+        val missingTokens = a?.action != null && b?.action == null || a?.product != null && b?.product == null ||
+            priorLabels.isNotEmpty() && newLabels.isEmpty() ||
+            (a?.labels.orEmpty() - b?.labels.orEmpty()).isNotEmpty()
+        previous = card // Follow animation continuously; never compare displacement to a frozen origin.
+        val uncertain = route == null || changes.isNotEmpty() || movement || missingTokens || maskedCriticalEvidence || !extractionCertain
+        if (uncertain) {
+            return Decision(stamped(old.copy(fare = null, raw = old.raw - "fare", paymentBasis = "UNCONFIRMED",
+                hostGeometry = card.hostGeometry, contentBounds = card.contentBounds)), Confidence.UNCERTAIN)
+        }
+        baseline = card.copy(instanceEvidence = b?.copy(labels = a?.labels.orEmpty() + b.labels))
+        return Decision(stamped(card), Confidence.CONFIDENT)
+    }
+
+    /** Convenience for pure replay callers; production consumes the confidence explicitly. */
+    fun parsed(card: OfferCard, atMs: Long, nowMs: Long = atMs): OfferCard =
+        update(card, atMs, nowMs).card ?: card.copy(fare = null, paymentBasis = "UNCONFIRMED")
+
+    private fun labels(card: OfferCard): Set<String> =
+        (card.instanceEvidence?.labels.orEmpty() + listOfNotNull(card.variant))
+            .intersect(setOf("exclusive", "trip_radar", "reservation"))
+
+    private fun moved(a: HostRect?, b: HostRect?) = a != null && b != null &&
+        (abs(a.top - b.top) > 24 || abs(a.left - b.left) > 24)
+
+    private fun sameBand(a: HostRect, b: HostRect?) = b != null &&
+        abs(a.top - b.top) <= 24 && abs(a.bottom - b.bottom) <= 24 && abs(a.left - b.left) <= 24
+
+    private fun stamped(card: OfferCard) = card.copy(sessionId = id, sessionStartedAt = startedAt)
+    private fun start(card: OfferCard, atMs: Long, nowMs: Long) {
+        id = UUID.randomUUID().toString()
+        startedAt = atMs
+        baseline = card
+        previous = card
+        presence.onParsed(nowMs)
     }
 
     fun reset() {
+        baseline = null
         previous = null
-        route = null
-        candidateRoute = null
-        candidateAt = 0L
+        votes = emptyMap()
         id = null
         startedAt = 0L
-    }
-
-    private fun replacement(old: OfferCard, next: OfferCard): Boolean {
-        fun changed(a: String?, b: String?) = a != null && b != null && a != b
-        if (old.platform != next.platform || changed(old.variant, next.variant)) return true
-        val a = old.instanceEvidence
-        val b = next.instanceEvidence
-        if (changed(a?.product, b?.product) || changed(a?.action, b?.action)) return true
-        // Text widths vary with recognition. Compare anchor origins, not fare/content unions whose
-        // top changes whenever the fare disappears. Tolerance is 2.5% of the viewport, at least 24px.
-        val tolerance = maxOf(24, ((next.hostGeometry?.displayBounds?.width ?: 0) * .025).toInt())
-        fun moved(a: HostRect?, b: HostRect?) = a != null && b != null &&
-            (abs(a.top - b.top) > tolerance || abs(a.left - b.left) > tolerance)
-        if (moved(a?.headingBounds, b?.headingBounds) || moved(a?.actionBounds, b?.actionBounds)) return true
-        fun measured(card: OfferCard): HostRect? = card.hostGeometry?.takeIf {
-            it.source == HostGeometrySource.HOST_LAYOUT || it.ocrEvidence?.independentlyMeasuredCard == true
-        }?.offerCard
-        val oldBounds = measured(old)
-        val newBounds = measured(next)
-        return oldBounds != null && newBounds != null &&
-            (moved(oldBounds, newBounds) || abs(oldBounds.right - newBounds.right) > tolerance ||
-                abs(oldBounds.bottom - newBounds.bottom) > tolerance)
+        presence.reset()
     }
 }

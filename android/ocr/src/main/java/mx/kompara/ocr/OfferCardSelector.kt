@@ -11,22 +11,7 @@ import mx.kompara.parsers.model.HostOcrGeometryEvidence
 import mx.kompara.capture.HostWindowEvidence
 import mx.kompara.data.service.ScreenRect
 
-/**
- * Picks the offer card for a frame from its OCR blocks, identifying the platform in the process.
- *
- * Uber is tried first: current Uber and DiDi cards both render bare "$" fares, so Uber requires its
- * host signature for that format; older MXN/MX$ cards retain their legacy recognition. The selected
- * card names the host. (B-029-OCR: Uber's offer card is no longer accessibility-
- * readable, design §7 update 2026-06-15.)
- *
- * Cross-app hold: when the driver runs DiDi and an Uber broadcast pops, a frame where the Uber parse
- * momentarily drops (the animating map garbles the "Viaje:" trip-leg label) must NOT fall through to
- * DiDi. DiDi's bare-"$" regex would otherwise latch onto the on-screen "$0.00" earnings pill — or
- * Kompara's own "$0.00/km" chip text self-captured — and emit a verdict mis-attributed to DiDi (the
- * red "$0.00/km" chip seen over an Uber offer, 2026-06-15). So if the frame still carries the Uber
- * card *signature* (host/action/route evidence or a legacy MX fare + a leg), hold and let [CardPresenceTracker]
- * keep the last good Uber verdict, rather than mis-attributing the screen to DiDi.
- */
+/** The OS foreground package selects exactly one parser. OCR never guesses or changes hosts. */
 internal fun selectOfferCard(
     uber: UberOcrParser,
     didi: DidiOcrParser,
@@ -39,6 +24,8 @@ internal fun selectOfferCard(
     accessibility: HostWindowEvidence? = null,
     appearance: HostAppearanceSamples? = null,
     chipRect: ScreenRect? = null,
+    foregroundPackage: String? = mx.kompara.data.service.ScreenReaderState.freshForegroundHost(
+        android.os.SystemClock.elapsedRealtime(), 1_500),
 ): OfferCard? {
     // Validate independently observed card edges before fare selection, so a large map label
     // outside the card cannot become payment. Derived OCR geometry remains the fallback below.
@@ -48,9 +35,11 @@ internal fun selectOfferCard(
                 capturedAtMs - it.capturedAtMs in 0..1_000
         }?.currentUberCardBounds(blocks, capturedAtMs)
     val fareBounds = uberBounds?.let { OcrBounds(it.left, it.top, it.right, it.bottom) }
-    val card = uber.parse(blocks, cardBounds = fareBounds)
-        // Retain the cross-app hold even if the observed edges withheld every Uber amount.
-        ?: (if (uber.hasCardSignature(blocks)) null else didi.parse(blocks)) ?: return null
+    val card = when (foregroundPackage) {
+        UberOcrParser.UBER_PACKAGE -> uber.parse(blocks, cardBounds = fareBounds, hostConfirmed = true)
+        DidiOcrParser.DIDI_PACKAGE -> didi.parse(blocks)
+        else -> null
+    } ?: return null
     val nodes = accessibility?.takeIf {
         it.packageName == card.platform && it.displayBounds == displayBounds &&
             capturedAtMs - it.capturedAtMs in 0..1_000

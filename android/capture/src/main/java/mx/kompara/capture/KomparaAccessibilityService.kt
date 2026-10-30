@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.filterNot
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import mx.kompara.data.service.HostForegroundObservation
 import mx.kompara.data.service.ScreenReaderState
 import javax.inject.Inject
 
@@ -75,6 +76,10 @@ class KomparaAccessibilityService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
+        ScreenReaderState.attachForegroundProbe(this) {
+            HostForegroundObservation.fromWindow(activeWindowPackage(),
+                getSystemService(android.os.PowerManager::class.java)?.isInteractive != false, OCR_OWNED_PACKAGES)
+        }
         // Feed the pipeline from ALL current windows (read-only). Offer cards often live in a
         // non-focused window, so we cannot rely on rootInActiveWindow alone; getWindows() (enabled
         // by flagRetrieveInteractiveWindows) exposes the offer popup too. Fall back to the active
@@ -131,22 +136,27 @@ class KomparaAccessibilityService : AccessibilityService() {
     private fun pollToClearForeground() {
         scope.launch(CoroutineName("host-poll")) {
             while (kotlinx.coroutines.currentCoroutineContext().isActive) {
-                val root = rootInActiveWindow
-                val current = try { root?.packageName?.toString() } finally {
-                    if (android.os.Build.VERSION.SDK_INT < 33) @Suppress("DEPRECATION") root?.recycle()
-                }
+                val current = activeWindowPackage()
                 val interactive = getSystemService(android.os.PowerManager::class.java)?.isInteractive != false
                 if (interactive && current == null) mx.kompara.data.service.DrivingActivity.unknown()
                 else mx.kompara.data.service.DrivingActivity.foreground(current.takeIf { interactive })
                 foregroundOcrOwnedApp.value = current.takeIf { interactive && it in OCR_OWNED_PACKAGES }
                 val host = foregroundOcrOwnedApp.value
-                ScreenReaderState.setForegroundHost(host, android.os.SystemClock.elapsedRealtime())
+                ScreenReaderState.setForegroundObservation(HostForegroundObservation.fromWindow(
+            current, interactive, OCR_OWNED_PACKAGES), android.os.SystemClock.elapsedRealtime())
                 if (host != null && (readiness.canRead(host) || readiness.state.value.canShowStoppedTab)) {
                     val snapshot = snapshotSource.read(host, System.currentTimeMillis())
                     if (snapshot?.hostWindow == null) HostGeometryEvidence.publish(null)
                 } else HostGeometryEvidence.publish(null)
                 delay(750)
             }
+        }
+    }
+
+    private fun activeWindowPackage(): String? {
+        val root = rootInActiveWindow ?: return null
+        return try { root.packageName?.toString() } finally {
+            if (android.os.Build.VERSION.SDK_INT < 33) @Suppress("DEPRECATION") root.recycle()
         }
     }
 
@@ -175,15 +185,17 @@ class KomparaAccessibilityService : AccessibilityService() {
         // misconfiguration can never leak non-target events into the pipeline.
         if (pkg !in TARGET_PACKAGES) return
 
-        // Publish the foreground host for the OCR ledger gate (B-039 §7.1): MediaProjection sees the
-        // whole screen, so the OCR path must only attribute trip/idle to the ledger while a target
-        // app is actually foreground. We only get events for target packages, so a recent timestamp
-        // is exactly that signal. Monotonic clock — must match the OCR service's freshness check.
-        ScreenReaderState.setForegroundHost(pkg, android.os.SystemClock.elapsedRealtime())
-
-        mx.kompara.data.service.DrivingActivity.foreground(pkg)
-        foregroundOcrOwnedApp.value = pkg.takeIf { it in OCR_OWNED_PACKAGES }
-        if (!readiness.canRead(pkg)) return
+        // An event may come from a background host window. Only the OS active root identifies
+        // the foreground package; event text/package must never override the selected OCR parser.
+        val current = activeWindowPackage()
+        val interactive = getSystemService(android.os.PowerManager::class.java)?.isInteractive != false
+        val host = current.takeIf { interactive && it in OCR_OWNED_PACKAGES }
+        ScreenReaderState.setForegroundObservation(HostForegroundObservation.fromWindow(
+            current, interactive, OCR_OWNED_PACKAGES), android.os.SystemClock.elapsedRealtime())
+        if (interactive && current == null) mx.kompara.data.service.DrivingActivity.unknown()
+        else mx.kompara.data.service.DrivingActivity.foreground(current.takeIf { interactive })
+        foregroundOcrOwnedApp.value = host
+        if (!interactive || current != pkg || !readiness.canRead(pkg)) return
 
         // Wall-clock, NOT event.eventTime: this timestamp flows through ScreenSnapshot into the B-039
         // ledger (OfferEntity.seenAt, TripEntity.startedAt) and is merged with the OCR path's signals
@@ -199,6 +211,7 @@ class KomparaAccessibilityService : AccessibilityService() {
     }
 
     override fun onDestroy() {
+        ScreenReaderState.detachForegroundProbe(this)
         mx.kompara.data.service.DrivingActivity.unknown()
         ScreenReaderState.setForegroundHost(null, android.os.SystemClock.elapsedRealtime())
         serviceState.setConnected(false, ReaderEnvironment.permissionGranted(this))

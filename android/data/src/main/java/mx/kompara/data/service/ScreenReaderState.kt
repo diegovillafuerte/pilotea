@@ -50,15 +50,12 @@ object ScreenReaderState {
     }
 
     /** An immutable (package, seen-at) pair, published atomically — see [foregroundHost]. */
-    private data class ForegroundHost(val packageName: String, val seenAtMs: Long)
+    private data class ForegroundHost(val observation: HostForegroundObservation, val seenAtMs: Long)
 
-    // Which target host app (Uber/DiDi/inDrive) the accessibility service last observed foreground,
-    // and the elapsedRealtime it was seen. The OCR ledger path (B-039) reads this to GATE its
-    // trip/idle signals: capture sees the WHOLE screen, so without this a non-host app (WhatsApp, the
-    // notification shade) would feed bogus state changes into the trip ledger and close trips /
-    // resolve offers from unrelated screens. The accessibility service only receives events for
-    // target packages, so a fresh timestamp ≈ "a target app is foreground"; staleness means the
-    // driver switched away (or the host screen went static).
+    // The accessibility service reads the OS active-window package, on events and every 750 ms.
+    // OCR uses this package to choose its parser and gate ledger signals. A background target event
+    // never establishes foreground identity. Unknown roots withhold parser authorization while
+    // preserving the distinction from an affirmatively departed or screen-off host.
     //
     // Published as ONE @Volatile immutable snapshot (not two separate @Volatile fields): the writer
     // (a11y service thread) and reader (OCR capture thread) are different threads, and two separate
@@ -67,10 +64,39 @@ object ScreenReaderState {
     @Volatile
     private var foregroundHost: ForegroundHost? = null
 
+    private class ForegroundProbe(val owner: Any, val observe: () -> HostForegroundObservation)
+    @Volatile private var foregroundProbe: ForegroundProbe? = null
+
+    /** The bound accessibility service owns the live read-only OS query used by projection. */
+    @Synchronized fun attachForegroundProbe(owner: Any, observe: () -> HostForegroundObservation) {
+        foregroundProbe = ForegroundProbe(owner, observe)
+    }
+
+    @Synchronized fun detachForegroundProbe(owner: Any) {
+        if (foregroundProbe?.owner === owner) foregroundProbe = null
+    }
+
+    /** Never substitute cached foreground state when a current OS observation is unavailable. */
+    fun liveForegroundObservation(): HostForegroundObservation {
+        val probe = foregroundProbe ?: return HostForegroundObservation.Unknown
+        val observation = runCatching { probe.observe() }.getOrDefault(HostForegroundObservation.Unknown)
+        // An old service callback finishing after detach/rebind cannot authorize a capture.
+        return if (foregroundProbe === probe) observation else HostForegroundObservation.Unknown
+    }
+
     /** Refreshed by target-app events and live foreground polling; null clears a departed host. */
     fun setForegroundHost(packageName: String?, seenAtMs: Long) {
-        foregroundHost = packageName?.let { ForegroundHost(it, seenAtMs) }
+        setForegroundObservation(packageName?.let { HostForegroundObservation.Target(it) }
+            ?: HostForegroundObservation.NonHost, seenAtMs)
     }
+
+    fun setForegroundObservation(observation: HostForegroundObservation, seenAtMs: Long) {
+        foregroundHost = ForegroundHost(observation, seenAtMs)
+    }
+
+    fun freshForegroundObservation(nowMs: Long, freshnessMs: Long): HostForegroundObservation =
+        foregroundHost?.takeIf { nowMs - it.seenAtMs in 0 until freshnessMs }?.observation
+            ?: HostForegroundObservation.Unknown
 
     /**
      * The foreground host package if a target app was seen within [freshnessMs] of [nowMs], else null
@@ -79,7 +105,7 @@ object ScreenReaderState {
      * gate is unit-testable.
      */
     fun freshForegroundHost(nowMs: Long, freshnessMs: Long): String? =
-        foregroundHost?.takeIf { nowMs - it.seenAtMs < freshnessMs }?.packageName
+        (freshForegroundObservation(nowMs, freshnessMs) as? HostForegroundObservation.Target)?.packageName
 
     // The overlay verdict chip's current on-screen rect in display pixels (top-left origin), or null
     // when the chip is hidden. :overlay's OverlayController publishes it on attach/drag; :ocr's
@@ -108,3 +134,19 @@ object ScreenReaderState {
  * :overlay to :ocr without either touching android.graphics.Rect, so the masking logic stays pure.
  */
 data class ScreenRect(val left: Int, val top: Int, val right: Int, val bottom: Int)
+
+/** Unknown OS visibility never authorizes parsing and never proves a host departed. */
+sealed interface HostForegroundObservation {
+    data class Target(val packageName: String) : HostForegroundObservation
+    data object NonHost : HostForegroundObservation
+    data object Unknown : HostForegroundObservation
+
+    companion object {
+        fun fromWindow(packageName: String?, interactive: Boolean, targets: Set<String>): HostForegroundObservation = when {
+            !interactive -> NonHost
+            packageName == null -> Unknown
+            packageName in targets -> Target(packageName)
+            else -> NonHost
+        }
+    }
+}

@@ -31,6 +31,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.isActive
+import mx.kompara.data.service.HostForegroundObservation
 import mx.kompara.data.service.ScreenReaderState
 import mx.kompara.data.service.ScreenRect
 
@@ -245,10 +246,15 @@ class OcrCaptureService : Service() {
                     val currentSession = session() ?: return@setOnImageAvailableListener
                     val permit = ownership.permit(currentSession) ?: return@setOnImageAvailableListener
                     val now = SystemClock.elapsedRealtime()
-                    val host = ScreenReaderState.freshForegroundHost(now, HOST_FRESHNESS_MS)
-                    if (host == null || !readiness.canRead(host)) {
+                    val observation = ScreenReaderState.liveForegroundObservation()
+                    val host = (observation as? HostForegroundObservation.Target)?.packageName
+                    val readingAllowed = readiness.canRead() && (host == null || readiness.canRead(host))
+                    if (host == null || !readingAllowed) {
                         diagnostics.blocked(if (host == null) "HOST_NOT_FOREGROUND" else "READINESS")
-                        ownership.withOwner(permit) { closePipeline() }
+                        ownership.withOwner(permit) {
+                            if (CaptureHostPolicy.mustEnd(observation, true, readingAllowed)) closePipeline()
+                            else pipeline.onCaptureUncertain(System.currentTimeMillis())
+                        }
                         return@setOnImageAvailableListener
                     }
                     val burst = ownership.serialized {
@@ -305,13 +311,23 @@ class OcrCaptureService : Service() {
         // Ownership is checked inside the shared monitor: teardown/handoff cannot race publication.
         // A resumed projection gets a fresh permit, so even its own pre-handoff frames are dropped.
         ownership.withOwner(frame.permit) {
+            val current = ScreenReaderState.liveForegroundObservation()
+            val currentHost = (current as? HostForegroundObservation.Target)?.packageName
             if (burstGeneration == frame.burst && burstHost == frame.host && readiness.canRead(token = frame.token) &&
-                ScreenReaderState.freshForegroundHost(SystemClock.elapsedRealtime(), HOST_FRESHNESS_MS) == frame.host) {
+                currentHost == frame.host) {
                 pipeline.process(blocks, frame.chipRect, if (BuildConfig.DEBUG) getExternalFilesDir(null) else null,
                     capturedAtMs = frame.capturedAtMs, token = frame.token, displayBounds = display,
-                    density = frame.density, accessibility = frame.accessibility, appearance = appearance)
+                    density = frame.density, accessibility = frame.accessibility, appearance = appearance,
+                    foregroundPackage = frame.host)
             } else {
                 diagnostics.blocked("MediaProjection stale generation or readiness/canRead false")
+                if (burstGeneration == frame.burst && burstHost == frame.host && currentHost != frame.host) {
+                    if (current == HostForegroundObservation.Unknown) {
+                        pipeline.onCaptureUncertain(System.currentTimeMillis())
+                    } else {
+                        closePipeline()
+                    }
+                }
             }
         }
     }
@@ -417,7 +433,6 @@ class OcrCaptureService : Service() {
         // 300 ms bounds the offer→verdict latency (plus ML Kit time); ~3 fps full-screen OCR is
         // fine on the target devices and only runs while the driver has the reader on.
         private const val THROTTLE_MS = 300L
-        private const val HOST_FRESHNESS_MS = 1_500L
         const val ACTION_STOP = "mx.kompara.action.STOP_SCREEN_READER"
         const val EXTRA_RESULT_CODE = "result_code"
         const val EXTRA_DATA = "data"

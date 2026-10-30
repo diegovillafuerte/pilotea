@@ -25,6 +25,12 @@ sealed interface OfferEvent {
         val card: OfferCard,
     ) : OfferEvent
 
+    /** Placement cannot be verified through our mask; expose the host without ending its session. */
+    data class LayoutUncertain(
+        override val packageName: String,
+        override val timestampMs: Long,
+    ) : OfferEvent
+
     /**
      * A snapshot that was NOT an offer card: either no spec targets the host package/version, or
      * the spec's card detector did not match (e.g. the offer card dismissed, a trip-in-progress

@@ -17,6 +17,7 @@ object HostGeometryDeriver {
     private val fare = Regex("""(?:MX[N$]|\$)\s*\$?\s*([0-9][0-9.,]*)""", RegexOption.IGNORE_CASE)
     private val leg = Regex("""(?:\d[\d.,]*\s*(?:km|min|m)\b|\bviaje\s*:)""", RegexOption.IGNORE_CASE)
     private val accept = Regex("""\b(?:aceptar|coincidir)\b""", RegexOption.IGNORE_CASE)
+    private val close = Regex("""^(?:x|×|✕|✖|cerrar|close)$""", RegexOption.IGNORE_CASE)
     private val button = Regex("""\b(?:aceptar|coincidir|rechazar)\b""", RegexOption.IGNORE_CASE)
     private val heading = Regex("""\b(?:uber\w*|didi|exclusivo|reserva|programado|radar de solicitud|pon tu precio)\b""", RegexOption.IGNORE_CASE)
     private val uberHeading = Regex("""\b(?:uber\w*|radar de solicitud)\b""", RegexOption.IGNORE_CASE)
@@ -98,7 +99,9 @@ object HostGeometryDeriver {
         }.maxOfOrNull { it.bounds.bottom }
         val top = HostRect(displayBounds.left, displayBounds.top, displayBounds.right,
             maxOf(measuredChrome?.bottom ?: displayBounds.top + 1, chromeBottom ?: displayBounds.top + 1))
-        val controls = (protectedControls + boxes.filter { button.containsMatchIn(it.text) }.map { it.bounds })
+        val controls = (protectedControls + boxes.filter {
+            button.containsMatchIn(it.text) || close.matches(it.text.trim())
+        }.map { it.bounds })
             .mapNotNull { it.intersection(displayBounds) }.distinct()
         return HostGeometry(packageName, "derived-${source.name.lowercase()}", capturedAtMs,
             displayBounds, orientation(displayBounds), top, card, controls,

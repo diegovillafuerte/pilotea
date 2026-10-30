@@ -8,7 +8,8 @@ import org.junit.Test
 
 class OcrOfferSessionTrackerTest {
     private val card = OfferCard(UberOcrParser.UBER_PACKAGE, fare = 147.46,
-        pickupDistanceKm = 0.7, pickupEtaMin = 4.0, tripDistanceKm = 6.3, tripDurationMin = 49.0)
+        pickupDistanceKm = 0.7, pickupEtaMin = 4.0, tripDistanceKm = 6.3, tripDurationMin = 49.0,
+        instanceEvidence = OfferInstanceEvidence(action = "ACEPTAR"))
 
     @Test fun `same route retains identity across missing fare and confirmed fare changes`() {
         val sessions = OcrOfferSessionTracker()
@@ -20,14 +21,15 @@ class OcrOfferSessionTrackerTest {
         }
     }
 
-    @Test fun `sustained changed route fields start a session but one numeric misread does not`() {
+    @Test fun `sustained route and action changes start a session but one frame does not`() {
         for (other in listOf(card.copy(pickupDistanceKm = 0.8), card.copy(pickupEtaMin = 5.0),
             card.copy(tripDistanceKm = 6.4), card.copy(tripDurationMin = 50.0))) {
             val sessions = OcrOfferSessionTracker()
             val first = sessions.parsed(card, 100)
-            val uncertain = sessions.parsed(other.copy(fare = null), 200)
+            val corroborated = other.copy(fare = null, instanceEvidence = OfferInstanceEvidence(action = "COINCIDIR"))
+            val uncertain = sessions.parsed(corroborated, 200)
             assertEquals(first.sessionId, uncertain.sessionId)
-            val next = sessions.parsed(other.copy(fare = null), 300)
+            val next = sessions.parsed(corroborated, 300)
             assertNotEquals(first.sessionId, next.sessionId)
             assertEquals(300L, next.sessionStartedAt)
         }
@@ -56,7 +58,7 @@ class OcrOfferSessionTrackerTest {
         }
     }
 
-    @Test fun `host variant product action and displaced anchors replace identical legs`() {
+    @Test fun `single semantic signals and displaced anchors cannot replace identical legs`() {
         val evidence = OfferInstanceEvidence("UBER PRIORITY", "ACEPTAR", HostRect(90, 650, 500, 740),
             HostRect(440, 1990, 640, 2045), 2)
         val original = card.copy(variant = "exclusive", instanceEvidence = evidence)
@@ -69,8 +71,14 @@ class OcrOfferSessionTrackerTest {
             val sessions = OcrOfferSessionTracker()
             val first = sessions.parsed(original, 100)
             val next = sessions.parsed(replacement.copy(fare = null), 200)
-            assertNotEquals(first.sessionId, next.sessionId)
-            assertEquals(200L, next.sessionStartedAt)
+            if (replacement.platform != original.platform) {
+                assertNotEquals(first.sessionId, next.sessionId)
+                assertEquals(200L, next.sessionStartedAt)
+            } else {
+                assertEquals(first.sessionId, next.sessionId)
+                assertEquals(100L, next.sessionStartedAt)
+                assertEquals(first.sessionId, sessions.parsed(replacement, 300).sessionId)
+            }
         }
     }
 
@@ -79,8 +87,10 @@ class OcrOfferSessionTrackerTest {
         val first = sessions.parsed(card.copy(variant = "exclusive",
             instanceEvidence = OfferInstanceEvidence(product = "UBER PRIORITY", action = "ACEPTAR")), 100)
         assertEquals(first.sessionId, sessions.parsed(card.copy(fare = null), 200).sessionId)
-        assertNotEquals(first.sessionId, sessions.parsed(card.copy(fare = null,
-            instanceEvidence = OfferInstanceEvidence(action = "COINCIDIR")), 300).sessionId)
+        val replacement = card.copy(fare = null, variant = "trip_radar",
+            instanceEvidence = OfferInstanceEvidence(action = "COINCIDIR"))
+        assertEquals(first.sessionId, sessions.parsed(replacement, 300).sessionId)
+        assertNotEquals(first.sessionId, sessions.parsed(replacement, 400).sessionId)
     }
 
     @Test fun `a secondary card disappearance loses confidence without duplicating the active record`() {
@@ -93,24 +103,24 @@ class OcrOfferSessionTrackerTest {
         assertFalse(sessions.stackChanged(one))
     }
 
-    @Test fun `small anchor steps cannot drift beyond the instance geometry tolerance`() {
+    @Test fun `small anchor steps track animation without replacing the instance`() {
         val sessions = OcrOfferSessionTracker()
         val initial = card.copy(instanceEvidence = OfferInstanceEvidence(headingBounds = HostRect(90, 650, 500, 740)))
         val first = sessions.parsed(initial, 100)
         val small = initial.copy(instanceEvidence = OfferInstanceEvidence(headingBounds = HostRect(90, 670, 500, 760)))
         assertEquals(first.sessionId, sessions.parsed(small, 200).sessionId)
         val moved = initial.copy(instanceEvidence = OfferInstanceEvidence(headingBounds = HostRect(90, 690, 500, 780)))
-        assertNotEquals(first.sessionId, sessions.parsed(moved, 300).sessionId)
+        assertEquals(first.sessionId, sessions.parsed(moved, 300).sessionId)
     }
 
-    @Test fun `independently measured card bounds replace an instance beyond tolerance`() {
+    @Test fun `independently measured card growth alone cannot replace an instance`() {
         val display = HostRect(0, 0, 1080, 2340)
         val measured = mx.kompara.parsers.model.HostGeometry(UberOcrParser.UBER_PACKAGE, "measured", 100,
             display, mx.kompara.parsers.model.HostOrientation.PORTRAIT, HostRect(0, 0, 1080, 200),
             HostRect(0, 650, 1080, 2340), emptyList(), emptyList())
         val sessions = OcrOfferSessionTracker()
         val first = sessions.parsed(card.copy(hostGeometry = measured), 100)
-        assertNotEquals(first.sessionId, sessions.parsed(card.copy(fare = null,
+        assertEquals(first.sessionId, sessions.parsed(card.copy(fare = null,
             hostGeometry = measured.copy(offerCard = HostRect(0, 400, 1080, 2340))), 200).sessionId)
     }
 }

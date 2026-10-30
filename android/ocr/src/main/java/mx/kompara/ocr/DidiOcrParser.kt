@@ -22,9 +22,7 @@ import java.util.Locale
  */
 class DidiOcrParser {
 
-    // A bare "$" fare — NOT the "$" inside Uber's "MX$" (the negative lookbehind keeps DiDi disjoint
-    // from UberOcrParser so the OCR service's "try Uber, else DiDi" fallback can't mis-attribute a
-    // garbled Uber MX$ frame to DiDi).
+    // A bare "$" fare. The OS chooses this parser; rate/bonus context still cannot supply payment.
     private val fareRegex = Regex("""(?<![A-Za-z])\$\s*([0-9][0-9,]*\.[0-9]{2})""")
     private val acceptRegex = Regex("""Aceptar\s*\$\s*([0-9][0-9,]*\.[0-9]{2})""", RegexOption.IGNORE_CASE)
     // Distance leg: "6min (1.2km)" OR short pickups in meters "5min (862m)".
@@ -88,13 +86,27 @@ class DidiOcrParser {
 
     private data class FareHit(val value: Double, val bounds: OcrBounds)
 
+    private val rateContext = Regex("""/\s*km\b|\bkm\s+est\b|\best\.""", RegexOption.IGNORE_CASE)
+
+    /** Currency and rate suffixes can be separate OCR boxes; inspect the visual row as Uber does. */
+    private fun isRate(block: OcrBlock, blocks: List<OcrBlock>): Boolean {
+        val a = block.bounds
+        val context = blocks.filter { other ->
+            val b = other.bounds
+            val overlap = minOf(a.bottom, b.bottom) - maxOf(a.top, b.top)
+            other == block || overlap >= minOf(a.bottom - a.top, b.bottom - b.top) * 0.5
+        }.sortedBy { it.bounds.left }.joinToString(" ") { it.text }
+        return rateContext.containsMatchIn(context)
+    }
+
     private fun extractFare(blocks: List<OcrBlock>): FareHit? {
+        val paymentBlocks = blocks.filterNot { isRate(it, blocks) }
         // A non-positive fare is never a real offer — it's the "$0.00" wallet/earnings pill (or
         // Kompara's own "$0.00/km" chip text self-captured). Reject ≤0 in BOTH paths so the frame
         // reads as "no card" instead of emitting a $0 verdict (the cross-app $0.00 chip bug).
         // Most reliable: the amount on the "Aceptar $X" button echoes the current price — and on the
         // "Pon Tu Precio" bid card it disambiguates the real fare from the higher bid options.
-        for (b in blocks) {
+        for (b in paymentBlocks) {
             acceptRegex.find(b.text)?.let { m ->
                 m.groupValues[1].replace(",", "").toDoubleOrNull()
                     ?.takeIf { it > 0.0 }
@@ -102,7 +114,7 @@ class DidiOcrParser {
             }
         }
         // Fallback: the fare is rendered far taller than any other currency text; tallest wins.
-        return blocks
+        return paymentBlocks
             .filterNot { it.text.contains("tarifa base", ignoreCase = true) ||
                 it.text.contains("bono", ignoreCase = true) || it.text.trimStart().startsWith("+") }
             .mapNotNull { b ->

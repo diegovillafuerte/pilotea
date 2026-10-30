@@ -1,6 +1,7 @@
 package mx.kompara.overlay
 
 import android.content.Context
+import android.os.SystemClock
 import androidx.test.core.app.ApplicationProvider
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
@@ -22,6 +23,7 @@ import mx.kompara.capture.lifecycle.TripLifecycleTracker
 import mx.kompara.data.db.dao.*
 import mx.kompara.data.db.entity.*
 import mx.kompara.data.service.ScreenRect
+import mx.kompara.data.service.ScreenReaderState
 import mx.kompara.data.service.ReaderReadinessRepository
 import mx.kompara.data.settings.CostProfileRepository
 import mx.kompara.data.settings.SettingsRepository
@@ -32,7 +34,6 @@ import mx.kompara.ocr.OcrBounds
 import mx.kompara.ocr.OfferFramePipeline
 import mx.kompara.parsers.model.HostRect
 import mx.kompara.ui.components.ReglaBand
-import mx.kompara.ui.components.ReglaUnavailable
 import org.json.JSONArray
 import org.junit.Assert.*
 import org.junit.Test
@@ -90,14 +91,17 @@ class OfferInstanceLedgerReplayTest {
         private val epochStart = System.currentTimeMillis()
         private var elapsedMs = 0L
         private var nextFrameMs = 0L
-        suspend fun frame(blocks: List<OcrBlock>, atMs: Long = nextFrameMs) {
+        suspend fun frame(blocks: List<OcrBlock>, atMs: Long = nextFrameMs,
+            chip: ScreenRect? = ScreenRect(325, 242, 1040, 572),
+            host: String? = "com.ubercab.driver") {
             require(atMs >= elapsedMs)
             ShadowSystemClock.advanceBy(Duration.ofMillis(atMs - elapsedMs))
             elapsedMs = atMs
             nextFrameMs = atMs + 300
             val before = signals.size
             val parsedBefore = parsed.size
-            pipeline.process(blocks, ScreenRect(325, 242, 1040, 572), null, capturedAtMs = epochStart + atMs,
+            ScreenReaderState.setForegroundHost(host, SystemClock.elapsedRealtime())
+            pipeline.process(blocks, chip, null, capturedAtMs = epochStart + atMs,
                 displayBounds = HostRect(0, 0, 1080, 2340), density = 3f)
             yield()
             // The overlay records every parsed event and the lifecycle independently records
@@ -119,8 +123,252 @@ class OfferInstanceLedgerReplayTest {
         val lifecycle = launch(Dispatchers.Unconfined) {
             OcrLifecycleBus.signals.collect { replay.signals += it }
         }
-        try { replay.body() } finally { parsed.cancelAndJoin(); lifecycle.cancelAndJoin() }
+        try { replay.body() } finally {
+            parsed.cancelAndJoin(); lifecycle.cancelAndJoin()
+            ScreenReaderState.setForegroundHost(null, SystemClock.elapsedRealtime())
+        }
         replay
+    }
+
+    @Test fun `review action jitter cannot reset first payment allowance or create ledger rows`() {
+        val full = fixture()
+        val jitteredMisread = full.map {
+            when (it.text) {
+                "$79.45" -> it.copy(text = "$99.45")
+                "Aceptar" -> it.copy(bounds = it.bounds.copy(top = it.bounds.top + 30, bottom = it.bounds.bottom + 30))
+                else -> it
+            }
+        }
+        val result = replay {
+            frame(full, 0); frame(full, 900); frame(jitteredMisread, 1800); frame(full, 2700)
+        }
+        assertEquals("Every frame parses, including the plausible isolated fare error", 4, result.parsed.size)
+        assertEquals("A single moving action origin is uncertainty, not replacement", 1,
+            result.parsed.map { it.card.sessionId }.distinct().size)
+        assertTrue("The unconfirmed 99.45 must never be shown", result.parsed.all { it.card.fare == 79.45 })
+        assertEquals(1, result.offers.all().size)
+        assertTrue("The unconfirmed fare must never enter even a transient DAO snapshot",
+            result.ledgerSnapshots.all { it.single().fareMxn == 79.45 })
+    }
+
+    @Test fun `review continuous thirty pixel slide is one durable session`() {
+        val full = fixture()
+        val result = replay {
+            for (index in 0..4) {
+                val shifted = full.map {
+                    if (it.bounds.top < 650) it else it.copy(bounds = it.bounds.copy(
+                        top = it.bounds.top + 30 * index, bottom = it.bounds.bottom + 30 * index))
+                }
+                frame(shifted, index * 900L)
+            }
+        }
+        assertEquals(5, result.parsed.size)
+        assertEquals(1, result.parsed.map { it.card.sessionId }.distinct().size)
+        assertEquals(1, result.offers.all().size)
+        assertTrue(result.parsed.all { it.card.fare == 79.45 })
+    }
+
+    @Test fun `review missing surge label preserves independent exclusive evidence and ledger session`() {
+        val full = fixture()
+        val surge = full + OcrBlock("Tarifa dinámica", OcrBounds(96, 1220, 550, 1280))
+        val result = replay { frame(surge, 0); frame(surge, 900); frame(full, 1800); frame(surge, 2700) }
+        assertEquals(4, result.parsed.size)
+        assertEquals(1, result.parsed.map { it.card.sessionId }.distinct().size)
+        assertEquals(1, result.offers.all().size)
+        assertTrue(result.parsed.all { it.card.fare == 79.45 })
+    }
+
+    @Test fun `review empty and own UI dropouts at silent lane cadence never duplicate a steady offer`() {
+        val full = fixture()
+        val ownUi = full + OcrBlock("Comparar Ajustes", OcrBounds(0, 2200, 1080, 2280))
+        val result = replay {
+            frame(full, 0); frame(emptyList(), 900); frame(full, 1800); frame(ownUi, 2700); frame(full, 3600)
+        }
+        assertEquals(3, result.parsed.size)
+        assertEquals(1, result.parsed.map { it.card.sessionId }.distinct().size)
+        assertEquals(1, result.offers.all().size)
+        assertEquals("PENDING", result.offers.all().single().outcome)
+        assertTrue(result.ledgerSnapshots.all { it.single().fareMxn == 79.45 })
+        assertEquals(1, result.signals.filterIsInstance<LifecycleSignal.OfferSeen>().size)
+    }
+
+    @Test fun `review masked Uber heading cannot create a DiDi phantom or persist a rate as payment`() {
+        val full = fixture()
+        val grown = full.map {
+            if (it.bounds.top >= 650 && it.text != "Aceptar") it.copy(bounds = it.bounds.copy(
+                top = it.bounds.top - 250, bottom = it.bounds.bottom - 250)) else it
+        }
+        val result = replay {
+            frame(full, 0)
+            frame(grown, 900, chip = ScreenRect(324, 221, 1044, 557))
+            frame(grown, 1800, chip = ScreenRect(324, 221, 1044, 557))
+            frame(grown, 2700, chip = null)
+        }
+        assertEquals(1, result.offers.all().size)
+        assertEquals("UBER", result.offers.all().single().platform)
+        assertEquals(79.45, result.offers.all().single().fareMxn!!, 0.001)
+        assertTrue(result.parsed.all { it.card.platform == "com.ubercab.driver" && it.card.fare == 79.45 })
+        assertTrue(result.ledgerSnapshots.all { it.single().platform == "UBER" && it.single().fareMxn == 79.45 })
+    }
+
+    @Test fun `countdown and isolated route changes cannot manufacture replacement evidence`() {
+        val full = fixture()
+        val result = replay {
+            for (seconds in 8 downTo 0) {
+                frame(full + OcrBlock("${seconds}s", OcrBounds(700, 1990, 780, 2040)), (8 - seconds) * 900L)
+            }
+            val changedRoute = full.map {
+                if (it.text == "24 min (2.4 km)") it.copy(text = "25 min (2.5 km)") else it
+            }
+            frame(changedRoute, 8100)
+            frame(changedRoute, 9000)
+            frame(full, 9900)
+        }
+        assertEquals(12, result.parsed.size)
+        assertEquals(1, result.parsed.map { it.card.sessionId }.distinct().size)
+        assertEquals(1, result.offers.all().size)
+        assertTrue(result.ledgerSnapshots.all { it.single().fareMxn == 79.45 && it.single().tripKm == 2.4 })
+    }
+
+    @Test fun `a dropout breaks revision agreement without dropping the confirmed session payment`() {
+        val full = fixture()
+        val candidate = full.map { if (it.text == "$79.45") it.copy(text = "$99.45") else it }
+        val result = replay {
+            frame(full, 0)
+            frame(candidate, 900)
+            frame(emptyList(), 1800)
+            frame(candidate, 2700)
+            assertEquals(79.45, parsed.last().card.fare!!, 0.001)
+            assertEquals(79.45, offers.all().single().fareMxn!!, 0.001)
+            frame(candidate, 3600)
+            assertEquals(99.45, parsed.last().card.fare!!, 0.001)
+        }
+        assertEquals(1, result.offers.all().size)
+        assertEquals(1, result.parsed.map { it.card.sessionId }.distinct().size)
+        assertEquals(99.45, result.offers.all().single().fareMxn!!, 0.001)
+        assertEquals(2, result.signals.filterIsInstance<LifecycleSignal.OfferSeen>().size)
+    }
+
+    @Test fun `identical next offer after corroborated disappearance gets one new epoch-stamped row`() {
+        val full = fixture()
+        val result = replay {
+            frame(full, 0)
+            val before = offers.all().single()
+            frame(emptyList(), 900)
+            frame(emptyList(), 1800)
+            frame(emptyList(), 2700)
+            assertEquals("Absent frames never write or revise payment", listOf(before), offers.all())
+            frame(full, 3600)
+            frame(full, 4500)
+        }
+        assertEquals(2, result.offers.all().size)
+        assertEquals(2, result.parsed.map { it.card.sessionId }.distinct().size)
+        assertEquals(listOf("UNKNOWN", "PENDING"), result.offers.all().map { it.outcome })
+        assertTrue(result.offers.all().all { it.seenAt > 1_700_000_000_000L && it.lastSeenAt >= it.seenAt })
+        assertTrue(result.offers.all().all { it.fareMxn == 79.45 })
+    }
+
+    @Test fun `self-masked compact card absence is uncertain until an unobscured capture resolves it`() {
+        val compact = fixture().filter { it.bounds.top >= 650 }.map {
+            it.copy(bounds = it.bounds.copy(top = 650 + ((it.bounds.top - 650) * .2).toInt(),
+                bottom = 650 + ((it.bounds.bottom - 650) * .2).toInt()))
+        }
+        val coveringChip = ScreenRect(324, 640, 1044, 976)
+        val result = replay {
+            frame(compact, 0, chip = null)
+            frame(compact, 900, chip = coveringChip)
+            frame(compact, 1800, chip = coveringChip)
+            frame(compact, 2700, chip = coveringChip)
+            frame(compact, 3600, chip = null)
+        }
+        assertEquals("Masking cannot supply disappearance evidence", 1, result.offers.all().size)
+        assertEquals(1, result.parsed.map { it.card.sessionId }.distinct().size)
+        assertTrue(result.parsed.all { it.card.fare == 79.45 })
+    }
+
+    @Test fun `masking primary stacked heading cannot corroborate replacement using secondary semantic signals`() {
+        val first = fixture().filter { it.bounds.top >= 650 }.map {
+            it.copy(bounds = it.bounds.copy(top = 650 + ((it.bounds.top - 650) * .45).toInt(),
+                bottom = 650 + ((it.bounds.bottom - 650) * .45).toInt()))
+        }
+        val second = first.map {
+            it.copy(text = when (it.text) {
+                "Uber Priority" -> "UberX"
+                "Exclusivo" -> "Radar de solicitud"
+                "Aceptar" -> "Coincidir"
+                "$79.45" -> "$149.45"
+                "1 min (0.2 km)" -> "4 min (0.7 km)"
+                "24 min (2.4 km)" -> "49 min (6.3 km)"
+                else -> it.text
+            }, bounds = it.bounds.copy(top = it.bounds.top + 800, bottom = it.bounds.bottom + 800))
+        }
+        val coveringPrimary = ScreenRect(324, 640, 1044, 976)
+        val result = replay {
+            frame(first + second, 0, chip = null)
+            frame(first + second, 900, chip = coveringPrimary)
+            frame(first + second, 1800, chip = coveringPrimary)
+            frame(first + second, 2700, chip = null)
+            frame(first + second, 3600, chip = null)
+        }
+        assertEquals("The still-present primary card must not be replaced by masked selection", 1, result.offers.all().size)
+        assertEquals(1, result.parsed.map { it.card.sessionId }.distinct().size)
+        assertTrue(result.parsed.all { it.card.fare == 79.45 })
+        assertTrue("Secondary payment must never reach a transient DAO snapshot",
+            result.ledgerSnapshots.all { it.single().fareMxn == 79.45 })
+    }
+
+    @Test fun `malformed legacy route cannot supply the first vote for a fare revision`() {
+        val full = listOf(
+            OcrBlock("Uber Priority", OcrBounds(96, 653, 502, 746)),
+            OcrBlock("Exclusivo", OcrBounds(530, 653, 785, 746)),
+            OcrBlock("X", OcrBounds(837, 650, 983, 793)),
+            OcrBlock("MXN79.45", OcrBounds(96, 770, 499, 897)),
+            OcrBlock("A 1 min (0.2 km)", OcrBounds(190, 1420, 510, 1477)),
+            OcrBlock("Viaje: 24 min (2.4 km)", OcrBounds(190, 1625, 741, 1682)),
+            OcrBlock("Aceptar", OcrBounds(442, 1989, 640, 2046)),
+        )
+        val revised = full.map { if (it.text == "MXN79.45") it.copy(text = "MXN99.45") else it }
+        val malformed = revised.map {
+            if (it.text == "A 1 min (0.2 km)") it.copy(text = "A 1 min 0.2 km)") else it
+        }
+        val result = replay {
+            frame(full, 0)
+            frame(malformed, 900)
+            assertEquals("Permissive parsing still recovers the unchanged complete route", 1.0,
+                parsed.last().card.pickupEtaMin!!, 0.0)
+            assertEquals(0.2, parsed.last().card.pickupDistanceKm!!, 0.0)
+            assertEquals(79.45, parsed.last().card.fare!!, 0.001)
+            frame(revised, 1800)
+            assertEquals("Malformed evidence cannot vote toward two consecutive confident prices", 79.45,
+                parsed.last().card.fare!!, 0.001)
+            assertTrue("No unconfirmed revision may enter the ledger",
+                ledgerSnapshots.all { it.single().fareMxn == 79.45 })
+            frame(revised, 2700)
+        }
+        assertEquals(4, result.parsed.size)
+        assertEquals(1, result.parsed.map { it.card.sessionId }.distinct().size)
+        assertEquals(1, result.offers.all().size)
+        assertEquals("Two later intact observations may confirm the revision", 99.45,
+            result.offers.all().single().fareMxn!!, 0.001)
+    }
+
+    @Test fun `foreground host switch scopes genuine offers and never attributes Uber OCR to DiDi`() {
+        val didi = listOf(
+            OcrBlock("DiDi", OcrBounds(96, 650, 400, 740)),
+            OcrBlock("$132.59", OcrBounds(96, 770, 499, 897)),
+            OcrBlock("6 min (1.2 km)", OcrBounds(190, 1420, 510, 1477)),
+            OcrBlock("39 min (17.3 km)", OcrBounds(190, 1625, 541, 1682)),
+            OcrBlock("Aceptar", OcrBounds(442, 1989, 640, 2046)),
+        )
+        val result = replay {
+            frame(fixture(), 0)
+            frame(didi, 900, host = "com.didiglobal.driver")
+            frame(didi, 1800, host = "com.didiglobal.driver")
+        }
+        assertEquals(2, result.offers.all().size)
+        assertEquals(listOf("UBER", "DIDI"), result.offers.all().map { it.platform })
+        assertEquals(listOf(79.45, 132.59), result.offers.all().map { it.fareMxn })
+        assertNotEquals(result.offers.all()[0].sessionId, result.offers.all()[1].sessionId)
     }
 
     @Test fun `Trip Radar replacing exclusive identical legs cannot inherit or persist its payment`() {
@@ -132,8 +380,14 @@ class OfferInstanceLedgerReplayTest {
                 else -> it.text
             })
         }
-        val result = replay { frame(original); frame(radar) }
-        assertEquals(2, result.parsed.size)
+        val result = replay {
+            frame(original, 0)
+            frame(radar, 900)
+            assertEquals("One changed observation cannot replace", parsed.first().card.sessionId, parsed.last().card.sessionId)
+            assertEquals(79.45, parsed.last().card.fare!!, 0.001)
+            frame(radar, 1800)
+        }
+        assertEquals(3, result.parsed.size)
         assertEquals("trip_radar", result.parsed.last().card.variant)
         assertNull("Replacement must not borrow the previous exclusive fare", result.parsed.last().card.fare)
         assertNotEquals(result.parsed.first().card.sessionId, result.parsed.last().card.sessionId)
@@ -152,8 +406,13 @@ class OfferInstanceLedgerReplayTest {
         val second = first.filterNot { it.text == "$79.45" }.map {
             it.copy(bounds = it.bounds.copy(top = it.bounds.top + 800, bottom = it.bounds.bottom + 800))
         }
-        val result = replay { frame(first + second); frame(second) }
-        assertEquals(2, result.parsed.size)
+        val result = replay {
+            frame(first + second, 0)
+            frame(second, 900)
+            assertEquals("First disappearance observation remains provisional", parsed.first().card.sessionId, parsed.last().card.sessionId)
+            frame(second, 1800)
+        }
+        assertEquals(3, result.parsed.size)
         assertEquals(79.45, result.parsed.first().card.fare!!, 0.001)
         assertNull(result.parsed.last().card.fare)
         assertNotEquals(result.parsed.first().card.sessionId, result.parsed.last().card.sessionId)
@@ -188,26 +447,26 @@ class OfferInstanceLedgerReplayTest {
         assertEquals(1.0, result.offers.all().single().pickupMin!!, 0.0)
     }
 
-    @Test fun `overlay cannot rehydrate retained ledger fare after route confidence is lost`() {
+    @Test fun `uncertain partial route retains confirmed payment and actual verdict without ledger duplication`() {
         val full = fixture()
         val partial = full.map { if (it.text == "1 min (0.2 km)") it.copy(text = "— min (0.2 km)") else it }
         val result = replay {
             frame(full)
-            assertTrue(actualVerdict(parsed.last()).regla.band is ReglaBand.Rated)
+            val firstVerdict = actualVerdict(parsed.last())
+            assertTrue(firstVerdict.regla.band is ReglaBand.Rated)
             frame(partial)
-            assertNull(parsed.last().card.fare)
+            assertEquals(79.45, parsed.last().card.fare!!, 0.001)
             assertEquals(79.45, offers.all().single().fareMxn!!, 0.001)
-            val current = actualVerdict(parsed.last())
-            assertTrue(current.regla.band is ReglaBand.Unavailable)
-            assertEquals(ReglaUnavailable.FARE, (current.regla.band as ReglaBand.Unavailable).input)
+            assertEquals(firstVerdict.regla.band, actualVerdict(parsed.last()).regla.band)
             frame(full)
-            assertNull("Reacquisition in an existing instance needs confirmation", parsed.last().card.fare)
-            assertTrue(actualVerdict(parsed.last()).regla.band is ReglaBand.Unavailable)
+            assertEquals("A session retains its confirmed payment across uncertainty", 79.45, parsed.last().card.fare!!, 0.001)
+            assertEquals(firstVerdict.regla.band, actualVerdict(parsed.last()).regla.band)
             frame(full)
             assertEquals(79.45, parsed.last().card.fare!!, 0.001)
             assertTrue(actualVerdict(parsed.last()).regla.band is ReglaBand.Rated)
         }
         assertEquals(1, result.offers.all().size)
+        assertEquals(1, result.parsed.map { it.card.sessionId }.distinct().size)
         assertEquals(79.45, result.offers.all().single().fareMxn!!, 0.001)
     }
 
@@ -254,14 +513,17 @@ class OfferInstanceLedgerReplayTest {
         val full = fixture()
         val unread = full.filterNot { it.text == "$79.45" }
         val result = replay {
-            frame(emptyList())
+            frame(emptyList(), 0)
             assertTrue(offers.all().isEmpty())
             assertTrue(parsed.isEmpty())
-            frame(full)
+            frame(full, 900)
             val original = offers.all().single()
-            frame(emptyList())
+            frame(emptyList(), 1800)
             assertEquals(listOf(original), offers.all())
-            frame(unread)
+            frame(emptyList(), 2700)
+            frame(emptyList(), 3600)
+            assertEquals("Corroborated absence creates no rows", listOf(original), offers.all())
+            frame(unread, 4500)
             assertNull(parsed.last().card.fare)
         }
         assertEquals(2, result.offers.all().size)

@@ -27,6 +27,13 @@ class HostGeometryDeriverTest {
         assertNotNull(HostGeometryAdapter().adapt(host,1000,HostLayoutObservation(g,false,false)))
     }
 
+    @Test fun `explicit close glyph remains a protected control independently of the card heading`() {
+        val close = HostTextBounds("X", HostRect(330, 180, 370, 220))
+        val g = requireNotNull(derive(boxes + close))
+        assertTrue(g.protectedControls.contains(close.bounds))
+        assertTrue(g.protectedControls.contains(boxes.last().bounds))
+    }
+
     @Test fun `Coincidir anchors the unread radar card and remains protected`() {
         val texts = listOf(box("Radar de solicitud", 200), box("5 min (2.0 km)", 620),
             box("19 min (10.0 km)", 660), box("Coincidir", 760, 808))

@@ -65,12 +65,13 @@ class UberOcrParser {
     private val acceptRegex = Regex("""\b(Aceptar|Coincidir)\b""", RegexOption.IGNORE_CASE)
     private val hostRegex = Regex("""\bUber\w*|Radar de solicitud""", RegexOption.IGNORE_CASE)
 
-    fun parse(blocks: List<OcrBlock>, cardBounds: OcrBounds? = null, chipRect: ScreenRect? = null): OfferCard? {
+    fun parse(blocks: List<OcrBlock>, cardBounds: OcrBounds? = null, chipRect: ScreenRect? = null,
+        hostConfirmed: Boolean = false): OfferCard? {
         val cardBlocks = cardBlocks(blocks, cardBounds, chipRect)
-        if (!hasCardSignature(cardBlocks, cardBounds)) return null
-        val fareHit = extractFare(cardBlocks, cardBounds)
-        val trip = extractTripLeg(cardBlocks)
-        val pickup = extractPickupLeg(cardBlocks)
+        if (!hasCardSignature(cardBlocks, cardBounds, hostConfirmed = hostConfirmed)) return null
+        val fareHit = extractFare(cardBlocks, cardBounds, hostConfirmed)
+        val trip = extractTripLeg(cardBlocks, hostConfirmed)
+        val pickup = extractPickupLeg(cardBlocks, hostConfirmed)
 
         val text = cardBlocks.joinToString(" ") { it.text }
         val surge = text.contains("dinámica", ignoreCase = true) ||
@@ -100,16 +101,18 @@ class UberOcrParser {
             paymentType = null,
             raw = fareHit?.let { mapOf("fare" to String.format(Locale.US, "%.2f", it.value)) } ?: emptyMap(),
             contentBounds = unionBounds(fareHit?.bounds, trip?.bounds, pickup?.bounds),
-            instanceEvidence = instanceEvidence(cardBlocks, ChipMask.maskOwnChip(blocks, chipRect)),
+            instanceEvidence = instanceEvidence(cardBlocks, ChipMask.maskOwnChip(blocks, chipRect)).copy(
+                routeWellFormed = cardBlocks.sumOf { legRegex.findAll(it.text).count() } >= 2),
         )
     }
 
     /** A card survives missing money/time, but idle bonuses and explicit zero-wallet pills do not. */
-    fun hasCardSignature(blocks: List<OcrBlock>, cardBounds: OcrBounds? = null, chipRect: ScreenRect? = null): Boolean {
+    fun hasCardSignature(blocks: List<OcrBlock>, cardBounds: OcrBounds? = null, chipRect: ScreenRect? = null,
+        hostConfirmed: Boolean = false): Boolean {
         val cardBlocks = cardBlocks(blocks, cardBounds, chipRect)
-        val fare = extractFare(cardBlocks, cardBounds)
+        val fare = extractFare(cardBlocks, cardBounds, hostConfirmed)
         val text = cardBlocks.joinToString(" ") { it.text }
-        val trip = extractTripLeg(cardBlocks)
+        val trip = extractTripLeg(cardBlocks, hostConfirmed)
         val action = acceptRegex.containsMatchIn(text)
         val host = hostRegex.containsMatchIn(text)
         // A zero wallet pill cannot erase an independently recognized offer with an unread fare.
@@ -224,8 +227,8 @@ class UberOcrParser {
     }
 
     /** Context and headline evidence are prerequisites, never tie-breakers for arbitrary amounts. */
-    private fun extractFare(blocks: List<OcrBlock>, cardBounds: OcrBounds? = null): FareHit? {
-        val hasHost = blocks.any { hostRegex.containsMatchIn(it.text) }
+    private fun extractFare(blocks: List<OcrBlock>, cardBounds: OcrBounds? = null, hostConfirmed: Boolean = false): FareHit? {
+        val hasHost = hostConfirmed || blocks.any { hostRegex.containsMatchIn(it.text) }
         val positioned = blocks.filter { it.bounds.valid }
         val firstLeg = positioned.filter(::isRouteLine).minOfOrNull { it.bounds.top } ?: return null
         // Currency can be a separate OCR line. Associate it before measuring body text or the
@@ -292,25 +295,25 @@ class UberOcrParser {
     private data class Leg(val min: Double?, val km: Double?, val bounds: OcrBounds?)
 
     /** Per-block first (precise, keeps the block's bounds); joined-text fallback has no single block. */
-    private fun extractTripLeg(blocks: List<OcrBlock>): Leg? {
+    private fun extractTripLeg(blocks: List<OcrBlock>, hostConfirmed: Boolean = false): Leg? {
         blocks.firstNotNullOfOrNull { b ->
             if (b.text.contains("Viaje", ignoreCase = true)) partialLeg(b) else null
         }?.let { return it }
         return tripLegRegex.find(blocks.joinToString(" ") { it.text })?.let { toLeg(it, null) }
-            ?: unlabeledRouteLegs(blocks).getOrNull(1)
+            ?: unlabeledRouteLegs(blocks, hostConfirmed).getOrNull(1)
     }
 
     /** Current cards have two standalone legs; legacy cards label the trip leg. */
-    private fun extractPickupLeg(blocks: List<OcrBlock>): Leg? =
-        unlabeledRouteLegs(blocks).firstOrNull() ?: blocks
+    private fun extractPickupLeg(blocks: List<OcrBlock>, hostConfirmed: Boolean = false): Leg? =
+        unlabeledRouteLegs(blocks, hostConfirmed).firstOrNull() ?: blocks
             .asSequence()
             .filterNot { it.text.contains("Viaje", ignoreCase = true) }
             .filterNot { it.text.contains("•") || it.text.contains("/km", ignoreCase = true) }
             .filter { it.text.contains("min", ignoreCase = true) || it.text.contains("(") }
             .firstNotNullOfOrNull(::partialLeg)
 
-    private fun unlabeledRouteLegs(blocks: List<OcrBlock>): List<Leg> {
-        if (blocks.none { hostRegex.containsMatchIn(it.text) }) return emptyList()
+    private fun unlabeledRouteLegs(blocks: List<OcrBlock>, hostConfirmed: Boolean = false): List<Leg> {
+        if (!hostConfirmed && blocks.none { hostRegex.containsMatchIn(it.text) }) return emptyList()
         // Exactly two standalone lines are the observed current shape. A garbled legacy "Viaje"
         // label must not be silently promoted into a known trip/payment structure.
         return blocks.filter { unlabeledLegRegex.matches(it.text.trim()) }

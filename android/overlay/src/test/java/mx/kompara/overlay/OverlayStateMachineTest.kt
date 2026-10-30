@@ -43,6 +43,29 @@ class OverlayStateMachineTest {
         assertEquals(0, testScheduler.currentTime)
     }
 
+    @Test fun `masked unreadable frame exposes host without losing session or evaluating money`() = runTest {
+        var evaluations = 0
+        val run = observe { evaluations++; state() }
+        run.events.emit(parsed()); testScheduler.runCurrent()
+        repeat(3) {
+            run.events.emit(OfferEvent.LayoutUncertain("uber", 2L + it)); testScheduler.runCurrent()
+        }
+        assertEquals(OverlayVisibility.AwaitingUnobscuredCapture, run.seen.last())
+        assertEquals(1, evaluations)
+        run.events.emit(parsed(6)); testScheduler.runCurrent()
+        assertEquals("uber:one", (run.seen.last() as OverlayVisibility.Showing).offerKey)
+        assertEquals(1, run.seen.filterIsInstance<OverlayVisibility.Reading>().size)
+        assertEquals(2, evaluations)
+        assertFalse(run.seen.contains(OverlayVisibility.Hidden))
+    }
+
+    @Test fun `another hosts uncertain geometry cannot suppress the current offer`() = runTest {
+        val run = observe()
+        run.events.emit(parsed()); testScheduler.runCurrent()
+        run.events.emit(OfferEvent.LayoutUncertain("didi", 2)); testScheduler.runCurrent()
+        assertTrue(run.seen.last() is OverlayVisibility.Showing)
+    }
+
     @Test fun `same offer has 500ms grace then 160ms exit before detach`() = runTest {
         val run = observe(); run.events.emit(parsed()); testScheduler.runCurrent()
         run.events.emit(noCard()); testScheduler.runCurrent()

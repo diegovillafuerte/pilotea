@@ -52,8 +52,16 @@ data class OfferInstanceEvidence(
     val action: String? = null,
     val headingBounds: HostRect? = null,
     val actionBounds: HostRect? = null,
-    /** Count only recognizable heading/action card bands, including cards behind the active one. */
+    /** Count visible action controls independently of recognized headings, including stacked cards. */
     val visibleCards: Int? = null,
+    /** Independent positive labels; an absent OCR token never negates a previously observed label. */
+    val labels: Set<String> = emptySet(),
+    /** Complete visible heading/action bands, in screen order, for corroborating stacked selection. */
+    val cardBands: List<HostRect> = emptyList(),
+    /** Recovery may extract numbers from malformed lines without establishing confident reading. */
+    val routeWellFormed: Boolean = true,
+    /** A preceding action without its heading leaves the active stacked card unidentified. */
+    val selectionCertain: Boolean = true,
 )
 
 /**

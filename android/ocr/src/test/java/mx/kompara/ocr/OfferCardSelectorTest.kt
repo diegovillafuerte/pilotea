@@ -27,7 +27,7 @@ class OfferCardSelectorTest {
             block("A5 min (0.8 km)"),
             block("Viaje: 32 min (11.3 km)"),
         )
-        assertEquals(UberOcrParser.UBER_PACKAGE, selectOfferCard(uber, didi, frame)!!.platform)
+        assertEquals(UberOcrParser.UBER_PACKAGE, selectOfferCard(uber, didi, frame, foregroundPackage = UberOcrParser.UBER_PACKAGE)!!.platform)
     }
 
     @Test
@@ -38,7 +38,7 @@ class OfferCardSelectorTest {
             block("39min (17.3km)", 156, 1902, 514, 1960),
             block("Aceptar \$132.59", 200, 2150, 880, 2240),
         )
-        assertEquals(DidiOcrParser.DIDI_PACKAGE, selectOfferCard(uber, didi, frame)!!.platform)
+        assertEquals(DidiOcrParser.DIDI_PACKAGE, selectOfferCard(uber, didi, frame, foregroundPackage = DidiOcrParser.DIDI_PACKAGE)!!.platform)
     }
 
     @Test
@@ -55,18 +55,18 @@ class OfferCardSelectorTest {
         assertNull(uber.parse(garbledUber)!!.tripDistanceKm) // no labelled trip leg
         assertTrue(uber.hasCardSignature(garbledUber)) // but still an Uber card
         // The partial Uber card owns this frame instead of DiDi's unrelated $123.45 pill.
-        assertEquals(UberOcrParser.UBER_PACKAGE, selectOfferCard(uber, didi, garbledUber)!!.platform)
+        assertEquals(UberOcrParser.UBER_PACKAGE, selectOfferCard(uber, didi, garbledUber, foregroundPackage = UberOcrParser.UBER_PACKAGE)!!.platform)
     }
 
 
     @Test fun `text boxes without display geometry cannot authorize placement`() {
         val uberCard = selectOfferCard(uber,didi,listOf(block("UberX Exclusivo"), block("MXN96.17",40,600,300,650),
-            block("A5 min (0.8 km)",40,700,300,750),block("Viaje: 32 min (11.3 km)",40,800,300,850)))!!
+            block("A5 min (0.8 km)",40,700,300,750),block("Viaje: 32 min (11.3 km)",40,800,300,850)), foregroundPackage = UberOcrParser.UBER_PACKAGE)!!
         assertTrue(uberCard.contentBounds != null)
         assertNull(uberCard.hostGeometry)
         val didiCard = selectOfferCard(uber,didi,listOf(block("$132.59",83,973,543,1085),
             block("6min (1.2km)",139,1692,441,1745),block("39min (17.3km)",156,1902,514,1960),
-            block("Aceptar $132.59",200,2150,880,2240)))!!
+            block("Aceptar $132.59",200,2150,880,2240)), foregroundPackage = DidiOcrParser.DIDI_PACKAGE)!!
         assertTrue(didiCard.contentBounds != null)
         assertNull(didiCard.hostGeometry)
     }
@@ -79,9 +79,9 @@ class OfferCardSelectorTest {
             listOf(mx.kompara.parsers.model.HostRect(20,750,373,810)),emptyList())
         val observation=mx.kompara.parsers.model.HostLayoutObservation(g,true,true)
         val adapter=mx.kompara.parsers.model.HostGeometryAdapter(setOf(g.packageName to g.layoutId))
-        assertEquals(g,selectOfferCard(uber,didi,frame,1000,observation,adapter)?.hostGeometry)
-        assertNull(selectOfferCard(uber,didi,frame,1001,observation,adapter)?.hostGeometry)
-        assertEquals(g,selectOfferCard(uber,didi,frame,1000,observation)?.hostGeometry)
+        assertEquals(g,selectOfferCard(uber,didi,frame,1000,observation,adapter, foregroundPackage = UberOcrParser.UBER_PACKAGE)?.hostGeometry)
+        assertNull(selectOfferCard(uber,didi,frame,1001,observation,adapter, foregroundPackage = UberOcrParser.UBER_PACKAGE)?.hostGeometry)
+        assertEquals(g,selectOfferCard(uber,didi,frame,1000,observation, foregroundPackage = UberOcrParser.UBER_PACKAGE)?.hostGeometry)
     }
 
     // The amount fits the OCR-only card envelope, but crosses independently observed right edges.
@@ -103,7 +103,7 @@ class OfferCardSelectorTest {
     @Test fun `observed layout bounds exclude an outside headline before fare selection`() {
         val observation = HostLayoutObservation(boundedGeometry, true, true)
         val card = selectOfferCard(uber, didi, boundedFrame, 1_000, observation,
-            displayBounds = boundedGeometry.displayBounds)!!
+            displayBounds = boundedGeometry.displayBounds, foregroundPackage = UberOcrParser.UBER_PACKAGE)!!
         assertEquals(UberOcrParser.UBER_PACKAGE, card.platform)
         assertEquals(11.3, card.tripDistanceKm!!, 0.001)
         assertNull(card.fare)
@@ -112,20 +112,20 @@ class OfferCardSelectorTest {
     @Test fun `fresh accessibility card bounds exclude an outside headline before fare selection`() {
         val evidence = boundedEvidence()
         val card = selectOfferCard(uber, didi, boundedFrame, 1_000,
-            displayBounds = boundedGeometry.displayBounds, accessibility = evidence)!!
+            displayBounds = boundedGeometry.displayBounds, accessibility = evidence, foregroundPackage = UberOcrParser.UBER_PACKAGE)!!
         assertEquals(UberOcrParser.UBER_PACKAGE, card.platform)
         assertEquals(11.3, card.tripDistanceKm!!, 0.001)
         assertNull(card.fare)
     }
 
     @Test fun `previous shorter accessibility card cannot crop the current taller offer`() {
-        assertEquals(96.17, selectOfferCard(uber, didi, boundedFrame)!!.fare!!, 0.001)
+        assertEquals(96.17, selectOfferCard(uber, didi, boundedFrame, foregroundPackage = UberOcrParser.UBER_PACKAGE)!!.fare!!, 0.001)
         val previousCard = boundedEvidence().copy(
             capturedAtMs = 900,
             observedCardBounds = HostRect(0, 640, 393, 852),
         )
         val card = selectOfferCard(uber, didi, boundedFrame, 1_000,
-            displayBounds = boundedGeometry.displayBounds, accessibility = previousCard)!!
+            displayBounds = boundedGeometry.displayBounds, accessibility = previousCard, foregroundPackage = UberOcrParser.UBER_PACKAGE)!!
         assertEquals(96.17, card.fare!!, 0.001)
         assertTrue(card.hostGeometry!!.offerCard.top < 590)
     }
@@ -134,23 +134,23 @@ class OfferCardSelectorTest {
         val frame = boundedFrame.filterNot { it.text == "UberX" }
         val previousCard = boundedEvidence().copy(observedCardBounds = HostRect(0, 640, 393, 852))
         val card = selectOfferCard(uber, didi, frame, 1_000,
-            displayBounds = boundedGeometry.displayBounds, accessibility = previousCard)!!
+            displayBounds = boundedGeometry.displayBounds, accessibility = previousCard, foregroundPackage = UberOcrParser.UBER_PACKAGE)!!
         assertEquals(96.17, card.fare!!, 0.001)
     }
 
     @Test fun `same frame accessibility edges remain authoritative for fare selection`() {
         val evidence = boundedEvidence().copy(capturedAtMs = 1_000)
         val card = selectOfferCard(uber, didi, boundedFrame, 1_000,
-            displayBounds = boundedGeometry.displayBounds, accessibility = evidence)!!
+            displayBounds = boundedGeometry.displayBounds, accessibility = evidence, foregroundPackage = UberOcrParser.UBER_PACKAGE)!!
         assertNull(card.fare)
     }
 
     @Test fun `other host and stale layout bounds cannot suppress a valid OCR fare`() {
-        assertEquals(96.17, selectOfferCard(uber, didi, boundedFrame)!!.fare!!, 0.001)
+        assertEquals(96.17, selectOfferCard(uber, didi, boundedFrame, foregroundPackage = UberOcrParser.UBER_PACKAGE)!!.fare!!, 0.001)
         for (geometry in listOf(boundedGeometry.copy(capturedAtMs = 999),
             boundedGeometry.copy(packageName = DidiOcrParser.DIDI_PACKAGE))) {
             val card = selectOfferCard(uber, didi, boundedFrame, 1_000,
-                HostLayoutObservation(geometry, true, true), displayBounds = boundedGeometry.displayBounds)!!
+                HostLayoutObservation(geometry, true, true), displayBounds = boundedGeometry.displayBounds, foregroundPackage = UberOcrParser.UBER_PACKAGE)!!
             assertEquals(96.17, card.fare!!, 0.001)
         }
     }
@@ -161,7 +161,7 @@ class OfferCardSelectorTest {
             good.copy(capturedAtMs = -1), good.copy(capturedAtMs = 1_001),
             good.copy(displayBounds = HostRect(0, 0, 852, 393)))) {
             val card = selectOfferCard(uber, didi, boundedFrame, 1_000,
-                displayBounds = boundedGeometry.displayBounds, accessibility = evidence)!!
+                displayBounds = boundedGeometry.displayBounds, accessibility = evidence, foregroundPackage = UberOcrParser.UBER_PACKAGE)!!
             assertEquals(96.17, card.fare!!, 0.001)
         }
     }

@@ -11,6 +11,10 @@ import org.robolectric.shadows.ShadowLog
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class OfferFramePipelineDiagnosticsTest {
+    @org.junit.Before fun foreground() {
+        mx.kompara.data.service.ScreenReaderState.setForegroundHost(UberOcrParser.UBER_PACKAGE,
+            android.os.SystemClock.elapsedRealtime())
+    }
     private fun block(text: String, top: Int) =
         OcrBlock(text, OcrBounds(20, top, 373, top + if (text == "MXN148.00") 40 else 24))
 

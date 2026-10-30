@@ -6,7 +6,7 @@ import org.junit.Test
 
 class CardPresenceTrackerTest {
 
-    private val tracker = CardPresenceTracker(goneFrames = 3, zombieTimeoutMs = 10_000L)
+    private val tracker = CardPresenceTracker(goneFrames = 3, absenceSpanMs = 600L)
 
     @Test
     fun `garbled card-like frames never hide the chip`() {
@@ -52,11 +52,22 @@ class CardPresenceTrackerTest {
     }
 
     @Test
-    fun `zombie timeout hides even through card-like frames`() {
+    fun `elapsed time never proves absence through card-like frames`() {
         tracker.onParsed(nowMs = 0L)
         assertFalse(tracker.onMiss(cardLike = true, nowMs = 9_999L))
-        // 10 s without a successful parse: a signature lookalike can't pin a stale verdict.
-        assertTrue(tracker.onMiss(cardLike = true, nowMs = 10_000L))
+        // A timeout alone is not evidence of disappearance.
+        assertFalse(tracker.onMiss(cardLike = true, nowMs = 10_000L))
+    }
+
+    @Test fun `production policy requires both three misses and eighteen hundred milliseconds`() {
+        val production = CardPresenceTracker()
+        production.onParsed(0)
+        assertFalse(production.onMiss(false, 900))
+        assertFalse(production.onMiss(false, 1800))
+        assertTrue(production.onMiss(false, 2700))
+        production.onParsed(3000)
+        repeat(10) { assertFalse(production.onMiss(false, 3100L + it * 100)) }
+        assertTrue(production.onMiss(false, 4900))
     }
 
     @Test

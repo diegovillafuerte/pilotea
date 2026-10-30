@@ -4,6 +4,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.transformLatest
 import mx.kompara.capture.OfferEvent
@@ -11,6 +12,8 @@ import mx.kompara.ui.components.ReglaMotion
 
 sealed interface OverlayVisibility {
     data object Hidden : OverlayVisibility
+    /** Retain durable identity and verdict while exposing an unverified masked region. */
+    data object AwaitingUnobscuredCapture : OverlayVisibility
     /** Clear the prior offer before any suspendable evaluation/persistence. */
     data class Reading(val offerKey: String, val event: OfferEvent.Parsed) : OverlayVisibility
     data class Showing(val state: VerdictChipState, val offerKey: String, val event: OfferEvent.Parsed) : OverlayVisibility
@@ -29,6 +32,11 @@ class OverlayStateMachine(
         var host: String? = null
         var key: String? = null
         events
+            // An unrelated recovery event must not cancel a departed host's in-flight hide.
+            // Filtering inside transformLatest is too late: it has already cancelled the grace.
+            .filter { event ->
+                event !is OfferEvent.LayoutUncertain || event.packageName == host && key != null
+            }
             // A stream of missing OCR frames must not restart the 500ms timer indefinitely.
             .distinctUntilChanged { old, new ->
                 old is OfferEvent.NoCard && new is OfferEvent.NoCard &&
@@ -44,6 +52,10 @@ class OverlayStateMachine(
                             emit(OverlayVisibility.Reading(next, event))
                         }
                         emit(OverlayVisibility.Showing(evaluate(event), next, event))
+                    }
+                    is OfferEvent.LayoutUncertain -> {
+                        if (event.packageName == host && key != null)
+                            emit(OverlayVisibility.AwaitingUnobscuredCapture)
                     }
                     is OfferEvent.NoCard -> {
                         if (event.packageName != host || event.reason == OfferEvent.Reason.NO_SPEC) {

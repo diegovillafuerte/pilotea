@@ -1,5 +1,7 @@
 package mx.kompara.overlay
 
+import android.os.SystemClock
+
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -7,6 +9,7 @@ import kotlinx.coroutines.test.runTest
 import mx.kompara.capture.OfferEvent
 import mx.kompara.capture.OfferEventBus
 import mx.kompara.data.service.ScreenRect
+import mx.kompara.data.service.ScreenReaderState
 import mx.kompara.data.settings.PlatformThreshold
 import mx.kompara.data.settings.PreferredMetric
 import mx.kompara.metrics.NetProfitEngine
@@ -22,10 +25,14 @@ import mx.kompara.ui.components.ReglaUnavailable
 import org.json.JSONArray
 import org.junit.Assert.*
 import org.junit.Test
+import org.junit.Before
+import org.junit.After
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowLog
+import org.robolectric.shadows.ShadowSystemClock
+import java.time.Duration
 import java.io.File
 
 /** One anonymized live frame crosses the actual bus, mapping, evaluator and presentation state. */
@@ -33,6 +40,8 @@ import java.io.File
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class OfferFramePipelineVerdictTest {
+    @Before fun foregroundUber() = ScreenReaderState.setForegroundHost(UberOcrParser.UBER_PACKAGE, SystemClock.elapsedRealtime())
+    @After fun clearForeground() = ScreenReaderState.setForegroundHost(null, SystemClock.elapsedRealtime())
     private val limits = PlatformThreshold(10.0, 200.0, 7.5, 150.0)
     private val ownChip = ScreenRect(325, 242, 1040, 572)
     private val display = HostRect(0, 0, 1080, 2340)
@@ -117,7 +126,7 @@ class OfferFramePipelineVerdictTest {
         assertEquals(VerdictLevel.GREEN, metrics.verdict.level)
     }
 
-    @Test fun `same offer holds verdict and placement through unread fares then resets for changed legs`() = runTest {
+    @Test fun `same offer holds verdict and placement through unread fares then resets for corroborated replacement`() = runTest {
         val pipeline = OfferFramePipeline()
         val seen = mutableListOf<OverlayVisibility>()
         val parsed = mutableListOf<OfferEvent.Parsed>()
@@ -167,15 +176,19 @@ class OfferFramePipelineVerdictTest {
         assertNotEquals(seen.filterIsInstance<OverlayVisibility.Showing>().first().state, corrected.state)
         assertEquals(1, seen.filterIsInstance<OverlayVisibility.Reading>().size)
 
-        // A transient changed pickup loses money confidence, but needs a second agreeing route
-        // observation before it can create a durable replacement instance.
+        // A changed action AND route each need a second observation before replacement.
+        // The first provisional observation retains the session's confirmed payment.
         val changedPickup = unread.map {
-            if (it.text == "4 min (0.7 km)") it.copy(text = "5 min (0.9 km)") else it
+            when (it.text) {
+                "4 min (0.7 km)" -> it.copy(text = "5 min (0.9 km)")
+                "Aceptar" -> it.copy(text = "Coincidir")
+                else -> it
+            }
         }
         pipeline.process(changedPickup, ownChip, null, capturedAtMs = start + 2100, displayBounds = display, density = 3f)
         testScheduler.runCurrent()
         val uncertain = seen.last() as OverlayVisibility.Showing
-        assertNull(uncertain.event.card.fare)
+        assertEquals(160.0, uncertain.event.card.fare!!, 0.000001)
         assertEquals(parsed.first().card.sessionId, uncertain.event.card.sessionId)
         pipeline.process(changedPickup, ownChip, null, capturedAtMs = start + 2400, displayBounds = display, density = 3f)
         testScheduler.runCurrent()
@@ -186,13 +199,16 @@ class OfferFramePipelineVerdictTest {
         assertEquals(ReglaUnavailable.FARE, (next.state.regla.band as ReglaBand.Unavailable).input)
     }
 
-    @Test fun `a card replacement after one absent frame cannot inherit fare even with identical legs`() = runTest {
+    @Test fun `a card replacement after corroborated absence cannot inherit fare even with identical legs`() = runTest {
         val pipeline = OfferFramePipeline()
         val parsed = mutableListOf<OfferEvent.Parsed>()
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
             OfferEventBus.events.collect { if (it is OfferEvent.Parsed) parsed += it }
         }
-        for (blocks in listOf(priority147(), emptyList(), priority147().filterNot { it.text == "$147.46" })) {
+        for (blocks in listOf(priority147(), emptyList(), emptyList(), emptyList(),
+            priority147().filterNot { it.text == "$147.46" })) {
+            ShadowSystemClock.advanceBy(Duration.ofMillis(900))
+            ScreenReaderState.setForegroundHost(UberOcrParser.UBER_PACKAGE, SystemClock.elapsedRealtime())
             pipeline.process(blocks, ownChip, null, displayBounds = display, density = 3f)
             testScheduler.runCurrent()
         }
@@ -221,13 +237,54 @@ class OfferFramePipelineVerdictTest {
         assertEquals("Sin lectura", showing.state.heroRate)
     }
 
-    @Test fun `ownUi mask removes even a standalone amount inside the card before parsing`() {
-        // A transient chip over the fare must suppress it, even though its text and bounds would
-        // otherwise be the strongest candidate. Bonused/per-km/goal amounts cannot replace it.
-        val (showing, metrics) = replay(fixture(), ScreenRect(90, 760, 510, 910))
-        assertNull(showing.event.card.fare)
-        assertEquals("FARE", metrics.verdict.unavailableReason)
-        assertEquals(ReglaUnavailable.FARE, (showing.state.regla.band as ReglaBand.Unavailable).input)
+    @Test fun `ownUi mask removes even a standalone amount and cannot mint a session before unobscured capture`() = runTest {
+        val parsed = mutableListOf<OfferEvent.Parsed>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            OfferEventBus.events.collect { if (it is OfferEvent.Parsed) parsed += it }
+        }
+        val pipeline = OfferFramePipeline()
+        pipeline.process(fixture(), ScreenRect(90, 760, 510, 910), null,
+            displayBounds = display, density = 3f)
+        testScheduler.runCurrent()
+        assertTrue("Masked first-frame evidence must not mint any offer UUID or ledger event", parsed.isEmpty())
+        pipeline.process(fixture(), ownChip, null, displayBounds = display, density = 3f)
+        testScheduler.runCurrent()
+        assertEquals(1, parsed.size)
+        assertNotNull(parsed.single().card.sessionId)
+        assertEquals(79.45, parsed.single().card.fare!!, 0.000001)
+        val metrics = NetProfitEngine().evaluate(OfferMapping.toTripOffer(parsed.single().card),
+            "2.84".toBigDecimal(), limits, PreferredMetric.IPK)
+        assertTrue(VerdictChipState.from(metrics, limits).regla.band is ReglaBand.Rated)
+    }
+
+    @Test fun `switching hosts into a masked first frame cannot cancel the departed chip hide`() = runTest {
+        val seen = mutableListOf<OverlayVisibility>()
+        val evaluated = mutableListOf<OfferEvent.Parsed>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            OverlayStateMachine(evaluate = { event ->
+                evaluated += event
+                VerdictChipState.from(NetProfitEngine().evaluate(OfferMapping.toTripOffer(event.card),
+                    "2.84".toBigDecimal(), limits, PreferredMetric.IPK), limits)
+            }).visibility(OfferEventBus.events).collect { seen += it }
+        }
+        val pipeline = OfferFramePipeline()
+        pipeline.process(fixture(), ownChip, null, displayBounds = display, density = 3f)
+        testScheduler.runCurrent()
+        assertTrue(seen.last() is OverlayVisibility.Showing)
+        val didi = listOf(
+            OcrBlock("DiDi", OcrBounds(96, 650, 400, 740)),
+            OcrBlock("$132.59", OcrBounds(96, 770, 499, 897)),
+            OcrBlock("6 min (1.2 km)", OcrBounds(190, 1420, 510, 1477)),
+            OcrBlock("39 min (17.3 km)", OcrBounds(190, 1625, 541, 1682)),
+            OcrBlock("Aceptar", OcrBounds(442, 1989, 640, 2046)),
+        )
+        pipeline.process(didi, ScreenRect(90, 760, 510, 910), null, displayBounds = display,
+            density = 3f, foregroundPackage = "com.didiglobal.driver")
+        testScheduler.runCurrent()
+        testScheduler.advanceTimeBy(1000)
+        testScheduler.runCurrent()
+        assertEquals("Uncertain successor must not strand the old host chip", OverlayVisibility.Hidden, seen.last())
+        assertEquals("Masked successor has no UUID, ledger evaluation or fare", 1, evaluated.size)
     }
 
     @Test fun `split per-km summary cannot produce a verdict on first or repeated frames`() {

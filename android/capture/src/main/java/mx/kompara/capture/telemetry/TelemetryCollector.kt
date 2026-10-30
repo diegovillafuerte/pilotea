@@ -103,7 +103,7 @@ class TelemetryCollector @Inject constructor(
             // Remotely kill-switched platform (B-033): intentionally disabled, NOT a parser
             // breakage. Recording it as a failure would pollute the alert rates (and could even
             // self-trigger an alert on a platform we deliberately turned off), so don't count it.
-            is OfferEvent.SpecDisabled -> Unit
+            is OfferEvent.SpecDisabled, is OfferEvent.LayoutUncertain -> Unit
         }
     }
 

@@ -17,6 +17,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import mx.kompara.capture.KomparaAccessibilityService
 import mx.kompara.capture.ScreenReaderLane
+import mx.kompara.data.service.HostForegroundObservation
 import mx.kompara.data.service.ScreenReaderState
 import mx.kompara.data.service.ScreenRect
 import java.util.concurrent.Executor
@@ -124,9 +125,10 @@ class SilentScreenshotLane(
             var hardFailures = 0
             while (currentCoroutineContext().isActive) {
                 val permit = ownership.permit(session) ?: return
-                val host = targetAppForeground(service)
+                val observation = foregroundHostObservation(service)
+                val host = (observation as? HostForegroundObservation.Target)?.packageName
                 val screenInteractive = power?.isInteractive != false
-                val readingAllowed = readiness.canRead()
+                val readingAllowed = readiness.canRead() && (host == null || readiness.canRead(host))
                 when (SilentLaneGate.decide(host != null, screenInteractive, hardFailures, MAX_HARD_FAILURES, readingAllowed)) {
                     LaneAction.DISABLE -> {
                         standDown(session, "$hardFailures consecutive screenshot hard failures")
@@ -139,11 +141,17 @@ class SilentScreenshotLane(
                             else -> "SCREEN_NOT_INTERACTIVE"
                         }
                         diagnostics.blocked(reason)
+                        val ended = CaptureHostPolicy.mustEnd(observation, screenInteractive, readingAllowed)
                         ownership.withOwner(permit) {
-                            if (capturing) pipeline.onCaptureEnd(System.currentTimeMillis())
+                            if (capturing) {
+                                if (ended) pipeline.onCaptureEnd(System.currentTimeMillis())
+                                else pipeline.onCaptureUncertain(System.currentTimeMillis())
+                            }
                         }
-                        capturing = false
-                        hostPackage = null
+                        if (ended) {
+                            capturing = false
+                            hostPackage = null
+                        }
                         rateLimits.reset()
                         delay(IDLE_POLL_MS)
                     }
@@ -164,7 +172,7 @@ class SilentScreenshotLane(
                                 rateLimits.reset()
                                 val chipRect = ScreenReaderState.overlayChipRect
                                 processShot(shot.bitmap, chipRect, pipeline, permit, token,
-                                    service.resources.displayMetrics.density, diagnostics)
+                                    service.resources.displayMetrics.density, diagnostics, service, requireNotNull(host))
                                 delay(THROTTLE_MS)
                             }
                             ShotResult.NoCapability -> {
@@ -205,16 +213,19 @@ class SilentScreenshotLane(
      * authoritative "what's in front", unlike the a11y event stream which never fires when the driver
      * leaves a target app — packageNames filter), and recycles the node where that still matters (<33).
      */
-    private fun targetAppForeground(service: AccessibilityService): String? {
-        val root = service.rootInActiveWindow ?: return null
-        return try {
-            root.packageName?.toString()?.takeIf { it in KomparaAccessibilityService.OCR_OWNED_PACKAGES && readiness.canRead(it) }
-        } finally {
-            if (Build.VERSION.SDK_INT < 33) @Suppress("DEPRECATION") root.recycle()
+    private fun foregroundHostObservation(service: AccessibilityService): HostForegroundObservation {
+        val root = service.rootInActiveWindow
+        val current = try { root?.packageName?.toString() } finally {
+            if (Build.VERSION.SDK_INT < 33) @Suppress("DEPRECATION") root?.recycle()
         }
+        val interactive = service.getSystemService(PowerManager::class.java)?.isInteractive != false
+        return HostForegroundObservation.fromWindow(current, interactive,
+            KomparaAccessibilityService.OCR_OWNED_PACKAGES)
     }
 
-    private suspend fun processShot(bitmap: Bitmap, chipRect: ScreenRect?, pipeline: OfferFramePipeline, permit: CapturePermit, token: Long, density: Float, diagnostics: OcrDiagnostics) {
+    private suspend fun processShot(bitmap: Bitmap, chipRect: ScreenRect?, pipeline: OfferFramePipeline,
+        permit: CapturePermit, token: Long, density: Float, diagnostics: OcrDiagnostics,
+        service: AccessibilityService, capturedHost: String) {
         if (ownership.permit(permit.session) != permit || !readiness.canRead(token = token)) {
             diagnostics.blocked("SCREENSHOT_STALE_OR_READINESS")
             bitmap.recycle()
@@ -244,8 +255,21 @@ class SilentScreenshotLane(
             bitmap.recycle()
         }
         ownership.withOwner(permit) {
-            pipeline.process(blocks, chipRect, null, capturedAtMs = capturedAtMs, token = token,
-                displayBounds = display, density = density, accessibility = accessibility, appearance = appearance)
+            // Recognition can finish after an app switch. Never publish an old host frame into the
+            // new foreground session; the next loop closes the old burst before reading its successor.
+            val current = foregroundHostObservation(service)
+            if ((current as? HostForegroundObservation.Target)?.packageName == capturedHost) {
+                pipeline.process(blocks, chipRect, null, capturedAtMs = capturedAtMs, token = token,
+                    displayBounds = display, density = density, accessibility = accessibility, appearance = appearance,
+                    foregroundPackage = capturedHost)
+            } else {
+                pipeline.captureBlocked("SCREENSHOT_HOST_CHANGED")
+                if (current == HostForegroundObservation.Unknown) {
+                    pipeline.onCaptureUncertain(System.currentTimeMillis())
+                } else {
+                    pipeline.onCaptureEnd(System.currentTimeMillis())
+                }
+            }
         }
     }
 

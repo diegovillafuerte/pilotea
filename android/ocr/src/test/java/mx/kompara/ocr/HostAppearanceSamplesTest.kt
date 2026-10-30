@@ -65,7 +65,7 @@ class HostAppearanceSamplesTest {
         val bitmap = frame(Color.BLACK)
         val samples = HostAppearanceSamples.capture(bitmap, 1000, null)
         fun select(time: Long, evidence: HostAppearanceSamples?) = selectOfferCard(UberOcrParser(), DidiOcrParser(), blocks,
-            time, displayBounds = geometry.displayBounds, appearance = evidence)!!.hostGeometry!!.appearance
+            time, displayBounds = geometry.displayBounds, appearance = evidence, foregroundPackage = UberOcrParser.UBER_PACKAGE)!!.hostGeometry!!.appearance
         assertEquals(HostAppearance.DARK, select(1000, samples))
         assertEquals(HostAppearance.UNKNOWN, select(1001, samples))
         assertEquals(HostAppearance.UNKNOWN, select(1000, null))

@@ -31,6 +31,7 @@ import mx.kompara.data.db.dao.OfferPresentationDao
 import mx.kompara.data.service.ReaderMemory
 import mx.kompara.data.service.ReaderMemoryStore
 import mx.kompara.data.service.ReaderReadinessRepository
+import mx.kompara.data.service.ScreenReaderState
 import mx.kompara.data.service.ScreenRect
 import mx.kompara.data.settings.CostProfileRepository
 import mx.kompara.data.settings.PlatformThreshold
@@ -128,7 +129,7 @@ class OverlayControllerPlacementTest {
             val pipeline = OfferFramePipeline()
             for (frame in listOf(full, unread, unread, full)) {
                 pipeline.process(frame, ScreenRect(325, 242, 1040, 572), null,
-                    displayBounds = v.bounds, density = v.density)
+                    displayBounds = v.bounds, density = v.density, foregroundPackage = "com.ubercab.driver")
                 testScheduler.runCurrent()
                 assertTrue((seen.last() as OverlayVisibility.Showing).state.regla.band is ReglaBand.Rated)
                 assertEquals(1f, view.alpha)
@@ -174,7 +175,7 @@ class OverlayControllerPlacementTest {
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
                 OfferEventBus.events.collect { if (it is OfferEvent.Parsed) parsed += it }
             }
-            pipeline.process(full, null, null, displayBounds = v.bounds, density = v.density)
+            pipeline.process(full, null, null, displayBounds = v.bounds, density = v.density, foregroundPackage = "com.ubercab.driver")
             testScheduler.runCurrent()
             val first = parsed.single()
             assertEquals(605, first.card.hostGeometry!!.offerCard.top)
@@ -197,7 +198,85 @@ class OverlayControllerPlacementTest {
                 field("placement").set(controller, shown)
                 val rect = shown.position.bounds(shown.size)
                 pipeline.process(grown, ScreenRect(rect.left, rect.top, rect.right, rect.bottom), null,
-                    displayBounds = v.bounds, density = v.density)
+                    displayBounds = v.bounds, density = v.density, foregroundPackage = "com.ubercab.driver")
+                testScheduler.runCurrent()
+                val next = parsed.last()
+                assertEquals(it + 2, parsed.size)
+                if (it == 0) {
+                    assertEquals("The masked frame must exercise the same-instance placement path",
+                        first.card.sessionId, next.card.sessionId)
+                    assertEquals(1122, next.card.hostGeometry!!.offerCard.top)
+                }
+                render(controller, backgroundScope, OverlayVisibility.Showing(rated, next.card.sessionId!!, next))
+                val saved = (field("savedPosition\$delegate").get(controller) as MutableState<*>).value as OverlayPosition?
+                shown = OverlayPositioning.place(next.card.hostGeometry, next.packageName, v,
+                    next.timestampMs, ChipSize(720, 336), ChipSize(720, 200), saved) as OverlayPlacement.Displayed
+                assertFalse("Frame $it must relocate away from the close control",
+                    shown.position.bounds(shown.size).overlaps(close))
+                assertFalse("Frame $it must keep Aceptar clear", shown.position.bounds(shown.size).overlaps(accept))
+            }
+            assertFalse("Self-masked geometry must not preserve a chip over the host close control",
+                shown.position.bounds(shown.size).overlaps(close))
+            assertFalse(shown.position.bounds(shown.size).overlaps(accept))
+        } finally { controller.stop(); Dispatchers.resetMain() }
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Config(qualifiers = "w360dp-h780dp-xxhdpi")
+    @Test fun `malformed grown pickup retains unobscured evidence through two one two anchors`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val controller = controller()
+        try {
+            val v = method("readViewport", WindowInsets::class.java).invoke(controller, null) as OverlayViewport
+            assertEquals(viewport.bounds, v.bounds)
+            assertEquals(3f, v.density)
+            fun box(text: String, left: Int, top: Int, right: Int, bottom: Int) =
+                OcrBlock(text, OcrBounds(left, top, right, bottom))
+            val full = listOf(
+                box("Uber Priority", 96, 653, 502, 746),
+                box("Exclusivo", 530, 653, 785, 746),
+                box("X", 837, 650, 983, 793),
+                box("MXN79.45", 96, 770, 499, 897),
+                box("A 1 min (0.2 km)", 190, 1420, 510, 1477),
+                box("Viaje: 24 min (2.4 km)", 190, 1625, 741, 1682),
+                box("Aceptar", 442, 1989, 640, 2046),
+            )
+            val grown = full.map { if (it.text == "Aceptar") it else
+                it.copy(bounds = it.bounds.copy(top = it.bounds.top - 250, bottom = it.bounds.bottom - 250)) }
+            val close = HostRect(837, 400, 983, 543)
+            val accept = HostRect(442, 1989, 640, 2046)
+            val pipeline = OfferFramePipeline()
+            val parsed = mutableListOf<OfferEvent.Parsed>()
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                OfferEventBus.events.collect { if (it is OfferEvent.Parsed) parsed += it }
+            }
+            pipeline.process(full, null, null, displayBounds = v.bounds, density = v.density, foregroundPackage = "com.ubercab.driver")
+            testScheduler.runCurrent()
+            val first = parsed.single()
+            assertEquals(605, first.card.hostGeometry!!.offerCard.top)
+            var shown = OverlayPositioning.place(first.card.hostGeometry, first.packageName, v,
+                first.timestampMs, ChipSize(720, 336), ChipSize(720, 200)) as OverlayPlacement.Displayed
+            assertEquals(OverlayPosition(324, 221), shown.position)
+            assertTrue(shown.position.bounds(shown.size).overlaps(close))
+            @Suppress("UNCHECKED_CAST")
+            val savedPositions = field("savedPositions").get(controller) as MutableMap<OverlayPositionKey, OverlayPosition?>
+            savedPositions[OverlayPositionKey(first.packageName, v.orientation)] = shown.position
+            val view = ComposeView(context).apply { alpha = 1f }
+            field("composeView").set(controller, view)
+            field("layoutParams").set(controller, WindowManager.LayoutParams().apply {
+                x = shown.position.x; y = shown.position.y
+            })
+            state(controller, "geometry", first.card.hostGeometry)
+            state(controller, "viewport", v)
+            field("event").set(controller, first)
+            repeat(5) {
+                field("placement").set(controller, shown)
+                val rect = shown.position.bounds(shown.size)
+                val replayFrame = if (it == 0) grown.map { block ->
+                    if (block.text == "A 1 min (0.2 km)") block.copy(text = "A 1 min 0.2 km)") else block
+                } else grown
+                pipeline.process(replayFrame, ScreenRect(rect.left, rect.top, rect.right, rect.bottom), null,
+                    displayBounds = v.bounds, density = v.density, foregroundPackage = "com.ubercab.driver")
                 testScheduler.runCurrent()
                 val next = parsed.last()
                 assertEquals(it + 2, parsed.size)
@@ -249,6 +328,84 @@ class OverlayControllerPlacementTest {
         } finally {
             controller.stop(); scope.cancel(); Dispatchers.resetMain()
         }
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Config(qualifiers = "w360dp-h780dp-xxhdpi")
+    @Test fun `independently moving close control requires unobscured recovery despite stationary routes`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val controller = controller()
+        try {
+            val v = method("readViewport", WindowInsets::class.java).invoke(controller, null) as OverlayViewport
+            fun box(text: String, left: Int, top: Int, right: Int, bottom: Int) =
+                OcrBlock(text, OcrBounds(left, top, right, bottom))
+            val full = listOf(box("Uber Priority", 96, 653, 502, 746),
+                box("Exclusivo", 530, 653, 785, 746), box("X", 837, 650, 983, 793),
+                box("MXN79.45", 96, 770, 499, 897), box("A 1 min (0.2 km)", 190, 1420, 510, 1477),
+                box("Viaje: 24 min (2.4 km)", 190, 1625, 741, 1682), box("Aceptar", 442, 1989, 640, 2046))
+            val moved = full.map { if (it.text != "X") it else it.copy(bounds = OcrBounds(837, 400, 983, 543)) }
+            val close = HostRect(837, 400, 983, 543)
+            val pipeline = OfferFramePipeline()
+            val parsed = mutableListOf<OfferEvent.Parsed>()
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                OfferEventBus.events.collect { if (it is OfferEvent.Parsed) parsed += it }
+            }
+            pipeline.process(full, null, null, displayBounds = v.bounds, density = v.density,
+                foregroundPackage = "com.ubercab.driver")
+            testScheduler.runCurrent()
+            val first = parsed.single()
+            val shown = OverlayPositioning.place(first.card.hostGeometry, first.packageName, v,
+                first.timestampMs, ChipSize(720, 336), ChipSize(720, 200)) as OverlayPlacement.Displayed
+            assertTrue(shown.position.bounds(shown.size).overlaps(close))
+            field("composeView").set(controller, ComposeView(context).apply { alpha = 1f })
+            field("placement").set(controller, shown)
+            state(controller, "geometry", first.card.hostGeometry)
+            state(controller, "viewport", v)
+            field("event").set(controller, first)
+            val rect = shown.position.bounds(shown.size)
+            ScreenReaderState.setOverlayChipRect(ScreenRect(rect.left, rect.top, rect.right, rect.bottom))
+            pipeline.process(moved, ScreenReaderState.overlayChipRect, null, displayBounds = v.bounds,
+                density = v.density, foregroundPackage = "com.ubercab.driver")
+            testScheduler.runCurrent()
+            val hidden = parsed.last()
+            assertEquals(first.card.sessionId, hidden.card.sessionId)
+            assertEquals(605, hidden.card.hostGeometry!!.offerCard.top)
+            render(controller, backgroundScope, OverlayVisibility.Showing(rated, hidden.card.sessionId!!, hidden))
+            assertNull("A missing close cannot be explained by stationary route anchors", field("composeView").get(controller))
+            assertNull(ScreenReaderState.overlayChipRect)
+            pipeline.process(moved, null, null, displayBounds = v.bounds, density = v.density,
+                foregroundPackage = "com.ubercab.driver")
+            testScheduler.runCurrent()
+            val recovered = parsed.last()
+            assertEquals(first.card.sessionId, recovered.card.sessionId)
+            assertTrue(recovered.card.hostGeometry!!.protectedControls.contains(close))
+            val safe = OverlayPositioning.place(recovered.card.hostGeometry, recovered.packageName, v,
+                recovered.timestampMs, ChipSize(720, 336), ChipSize(720, 200)) as OverlayPlacement.Displayed
+            assertFalse(safe.position.bounds(safe.size).overlaps(close))
+            repeat(4) {
+                assertEquals(safe, OverlayPositioning.place(recovered.card.hostGeometry, recovered.packageName, v,
+                    recovered.timestampMs, ChipSize(720, 336), ChipSize(720, 200), safe.position))
+            }
+        } finally { controller.stop(); Dispatchers.resetMain() }
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test fun `unverified masked layout clears the compositor mask without clearing durable verdict`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val controller = prepared()
+        try {
+            val currentEvent = field("event").get(controller)
+            val currentGeometry = field("geometry\$delegate").let { it.get(controller) as MutableState<*> }.value
+            field("composeView").set(controller, ComposeView(context))
+            field("placement").set(controller, placement)
+            ScreenReaderState.setOverlayChipRect(ScreenRect(324, 243, 1044, 579))
+            render(controller, backgroundScope, OverlayVisibility.AwaitingUnobscuredCapture)
+            assertNull(field("composeView").get(controller))
+            assertNull(ScreenReaderState.overlayChipRect)
+            assertSame(currentEvent, field("event").get(controller))
+            assertSame(currentGeometry, (field("geometry\$delegate").get(controller) as MutableState<*>).value)
+            assertNotNull((field("chipState\$delegate").get(controller) as MutableState<*>).value)
+        } finally { controller.stop(); Dispatchers.resetMain() }
     }
 
     @Test fun `normal first attach reveals at first completed layout pre-draw`() {
