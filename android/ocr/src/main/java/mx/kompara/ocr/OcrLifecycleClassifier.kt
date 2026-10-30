@@ -137,8 +137,15 @@ class OcrLifecycleClassifier(private val markers: OcrTripMarkers = OcrTripMarker
     }
 }
 
-/** Emit only newly readable fields, not distance/time jitter or a regression to missing input. */
+/** Emit newly readable fields and confirmed same-route OCR fare revisions, never missing inputs. */
 private fun OfferCard.enrichedWith(next: OfferCard): OfferCard {
+    val identity = OcrOfferIdentity.from(this)
+    if (sessionId != null && sessionId == next.sessionId && captureSource == "OCR" && next.captureSource == "OCR" &&
+        identity != null && identity == OcrOfferIdentity.from(next) &&
+        paymentBasis == "DRIVER_PAYMENT" && next.paymentBasis == "DRIVER_PAYMENT" &&
+        next.fare?.let { it.isFinite() && it > 0.0 } == true) {
+        return copy(fare = next.fare, raw = (raw - "fare") + next.raw.filterKeys { it == "fare" })
+    }
     val pairs = listOf(fare to next.fare, pickupDistanceKm to next.pickupDistanceKm,
         tripDistanceKm to next.tripDistanceKm, pickupEtaMin to next.pickupEtaMin, tripDurationMin to next.tripDurationMin)
     if (platform != next.platform || pairs.any { (old, fresh) -> old != null && fresh != null && old != fresh }) return this

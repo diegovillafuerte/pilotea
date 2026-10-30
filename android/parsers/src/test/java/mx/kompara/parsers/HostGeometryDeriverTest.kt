@@ -79,6 +79,27 @@ class HostGeometryDeriverTest {
         assertEquals(534,g.offerCard.top)
     }
 
+    @Test fun `missing S25 fare cannot move the card edge below its distant current heading`() {
+        val screen = HostRect(0, 0, 1080, 2340)
+        val heading = HostTextBounds("Uber Priority", HostRect(96, 653, 502, 746))
+        val fare = HostTextBounds("$147.46", HostRect(96, 770, 550, 897))
+        val route = listOf(
+            HostTextBounds("4 min (0.7 km)", HostRect(190, 1420, 510, 1477)),
+            HostTextBounds("49 min (6.3 km)", HostRect(190, 1625, 541, 1682)),
+            HostTextBounds("Aceptar", HostRect(442, 1989, 640, 2046)),
+        )
+        val read = requireNotNull(HostGeometryDeriver.offer(host, 1000, screen, 3f,
+            listOf(heading, fare) + route, HostGeometrySource.OCR_TEXT_BOUNDS,
+            OfferContentBounds(96, 770, 550, 1682), recognizedOffer = true))
+        val unread = requireNotNull(HostGeometryDeriver.offer(host, 1300, screen, 3f,
+            listOf(heading) + route, HostGeometrySource.OCR_TEXT_BOUNDS,
+            OfferContentBounds(190, 1420, 541, 1682), recognizedOffer = true))
+        assertEquals(605, read.offerCard.top)
+        assertEquals(read.offerCard, unread.offerCard)
+        assertTrue(unread.offerCard.contains(fare.bounds))
+        assertEquals(1300L, unread.capturedAtMs)
+    }
+
     @Test fun `accessibility card container takes precedence over text padding`() {
         val measured = HostRect(0,500,393,830)
         val g = requireNotNull(HostGeometryDeriver.offer(host,1000,display,1f,boxes,

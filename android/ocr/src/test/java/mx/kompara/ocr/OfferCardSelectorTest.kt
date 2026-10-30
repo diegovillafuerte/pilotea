@@ -118,6 +118,33 @@ class OfferCardSelectorTest {
         assertNull(card.fare)
     }
 
+    @Test fun `previous shorter accessibility card cannot crop the current taller offer`() {
+        assertEquals(96.17, selectOfferCard(uber, didi, boundedFrame)!!.fare!!, 0.001)
+        val previousCard = boundedEvidence().copy(
+            capturedAtMs = 900,
+            observedCardBounds = HostRect(0, 640, 393, 852),
+        )
+        val card = selectOfferCard(uber, didi, boundedFrame, 1_000,
+            displayBounds = boundedGeometry.displayBounds, accessibility = previousCard)!!
+        assertEquals(96.17, card.fare!!, 0.001)
+        assertTrue(card.hostGeometry!!.offerCard.top < 590)
+    }
+
+    @Test fun `older accessibility edges need a current heading before clipping a legacy fare`() {
+        val frame = boundedFrame.filterNot { it.text == "UberX" }
+        val previousCard = boundedEvidence().copy(observedCardBounds = HostRect(0, 640, 393, 852))
+        val card = selectOfferCard(uber, didi, frame, 1_000,
+            displayBounds = boundedGeometry.displayBounds, accessibility = previousCard)!!
+        assertEquals(96.17, card.fare!!, 0.001)
+    }
+
+    @Test fun `same frame accessibility edges remain authoritative for fare selection`() {
+        val evidence = boundedEvidence().copy(capturedAtMs = 1_000)
+        val card = selectOfferCard(uber, didi, boundedFrame, 1_000,
+            displayBounds = boundedGeometry.displayBounds, accessibility = evidence)!!
+        assertNull(card.fare)
+    }
+
     @Test fun `other host and stale layout bounds cannot suppress a valid OCR fare`() {
         assertEquals(96.17, selectOfferCard(uber, didi, boundedFrame)!!.fare!!, 0.001)
         for (geometry in listOf(boundedGeometry.copy(capturedAtMs = 999),

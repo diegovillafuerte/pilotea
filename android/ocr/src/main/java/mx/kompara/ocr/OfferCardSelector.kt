@@ -43,7 +43,7 @@ internal fun selectOfferCard(
         ?: accessibility?.takeIf {
             it.packageName == UberOcrParser.UBER_PACKAGE && it.displayBounds == displayBounds &&
                 capturedAtMs - it.capturedAtMs in 0..1_000
-        }?.observedCardBounds
+        }?.currentUberCardBounds(blocks, capturedAtMs)
     val fareBounds = uberBounds?.let { OcrBounds(it.left, it.top, it.right, it.bottom) }
     val card = uber.parse(blocks, cardBounds = fareBounds)
         // Retain the cross-app hold even if the observed edges withheld every Uber amount.
@@ -66,4 +66,32 @@ internal fun selectOfferCard(
     return card.copy(hostGeometry = geometry?.let { g ->
         g.copy(appearance = appearance?.appearance(g) ?: g.appearance)
     })
+}
+
+private val uberHeading = Regex("""\bUber\w*|Radar de solicitud""", RegexOption.IGNORE_CASE)
+private val uberAction = Regex("""\b(?:Aceptar|Coincidir)\b""", RegexOption.IGNORE_CASE)
+private val uberRoute = Regex("""(?:[0-9OlI]+|—|-)\s*min\s*\(\s*[0-9OlI][0-9OlI.,]*\s*km""", RegexOption.IGNORE_CASE)
+
+/**
+ * Node polling can still describe the preceding short card when OCR sees the new taller one.
+ * Corroborate older edges with the current heading/route/action before clipping any OCR block.
+ * Amounts cannot expand measured edges: a stray price outside an otherwise matching card remains
+ * excluded. Without a current heading, the older card cannot be identified and OCR is the fallback.
+ */
+private fun HostWindowEvidence.currentUberCardBounds(blocks: List<OcrBlock>, atMs: Long): HostRect? {
+    val measured = observedCardBounds?.takeIf(displayBounds::contains) ?: return null
+    if (capturedAtMs == atMs) return measured
+    val ordered = blocks.sortedBy { it.bounds.top }
+    val heading = ordered.firstOrNull { uberHeading.containsMatchIn(it.text) } ?: return null
+    val action = ordered.firstOrNull {
+        it.bounds.top >= heading.bounds.top && uberAction.containsMatchIn(it.text)
+    }
+    val anchors = ordered.filter {
+        it == heading || it.bounds.top >= heading.bounds.top &&
+            (action == null || it.bounds.bottom <= action.bounds.bottom) &&
+            (uberRoute.containsMatchIn(it.text) || uberAction.containsMatchIn(it.text))
+    }
+    return measured.takeIf {
+        anchors.all { block -> block.bounds.let { b -> measured.contains(HostRect(b.left, b.top, b.right, b.bottom)) } }
+    }
 }

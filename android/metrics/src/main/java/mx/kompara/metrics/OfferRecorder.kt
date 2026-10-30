@@ -27,7 +27,8 @@ class OfferRecorder @Inject constructor(
     suspend fun record(sessionId: String, seenAt: Long, offer: TripOffer, source: String, surge: Boolean, observedAt: Long = seenAt): OfferEntity = mutex.withLock {
         offers.forSession(sessionId)?.let { existing ->
             val saved = existing.evaluation
-            val enriched = existing.enrichMissingInputs(offer, observedAt)
+            val enriched = existing.enrichMissingInputs(offer, observedAt,
+                allowFareRevision = source == "OCR" && saved?.source == "OCR")
             val updated = if (saved != null && enriched != existing) {
                 val unit = PreferredMetric.valueOf(saved.unit)
                 val goal = saved.goal.toDouble()
@@ -82,14 +83,20 @@ fun OfferEntity.recordedMetrics(): OfferMetrics {
         saved.contribution, saved.perKm, saved.perHour)
 }
 
-/** Fill unread fields while the same offer is pending; never replace already captured economics. */
-internal fun OfferEntity.enrichMissingInputs(incoming: TripOffer, observedAt: Long): OfferEntity {
+/** Fill unread inputs; a newer stabilized OCR fare may revise only the same complete pending route. */
+internal fun OfferEntity.enrichMissingInputs(incoming: TripOffer, observedAt: Long, allowFareRevision: Boolean = false): OfferEntity {
     if (outcome != "PENDING" || observedAt < lastSeenAt || platform != incoming.platform.uppercase()) return this
-    val pairs = listOf(fareMxn to incoming.fareMxn, pickupKm to incoming.pickupKm, tripKm to incoming.tripKm,
+    val legs = listOf(pickupKm to incoming.pickupKm, tripKm to incoming.tripKm,
         pickupMin to incoming.pickupMin, tripMin to incoming.tripMin)
+    val reviseFare = allowFareRevision && observedAt > lastSeenAt &&
+        paymentBasis == "DRIVER_PAYMENT" && incoming.paymentBasis == "DRIVER_PAYMENT" &&
+        incoming.fareMxn?.let { it.isFinite() && it > 0 } == true &&
+        legs.all { (old, fresh) -> old != null && old.isFinite() && old >= 0 && old == fresh }
+    val pairs = legs + if (reviseFare) emptyList() else listOf(fareMxn to incoming.fareMxn)
     if (pairs.any { (old, fresh) -> old != null && fresh != null && old != fresh }) return this
     fun readable(value: Double?) = value?.takeIf { it.isFinite() && it >= 0 }
-    return copy(fareMxn = fareMxn ?: readable(incoming.fareMxn), pickupKm = pickupKm ?: readable(incoming.pickupKm),
+    return copy(fareMxn = if (reviseFare) incoming.fareMxn else fareMxn ?: readable(incoming.fareMxn),
+        pickupKm = pickupKm ?: readable(incoming.pickupKm),
         tripKm = tripKm ?: readable(incoming.tripKm), pickupMin = pickupMin ?: readable(incoming.pickupMin),
         tripMin = tripMin ?: readable(incoming.tripMin),
         paymentBasis = if (paymentBasis == "UNCONFIRMED" && incoming.paymentBasis == "DRIVER_PAYMENT")

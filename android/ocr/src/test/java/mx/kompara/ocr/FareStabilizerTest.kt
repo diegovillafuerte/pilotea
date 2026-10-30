@@ -63,4 +63,61 @@ class FareStabilizerTest {
         assertEquals(0.0, s.onParsed(uber(0.0), 0).fare!!, 1e-9)
         assertNull(s.onParsed(uber(137.28).copy(fare = null), 300).fare)
     }
+
+    @Test fun `same complete route retains payment and provenance through unreadable frames`() {
+        val s = FareStabilizer()
+        val known = uber(147.46).copy(paymentBasis = "DRIVER_PAYMENT", raw = mapOf("fare" to "147.46"))
+        val unread = known.copy(fare = null, paymentBasis = "UNCONFIRMED", raw = emptyMap(),
+            contentBounds = mx.kompara.parsers.model.OfferContentBounds(10, 500, 200, 700))
+        assertEquals(147.46, s.onParsed(known, 0).fare!!, 0.001)
+        for (at in listOf(300L, 2_000L)) {
+            val held = s.onParsed(unread, at)
+            assertEquals(147.46, held.fare!!, 0.001)
+            assertEquals("DRIVER_PAYMENT", held.paymentBasis)
+            assertEquals("147.46", held.raw["fare"])
+            assertEquals(unread.contentBounds, held.contentBounds)
+            assertNull(held.hostGeometry)
+        }
+        assertEquals(147.46, s.onParsed(known, 2_300).fare!!, 0.001)
+    }
+
+    @Test fun `changed pickup or trip fields reset before a missing fare can inherit`() {
+        val known = uber(147.46)
+        for (different in listOf(known.copy(pickupDistanceKm = 0.7), known.copy(pickupEtaMin = 4.0),
+            known.copy(tripDistanceKm = 6.3), known.copy(tripDurationMin = 49.0),
+            known.copy(platform = DidiOcrParser.DIDI_PACKAGE))) {
+            val s = FareStabilizer()
+            s.onParsed(known, 0)
+            assertNull(s.onParsed(different.copy(fare = null), 300).fare)
+            assertNull(s.onParsed(known.copy(fare = null), 600).fare)
+            assertEquals(79.45, s.onParsed(different.copy(fare = 79.45), 900).fare!!, 0.001)
+        }
+    }
+
+    @Test fun `unknown incomplete or invalid route identity cannot retain a fare`() {
+        val known = uber(147.46)
+        for (unknown in listOf(known.copy(pickupDistanceKm = null), known.copy(pickupEtaMin = null),
+            known.copy(tripDistanceKm = null), known.copy(tripDurationMin = null),
+            known.copy(tripDurationMin = Double.NaN), known.copy(pickupDistanceKm = -1.0))) {
+            val s = FareStabilizer()
+            s.onParsed(known, 0)
+            assertNull(s.onParsed(unknown.copy(fare = null), 300).fare)
+            assertNull(s.onParsed(known.copy(fare = null), 600).fare)
+        }
+    }
+
+    @Test fun `reset prevents an identical route replacement from inheriting unread payment`() {
+        val s = FareStabilizer()
+        s.onParsed(uber(147.46), 0)
+        s.reset()
+        assertNull(s.onParsed(uber(147.46).copy(fare = null), 300).fare)
+    }
+
+    @Test fun `a sustained lower fare replaces retained payment on the same route`() {
+        val s = FareStabilizer()
+        s.onParsed(uber(147.46), 0)
+        s.onParsed(uber(79.45), 300)
+        assertEquals(79.45, s.onParsed(uber(79.45), 600).fare!!, 0.001)
+        assertEquals(79.45, s.onParsed(uber(79.45).copy(fare = null), 900).fare!!, 0.001)
+    }
 }

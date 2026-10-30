@@ -96,6 +96,104 @@ class OfferFramePipelineVerdictTest {
             "Calle Falsa", "Avenida Ficticia", "McDonald's", "Carl's Jr.").any { it in line } })
     }
 
+    /** Reported 19:38 offer numbers on the anonymized S25 geometry; addresses remain fictitious. */
+    private fun priority147() = fixture().map {
+        it.copy(text = when (it.text) {
+            "$79.45" -> "$147.46"
+            "25 min • 2.6 km • $30.56/km est." -> "53 min • 7.0 km • $21.07/km est."
+            "1 min (0.2 km)" -> "4 min (0.7 km)"
+            "24 min (2.4 km)" -> "49 min (6.3 km)"
+            else -> it.text
+        })
+    }
+
+    @Test fun `reported 147_46 Priority offer produces the observed net verdict`() {
+        val (showing, metrics) = replay(priority147())
+        assertEquals(147.46, showing.event.card.fare!!, 0.000001)
+        assertEquals(7.0, metrics.totalKm!!, 0.000001)
+        assertEquals(53.0, metrics.totalMin!!, 0.000001)
+        assertEquals(18.225714, metrics.netPerKm!!, 0.000001)
+        assertTrue(showing.state.regla.band is ReglaBand.Rated)
+        assertEquals(VerdictLevel.GREEN, metrics.verdict.level)
+    }
+
+    @Test fun `same offer holds verdict and placement through unread fares then resets for changed legs`() = runTest {
+        val pipeline = OfferFramePipeline()
+        val seen = mutableListOf<OverlayVisibility>()
+        val parsed = mutableListOf<OfferEvent.Parsed>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            OverlayStateMachine(evaluate = { event ->
+                parsed += event
+                VerdictChipState.from(NetProfitEngine().evaluate(OfferMapping.toTripOffer(event.card),
+                    "2.84".toBigDecimal(), limits, PreferredMetric.IPK), limits)
+            }).visibility(OfferEventBus.events).collect { seen += it }
+        }
+        val full = priority147()
+        val unread = full.filterNot { it.text == "$147.46" }
+        val start = System.currentTimeMillis()
+        val viewport = OverlayViewport(display, 3f, mx.kompara.parsers.model.HostOrientation.PORTRAIT)
+        var firstPlacement: OverlayPlacement.Displayed? = null
+        for ((index, frame) in listOf(full, unread, unread, full).withIndex()) {
+            pipeline.process(frame, ownChip, null, capturedAtMs = start + index * 300,
+                displayBounds = display, density = 3f)
+            testScheduler.runCurrent()
+            val showing = seen.last() as OverlayVisibility.Showing
+            assertEquals(147.46, showing.event.card.fare!!, 0.000001)
+            assertTrue(showing.state.regla.band is ReglaBand.Rated)
+            assertEquals(parsed.first().card.sessionId, showing.event.card.sessionId)
+            assertEquals(parsed.first().card.hostGeometry!!.offerCard, showing.event.card.hostGeometry!!.offerCard)
+            assertEquals(start + index * 300, showing.event.card.hostGeometry!!.capturedAtMs)
+            val placement = OverlayPositioning.place(showing.event.card.hostGeometry, showing.event.packageName,
+                viewport, start + index * 300, ChipSize(715, 330), ChipSize(715, 200)) as OverlayPlacement.Displayed
+            if (firstPlacement == null) firstPlacement = placement
+            assertEquals(firstPlacement, placement)
+            assertTrue(OverlayPositioning.valid(firstPlacement.position, firstPlacement.size,
+                showing.event.card.hostGeometry!!, viewport))
+        }
+        assertEquals(4, parsed.size)
+        assertEquals(1, seen.filterIsInstance<OverlayVisibility.Reading>().size)
+        assertFalse(seen.any { it == OverlayVisibility.Hidden || it == OverlayVisibility.Exiting })
+        assertEquals(1, seen.filterIsInstance<OverlayVisibility.Showing>().map { it.state }.distinct().size)
+
+        // A sustained, independently readable fare revision wins the existing smoothing window.
+        repeat(3) { index ->
+            pipeline.process(full.map { if (it.text == "$147.46") it.copy(text = "$160.00") else it },
+                ownChip, null, capturedAtMs = start + 1200 + index * 300, displayBounds = display, density = 3f)
+            testScheduler.runCurrent()
+        }
+        val corrected = seen.last() as OverlayVisibility.Showing
+        assertEquals(160.0, corrected.event.card.fare!!, 0.000001)
+        assertEquals(parsed.first().card.sessionId, corrected.event.card.sessionId)
+        assertNotEquals(seen.filterIsInstance<OverlayVisibility.Showing>().first().state, corrected.state)
+        assertEquals(1, seen.filterIsInstance<OverlayVisibility.Reading>().size)
+
+        // Same fare shape and trip, but a different pickup, is a different offer.
+        pipeline.process(unread.map {
+            if (it.text == "4 min (0.7 km)") it.copy(text = "5 min (0.9 km)") else it
+        }, ownChip, null, capturedAtMs = start + 2100, displayBounds = display, density = 3f)
+        testScheduler.runCurrent()
+        val next = seen.last() as OverlayVisibility.Showing
+        assertNull(next.event.card.fare)
+        assertNotEquals(parsed.first().card.sessionId, next.event.card.sessionId)
+        assertEquals(2, seen.filterIsInstance<OverlayVisibility.Reading>().size)
+        assertEquals(ReglaUnavailable.FARE, (next.state.regla.band as ReglaBand.Unavailable).input)
+    }
+
+    @Test fun `a card replacement after one absent frame cannot inherit fare even with identical legs`() = runTest {
+        val pipeline = OfferFramePipeline()
+        val parsed = mutableListOf<OfferEvent.Parsed>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            OfferEventBus.events.collect { if (it is OfferEvent.Parsed) parsed += it }
+        }
+        for (blocks in listOf(priority147(), emptyList(), priority147().filterNot { it.text == "$147.46" })) {
+            pipeline.process(blocks, ownChip, null, displayBounds = display, density = 3f)
+            testScheduler.runCurrent()
+        }
+        assertEquals(2, parsed.size)
+        assertNull(parsed.last().card.fare)
+        assertNotEquals(parsed.first().card.sessionId, parsed.last().card.sessionId)
+    }
+
     @Test fun `supported currency formats survive the complete pipeline`() {
         for ((text, expected) in listOf("MX\$79.45" to 79.45, "MXN 79.45" to 79.45,
             "\$79.45 MXN" to 79.45, "MX\$79.45 MXN" to 79.45, "79.45 MXN" to 79.45,

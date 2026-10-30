@@ -39,7 +39,8 @@ class OfferFramePipeline(private val readiness: mx.kompara.data.service.ReaderRe
     // gross fare garble) before it can reach the chip, the stabilizer, OR the B-039 ledger.
     private val frameOutlierGuard = FrameOutlierGuard()
     // B-039 OCR ledger: classifies each frame into offer/trip/idle lifecycle signals.
-    private val sessions = mx.kompara.parsers.model.OfferSessionTracker()
+    private val sessions = OcrOfferSessionTracker()
+    private var observedIdentity: OcrOfferIdentity? = null
     private val lifecycleClassifier = OcrLifecycleClassifier()
     private var lastOfferKey: String? = null
     private var lastOfferPackage: String? = null
@@ -95,6 +96,15 @@ class OfferFramePipeline(private val readiness: mx.kompara.data.service.ReaderRe
         parsed?.let {
             if (it.hostGeometry == null) diagnostics.blocked("geometry missing",
                 "display=$displayBounds capturedAtMs=$capturedAtMs ageMs=${System.currentTimeMillis() - capturedAtMs}")
+            // An outlier can still reveal that the prior route is no longer established. Invalidate
+            // retained payment BEFORE rejecting that frame; otherwise a later unread frame could
+            // resurrect the old payment after intervening changed/unknown route evidence.
+            val nextIdentity = OcrOfferIdentity.from(it)
+            if (nextIdentity == null || nextIdentity != observedIdentity) {
+                sessions.reset()
+                fareStabilizer.reset()
+            }
+            observedIdentity = nextIdentity
         }
         // Drop a single gross OCR outlier (a ×10 distance, a gross fare garble) before it reaches the
         // chip OR the ledger; the signature below still holds the verdict across it, as for any garble.
@@ -115,12 +125,20 @@ class OfferFramePipeline(private val readiness: mx.kompara.data.service.ReaderRe
         // shared by the presence tracker (hold the chip) and the lifecycle classifier (hold OFFER).
         val signature = !ownUi &&
             (uberParser.hasCardSignature(blocks) || didiParser.hasCardSignature(blocks))
+        // Keep visual disappearance debounced, but never retain a payment across an observed gap.
+        // A replacement can have identical legs, so even one signature-free frame breaks identity.
+        if (!signature) {
+            observedIdentity = null
+            sessions.reset()
+            fareStabilizer.reset()
+            frameOutlierGuard.reset()
+        }
         diagnostics.reading(OcrReadingEvidence(blocks.size, ownUi, signature, parsed != null, parsed?.fare != null))
         if (signature && (parsed == null || parsed.fare == null)) {
             diagnostics.blocked("incomplete reading", "parsed=${parsed != null} paymentRead=${parsed?.fare != null}")
         }
         // Replace the raw parsed fare with the stabilized one so a one-frame OCR garble can't flip
-        // the verdict. Keyed on the trip leg (stable), not the fare. Null when no card this frame.
+        // the verdict. Both complete legs identify the offer, including when its fare is unreadable.
         val shownCard = card?.let { sessions.parsed(fareStabilizer.onParsed(it, System.currentTimeMillis()), System.currentTimeMillis()) }
         if (shownCard != null) {
             if (shownCard.fare != null) readiness?.readOffer(shownCard.platform,
@@ -149,6 +167,7 @@ class OfferFramePipeline(private val readiness: mx.kompara.data.service.ReaderRe
                 // Card truly gone → forget the session so the next offer paints fresh and is judged
                 // only against itself.
                 sessions.reset()
+                observedIdentity = null
                 fareStabilizer.reset()
                 frameOutlierGuard.reset()
                 OfferEventBus.tryEmit(
@@ -209,6 +228,7 @@ class OfferFramePipeline(private val readiness: mx.kompara.data.service.ReaderRe
         }
         lifecycleClassifier.onCaptureEnd(nowWallMs)?.let { OcrLifecycleBus.tryEmit(it) }
         sessions.reset()
+        observedIdentity = null
         presence.reset()
         fareStabilizer.reset()
         frameOutlierGuard.reset()

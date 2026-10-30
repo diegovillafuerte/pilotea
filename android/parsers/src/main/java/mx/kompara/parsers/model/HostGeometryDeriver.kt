@@ -19,6 +19,7 @@ object HostGeometryDeriver {
     private val accept = Regex("""\baceptar\b""", RegexOption.IGNORE_CASE)
     private val button = Regex("""\b(?:aceptar|rechazar)\b""", RegexOption.IGNORE_CASE)
     private val heading = Regex("""\b(?:uber\w*|didi|exclusivo|reserva|programado|radar de solicitud|pon tu precio)\b""", RegexOption.IGNORE_CASE)
+    private val uberHeading = Regex("""\b(?:uber\w*|radar de solicitud)\b""", RegexOption.IGNORE_CASE)
     private val chrome = Regex("""\b(?:en l[ií]nea|buscando viajes|men[uú]|buscar|gira|gire|dobla)\b""", RegexOption.IGNORE_CASE)
 
     fun offer(
@@ -67,9 +68,18 @@ object HostGeometryDeriver {
         if (measuredCard == null && anchors.isEmpty()) return null
         val firstText = anchors.minOfOrNull { it.top }
         val headingDistance = (HEADING_DISTANCE_DP * density).roundToInt()
+        // On a recognized Uber offer, metadata can separate the heading from the route by much
+        // more than 96dp. Losing only the fare must not move the inferred card top down to pickup:
+        // that would place our chip over the headline, then mask the fare on subsequent captures.
+        // This frame's host heading and action bound the sheet independently of payment extraction.
+        val offerHeading = if (recognizedOffer && packageName == "com.ubercab.driver" && firstText != null &&
+            accepts.any { it.bounds.top >= firstText }) boxes.filter {
+            uberHeading.containsMatchIn(it.text) &&
+                it.bounds.bottom <= firstText
+        }.maxByOrNull { it.bounds.bottom } else null
         val headers = if (firstText != null) boxes.filter {
             heading.containsMatchIn(it.text) && it.bounds.bottom <= firstText &&
-                firstText - it.bounds.bottom <= headingDistance
+                (firstText - it.bounds.bottom <= headingDistance || it == offerHeading)
         } else emptyList()
         val currentContent = anchors + headers.map { it.bounds } + accepts.map { it.bounds }
         val card = if (measuredCard != null && currentContent.all(measuredCard::contains)) measuredCard else run {

@@ -19,6 +19,8 @@ import mx.kompara.data.settings.PlatformThreshold
 import mx.kompara.data.settings.SettingsRepository
 import mx.kompara.metrics.NetProfitEngine
 import mx.kompara.metrics.OfferRecorder
+import mx.kompara.metrics.TripOffer
+import mx.kompara.metrics.recordedMetrics
 import mx.kompara.data.db.entity.TripLifecycle
 import mx.kompara.parsers.model.OfferCard
 import org.junit.After
@@ -313,6 +315,71 @@ class TripLifecycleTrackerTest {
         tracker.handle(LifecycleSignal.OfferSeen(uber, 1_300, complete))
         assertNull(offers.all().single().tripMin)
         assertEquals("NOT_TAKEN", offers.all().single().outcome)
+    }
+
+    @Test fun `newer same-route OCR fares update pending verdict using frozen costs and limits`() = runTest {
+        val offers = FakeOfferDao()
+        val costDao = FakeCostProfileDao()
+        val recorder = OfferRecorder(offers, CostProfileRepository(costDao), settings, NetProfitEngine())
+        val offer = TripOffer("uber", 90.0, 0.0, 0.0, 10.0, 20.0)
+        val first = recorder.record("ocr-revision", 1_000, offer, "OCR", false)
+        val original = first.evaluation!!
+        settings.setThreshold(PlatformThreshold(20.0, 300.0, 15.0, 200.0))
+        settings.setPreferredMetric(mx.kompara.data.settings.PreferredMetric.IPH)
+        CostProfileRepository(costDao).saveRunningCosts(
+            mx.kompara.data.accounting.RunningCostInputs(mx.kompara.data.accounting.RunningCostMode.DIRECT,
+                directPerKm = java.math.BigDecimal("8")), effectiveFrom = 1_100, recordedAt = 1_100)
+
+        for ((index, fare) in listOf(120.0, 40.0).withIndex()) {
+            val revised = recorder.record("ocr-revision", 1_000, offer.copy(fareMxn = fare), "OCR", false,
+                observedAt = 1_200L + index * 100)
+            assertEquals(first.id, revised.id)
+            assertEquals(first.seenAt, revised.seenAt)
+            assertEquals(fare, revised.fareMxn!!, 0.0)
+            val evaluation = revised.evaluation!!
+            assertEquals(original.evaluatedAt, evaluation.evaluatedAt)
+            assertEquals(original.unit, evaluation.unit)
+            assertEquals(original.goal, evaluation.goal)
+            assertEquals(original.minimum, evaluation.minimum)
+            assertEquals(original.costVersionId, evaluation.costVersionId)
+            assertEquals(fare, evaluation.contribution!!.toDouble(), 0.0)
+            assertEquals(fare / 10, evaluation.perKm!!.toDouble(), 0.0)
+            assertEquals(if (fare == 120.0) "GREEN" else "RED", revised.verdict)
+            assertEquals(fare / 10, revised.recordedMetrics().netPerKm!!, 0.0)
+        }
+        val missing = recorder.record("ocr-revision", 1_000, offer.copy(fareMxn = null), "OCR", false,
+            observedAt = 1_400)
+        assertEquals(40.0, missing.fareMxn!!, 0.0)
+        assertEquals("RED", missing.verdict)
+        assertEquals(1, offers.all().size)
+    }
+
+    @Test fun `fare revision requires newer OCR identity complete legs confirmed payment and pending outcome`() = runTest {
+        val original = TripOffer("uber", 90.0, 0.0, 0.0, 10.0, 20.0)
+        val changed = original.copy(fareMxn = 120.0)
+        data class Case(val incoming: TripOffer = changed, val firstSource: String = "OCR",
+            val source: String = "OCR", val at: Long = 1_100, val outcome: String = "PENDING")
+        val cases = listOf(
+            Case(firstSource = "ACCESSIBILITY"), Case(source = "ACCESSIBILITY"),
+            Case(at = 999), Case(at = 1_000), Case(outcome = "ACCEPTED"), Case(outcome = "NOT_TAKEN"),
+            Case(incoming = changed.copy(platform = "didi")),
+            Case(incoming = changed.copy(pickupKm = 1.0)), Case(incoming = changed.copy(pickupMin = 1.0)),
+            Case(incoming = changed.copy(tripKm = 11.0)), Case(incoming = changed.copy(tripMin = 21.0)),
+            Case(incoming = changed.copy(pickupKm = null)), Case(incoming = changed.copy(pickupMin = null)),
+            Case(incoming = changed.copy(tripKm = null)), Case(incoming = changed.copy(tripMin = null)),
+            Case(incoming = changed.copy(paymentBasis = "UNCONFIRMED")),
+            Case(incoming = changed.copy(fareMxn = Double.NaN)), Case(incoming = changed.copy(fareMxn = 0.0)),
+        )
+        for (case in cases) {
+            val offers = FakeOfferDao()
+            val recorder = OfferRecorder(offers, CostProfileRepository(FakeCostProfileDao()), settings, NetProfitEngine())
+            val first = recorder.record("guarded", 1_000, original, case.firstSource, false)
+            offers.update(first.copy(outcome = case.outcome))
+            val after = recorder.record("guarded", 1_000, case.incoming, case.source, false, case.at)
+            assertEquals(case.toString(), first.fareMxn, after.fareMxn)
+            assertEquals(case.toString(), first.evaluation, after.evaluation)
+            assertEquals(case.toString(), case.outcome, after.outcome)
+        }
     }
 
     @Test fun `host switch cannot accept or finish another apps trip`() = runTest {

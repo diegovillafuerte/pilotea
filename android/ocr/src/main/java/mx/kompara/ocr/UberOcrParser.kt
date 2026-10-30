@@ -44,6 +44,8 @@ class UberOcrParser {
         """(?:(?:MX[N$]\s*\$?|\$)\s*$amountPattern(?:\s+MXN)?|$amountPattern\s+MXN)""",
         RegexOption.IGNORE_CASE,
     )
+    private val amountOnlyRegex = Regex(amountPattern)
+    private val currencyFragmentRegex = Regex("""MXN|MX\$|\$""", RegexOption.IGNORE_CASE)
     private val excludedContext = Regex(
         """/\s*km\b|\bkm\s+est\b|\best\.|\bincluido\b|\bpara\s+inicio\b|\btu\s+(?:meta|m[ií]nimo)\b|\bantes\b|\b(?:precio|tarifa)\s+original\b""",
         RegexOption.IGNORE_CASE,
@@ -65,8 +67,8 @@ class UberOcrParser {
 
     fun parse(blocks: List<OcrBlock>, cardBounds: OcrBounds? = null, chipRect: ScreenRect? = null): OfferCard? {
         val cardBlocks = cardBlocks(blocks, cardBounds, chipRect)
-        if (!hasCardSignature(cardBlocks)) return null
-        val fareHit = extractFare(cardBlocks)
+        if (!hasCardSignature(cardBlocks, cardBounds)) return null
+        val fareHit = extractFare(cardBlocks, cardBounds)
         val trip = extractTripLeg(cardBlocks)
         val pickup = extractPickupLeg(cardBlocks)
 
@@ -104,7 +106,7 @@ class UberOcrParser {
     /** A card survives missing money/time, but idle bonuses and explicit zero-wallet pills do not. */
     fun hasCardSignature(blocks: List<OcrBlock>, cardBounds: OcrBounds? = null, chipRect: ScreenRect? = null): Boolean {
         val cardBlocks = cardBlocks(blocks, cardBounds, chipRect)
-        val fare = extractFare(cardBlocks)
+        val fare = extractFare(cardBlocks, cardBounds)
         val text = cardBlocks.joinToString(" ") { it.text }
         val trip = extractTripLeg(cardBlocks)
         val action = acceptRegex.containsMatchIn(text)
@@ -120,7 +122,18 @@ class UberOcrParser {
             (trip != null && (action || host)) || (host && action)
     }
 
-    private data class FareHit(val value: Double, val bounds: OcrBounds)
+    private data class FareHit(
+        val value: Double,
+        val bounds: OcrBounds,
+        val amountHeight: Int,
+        val currencyAnchored: Boolean,
+    )
+
+    private data class CurrencyAmount(val amount: OcrBlock, val members: List<OcrBlock>) {
+        val block = OcrBlock(members.sortedBy { it.bounds.left }.joinToString(" ") { it.text.trim() },
+            OcrBounds(members.minOf { it.bounds.left }, members.minOf { it.bounds.top },
+                members.maxOf { it.bounds.right }, members.maxOf { it.bounds.bottom }))
+    }
 
     /** Observed card bounds take precedence; the heading/action band is the OCR-only fallback. */
     private fun cardBlocks(blocks: List<OcrBlock>, bounds: OcrBounds? = null, chip: ScreenRect? = null): List<OcrBlock> {
@@ -176,35 +189,76 @@ class UberOcrParser {
         return (heights[(heights.size - 1) / 2] + heights[heights.size / 2]) / 2.0
     }
 
+    /** Join only adjacent, same-row currency glyphs; never merge two amounts or infer a currency. */
+    private fun currencyAmounts(blocks: List<OcrBlock>): List<CurrencyAmount>? {
+        val amounts = blocks.filter {
+            fareRegex.matches(it.text.trim()) || amountOnlyRegex.matches(it.text.trim())
+        }
+        val fragments = blocks.filter { currencyFragmentRegex.matches(it.text.trim()) }
+        val owners = mutableMapOf<OcrBlock, OcrBlock>()
+        for (fragment in fragments) {
+            val matches = amounts.filter { amount ->
+                val a = amount.bounds
+                val f = fragment.bounds
+                val gap = maxOf(a.left - f.right, f.left - a.right, 0)
+                sameRow(a, f) && gap <= minOf(a.height, f.height) &&
+                    fareRegex.matches(listOf(amount, fragment).sortedBy { it.bounds.left }
+                        .joinToString(" ") { it.text.trim() }) &&
+                    // A label between the glyph and amount is context, not part of a currency.
+                    blocks.none { other -> other != amount && other != fragment &&
+                        sameRow(a, other.bounds) && other.bounds.left >= minOf(a.right, f.right) &&
+                        other.bounds.right <= maxOf(a.left, f.left) && other !in fragments }
+            }
+            // A shared currency fragment cannot establish which neighboring number is payment.
+            if (matches.size > 1) return null
+            matches.singleOrNull()?.let { owners[fragment] = it }
+        }
+        return amounts.map { amount ->
+            val token = CurrencyAmount(amount, listOf(amount) + owners.filterValues { it == amount }.keys)
+            // A clean decimal without a recovered currency is still competing-price evidence.
+            // It can withhold payment, but can never establish a fare by itself.
+            if (!fareRegex.matches(token.block.text) && !amountOnlyRegex.matches(token.block.text)) return null
+            token
+        }
+    }
+
     /** Context and headline evidence are prerequisites, never tie-breakers for arbitrary amounts. */
-    private fun extractFare(blocks: List<OcrBlock>): FareHit? {
+    private fun extractFare(blocks: List<OcrBlock>, cardBounds: OcrBounds? = null): FareHit? {
         val hasHost = blocks.any { hostRegex.containsMatchIn(it.text) }
         val positioned = blocks.filter { it.bounds.valid }
         val firstLeg = positioned.filter(::isRouteLine).minOfOrNull { it.bounds.top } ?: return null
+        // Currency can be a separate OCR line. Associate it before measuring body text or the
+        // headline boundary: a terminal MXN must never cut its own amount out of ambiguity checks.
+        val amounts = currencyAmounts(positioned) ?: return null
+        val moneyBlocks = amounts.flatMap { it.members }.toSet()
         val body = positioned.filterNot {
             hostRegex.containsMatchIn(it.text) || acceptRegex.containsMatchIn(it.text) ||
                 it.text.trim().length <= 1 || it.text.equals("Exclusivo", true) ||
-                fareRegex.matches(it.text.trim())
+                it in moneyBlocks || currencyFragmentRegex.matches(it.text.trim())
         }
         val bodyHeight = medianHeight(body) ?: return null
-        // Without observed card edges, don't let an amount expand the card's horizontal envelope.
-        // Legacy hostless frames have only indented route anchors; allow two body glyphs of inset.
-        val anchors = positioned.filterNot { fareRegex.matches(it.text.trim()) }
+        // Real card edges outrank the text envelope. OCR-only cards can have narrow, indented
+        // supporting lines even with an Uber heading; allow two body glyphs around those anchors.
+        val anchors = positioned.filterNot { it in moneyBlocks }
         if (anchors.isEmpty()) return null
-        val inset = if (hasHost) 0 else (bodyHeight * 2).toInt()
-        val left = anchors.minOf { it.bounds.left } - inset
-        val right = anchors.maxOf { it.bounds.right } + inset
+        val inset = (bodyHeight * 2).toInt()
+        val left = cardBounds?.left ?: (anchors.minOf { it.bounds.left } - inset)
+        val right = cardBounds?.right ?: (anchors.maxOf { it.bounds.right } + inset)
         val headingBottom = positioned.filter { hostRegex.containsMatchIn(it.text) }
             .maxOfOrNull { it.bounds.bottom }
         // A fare belongs before the first body/metadata row, not somewhere between bonuses and legs.
         val headlineEnd = body.filter { headingBottom == null || it.bounds.top >= headingBottom }
             .minOfOrNull { it.bounds.top } ?: firstLeg
         val rows = visualRows(positioned)
-        val candidates = positioned.mapNotNull { block ->
-            val value = standaloneFare(block, hasHost)?.takeIf { it > 0 && it.isFinite() } ?: return@mapNotNull null
-            val b = block.bounds
-            if (b.left < left || b.right > right || b.bottom > firstLeg || b.bottom > headlineEnd) return@mapNotNull null
-            val row = rows.first { block in it }
+        val candidates = amounts.mapNotNull { amount ->
+            val anchoredValue = standaloneFare(amount.block, hasHost)
+            val value = (standaloneFare(amount.block, true)
+                ?: amountOnlyRegex.matchEntire(amount.block.text)?.groupValues?.get(1)
+                    ?.let(::cleanNumber)?.toDoubleOrNull())
+                ?.takeIf { it > 0 && it.isFinite() } ?: return@mapNotNull null
+            val b = amount.block.bounds
+            if (b.bottom > firstLeg || b.bottom > headlineEnd) return@mapNotNull null
+            val row = (rows.first { amount.amount in it } + amount.members).distinct()
             // Wrapped labels immediately above/below and touching fragments are context, but a
             // separate body row (e.g. S25's summary 29px below the headline) is not its suffix.
             val attached = positioned.filter { other ->
@@ -221,14 +275,17 @@ class UberOcrParser {
                 immediatelyLeft?.text?.trimStart()?.startsWith("+") == true ||
                 row.any { it.text.trimStart().startsWith("+") } ||
                 attached.any { it.text.trimStart().startsWith("+") }) return@mapNotNull null
-            FareHit(value, b)
+            FareHit(value, b, amount.amount.bounds.height, anchoredValue != null)
         }
         // A strike is not represented by ML Kit's text/bounds. If two clean headlines survive, no
         // height or reading-order guess can prove which is current driver payment: withhold both.
         val candidate = candidates.singleOrNull() ?: return null
         // Check ambiguity before height: a smaller current amount beside a tall original price is
         // still a second price. Integer rounding tolerates subpixel OCR measurement of the 1.4 ratio.
-        return candidate.takeIf { it.bounds.height > bodyHeight && it.bounds.height >= (bodyHeight * 1.4).toInt() }
+        return candidate.takeIf {
+            it.currencyAnchored && it.bounds.left >= left && it.bounds.right <= right &&
+                it.amountHeight > bodyHeight && it.amountHeight >= (bodyHeight * 1.4).toInt()
+        }
     }
 
     private data class Leg(val min: Double?, val km: Double?, val bounds: OcrBounds?)

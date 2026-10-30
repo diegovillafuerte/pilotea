@@ -222,10 +222,16 @@ class OverlayController @Inject constructor(
         // A changed frame may still leave the current footprint safe and in the same slot.
         // Keep it visible until measurement proves a move/resize is required.
         val current = placement
-        if (current != null && !OverlayPositioning.valid(current.position, current.size, g!!, v, current.overMarker))
+        val currentIsSafe = current != null &&
+            OverlayPositioning.valid(current.position, current.size, g!!, v, current.overMarker)
+        if (current != null && !currentIsSafe)
             hideUntilSettled()
         geometry = g!!; viewport = v
-        savedPosition = savedPositions[OverlayPositionKey(next.packageName, v.orientation)]
+        // Current-frame geometry still gates safety. Small OCR envelope changes must not pull an
+        // already safe same-offer chip toward the headline on each measurement. New offers detach
+        // in Reading, so they cannot inherit this transient position.
+        savedPosition = if (currentIsSafe) current!!.position
+            else savedPositions[OverlayPositionKey(next.packageName, v.orientation)]
         attach()
         geometryExpiry = scope.launch(Dispatchers.Main) {
             delay((g.capturedAtMs + OverlayPositioning.MAX_GEOMETRY_AGE_MS - System.currentTimeMillis() + 1).coerceAtLeast(1))

@@ -35,6 +35,25 @@ class OcrLifecycleClassifierTest {
         t: Long = 0L,
     ) = classifier.onFrame(text, card, offerPresent, host, t)
 
+    @Test fun `confirmed OCR fare revision updates one identified route without dropping missing frames`() {
+        val known = uberCard.copy(captureSource = "OCR", sessionId = "route-session", paymentBasis = "DRIVER_PAYMENT")
+        assertTrue(frame(card = known, t = 1) is LifecycleSignal.OfferSeen)
+        assertNull(frame(card = known.copy(fare = null), t = 2))
+        val update = frame(card = known.copy(fare = 147.46), t = 3) as LifecycleSignal.OfferSeen
+        assertEquals(147.46, update.card.fare!!, 0.001)
+        assertEquals(known.sessionId, update.card.sessionId)
+        assertNull(frame(card = update.card, t = 4))
+        assertNull(frame(card = update.card.copy(fare = null), t = 5))
+    }
+
+    @Test fun `a fare revision cannot bypass unknown or changed route evidence`() {
+        val known = uberCard.copy(captureSource = "OCR", sessionId = "route-session", paymentBasis = "DRIVER_PAYMENT")
+        frame(card = known, t = 1)
+        assertNull(frame(card = known.copy(fare = 147.46, pickupEtaMin = null), t = 2))
+        assertNull(frame(card = known.copy(fare = 147.46, pickupEtaMin = 6.0), t = 3))
+        assertNull(frame(card = known.copy(fare = 147.46, paymentBasis = "UNCONFIRMED"), t = 4))
+    }
+
     @Test
     fun `first partial frame enriches the same session once when fields become readable`() {
         val complete = uberCard.copy(sessionId = "same", paymentBasis = "DRIVER_PAYMENT")

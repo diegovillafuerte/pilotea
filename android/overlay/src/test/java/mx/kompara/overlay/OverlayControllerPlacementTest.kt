@@ -17,23 +17,30 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import mx.kompara.capture.OfferEvent
+import mx.kompara.capture.OfferEventBus
 import mx.kompara.data.db.dao.CostProfileDao
 import mx.kompara.data.db.dao.OfferDao
 import mx.kompara.data.db.dao.OfferPresentationDao
 import mx.kompara.data.service.ReaderMemory
 import mx.kompara.data.service.ReaderMemoryStore
 import mx.kompara.data.service.ReaderReadinessRepository
+import mx.kompara.data.service.ScreenRect
 import mx.kompara.data.settings.CostProfileRepository
 import mx.kompara.data.settings.PlatformThreshold
 import mx.kompara.data.settings.PreferredMetric
 import mx.kompara.data.settings.SettingsRepository
 import mx.kompara.metrics.NetProfitEngine
 import mx.kompara.metrics.OfferRecorder
+import mx.kompara.ocr.OcrBlock
+import mx.kompara.ocr.OcrBounds
+import mx.kompara.ocr.OfferFramePipeline
 import mx.kompara.parsers.model.HostGeometry
 import mx.kompara.parsers.model.HostOrientation
 import mx.kompara.parsers.model.HostRect
@@ -48,6 +55,9 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.Implementation
 import org.robolectric.annotation.Implements
 import org.robolectric.shadows.ShadowViewGroup
+import org.robolectric.shadows.ShadowLog
+import org.json.JSONArray
+import java.io.File
 import java.lang.reflect.Proxy
 import java.math.BigDecimal
 import java.time.Clock
@@ -81,6 +91,59 @@ class OverlayControllerPlacementTest {
     private val placement = OverlayPlacement.Displayed(OverlayPosition(324, 243), ChipSize(720, 336), PlateFormat.FULL)
     private val reading = VerdictChipState.reading(PlatformThreshold.DEFAULT, PreferredMetric.IPK)
     private val rated = VerdictChipState(reading.copy(band = ReglaBand.Rated(ReglaPosition.ABOVE, BigDecimal("12"))), "15")
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test fun `read unread unread read frames preserve visible window position and verdict`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val controller = controller()
+        try {
+            ShadowLog.clear()
+            val v = method("readViewport", WindowInsets::class.java).invoke(controller, null) as OverlayViewport
+            val shown = OverlayPlacement.Displayed(OverlayPosition(12, 300), ChipSize(240, 112), PlateFormat.FULL)
+            val view = ComposeView(context).apply { alpha = 1f }
+            val params = WindowManager.LayoutParams().apply { x = 12; y = 300 }
+            field("composeView").set(controller, view)
+            field("placement").set(controller, shown)
+            field("layoutParams").set(controller, params)
+            state(controller, "viewport", v)
+            val seen = mutableListOf<OverlayVisibility>()
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                OverlayStateMachine(evaluate = { event ->
+                    VerdictChipState.from(NetProfitEngine().evaluate(OfferMapping.toTripOffer(event.card),
+                        "2.84".toBigDecimal(), PlatformThreshold.DEFAULT, PreferredMetric.IPK), PlatformThreshold.DEFAULT)
+                }).visibility(OfferEventBus.events).collect {
+                    seen += it
+                    // The first Reading precedes the verified window supplied by this compositor
+                    // harness. Any subsequent Reading would detach it in the actual controller.
+                    if (it is OverlayVisibility.Showing) render(controller, backgroundScope, it)
+                }
+            }
+            val json = JSONArray(File("../ocr/src/test/resources/uber_priority_s25_2026_10_29.json").readText())
+            val full = (0 until json.length()).map { index ->
+                val b = json.getJSONObject(index)
+                OcrBlock(b.getString("text"), OcrBounds(b.getInt("left"), b.getInt("top"),
+                    b.getInt("right"), b.getInt("bottom")))
+            }
+            val unread = full.filterNot { it.text == "$79.45" }
+            val pipeline = OfferFramePipeline()
+            for (frame in listOf(full, unread, unread, full)) {
+                pipeline.process(frame, ScreenRect(325, 242, 1040, 572), null,
+                    displayBounds = v.bounds, density = v.density)
+                testScheduler.runCurrent()
+                assertTrue((seen.last() as OverlayVisibility.Showing).state.regla.band is ReglaBand.Rated)
+                assertEquals(1f, view.alpha)
+                assertSame(view, field("composeView").get(controller))
+                assertSame(shown, field("placement").get(controller))
+                assertSame(params, field("layoutParams").get(controller))
+                assertEquals(12, params.x); assertEquals(300, params.y)
+                assertEquals(0, params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE)
+                assertEquals(shown.position, (field("savedPosition\$delegate").get(controller) as MutableState<*>).value)
+            }
+            assertEquals(1, seen.filterIsInstance<OverlayVisibility.Reading>().size)
+            assertTrue(seen.all { it is OverlayVisibility.Reading || it is OverlayVisibility.Showing })
+            assertFalse(ShadowLog.getLogsForTag("OverlayController").any { "LAYOUT_PENDING" in it.msg })
+        } finally { controller.stop(); Dispatchers.resetMain() }
+    }
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     @Test fun `visible same-slot content and geometry updates never hide or reset placement`() = runTest {
