@@ -33,13 +33,15 @@ internal data class OcrOfferIdentity(
  */
 internal class OcrOfferSessionTracker {
     enum class Confidence { CONFIDENT, UNCERTAIN }
-    data class Decision(val card: OfferCard?, val confidence: Confidence, val replaced: Boolean = false)
+    data class Decision(val card: OfferCard?, val confidence: Confidence, val replaced: Boolean = false,
+        val identityUnresolved: Boolean = false)
     private val presence = CardPresenceTracker()
     private var baseline: OfferCard? = null
     private var previous: OfferCard? = null
     private var votes = emptyMap<String, Pair<Any, Int>>()
     private var id: String? = null
     private var startedAt = 0L
+    private var replacementPending = false
 
     fun isPresent() = presence.isPresent()
     fun obscuredBy(mask: HostRect?): Boolean {
@@ -52,10 +54,13 @@ internal class OcrOfferSessionTracker {
     /** Absence must be corroborated; filtered/occluded frames are uncertainty, not disappearance. */
     fun miss(cardLike: Boolean, nowMs: Long, observedGone: Boolean = false): Boolean {
         votes = emptyMap()
-        val gone = observedGone && presence.isPresent() || presence.onMiss(cardLike, nowMs)
+        // Signature-free OCR is dropout, even when repeated; only positive absence retires.
+        val gone = observedGone && presence.isPresent()
         if (gone) reset()
         return gone
     }
+
+    fun suspendObservation() { votes = emptyMap() }
 
     fun stackChanged(card: OfferCard): Boolean = (previous?.instanceEvidence?.visibleCards ?: 1) >
         (card.instanceEvidence?.visibleCards ?: 1)
@@ -108,6 +113,7 @@ internal class OcrOfferSessionTracker {
             changes["known-secondary"] = secondary
         }
         if (maskedCriticalEvidence || !extractionCertain) changes.clear()
+        if (changes.isNotEmpty()) replacementPending = true
         votes = changes.mapValues { (key, value) ->
             val prior = votes[key]
             value to if (prior?.first == value) prior.second + 1 else 1
@@ -128,8 +134,10 @@ internal class OcrOfferSessionTracker {
         val uncertain = route == null || changes.isNotEmpty() || movement || missingTokens || maskedCriticalEvidence || !extractionCertain
         if (uncertain) {
             return Decision(stamped(old.copy(fare = null, raw = old.raw - "fare", paymentBasis = "UNCONFIRMED",
-                hostGeometry = card.hostGeometry, contentBounds = card.contentBounds)), Confidence.UNCERTAIN)
+                hostGeometry = card.hostGeometry, contentBounds = card.contentBounds)), Confidence.UNCERTAIN,
+                identityUnresolved = replacementPending)
         }
+        replacementPending = false
         baseline = card.copy(instanceEvidence = b?.copy(labels = a?.labels.orEmpty() + b.labels))
         return Decision(stamped(card), Confidence.CONFIDENT)
     }
@@ -163,6 +171,7 @@ internal class OcrOfferSessionTracker {
         votes = emptyMap()
         id = null
         startedAt = 0L
+        replacementPending = false
         presence.reset()
     }
 }

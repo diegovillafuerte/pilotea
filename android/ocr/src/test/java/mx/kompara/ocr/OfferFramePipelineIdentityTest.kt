@@ -42,7 +42,7 @@ class OfferFramePipelineIdentityTest {
             val full = fixture()
             val unread = full.filterNot { it.text == "$79.45" }
             for ((index, blocks) in listOf(full, full, rejected(full), unread).withIndex()) {
-                pipeline.process(blocks, ScreenRect(325, 242, 1040, 572), null,
+                pipeline.processOwnedFrame(blocks, ScreenRect(325, 242, 1040, 572), null,
                     displayBounds = HostRect(0, 0, 1080, 2340), density = 3f)
                 yield()
                 assertEquals("The third frame must be rejected before publication", if (index < 2) index + 1 else if (index == 2) 2 else 3,
@@ -96,12 +96,12 @@ class OfferFramePipelineIdentityTest {
             val at = System.currentTimeMillis()
             val idle = mx.kompara.parsers.model.HostGeometryDeriver.idleHost(UberOcrParser.UBER_PACKAGE,
                 at + 300, display, HostRect(0, 0, 1080, 200))!!
-            pipeline.process(fixture(), null, null, capturedAtMs = at, displayBounds = display, density = 3f)
-            pipeline.process(fixture(), null, null, capturedAtMs = at + 300, displayBounds = display, density = 3f,
+            pipeline.processOwnedFrame(fixture(), null, null, capturedAtMs = at, displayBounds = display, density = 3f)
+            pipeline.processOwnedFrame(fixture(), null, null, capturedAtMs = at + 300, displayBounds = display, density = 3f,
                 hostObservation = mx.kompara.parsers.model.HostLayoutObservation(idle, true, true))
             yield()
             assertEquals("Independent disappearance must not publish stale OCR as a new record", 1, parsed.size)
-            pipeline.process(fixture().filterNot { it.text == "$79.45" }, null, null,
+            pipeline.processOwnedFrame(fixture().filterNot { it.text == "$79.45" }, null, null,
                 capturedAtMs = at + 600, displayBounds = display, density = 3f)
             yield()
             assertEquals(2, parsed.size)
@@ -120,7 +120,7 @@ class OfferFramePipelineIdentityTest {
             val revision = full.map { if (it.text == "$79.45") it.copy(text = "$99.45") else it }
             suspend fun frame(blocks: List<OcrBlock>) {
                 org.robolectric.shadows.ShadowSystemClock.advanceBy(java.time.Duration.ofMillis(900))
-                pipeline.process(blocks, null, null, displayBounds = HostRect(0, 0, 1080, 2340),
+                pipeline.processOwnedFrame(blocks, null, null, displayBounds = HostRect(0, 0, 1080, 2340),
                     density = 3f, foregroundPackage = UberOcrParser.UBER_PACKAGE)
                 yield()
             }

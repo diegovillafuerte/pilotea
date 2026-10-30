@@ -60,6 +60,10 @@ class OcrLifecycleClassifier(private val markers: OcrTripMarkers = OcrTripMarker
         lastHost = null
     }
 
+    /** Suspension retains deduplication and emitted fields for this host's unchanged card. */
+    fun onObservationLost(timestampMs: Long): LifecycleSignal? =
+        lastHost?.let { LifecycleSignal.ObservationLost(it, timestampMs) }
+
     /** Losing capture ends observation, never the trip. A later observed state resolves it. */
     fun onCaptureEnd(timestampMs: Long): LifecycleSignal? {
         val pkg = lastHost
@@ -88,6 +92,7 @@ class OcrLifecycleClassifier(private val markers: OcrTripMarkers = OcrTripMarker
         offerPresent: Boolean,
         hostPackage: String,
         timestampMs: Long,
+        observedIdle: Boolean = false,
     ): LifecycleSignal? {
         val hostChanged = lastHost != hostPackage
         if (hostChanged) { phase = Phase.NONE; offerEmitted = false; sessionOfferKey = null }
@@ -121,7 +126,7 @@ class OcrLifecycleClassifier(private val markers: OcrTripMarkers = OcrTripMarker
         val next = when {
             markers.isCancelled(joinedText) -> Phase.CANCELLED
             markers.isTripLike(joinedText) -> if (markers.isUnderWay(joinedText)) Phase.TRIP else Phase.ACCEPTED
-            markers.isIdle(joinedText) -> Phase.IDLE
+            observedIdle || markers.isIdle(joinedText) -> Phase.IDLE
             else -> Phase.UNKNOWN
         }
         if (next == phase) return null

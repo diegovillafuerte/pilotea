@@ -9,6 +9,7 @@ import org.junit.After
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.Shadows.shadowOf
 
 @RunWith(AndroidJUnit4::class)
 class HostGeometryEvidenceTest {
@@ -18,7 +19,10 @@ class HostGeometryEvidenceTest {
         SnapshotNode(text, id, className, bounds, 1, 0)
     private fun snapshot(nodes: List<SnapshotNode>) = ScreenSnapshot(host, 100L, nodes)
 
-    @After fun clear() { HostGeometryEvidence.publish(null) }
+    @After fun clear() {
+        HostGeometryEvidence.publish(null)
+        HostWindowOwnershipSource.detach(this)
+    }
 
     @Test fun `node card bounds and known marker outer bounds reach offer geometry`() {
         val card = HostRect(0, 545, 393, 852)
@@ -102,20 +106,54 @@ class HostGeometryEvidenceTest {
     }
 
     @Test fun `window source never merges another host into geometry and clears on detach`() {
-        fun root(packageName: String, label: String) = android.view.accessibility.AccessibilityNodeInfo.obtain().apply {
-            this.packageName = packageName
-            text = label
-            setBoundsInScreen(Rect(0, 0, 393, 852))
-        }
+        HostWindowOwnershipSource.attach(this) { pkg, at -> HostWindowOwnership(pkg, at, display.bounds, 7, display.bounds) }
         val source = WindowSnapshotSource(NodeFlattener())
         source.attach(WindowSnapshotSource.RootProvider {
-            listOf(root(host, "Uber"), root("com.didiglobal.driver", "DiDi"))
+            listOf(root(host, "Uber", 7), root("com.didiglobal.driver", "DiDi", 8))
         }) { display }
         val captured = source.read(host, 100)!!
         assertEquals(host, captured.packageName)
         assertEquals(listOf("Uber"), captured.nodes.map { it.text })
+        assertEquals(7, captured.hostWindow!!.windowId)
         assertSame(captured.hostWindow, HostGeometryEvidence.current(host, 100))
         source.detach()
         assertNull(HostGeometryEvidence.state.value)
     }
+
+    @Test fun `same package lower window idle nodes cannot enter selected window geometry`() {
+        HostWindowOwnershipSource.attach(this) { pkg, at -> HostWindowOwnership(pkg, at, display.bounds, 7, display.bounds) }
+        val source = WindowSnapshotSource(NodeFlattener())
+        source.attach(WindowSnapshotSource.RootProvider {
+            listOf(root(host, "Buscando viajes", 6), root(host, "Uber Priority", 7))
+        }) { display }
+        val captured = source.read(host, 100)!!
+        assertEquals(listOf("Buscando viajes", "Uber Priority"), captured.nodes.map { it.text })
+        assertEquals(listOf("Uber Priority"), captured.hostWindow!!.textBounds.map { it.text })
+        assertEquals(7, captured.hostWindow!!.windowId)
+        assertSame(captured.hostWindow, HostGeometryEvidence.current(host, 100))
+        source.detach()
+    }
+
+    @Test fun `node geometry is withheld when selected window changes while nodes are read`() {
+        var selectedId = 7
+        HostWindowOwnershipSource.attach(this) { pkg, at -> HostWindowOwnership(pkg, at, display.bounds, selectedId, display.bounds) }
+        val source = WindowSnapshotSource(NodeFlattener())
+        source.attach(WindowSnapshotSource.RootProvider {
+            selectedId = 8
+            listOf(root(host, "Buscando viajes", 7))
+        }) { display }
+        assertNull(source.read(host, 100)!!.hostWindow)
+        assertNull(HostGeometryEvidence.state.value)
+        source.detach()
+    }
+
+    private fun root(packageName: String, label: String, id: Int) =
+        android.view.accessibility.AccessibilityNodeInfo.obtain().apply {
+            this.packageName = packageName
+            text = label
+            setBoundsInScreen(Rect(0, 0, 393, 852))
+            val window = android.view.accessibility.AccessibilityWindowInfo.obtain()
+            shadowOf(window).setId(id)
+            shadowOf(this).setAccessibilityWindowInfo(window)
+        }
 }

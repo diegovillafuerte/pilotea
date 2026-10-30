@@ -24,7 +24,8 @@ class FareStabilizer(private val windowMs: Long = WINDOW_MS) {
     private var firstRevealUsed = false
 
     /** Only confirmed payment is published to the shared overlay/ledger path. */
-    fun onParsed(card: OfferCard, nowMs: Long, confident: Boolean = true): OfferCard {
+    fun onParsed(card: OfferCard, nowMs: Long, confident: Boolean = true,
+        identityUnresolved: Boolean = false): OfferCard {
         val nextRoute = OcrOfferIdentity.from(card)
         if (card.sessionId != null) {
             if (instanceId != card.sessionId) {
@@ -35,6 +36,10 @@ class FareStabilizer(private val windowMs: Long = WINDOW_MS) {
             // Standalone callers lack the pipeline's durable instance ID. Never carry money across
             // unknown/changed routes; the production path always supplies the assigned session ID.
             reset()
+        }
+        if (identityUnresolved) {
+            breakCandidateAgreement()
+            return card.withoutPayment()
         }
         val uncertain = !confident || nextRoute == null ||
             (card.sessionId != null && route != null && nextRoute != route)
@@ -47,7 +52,7 @@ class FareStabilizer(private val windowMs: Long = WINDOW_MS) {
         val fare = card.fare
         if (fare == null || !fare.isFinite() || fare <= 0.0) {
             candidate = null
-            return confirmed?.let { card.withPayment(it) } ?: card
+            return confirmed?.let { card.withPayment(it) } ?: if (fare == null) card.withoutPayment() else card
         }
         val reading = Sample(fare, nowMs, card.paymentBasis, card.raw["fare"])
         if (!firstRevealUsed) {

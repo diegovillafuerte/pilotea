@@ -43,6 +43,8 @@ import mx.kompara.ocr.OcrBlock
 import mx.kompara.ocr.OcrBounds
 import mx.kompara.ocr.OfferFramePipeline
 import mx.kompara.parsers.model.HostGeometry
+import mx.kompara.parsers.model.HostGeometrySource
+import mx.kompara.parsers.model.HostOcrGeometryEvidence
 import mx.kompara.parsers.model.HostOrientation
 import mx.kompara.parsers.model.HostRect
 import mx.kompara.parsers.model.OfferCard
@@ -94,6 +96,63 @@ class OverlayControllerPlacementTest {
     private val rated = VerdictChipState(reading.copy(band = ReglaBand.Rated(ReglaPosition.ABOVE, BigDecimal("12"))), "15")
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test fun `initial fare-only geometry never attaches a controller window before upper evidence`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val controller = controller()
+        try {
+            val v = method("readViewport", WindowInsets::class.java).invoke(controller, null) as OverlayViewport
+            val pending = geometry.copy(displayBounds = v.bounds,
+                offerCard = HostRect(0, 722, v.bounds.right, v.bounds.bottom),
+                source = HostGeometrySource.OCR_TEXT_BOUNDS,
+                ocrEvidence = HostOcrGeometryEvidence(null, emptyList(),
+                    listOf(HostRect(190, 1420, 510, 1477), HostRect(190, 1625, 541, 1682)), false))
+            repeat(3) {
+                val event = OfferEvent.Parsed(pending.packageName, pending.capturedAtMs,
+                    OfferCard(platform = pending.packageName, fare = 79.45, sessionId = "slide-in",
+                        hostGeometry = pending))
+                render(controller, backgroundScope, OverlayVisibility.Showing(rated, "slide-in", event))
+                assertNull("A stable fare cannot authorize the initial window", field("composeView").get(controller))
+                assertNull(ScreenReaderState.overlayChipRect)
+            }
+        } finally { controller.stop(); Dispatchers.resetMain() }
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test fun `replacement slide-in cannot reuse the preceding offers upper boundary`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val controller = controller()
+        try {
+            val v = method("readViewport", WindowInsets::class.java).invoke(controller, null) as OverlayViewport
+            val observed = geometry.copy(displayBounds = v.bounds,
+                offerCard = HostRect(0, 605, v.bounds.right, v.bounds.bottom),
+                source = HostGeometrySource.OCR_TEXT_BOUNDS,
+                ocrEvidence = HostOcrGeometryEvidence(null, listOf(HostRect(40, 653, 600, 710)),
+                    listOf(HostRect(190, 1420, 510, 1477), HostRect(190, 1625, 541, 1682)), false))
+            val first = OfferEvent.Parsed(observed.packageName, observed.capturedAtMs,
+                OfferCard(platform = observed.packageName, fare = 79.45, sessionId = "old-card", hostGeometry = observed))
+            render(controller, backgroundScope, OverlayVisibility.Reading("old-card", first))
+            render(controller, backgroundScope, OverlayVisibility.Showing(rated, "old-card", first))
+            assertNotNull("The preceding card has a measured upper band", field("composeView").get(controller))
+
+            val partial = observed.copy(offerCard = observed.offerCard.copy(top = 722),
+                ocrEvidence = observed.ocrEvidence!!.copy(upperAnchors = emptyList()))
+            val replacement = first.copy(card = first.card.copy(sessionId = "replacement", fare = null,
+                hostGeometry = partial))
+            // A corroborated replacement may emit Reading directly, without an intervening Hidden.
+            render(controller, backgroundScope, OverlayVisibility.Reading("replacement", replacement))
+            repeat(3) {
+                render(controller, backgroundScope, OverlayVisibility.Showing(rated, "replacement", replacement))
+                assertNull("Old upper anchors cannot authorize the replacement's first attachment",
+                    field("composeView").get(controller))
+                assertNull(ScreenReaderState.overlayChipRect)
+            }
+            val resolved = replacement.copy(card = replacement.card.copy(hostGeometry = observed))
+            render(controller, backgroundScope, OverlayVisibility.Showing(rated, "replacement", resolved))
+            assertNotNull("Fresh upper evidence restores attachment", field("composeView").get(controller))
+        } finally { controller.stop(); Dispatchers.resetMain() }
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     @Test fun `read unread unread read frames preserve visible window position and verdict`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val controller = controller()
@@ -128,7 +187,7 @@ class OverlayControllerPlacementTest {
             val unread = full.filterNot { it.text == "$79.45" }
             val pipeline = OfferFramePipeline()
             for (frame in listOf(full, unread, unread, full)) {
-                pipeline.process(frame, ScreenRect(325, 242, 1040, 572), null,
+                pipeline.processOwnedFrame(frame, ScreenRect(325, 242, 1040, 572), null,
                     displayBounds = v.bounds, density = v.density, foregroundPackage = "com.ubercab.driver")
                 testScheduler.runCurrent()
                 assertTrue((seen.last() as OverlayVisibility.Showing).state.regla.band is ReglaBand.Rated)
@@ -175,7 +234,7 @@ class OverlayControllerPlacementTest {
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
                 OfferEventBus.events.collect { if (it is OfferEvent.Parsed) parsed += it }
             }
-            pipeline.process(full, null, null, displayBounds = v.bounds, density = v.density, foregroundPackage = "com.ubercab.driver")
+            pipeline.processOwnedFrame(full, null, null, displayBounds = v.bounds, density = v.density, foregroundPackage = "com.ubercab.driver")
             testScheduler.runCurrent()
             val first = parsed.single()
             assertEquals(605, first.card.hostGeometry!!.offerCard.top)
@@ -197,7 +256,7 @@ class OverlayControllerPlacementTest {
             repeat(5) {
                 field("placement").set(controller, shown)
                 val rect = shown.position.bounds(shown.size)
-                pipeline.process(grown, ScreenRect(rect.left, rect.top, rect.right, rect.bottom), null,
+                pipeline.processOwnedFrame(grown, ScreenRect(rect.left, rect.top, rect.right, rect.bottom), null,
                     displayBounds = v.bounds, density = v.density, foregroundPackage = "com.ubercab.driver")
                 testScheduler.runCurrent()
                 val next = parsed.last()
@@ -250,7 +309,7 @@ class OverlayControllerPlacementTest {
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
                 OfferEventBus.events.collect { if (it is OfferEvent.Parsed) parsed += it }
             }
-            pipeline.process(full, null, null, displayBounds = v.bounds, density = v.density, foregroundPackage = "com.ubercab.driver")
+            pipeline.processOwnedFrame(full, null, null, displayBounds = v.bounds, density = v.density, foregroundPackage = "com.ubercab.driver")
             testScheduler.runCurrent()
             val first = parsed.single()
             assertEquals(605, first.card.hostGeometry!!.offerCard.top)
@@ -275,7 +334,7 @@ class OverlayControllerPlacementTest {
                 val replayFrame = if (it == 0) grown.map { block ->
                     if (block.text == "A 1 min (0.2 km)") block.copy(text = "A 1 min 0.2 km)") else block
                 } else grown
-                pipeline.process(replayFrame, ScreenRect(rect.left, rect.top, rect.right, rect.bottom), null,
+                pipeline.processOwnedFrame(replayFrame, ScreenRect(rect.left, rect.top, rect.right, rect.bottom), null,
                     displayBounds = v.bounds, density = v.density, foregroundPackage = "com.ubercab.driver")
                 testScheduler.runCurrent()
                 val next = parsed.last()
@@ -350,7 +409,7 @@ class OverlayControllerPlacementTest {
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
                 OfferEventBus.events.collect { if (it is OfferEvent.Parsed) parsed += it }
             }
-            pipeline.process(full, null, null, displayBounds = v.bounds, density = v.density,
+            pipeline.processOwnedFrame(full, null, null, displayBounds = v.bounds, density = v.density,
                 foregroundPackage = "com.ubercab.driver")
             testScheduler.runCurrent()
             val first = parsed.single()
@@ -364,7 +423,7 @@ class OverlayControllerPlacementTest {
             field("event").set(controller, first)
             val rect = shown.position.bounds(shown.size)
             ScreenReaderState.setOverlayChipRect(ScreenRect(rect.left, rect.top, rect.right, rect.bottom))
-            pipeline.process(moved, ScreenReaderState.overlayChipRect, null, displayBounds = v.bounds,
+            pipeline.processOwnedFrame(moved, ScreenReaderState.overlayChipRect, null, displayBounds = v.bounds,
                 density = v.density, foregroundPackage = "com.ubercab.driver")
             testScheduler.runCurrent()
             val hidden = parsed.last()
@@ -373,7 +432,7 @@ class OverlayControllerPlacementTest {
             render(controller, backgroundScope, OverlayVisibility.Showing(rated, hidden.card.sessionId!!, hidden))
             assertNull("A missing close cannot be explained by stationary route anchors", field("composeView").get(controller))
             assertNull(ScreenReaderState.overlayChipRect)
-            pipeline.process(moved, null, null, displayBounds = v.bounds, density = v.density,
+            pipeline.processOwnedFrame(moved, null, null, displayBounds = v.bounds, density = v.density,
                 foregroundPackage = "com.ubercab.driver")
             testScheduler.runCurrent()
             val recovered = parsed.last()

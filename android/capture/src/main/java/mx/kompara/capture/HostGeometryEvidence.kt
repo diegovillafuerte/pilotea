@@ -28,6 +28,8 @@ data class HostWindowEvidence(
     val protectedControls: List<HostRect> = emptyList(),
     val markers: List<MapMarker> = emptyList(),
     val navigation: Boolean = false,
+    /** OS window provenance; package/bounds alone cannot identify overlapping same-host windows. */
+    val windowId: Int? = null,
 ) {
     fun geometryForOffer(contentBounds: OfferContentBounds? = null, atMs: Long = capturedAtMs,
         recognizedOffer: Boolean = false): HostGeometry? =
@@ -55,7 +57,7 @@ object HostGeometryEvidence {
 }
 
 /** Preserve observed node bounds, including named map markers; unknown icons are not invented. */
-fun ScreenSnapshot.hostEvidence(display: HostDisplayFrame): HostWindowEvidence? {
+fun ScreenSnapshot.hostEvidence(display: HostDisplayFrame, windowId: Int? = null): HostWindowEvidence? {
     if (packageName !in HostGeometryAdapter.SUPPORTED_HOSTS || !display.bounds.valid ||
         !display.bounds.contains(display.topChrome)) return null
     val visible = nodes.filter { display.bounds.contains(it.bounds.toHostRect()) }
@@ -107,7 +109,7 @@ fun ScreenSnapshot.hostEvidence(display: HostDisplayFrame): HostWindowEvidence? 
     }.minByOrNull { it.bounds.width().toLong() * it.bounds.height() }?.bounds?.toHostRect()
     return HostWindowEvidence(packageName, timestampMs, display.bounds, display.density, topChrome,
         text, card, controls, markers, markers.any { it.kind == MapMarkerKind.NEXT_MANOEUVRE } ||
-            geometryNodes.any { it.viewId.orEmpty().substringAfterLast('/') == "navigation_banner" })
+            geometryNodes.any { it.viewId.orEmpty().substringAfterLast('/') == "navigation_banner" }, windowId)
 }
 
 private fun android.graphics.Rect.toHostRect() = HostRect(left, top, right, bottom)

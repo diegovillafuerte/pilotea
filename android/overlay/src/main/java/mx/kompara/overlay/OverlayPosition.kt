@@ -78,7 +78,7 @@ object OverlayPositioning {
                 }
             return visibleUpper.isEmpty() && !(stableRoutes && mask.bottom <= previous!!.offerCard.top)
         }
-        // An unchanged visible header/amount can establish the upper boundary without route text.
+        // An unchanged visible heading/control can establish the upper boundary without route text.
         if (before.upperAnchors.all { old -> visibleUpper.any { fresh ->
             abs(old.left - fresh.left) <= tolerance && abs(old.top - fresh.top) <= tolerance
         } }) return false
@@ -183,23 +183,43 @@ object OverlayPositioning {
 internal class PlacementEvidence {
     private var reference: HostGeometry? = null
 
-    data class Decision(val geometry: HostGeometry, val recover: Boolean)
+    data class Decision(val geometry: HostGeometry, val recover: Boolean, val initialBoundaryPending: Boolean = false) {
+        val needsUnobscuredCapture get() = recover || initialBoundaryPending
+    }
 
     fun observe(next: HostGeometry, viewport: OverlayViewport, previous: HostGeometry? = null): Decision {
         val before = (reference ?: previous)?.takeIf {
             it.packageName == next.packageName && it.displayBounds == next.displayBounds
         }
         val recover = OverlayPositioning.lostMaskedAnchors(before, next, viewport)
+        val after = next.ocrEvidence
+        // Initial OCR can see the fare/route before the heading and close slide into view. There is
+        // no established empty band above those numbers. Leave the capture unobscured until an
+        // upper anchor or measured card is actually observed; repeated stable fares cannot help.
+        // With no existing chip this is initial suppression, not lost-mask recovery. Keeping the
+        // distinction avoids toggling recovery on/off while an unchanged partial card stays visible.
+        val unresolvedInitialBoundary = next.source != HostGeometrySource.HOST_LAYOUT && after != null &&
+            !after.independentlyMeasuredCard && after.upperAnchors.isEmpty() &&
+            before?.ocrEvidence?.let { it.independentlyMeasuredCard || it.upperAnchors.isNotEmpty() } != true
+        if (unresolvedInitialBoundary) {
+            reference = before ?: next
+            return Decision(next.copy(offerCard = next.offerCard.copy(top = next.topChrome.bottom)), recover,
+                initialBoundaryPending = true)
+        }
         if (!recover) {
-            val after = next.ocrEvidence
             val old = before?.ocrEvidence
             // A missing upper anchor is retained even if steady legs currently establish safety.
             // It may be the only evidence that exposes a later movement beneath the mask.
             if (next.source == HostGeometrySource.HOST_LAYOUT || after == null ||
-                after.independentlyMeasuredCard || after.overlayMask == null ||
+                after.independentlyMeasuredCard ||
                 old == null || after.upperAnchors.size >= old.upperAnchors.size) reference = next
             else reference = before
-            return Decision(next, false)
+            // A retained boundary may authorize continued placement, but a partial frame cannot
+            // move that boundary down to its fare and open up previously protected header pixels.
+            val guarded = if (after != null && !after.independentlyMeasuredCard &&
+                after.upperAnchors.isEmpty() && before != null) next.copy(
+                offerCard = next.offerCard.copy(top = minOf(before.offerCard.top, next.offerCard.top))) else next
+            return Decision(guarded, false)
         }
         reference = before
         return Decision(next.copy(offerCard = next.offerCard.copy(top = next.topChrome.bottom)), true)

@@ -193,6 +193,9 @@ class OverlayController @Inject constructor(
         when (visibility) {
             is OverlayVisibility.Reading -> {
                 detach(); evaluated = false
+                // Reading begins a new visible offer session. The preceding card's measured
+                // upper band cannot establish where this card's slide-in controls will settle.
+                placementEvidence.reset(); geometry = null
                 chipState = VerdictChipState.reading(thresholdSnapshot(), settingsSnapshot?.preferredMetric ?: PreferredMetric.DEFAULT)
                 chipVisible = true
                 show(scope, visibility.event)
@@ -235,8 +238,8 @@ class OverlayController @Inject constructor(
         val current = placement
         val evidence = placementEvidence.observe(rawGeometry!!, v, geometry)
         val g = evidence.geometry
-        val maskedAnchorsLost = evidence.recover
-        val currentIsSafe = current != null && !maskedAnchorsLost &&
+        val needsUnobscuredCapture = evidence.needsUnobscuredCapture
+        val currentIsSafe = current != null && !needsUnobscuredCapture &&
             OverlayPositioning.valid(current.position, current.size, g, v, current.overMarker)
         if (current != null && !currentIsSafe)
             hideUntilSettled()
@@ -247,14 +250,14 @@ class OverlayController @Inject constructor(
         // Clear both transient and persisted preferences when the chip concealed moving anchors.
         // The regular placement path moves its mask away, exposing the host on the next capture.
         savedPosition = when {
-            maskedAnchorsLost -> {
+            needsUnobscuredCapture -> {
                 savedPositions.remove(OverlayPositionKey(next.packageName, v.orientation))
                 null
             }
             currentIsSafe -> current!!.position
             else -> savedPositions[OverlayPositionKey(next.packageName, v.orientation)]
         }
-        if (maskedAnchorsLost) {
+        if (needsUnobscuredCapture) {
             detach()
             record(OverlayPlacement.Suppressed("UNOBSCURED_CAPTURE"))
             return

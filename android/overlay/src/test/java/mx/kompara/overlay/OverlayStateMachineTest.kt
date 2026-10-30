@@ -66,6 +66,19 @@ class OverlayStateMachineTest {
         assertTrue(run.seen.last() is OverlayVisibility.Showing)
     }
 
+    @Test fun `confirmed absence and foreground departure hide immediately without grace`() = runTest {
+        for (reason in listOf(OfferEvent.Reason.CONFIRMED_ABSENCE, OfferEvent.Reason.NOT_VISIBLE)) {
+            val run = observe()
+            run.events.emit(parsed()); testScheduler.runCurrent()
+            run.events.emit(noCard(reason = reason)); testScheduler.runCurrent()
+            assertEquals(OverlayVisibility.Hidden, run.seen.last())
+            assertFalse(run.seen.contains(OverlayVisibility.Exiting))
+            assertEquals(0, testScheduler.currentTime)
+            run.events.emit(parsed(3)); testScheduler.runCurrent()
+            assertEquals("uber:one", (run.seen.last() as OverlayVisibility.Showing).offerKey)
+        }
+    }
+
     @Test fun `same offer has 500ms grace then 160ms exit before detach`() = runTest {
         val run = observe(); run.events.emit(parsed()); testScheduler.runCurrent()
         run.events.emit(noCard()); testScheduler.runCurrent()

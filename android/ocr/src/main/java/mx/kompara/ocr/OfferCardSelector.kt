@@ -58,9 +58,13 @@ internal fun selectOfferCard(
     val geometry = observed ?: derived
     val routes = blocks.filter { uberRoute.containsMatchIn(it.text) }.map { it.hostRect() }.sortedBy { it.top }
     val firstRoute = routes.firstOrNull()?.top
-    val upper = blocks.filter { firstRoute != null && it.bounds.bottom <= firstRoute &&
-        (offerUpperAnchor.containsMatchIn(it.text) || standaloneAmount.matches(it.text.trim()) ||
-            it.text.trim().equals("X", true)) }.map { it.hostRect() }
+    // Payment can remain perfectly stable while a slide-in heading/close is still missing.
+    // Only upper-card semantics or independently measured controls can validate that boundary.
+    // Node text remains observable even when our chip obscures the same pixels from OCR.
+    val upper = (blocks.map { HostTextBounds(it.text, it.hostRect()) } + nodes?.textBounds.orEmpty())
+        .filter { firstRoute != null && it.bounds.bottom <= firstRoute &&
+            (offerUpperAnchor.containsMatchIn(it.text) || upperControl.matches(it.text.trim())) }
+        .map { it.bounds }.distinct()
     return card.copy(hostGeometry = geometry?.let { g ->
         g.copy(appearance = appearance?.appearance(g) ?: g.appearance,
             // Keep an authoritative host-layout observation intact; only the OCR fallback needs
@@ -74,7 +78,7 @@ internal fun selectOfferCard(
 
 private fun OcrBlock.hostRect() = bounds.let { HostRect(it.left, it.top, it.right, it.bottom) }
 private val offerUpperAnchor = Regex("""\b(?:Uber\w*|Didi|Exclusivo|Reserva|Programado|Radar de solicitud|Pon tu precio)\b""", RegexOption.IGNORE_CASE)
-private val standaloneAmount = Regex("""(?:(?:MX[N$]|\$)\s*\$?\s*[0-9][0-9.,]*(?:\s+MXN)?|[0-9][0-9.,]*\s+MXN)""", RegexOption.IGNORE_CASE)
+private val upperControl = Regex("""(?:x|×|✕|✖|cerrar|close)""", RegexOption.IGNORE_CASE)
 private val uberHeading = Regex("""\bUber\w*|Radar de solicitud""", RegexOption.IGNORE_CASE)
 private val uberAction = Regex("""\b(?:Aceptar|Coincidir)\b""", RegexOption.IGNORE_CASE)
 private val uberRoute = Regex("""(?:[0-9OlI]+|—|-)\s*min\s*\(\s*[0-9OlI][0-9OlI.,]*\s*km""", RegexOption.IGNORE_CASE)

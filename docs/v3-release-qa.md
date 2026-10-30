@@ -1,5 +1,87 @@
 # Kompara 0.2.x — capture ownership, cancellation and diagnostics
 
+## 0.2.10 / 12 — window-owned observations and suspended offer sessions (2026-10-30)
+
+Base **`fc9e453`** (`b6f607d` 0.2.9 plus TD-058 documentation), branch `feat/v3-redesign`. Resumed the partial `d91671c` work. Changes remain in the working tree; no staging or commit. This extends the 0.2.9 UUID, corroborated-replacement and payment-confirmation model. The historical 0.2.9 section below describes the superseded absence/departure rules.
+
+**Resolved in code and JVM replays:**
+
+- **Window ownership:** both capture lanes snapshot the selected OS window's `getBoundsInScreen` and recheck window identity/bounds/exclusions after recognition. Whole OCR blocks must belong to that window and avoid higher windows, including split panes, PiP, notifications and overlays. Missing/ambiguous ownership withholds parsing and ledger publication. Accessibility evidence must also belong to the selected window. Our chip remains excluded from OCR, but its known accessibility overlay is not a placement obstacle; foreign overlays remain obstacles.
+- **Clear absence:** an owned positive idle, accepted/trip, cancellation or explicit host-layout absence ends the card session immediately. Blank/garbled OCR never becomes absence just because it repeats. The next offer receives a fresh UUID, start time and payment allowance, including the 0/300/900 ms decline → idle → new-card replay and identical-leg/different-fare offers. The old ledger row retains its payment, route and start time. Pending replacement identity displays `UNCONFIRMED` payment; dropout cannot restore inherited money until baseline identity is positively recovered.
+- **Initial placement:** fare stability cannot validate the region above the fare. Heading/close or independently measured card/control evidence must establish the upper boundary. When no safe band has been observed, the chip stays detached for an unobscured capture; restored evidence enables the preferred position without oscillation. A new offer also clears the previous card's placement evidence and geometry.
+- **Departure:** hide immediately and suspend each host's session. Returning to an unchanged card resumes its original UUID/ledger row; explicit absence or corroborated replacement retires it. Switching Uber ↔ DiDi retains each host's independent session.
+
+**Baseline reproduction:** an isolated export of **`b6f607d3522e7a56322761995ec77387a3234f8c`** was checked byte-for-byte against tracked production sources. The current replay copies required only baseline API adapters, with assertions unchanged. **16 JVM tests ran; 14 expected failures, zero errors/skips**, covering all four findings: phantom Uber offer (1/1 failed), initial heading dropout/slide-in placement (2/2 failed), and lifecycle/ledger replays (11/13 failed), including both changed and identical legs plus departure/return. Evidence: `/private/tmp/kompara-0210-baseline-all-four.log` and `/private/tmp/kompara-0210-baseline-b6f607d/baseline-provenance.txt`. Command in the exported `android/`:
+
+```sh
+./gradlew :ocr:testDebugUnitTest --tests mx.kompara.ocr.HostWindowOwnershipReplayTest :overlay:testDebugUnitTest --tests mx.kompara.overlay.ClearLifecycleBoundaryReplayTest --tests mx.kompara.overlay.InitialPlacementReplayTest --continue --console=plain -Pkotlin.compiler.execution.strategy=in-process
+```
+
+**The two resumed gate failures were stale test contracts, not production regressions:**
+
+1. `same offer holds verdict and placement through unread fares then resets for corroborated replacement` dereferenced null at its old line 191 because it demanded the previous 160.00 during an unresolved action/route replacement. The required behavior is incomplete payment. The test now requires null fare, `UNCONFIRMED`, the unavailable-fare verdict, the retained provisional UUID and a new UUID only after corroboration. Its earlier unread-fare retention and fare-revision assertions remain intact.
+2. `a card replacement after corroborated absence cannot inherit fare even with identical legs` supplied three empty OCR lists, which are dropout, not corroborated absence. It now supplies positive `Buscando viajes` evidence and retains the fresh-ID/null-payment assertions. A separate replay keeps the original empty-list sequence and requires the original UUID, start time and confirmed fare to survive.
+
+**Self-review (three rounds total, including the resumed work):**
+
+1. **Initial review, preserved work:** end-to-end lifecycle checks exposed incomplete-payment-basis and accepted/cancelled-screen handling gaps. Positive lifecycle screens now retire card visibility while preserving the appropriate ledger outcome; unread new offers stay unconfirmed. Evidence includes `/private/tmp/kompara-session-review.log`.
+2. **Integration review, resumed and completed:** covered stale accessibility idle older than the last card, the chip repelling its own placement, and the two stale test contracts above. Further integration checks found previous-session geometry leaking into a replacement slide-in and same-package windows sharing node evidence. Placement state now resets at the new-session boundary; accessibility evidence is bound to the selected OS window. The placement regression failed before its fix (`/private/tmp/kompara-0.2.10-placement-replacement-red.log`).
+3. **Final adversarial review:** read-only audit of lifecycle/identity, payment, placement, window provenance and both capture lanes found **no remaining blocking issue**. Clear absence, long dropout, suspended return/replacement, per-host switching, fresh/stale node evidence and replacement slide-in behavior pass. Unobservable same-appearance replacements and transient window changes between identical snapshots are retained as limitations in TD-058, not guessed into new offer sessions.
+
+**Validation/artifact:** **PASS**, both the iterative gate with `--continue` and the exact final gate:
+
+```sh
+cd android && ./gradlew :app:assembleDebug testDebugUnitTest verifyReadOnlyCapture --console=plain
+```
+
+**1,727 tests, zero failures/errors/skips; 39 added JVM tests versus 0.2.9, none removed or excluded.** XML totals: app 1, billing 48, capture 82, data 117, metrics 156, OCR 282, overlay 160, parsers 224, sync 110, UI 547. New coverage includes window bounds/occlusions and node provenance, both reviewer lifecycle sequences, stale idle, OCR dropout, unchanged and replaced suspended sessions, initial/replacement slide-in, immediate hide and retained upper-boundary protection. Existing fixture/verdict/currency/fare-hysteresis tests remain in the gate.
+
+The complete iteration ran in 14s (373 tasks: 25 executed, 348 up-to-date); the exact final gate ran in 987ms (373 tasks: 1 executed, 372 up-to-date). Logs: `/private/tmp/kompara-0.2.10-iteration2-gate.log` and `/private/tmp/kompara-0.2.10-final-gate.log`. Kotlin used its existing in-process fallback when its daemon marker write was sandbox-denied; the final gate passed without overrides. `git diff --check` passes. APK metadata and `aapt` confirm **0.2.10 / 12**; `apksigner verify --verbose` passes (v2, one signer). APK: `android/app/build/outputs/apk/debug/app-debug.apk`. **SHA-256: `89ac71275c957c9c59cfef493def2b6c53f1e56ce1b3f77d81edee46d94ea9c5`.**
+
+**Still open (TD-058):** install/replay 0.2.10 on the Galaxy S25, including real split-screen/PiP/heads-up windows, both capture lanes, slide-in control exposure and host return. The phone remains on 0.2.9; no device pass is claimed. A fresh external adversarial release review remains open. Visually identical replacements without any observed absence or independent replacement evidence cannot be distinguished from the unchanged card; these intentionally retain the session. Capture-service/process recreation is outside the in-memory foreground-suspension guarantee. OS snapshots bracket recognition rather than atomically identifying compositor pixels; a window moving away and back between identical snapshots is unobservable. Read-only posture is unchanged: no host automation actions, secure-window flag or screen-text logging; fixture addresses are fictitious.
+
+**Files changed (39):**
+
+- `android/app/build.gradle.kts`
+- `android/capture/src/main/java/mx/kompara/capture/HostGeometryEvidence.kt`
+- `android/capture/src/main/java/mx/kompara/capture/HostWindowOwnership.kt`
+- `android/capture/src/main/java/mx/kompara/capture/KomparaAccessibilityService.kt`
+- `android/capture/src/main/java/mx/kompara/capture/OfferEvent.kt`
+- `android/capture/src/main/java/mx/kompara/capture/WindowSnapshotSource.kt`
+- `android/capture/src/main/java/mx/kompara/capture/telemetry/TelemetryCollector.kt`
+- `android/capture/src/test/java/mx/kompara/capture/HostGeometryEvidenceTest.kt`
+- `android/capture/src/test/java/mx/kompara/capture/HostWindowOwnershipTest.kt`
+- `android/ocr/src/main/java/mx/kompara/ocr/FareStabilizer.kt`
+- `android/ocr/src/main/java/mx/kompara/ocr/HostOwnedOcr.kt`
+- `android/ocr/src/main/java/mx/kompara/ocr/OcrCaptureService.kt`
+- `android/ocr/src/main/java/mx/kompara/ocr/OcrLifecycleClassifier.kt`
+- `android/ocr/src/main/java/mx/kompara/ocr/OcrOfferIdentity.kt`
+- `android/ocr/src/main/java/mx/kompara/ocr/OcrTripMarkers.kt`
+- `android/ocr/src/main/java/mx/kompara/ocr/OfferCardSelector.kt`
+- `android/ocr/src/main/java/mx/kompara/ocr/OfferFramePipeline.kt`
+- `android/ocr/src/main/java/mx/kompara/ocr/SilentScreenshotLane.kt`
+- `android/ocr/src/test/java/mx/kompara/ocr/HostWindowOwnershipReplayTest.kt`
+- `android/ocr/src/test/java/mx/kompara/ocr/OfferFramePipelineDiagnosticsTest.kt`
+- `android/ocr/src/test/java/mx/kompara/ocr/OfferFramePipelineIdentityTest.kt`
+- `android/ocr/src/test/java/mx/kompara/ocr/OsPlatformSelectionReplayTest.kt`
+- `android/ocr/src/test/java/mx/kompara/ocr/OwnedFrameFixture.kt`
+- `android/overlay/src/main/java/mx/kompara/overlay/OverlayController.kt`
+- `android/overlay/src/main/java/mx/kompara/overlay/OverlayPosition.kt`
+- `android/overlay/src/main/java/mx/kompara/overlay/OverlayStateMachine.kt`
+- `android/overlay/src/test/java/mx/kompara/overlay/ClearLifecycleBoundaryReplayTest.kt`
+- `android/overlay/src/test/java/mx/kompara/overlay/InitialPlacementReplayTest.kt`
+- `android/overlay/src/test/java/mx/kompara/overlay/OfferFramePipelineVerdictTest.kt`
+- `android/overlay/src/test/java/mx/kompara/overlay/OfferInstanceLedgerReplayTest.kt`
+- `android/overlay/src/test/java/mx/kompara/overlay/OverlayControllerPlacementTest.kt`
+- `android/overlay/src/test/java/mx/kompara/overlay/OverlayPositioningTest.kt`
+- `android/overlay/src/test/java/mx/kompara/overlay/OverlayStateMachineTest.kt`
+- `android/overlay/src/test/java/mx/kompara/overlay/OwnedFrameFixture.kt`
+- `android/parsers/src/main/java/mx/kompara/parsers/model/HostGeometry.kt`
+- `android/parsers/src/main/java/mx/kompara/parsers/model/HostGeometryDeriver.kt`
+- `android/parsers/src/test/java/mx/kompara/parsers/HostGeometryDeriverTest.kt`
+- `docs/v3-release-qa.md`
+- `techdebt.md`
+
 ## 0.2.9 / 11 — OS attribution and corroborated offer sessions (2026-10-29)
 
 Base **`327ac02` (0.2.8)**, branch `feat/v3-redesign`. All changes remain in the working tree; no staging or commit. This model supersedes 0.2.8's immediate structural replacement and signature-gap resets.

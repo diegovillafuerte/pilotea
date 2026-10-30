@@ -60,5 +60,11 @@ sealed interface OfferEvent {
 
         /** A spec matched the package, but its detector said "this isn't an offer card". */
         NOT_AN_OFFER,
+
+        /** Positive idle/card-absence evidence; hide without a grace interval. */
+        CONFIRMED_ABSENCE,
+
+        /** Host visibility ended; hide immediately while the OCR session remains suspended. */
+        NOT_VISIBLE,
     }
 }

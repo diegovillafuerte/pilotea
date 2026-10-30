@@ -101,7 +101,7 @@ class OfferInstanceLedgerReplayTest {
             val before = signals.size
             val parsedBefore = parsed.size
             ScreenReaderState.setForegroundHost(host, SystemClock.elapsedRealtime())
-            pipeline.process(blocks, chip, null, capturedAtMs = epochStart + atMs,
+            pipeline.processOwnedFrame(blocks, chip, null, capturedAtMs = epochStart + atMs,
                 displayBounds = HostRect(0, 0, 1080, 2340), density = 3f)
             yield()
             // The overlay records every parsed event and the lifecycle independently records
@@ -256,14 +256,19 @@ class OfferInstanceLedgerReplayTest {
             val before = offers.all().single()
             frame(emptyList(), 900)
             frame(emptyList(), 1800)
-            frame(emptyList(), 2700)
-            assertEquals("Absent frames never write or revise payment", listOf(before), offers.all())
+            frame(listOf(OcrBlock("Buscando viajes", OcrBounds(240, 1940, 840, 2030))), 2700)
+            assertEquals("Only the observed lifecycle outcome changes",
+                listOf(before.copy(outcome = "NOT_TAKEN", resolvedAt = before.seenAt + 2700)), offers.all())
+            assertEquals("Clear absence never writes or revises payment", before.fareMxn, offers.all().single().fareMxn)
+            assertEquals(before.seenAt, offers.all().single().seenAt)
+            assertEquals(before.sessionId, offers.all().single().sessionId)
+            assertEquals("NOT_TAKEN", offers.all().single().outcome)
             frame(full, 3600)
             frame(full, 4500)
         }
         assertEquals(2, result.offers.all().size)
         assertEquals(2, result.parsed.map { it.card.sessionId }.distinct().size)
-        assertEquals(listOf("UNKNOWN", "PENDING"), result.offers.all().map { it.outcome })
+        assertEquals(listOf("NOT_TAKEN", "PENDING"), result.offers.all().map { it.outcome })
         assertTrue(result.offers.all().all { it.seenAt > 1_700_000_000_000L && it.lastSeenAt >= it.seenAt })
         assertTrue(result.offers.all().all { it.fareMxn == 79.45 })
     }
@@ -384,7 +389,7 @@ class OfferInstanceLedgerReplayTest {
             frame(original, 0)
             frame(radar, 900)
             assertEquals("One changed observation cannot replace", parsed.first().card.sessionId, parsed.last().card.sessionId)
-            assertEquals(79.45, parsed.last().card.fare!!, 0.001)
+            assertNull("Unresolved replacement cannot show the previous offer payment", parsed.last().card.fare)
             frame(radar, 1800)
         }
         assertEquals(3, result.parsed.size)
@@ -521,8 +526,13 @@ class OfferInstanceLedgerReplayTest {
             frame(emptyList(), 1800)
             assertEquals(listOf(original), offers.all())
             frame(emptyList(), 2700)
-            frame(emptyList(), 3600)
-            assertEquals("Corroborated absence creates no rows", listOf(original), offers.all())
+            frame(listOf(OcrBlock("Buscando viajes", OcrBounds(240, 1940, 840, 2030))), 3600)
+            assertEquals("Only the observed lifecycle outcome changes",
+                listOf(original.copy(outcome = "NOT_TAKEN", resolvedAt = original.seenAt + 2700)), offers.all())
+            assertEquals("Clear absence creates no rows", 1, offers.all().size)
+            assertEquals(original.sessionId, offers.all().single().sessionId)
+            assertEquals(original.fareMxn, offers.all().single().fareMxn)
+            assertEquals("NOT_TAKEN", offers.all().single().outcome)
             frame(unread, 4500)
             assertNull(parsed.last().card.fare)
         }

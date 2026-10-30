@@ -80,6 +80,7 @@ class KomparaAccessibilityService : AccessibilityService() {
             HostForegroundObservation.fromWindow(activeWindowPackage(),
                 getSystemService(android.os.PowerManager::class.java)?.isInteractive != false, OCR_OWNED_PACKAGES)
         }
+        HostWindowOwnershipSource.attach(this, ::readWindowOwnership)
         // Feed the pipeline from ALL current windows (read-only). Offer cards often live in a
         // non-focused window, so we cannot rely on rootInActiveWindow alone; getWindows() (enabled
         // by flagRetrieveInteractiveWindows) exposes the offer popup too. Fall back to the active
@@ -179,6 +180,38 @@ class KomparaAccessibilityService : AccessibilityService() {
             display.copy(bottom = (display.top + top.coerceAtLeast(1)).coerceAtMost(display.bottom)))
     }
 
+    /** Snapshot the OS window list itself, independently of whether a host exposes card nodes. */
+    private fun readWindowOwnership(host: String, atMs: Long): HostWindowOwnership? {
+        val active = rootInActiveWindow ?: return null
+        val selectedId = try {
+            if (active.packageName?.toString() != host) return null
+            active.windowId
+        } finally {
+            if (android.os.Build.VERSION.SDK_INT < 33) @Suppress("DEPRECATION") active.recycle()
+        }
+        val visible = windows.orEmpty()
+        val metadata = try {
+            visible.map { window ->
+                val rect = android.graphics.Rect().also(window::getBoundsInScreen)
+                val root = window.root
+                val pkg = try { root?.packageName?.toString() } finally {
+                    if (android.os.Build.VERSION.SDK_INT < 33) @Suppress("DEPRECATION") root?.recycle()
+                }
+                VisibleHostWindow(window.id, pkg,
+                    mx.kompara.parsers.model.HostRect(rect.left, rect.top, rect.right, rect.bottom),
+                    window.layer, window.type == android.view.accessibility.AccessibilityWindowInfo.TYPE_APPLICATION,
+                    window.isInPictureInPictureMode,
+                    window.type == android.view.accessibility.AccessibilityWindowInfo.TYPE_ACCESSIBILITY_OVERLAY)
+            }
+        } finally {
+            if (android.os.Build.VERSION.SDK_INT < 33) visible.forEach {
+                @Suppress("DEPRECATION") it.recycle()
+            }
+        }
+        return HostWindowOwnership.fromWindows(host, atMs, readHostDisplay().bounds, selectedId, metadata,
+            ownOverlayPackage = packageName)
+    }
+
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         val pkg = event?.packageName?.toString() ?: return
         // The accessibility-service XML already filters packageNames, but guard again so a
@@ -211,6 +244,7 @@ class KomparaAccessibilityService : AccessibilityService() {
     }
 
     override fun onDestroy() {
+        HostWindowOwnershipSource.detach(this)
         ScreenReaderState.detachForegroundProbe(this)
         mx.kompara.data.service.DrivingActivity.unknown()
         ScreenReaderState.setForegroundHost(null, android.os.SystemClock.elapsedRealtime())

@@ -69,7 +69,7 @@ class OfferFramePipelineVerdictTest {
                         .let { VerdictChipState.from(it, limits) }
                 }).visibility(OfferEventBus.events).collect { seen += it }
             }
-            OfferFramePipeline().process(blocks, chip, fixtureDir = null,
+            OfferFramePipeline().processOwnedFrame(blocks, chip, fixtureDir = null,
                 capturedAtMs = System.currentTimeMillis(), displayBounds = display, density = 3f)
             testScheduler.runCurrent()
             assertEquals("First parsed frame publishes without a debounce", 0L, testScheduler.currentTime)
@@ -143,7 +143,7 @@ class OfferFramePipelineVerdictTest {
         val viewport = OverlayViewport(display, 3f, mx.kompara.parsers.model.HostOrientation.PORTRAIT)
         var firstPlacement: OverlayPlacement.Displayed? = null
         for ((index, frame) in listOf(full, unread, unread, full).withIndex()) {
-            pipeline.process(frame, ownChip, null, capturedAtMs = start + index * 300,
+            pipeline.processOwnedFrame(frame, ownChip, null, capturedAtMs = start + index * 300,
                 displayBounds = display, density = 3f)
             testScheduler.runCurrent()
             val showing = seen.last() as OverlayVisibility.Showing
@@ -166,7 +166,7 @@ class OfferFramePipelineVerdictTest {
 
         // A sustained, independently readable fare revision wins the existing smoothing window.
         repeat(3) { index ->
-            pipeline.process(full.map { if (it.text == "$147.46") it.copy(text = "$160.00") else it },
+            pipeline.processOwnedFrame(full.map { if (it.text == "$147.46") it.copy(text = "$160.00") else it },
                 ownChip, null, capturedAtMs = start + 1200 + index * 300, displayBounds = display, density = 3f)
             testScheduler.runCurrent()
         }
@@ -177,7 +177,7 @@ class OfferFramePipelineVerdictTest {
         assertEquals(1, seen.filterIsInstance<OverlayVisibility.Reading>().size)
 
         // A changed action AND route each need a second observation before replacement.
-        // The first provisional observation retains the session's confirmed payment.
+        // Until identity is resolved, the chip must not borrow the preceding offer's payment.
         val changedPickup = unread.map {
             when (it.text) {
                 "4 min (0.7 km)" -> it.copy(text = "5 min (0.9 km)")
@@ -185,12 +185,14 @@ class OfferFramePipelineVerdictTest {
                 else -> it
             }
         }
-        pipeline.process(changedPickup, ownChip, null, capturedAtMs = start + 2100, displayBounds = display, density = 3f)
+        pipeline.processOwnedFrame(changedPickup, ownChip, null, capturedAtMs = start + 2100, displayBounds = display, density = 3f)
         testScheduler.runCurrent()
         val uncertain = seen.last() as OverlayVisibility.Showing
-        assertEquals(160.0, uncertain.event.card.fare!!, 0.000001)
+        assertNull("An unresolved replacement must suppress inherited payment", uncertain.event.card.fare)
+        assertEquals("UNCONFIRMED", uncertain.event.card.paymentBasis)
+        assertEquals(ReglaUnavailable.FARE, (uncertain.state.regla.band as ReglaBand.Unavailable).input)
         assertEquals(parsed.first().card.sessionId, uncertain.event.card.sessionId)
-        pipeline.process(changedPickup, ownChip, null, capturedAtMs = start + 2400, displayBounds = display, density = 3f)
+        pipeline.processOwnedFrame(changedPickup, ownChip, null, capturedAtMs = start + 2400, displayBounds = display, density = 3f)
         testScheduler.runCurrent()
         val next = seen.last() as OverlayVisibility.Showing
         assertNull(next.event.card.fare)
@@ -205,16 +207,36 @@ class OfferFramePipelineVerdictTest {
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
             OfferEventBus.events.collect { if (it is OfferEvent.Parsed) parsed += it }
         }
-        for (blocks in listOf(priority147(), emptyList(), emptyList(), emptyList(),
+        for (blocks in listOf(priority147(),
+            listOf(OcrBlock("Buscando viajes", OcrBounds(240, 1940, 840, 2030))),
             priority147().filterNot { it.text == "$147.46" })) {
             ShadowSystemClock.advanceBy(Duration.ofMillis(900))
             ScreenReaderState.setForegroundHost(UberOcrParser.UBER_PACKAGE, SystemClock.elapsedRealtime())
-            pipeline.process(blocks, ownChip, null, displayBounds = display, density = 3f)
+            pipeline.processOwnedFrame(blocks, ownChip, null, displayBounds = display, density = 3f)
             testScheduler.runCurrent()
         }
         assertEquals(2, parsed.size)
         assertNull(parsed.last().card.fare)
         assertNotEquals(parsed.first().card.sessionId, parsed.last().card.sessionId)
+    }
+
+    @Test fun `repeated OCR dropout retains identity and confirmed fare without inventing absence`() = runTest {
+        val pipeline = OfferFramePipeline()
+        val parsed = mutableListOf<OfferEvent.Parsed>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            OfferEventBus.events.collect { if (it is OfferEvent.Parsed) parsed += it }
+        }
+        for (blocks in listOf(priority147(), emptyList(), emptyList(), emptyList(),
+            priority147().filterNot { it.text == "$147.46" })) {
+            ShadowSystemClock.advanceBy(Duration.ofMillis(900))
+            ScreenReaderState.setForegroundHost(UberOcrParser.UBER_PACKAGE, SystemClock.elapsedRealtime())
+            pipeline.processOwnedFrame(blocks, ownChip, null, displayBounds = display, density = 3f)
+            testScheduler.runCurrent()
+        }
+        assertEquals(2, parsed.size)
+        assertEquals(147.46, parsed.last().card.fare!!, 0.000001)
+        assertEquals(parsed.first().card.sessionId, parsed.last().card.sessionId)
+        assertEquals(parsed.first().card.sessionStartedAt, parsed.last().card.sessionStartedAt)
     }
 
     @Test fun `supported currency formats survive the complete pipeline`() {
@@ -243,11 +265,11 @@ class OfferFramePipelineVerdictTest {
             OfferEventBus.events.collect { if (it is OfferEvent.Parsed) parsed += it }
         }
         val pipeline = OfferFramePipeline()
-        pipeline.process(fixture(), ScreenRect(90, 760, 510, 910), null,
+        pipeline.processOwnedFrame(fixture(), ScreenRect(90, 760, 510, 910), null,
             displayBounds = display, density = 3f)
         testScheduler.runCurrent()
         assertTrue("Masked first-frame evidence must not mint any offer UUID or ledger event", parsed.isEmpty())
-        pipeline.process(fixture(), ownChip, null, displayBounds = display, density = 3f)
+        pipeline.processOwnedFrame(fixture(), ownChip, null, displayBounds = display, density = 3f)
         testScheduler.runCurrent()
         assertEquals(1, parsed.size)
         assertNotNull(parsed.single().card.sessionId)
@@ -268,7 +290,7 @@ class OfferFramePipelineVerdictTest {
             }).visibility(OfferEventBus.events).collect { seen += it }
         }
         val pipeline = OfferFramePipeline()
-        pipeline.process(fixture(), ownChip, null, displayBounds = display, density = 3f)
+        pipeline.processOwnedFrame(fixture(), ownChip, null, displayBounds = display, density = 3f)
         testScheduler.runCurrent()
         assertTrue(seen.last() is OverlayVisibility.Showing)
         val didi = listOf(
@@ -278,7 +300,7 @@ class OfferFramePipelineVerdictTest {
             OcrBlock("39 min (17.3 km)", OcrBounds(190, 1625, 541, 1682)),
             OcrBlock("Aceptar", OcrBounds(442, 1989, 640, 2046)),
         )
-        pipeline.process(didi, ScreenRect(90, 760, 510, 910), null, displayBounds = display,
+        pipeline.processOwnedFrame(didi, ScreenRect(90, 760, 510, 910), null, displayBounds = display,
             density = 3f, foregroundPackage = "com.didiglobal.driver")
         testScheduler.runCurrent()
         testScheduler.advanceTimeBy(1000)
@@ -328,7 +350,7 @@ class OfferFramePipelineVerdictTest {
             }
             val pipeline = OfferFramePipeline()
             repeat(5) { frame ->
-                pipeline.process(blocks, ownChip, fixtureDir = null,
+                pipeline.processOwnedFrame(blocks, ownChip, fixtureDir = null,
                     capturedAtMs = System.currentTimeMillis() + frame * 300,
                     displayBounds = display, density = 3f)
                 testScheduler.runCurrent()

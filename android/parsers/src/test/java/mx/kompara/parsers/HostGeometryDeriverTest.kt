@@ -17,6 +17,22 @@ class HostGeometryDeriverTest {
         HostGeometryDeriver.offer(host, 1000, display, 1f, text, HostGeometrySource.OCR_TEXT_BOUNDS,
             contentBounds = content, topChrome = chrome)
 
+    @Test fun `fare-only envelopes carry no upper-boundary proof even from accessibility text`() {
+        for (source in listOf(HostGeometrySource.OCR_TEXT_BOUNDS, HostGeometrySource.ACCESSIBILITY_BOUNDS)) {
+            val partial = requireNotNull(HostGeometryDeriver.offer(host, 1000, display, 1f,
+                boxes, source, topChrome = chrome, recognizedOffer = true))
+            assertTrue(partial.ocrEvidence!!.upperAnchors.isEmpty())
+            assertFalse(partial.ocrEvidence!!.independentlyMeasuredCard)
+            val upper = box("Uber Priority", 500)
+            val complete = requireNotNull(HostGeometryDeriver.offer(host, 1000, display, 1f,
+                listOf(upper) + boxes, source, topChrome = chrome, recognizedOffer = true))
+            assertEquals(listOf(upper.bounds), complete.ocrEvidence!!.upperAnchors)
+            val measured = requireNotNull(HostGeometryDeriver.offer(host, 1000, display, 1f,
+                boxes, source, topChrome = chrome, observedCardBounds = HostRect(0, 500, 393, 852)))
+            assertTrue(measured.ocrEvidence!!.independentlyMeasuredCard)
+        }
+    }
+
     @Test fun `OCR fare legs and Aceptar derive a card envelope and protect the button`() {
         val g = requireNotNull(derive())
         assertEquals(HostRect(0,545,393,852),g.offerCard)

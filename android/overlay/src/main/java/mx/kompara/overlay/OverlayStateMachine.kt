@@ -58,7 +58,8 @@ class OverlayStateMachine(
                             emit(OverlayVisibility.AwaitingUnobscuredCapture)
                     }
                     is OfferEvent.NoCard -> {
-                        if (event.packageName != host || event.reason == OfferEvent.Reason.NO_SPEC) {
+                        if (event.packageName != host || event.reason in setOf(OfferEvent.Reason.NO_SPEC,
+                                OfferEvent.Reason.CONFIRMED_ABSENCE, OfferEvent.Reason.NOT_VISIBLE)) {
                             key = null; host = null
                             emit(OverlayVisibility.Hidden)
                         } else if (key != null) {

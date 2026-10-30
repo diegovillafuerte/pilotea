@@ -51,16 +51,20 @@ class WindowSnapshotSource @Inject constructor(
     }
 
     override fun read(packageName: String, timestampMs: Long): ScreenSnapshot? {
+        val ownership = HostWindowOwnershipSource.current(packageName, timestampMs)
         val roots = provider.get()?.windowRoots().orEmpty()
         if (roots.isEmpty()) return null
         val merged = ArrayList<SnapshotNode>()
+        val selected = ArrayList<SnapshotNode>()
         val observedPackages = ArrayList<String>()
         try {
             for (root in roots) {
                 val pkg = root.packageName?.toString() ?: continue
                 observedPackages += pkg
                 if (pkg != packageName || pkg !in KomparaAccessibilityService.TARGET_PACKAGES) continue
-                merged.addAll(flattener.flattenInfo(pkg, timestampMs, root).nodes)
+                val nodes = flattener.flattenInfo(pkg, timestampMs, root).nodes
+                merged.addAll(nodes)
+                if (ownership != null && root.windowId == ownership.selectedWindowId) selected.addAll(nodes)
             }
         } finally {
             roots.forEach {
@@ -76,8 +80,16 @@ class WindowSnapshotSource @Inject constructor(
         )
         if (merged.isEmpty()) return null
         val snapshot = ScreenSnapshot(packageName = packageName, timestampMs = timestampMs, nodes = merged)
-        val evidence = displayProvider()?.let(snapshot::hostEvidence)
-        if (evidence != null) HostGeometryEvidence.publish(evidence)
+        // Merged same-package nodes remain available to the spec engine, but cannot establish
+        // OCR lifecycle or placement: a lower map window may say idle behind the selected card.
+        val evidence = ownership?.takeIf {
+            it.samePixels(HostWindowOwnershipSource.current(packageName, timestampMs)) && selected.isNotEmpty()
+        }?.let { scope ->
+            displayProvider()?.takeIf { it.bounds == scope.displayBounds }?.let { display ->
+                snapshot.copy(nodes = selected).hostEvidence(display, scope.selectedWindowId)
+            }
+        }
+        HostGeometryEvidence.publish(evidence)
         return snapshot.copy(hostWindow = evidence)
     }
 

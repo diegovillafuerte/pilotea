@@ -67,12 +67,12 @@ class OsPlatformSelectionReplayTest {
             }
             val pipeline = OfferFramePipeline()
             ScreenReaderState.setForegroundHost(UberOcrParser.UBER_PACKAGE, SystemClock.elapsedRealtime())
-            pipeline.process(grown, ScreenRect(324, 221, 1044, 557), null,
+            pipeline.processOwnedFrame(grown, ScreenRect(324, 221, 1044, 557), null,
                 displayBounds = HostRect(0, 0, 1080, 2340), density = 3f)
             yield()
             assertTrue("UNCERTAIN first frames never mint UUIDs", parsed.isEmpty())
             assertTrue("UNCERTAIN first frames never feed the ledger", seen.isEmpty())
-            pipeline.process(grown, null, null, displayBounds = HostRect(0, 0, 1080, 2340), density = 3f)
+            pipeline.processOwnedFrame(grown, null, null, displayBounds = HostRect(0, 0, 1080, 2340), density = 3f)
             yield()
             assertEquals(1, parsed.size)
             assertNotNull(parsed.single().card.sessionId)

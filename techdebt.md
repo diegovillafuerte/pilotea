@@ -718,7 +718,7 @@ Conscious deferrals. Each entry: date, severity, context, why deferred, when to 
 
 - **TD-044 / TD-045 / TD-047 / TD-048 / TD-049 S21 update — 2026-10-29 (existing release gates remain open):** The 0.2.0 debug handoff fixes demonstrated target-size, cutout, OTP/import recreation and stopped-tab window defects and adds three native Compose accessibility tests alongside Room/PDF instrumentation. Attached hardware remains `unauthorized` and no AVD is configured; compiling an instrumentation APK and passing JVM tests do not certify physical TalkBack, IME/Back/rotation/process death, 13sp legibility, Room/PDF on-device execution, OEM capture/permission recovery or live Uber/DiDi geometry. No layout/payment-basis/server gate was enabled. Before release, execute the device matrix and complete real-driver walkthrough/mounted-glance studies under the full pre-registered rule, including D2e's neutral $133/no-car/$548-after-car probes. Evidence, commands and the complete remaining gate checklist are in [v3-s21-release-qa.md](docs/v3-s21-release-qa.md); no participants or physical passes are claimed.
 
-## TD-058: Live offer-session edge cases still open after the 0.2.9 review (capture/overlay)
+## TD-058: Offer-session fixes implemented in 0.2.10; independent/device validation open
 
 - **Date / severity:** 2026-10-29 / High. Two of the cases are realistic and affect the displayed fare and the ledger.
 - **Context:** The first real-device runs on the Galaxy S25 (0.2.2–0.2.9) fixed four things:
@@ -727,14 +727,15 @@ Conscious deferrals. Each entry: date, severity, context, why deferred, when to 
   - verdicts that changed mid-offer (now steady per offer);
   - offer identity.
 
-  Live result: a $147.46 Uber Priority offer showed "▲ $18.22 /km neto · Arriba de tu meta". The independent Codex review of b6f607d (0.2.9) still FAILS on four findings (verbatim in [v3-0.2.9-review-findings.md](docs/v3-0.2.9-review-findings.md)):
-  1. Split-screen DiDi content creates a phantom Uber offer, because OCR is not scoped to the host window.
-  2. Back-to-back offers less than ~1 s apart can inherit the previous fare or overwrite its ledger row.
-  3. A first frame without the card heading (during the slide-in) can leave the chip over Uber's close control.
-  4. Leaving and returning to an unchanged offer duplicates its ledger row.
-- **Decision / why deferred:** Codex CLI hit its usage limit mid-fix, and is locked out until 2026-11-04. The Claude weekly budget is at 97%. The partial fix is preserved on branch `wip/v3-0.2.10-partial` (d91671c). Its gate FAILS: 2 failures in `:overlay` `OfferFramePipelineVerdictTest`, and later modules did not run. 0.2.9 stays installed on the S25.
+  Live result: a $147.46 Uber Priority offer showed "▲ $18.22 /km neto · Arriba de tu meta". The independent review of b6f607d (0.2.9) failed on four findings (verbatim in [v3-0.2.9-review-findings.md](docs/v3-0.2.9-review-findings.md)). **2026-10-30 update: all four are resolved in the 0.2.10 working tree and JVM replays:**
+  1. **Resolved:** OCR belongs to the selected OS window and excludes foreign windows/overlays; uncertain ownership emits no offer or ledger offer. Accessibility evidence carries the same selected-window provenance.
+  2. **Resolved:** positive clear absence is a hard session boundary; blank OCR is dropout. New offers get fresh identity/payment, unresolved replacements suppress inherited money, and the previous row retains its fare/route/start time. Covers decline → idle → new route within 900ms and identical-leg/different-fare offers.
+  3. **Resolved:** initial placement requires upper-card/control evidence. No validated safe band means unobscured capture with the chip detached; restored evidence recovers without oscillation. New sessions cannot reuse the previous card's boundary. Our own chip is excluded from OCR without becoming a placement obstacle.
+  4. **Resolved:** foreground departure immediately hides but suspends per-host identity/payment; unchanged return reuses the row. Clear absence or corroborated replacement retires it.
+- **Implementation/validation:** resumed `d91671c` on `feat/v3-redesign`, based on `fc9e453`; version **0.2.10 / 12**, no commit. The two resumed overlay failures used obsolete expectations (retaining old money during unresolved replacement; equating blank OCR with absence); corrected semantic assertions and separate dropout coverage now pass. Baseline export of b6f607d ran 16 replays with 14 expected assertion failures covering all four findings. Three self-review rounds total, including the resumed work; final round found no blocker. The iterative `--continue` gate and exact final gate **PASS: 1,727 tests, zero failures/errors/skips, 39 added tests**. Full evidence, changed-file inventory and APK hash: [v3-release-qa.md](docs/v3-release-qa.md). 0.2.9 stays installed on the S25; no live 0.2.10 validation is claimed.
+- **Open limitations / do not add synthetic identity heuristics:** if the entire idle/replacement interval is unobserved and route/product/action are identical, a fare-only difference remains a confirmed fare revision under the retained 0.2.9 model. OS snapshots cannot detect a transient window move-away-and-back between identical probes; this is not a reproduced driver blocker. Process/capture-service recreation does not preserve the in-memory suspended session. Keep these explicit rather than introducing timeouts or guessed replacements.
 - **Exit criterion:**
-  1. Finish 0.2.10 from the WIP branch: host-window OCR scoping, a clear-absence lifecycle boundary, validated initial placement, and suspend-on-departure.
-  2. Get the gate green.
-  3. Get an independent adversarial review PASS.
-  4. Replay back-to-back offers and slide-in placement live on the S25.
+  1. **Done:** finish window scoping, clear-absence lifecycle, validated initial placement and suspend-on-departure.
+  2. **Done:** exact gate green and APK verified at 0.2.10 / 12.
+  3. **Open:** fresh external independent adversarial release review PASS (three-round self-review is complete).
+  4. **Open:** install/replay back-to-back offers, identical legs/different fares, slide-in placement, split-screen/PiP/heads-up ownership, selected-window node IDs and host departure/return on the S25 with both capture lanes.

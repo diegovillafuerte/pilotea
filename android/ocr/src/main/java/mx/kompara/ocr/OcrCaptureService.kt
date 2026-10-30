@@ -90,7 +90,8 @@ class OcrCaptureService : Service() {
     // drag/attach/detach between capture and parse would otherwise misalign the live rect with the
     // frame (leak the old chip block, or blank host text at the new spot). See [ChipMask].
     private data class CapturedFrame(val permit: CapturePermit, val host: String, val burst: Long, val bitmap: Bitmap, val chipRect: ScreenRect?, val token: Long,
-        val capturedAtMs: Long, val density: Float, val accessibility: mx.kompara.capture.HostWindowEvidence?)
+        val capturedAtMs: Long, val density: Float, val accessibility: mx.kompara.capture.HostWindowEvidence?,
+        val windowOwnership: mx.kompara.capture.HostWindowOwnership?)
 
     override fun onCreate() {
         super.onCreate()
@@ -269,9 +270,11 @@ class OcrCaptureService : Service() {
                     lastOcrAt = now
                     // Hand off to the sequential consumer, tagged with this session's generation; CONFLATED
                     // replaces any unprocessed frame. Recycle if the channel is closed (teardown race).
+                    val capturedAtMs = System.currentTimeMillis()
                     val frame = CapturedFrame(permit, host, burst, image.toBitmap(width, height), ScreenReaderState.overlayChipRect, token,
-                        System.currentTimeMillis(), resources.displayMetrics.density,
-                        mx.kompara.capture.HostGeometryEvidence.state.value)
+                        capturedAtMs, resources.displayMetrics.density,
+                        mx.kompara.capture.HostGeometryEvidence.state.value,
+                        mx.kompara.capture.HostWindowOwnershipSource.current(host, capturedAtMs))
                     if (frameChannel.trySend(frame).isFailure) frame.bitmap.recycle()
                 } finally {
                     image.close()
@@ -313,12 +316,13 @@ class OcrCaptureService : Service() {
         ownership.withOwner(frame.permit) {
             val current = ScreenReaderState.liveForegroundObservation()
             val currentHost = (current as? HostForegroundObservation.Target)?.packageName
+            val currentWindows = mx.kompara.capture.HostWindowOwnershipSource.current(frame.host, System.currentTimeMillis())
             if (burstGeneration == frame.burst && burstHost == frame.host && readiness.canRead(token = frame.token) &&
-                currentHost == frame.host) {
+                currentHost == frame.host && frame.windowOwnership?.samePixels(currentWindows) == true) {
                 pipeline.process(blocks, frame.chipRect, if (BuildConfig.DEBUG) getExternalFilesDir(null) else null,
                     capturedAtMs = frame.capturedAtMs, token = frame.token, displayBounds = display,
                     density = frame.density, accessibility = frame.accessibility, appearance = appearance,
-                    foregroundPackage = frame.host)
+                    foregroundPackage = frame.host, windowOwnership = frame.windowOwnership)
             } else {
                 diagnostics.blocked("MediaProjection stale generation or readiness/canRead false")
                 if (burstGeneration == frame.burst && burstHost == frame.host && currentHost != frame.host) {
@@ -327,6 +331,8 @@ class OcrCaptureService : Service() {
                     } else {
                         closePipeline()
                     }
+                } else if (burstGeneration == frame.burst && burstHost == frame.host) {
+                    pipeline.onCaptureUncertain(System.currentTimeMillis())
                 }
             }
         }

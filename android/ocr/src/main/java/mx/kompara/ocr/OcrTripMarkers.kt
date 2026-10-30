@@ -43,7 +43,7 @@ data class OcrTripMarkers(
     }
 
     fun isIdle(text: String): Boolean = excludedMarkers.none { text.contains(it, true) } &&
-        listOf("Buscando viajes", "Buscando solicitudes", "Esperando solicitudes", "Estás desconectado", "Viaje finalizado").any {
+        listOf("Buscando viajes", "Buscando solicitud de viaje", "Buscando solicitudes", "Esperando solicitudes", "Estás desconectado", "Viaje finalizado").any {
             text.contains(it, ignoreCase = true)
         }
 

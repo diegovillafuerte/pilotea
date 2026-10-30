@@ -37,6 +37,7 @@ enum class HostGeometrySource { HOST_LAYOUT, OCR_TEXT_BOUNDS, ACCESSIBILITY_BOUN
 @Serializable
 data class HostOcrGeometryEvidence(
     val overlayMask: HostRect?,
+    /** Heading/upper control evidence only. A fare cannot establish the empty region above it. */
     val upperAnchors: List<HostRect>,
     val routeAnchors: List<HostRect>,
     val independentlyMeasuredCard: Boolean,

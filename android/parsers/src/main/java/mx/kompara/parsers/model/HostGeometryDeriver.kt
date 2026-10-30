@@ -103,9 +103,15 @@ object HostGeometryDeriver {
             button.containsMatchIn(it.text) || close.matches(it.text.trim())
         }.map { it.bounds })
             .mapNotNull { it.intersection(displayBounds) }.distinct()
+        val routes = boxes.filter { leg.containsMatchIn(it.text) && fareValue(it.text) == null }
+            .map { it.bounds }.sortedBy { it.top }
+        val upperLimit = routes.firstOrNull()?.top ?: accepts.minOfOrNull { it.bounds.top }
+        val upper = boxes.filter { upperLimit != null && it.bounds.bottom <= upperLimit &&
+            (heading.containsMatchIn(it.text) || close.matches(it.text.trim())) }.map { it.bounds }
         return HostGeometry(packageName, "derived-${source.name.lowercase()}", capturedAtMs,
             displayBounds, orientation(displayBounds), top, card, controls,
-            clipMarkers(markers, displayBounds), navigation, source)
+            clipMarkers(markers, displayBounds), navigation, source,
+            ocrEvidence = HostOcrGeometryEvidence(null, upper, routes, independentlyMeasuredCard = measuredCard == card))
     }
 
     /** A fresh host viewport can place the stopped tab without a stale or imaginary offer. */

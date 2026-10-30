@@ -92,6 +92,21 @@ class OverlayPositioningTest {
         assertTrue(tracker.observe(moved, viewport).recover)
     }
 
+    @Test fun `a partial fare envelope cannot lower the retained upper-card boundary`() {
+        val tracker = PlacementEvidence()
+        val initial = geometry().copy(source = HostGeometrySource.OCR_TEXT_BOUNDS,
+            ocrEvidence = HostOcrGeometryEvidence(null, listOf(HostRect(40, 1100, 600, 1140)),
+                listOf(HostRect(40, 1300, 600, 1340), HostRect(40, 1400, 600, 1440)), false))
+        assertFalse(tracker.observe(initial, viewport).needsUnobscuredCapture)
+        val partial = initial.copy(offerCard = initial.offerCard.copy(top = 1200),
+            ocrEvidence = initial.ocrEvidence!!.copy(upperAnchors = emptyList()))
+        repeat(4) {
+            val decision = tracker.observe(partial, viewport)
+            assertFalse(decision.needsUnobscuredCapture)
+            assertEquals(initial.offerCard.top, decision.geometry.offerCard.top)
+        }
+    }
+
     @Test fun `measured controls override mask recovery and always reject occupied saved positions`() {
         val tracker = PlacementEvidence()
         val g = geometry().copy(protectedControls = listOf(HostRect(300, 830, 760, 1080)),

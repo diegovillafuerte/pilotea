@@ -166,13 +166,16 @@ class SilentScreenshotLane(
                         capturing = true
                         hostPackage = host
                         val token = readiness.captureToken()
+                        val capturedAtMs = System.currentTimeMillis()
+                        val windowOwnership = mx.kompara.capture.HostWindowOwnershipSource.current(requireNotNull(host), capturedAtMs)
                         when (val shot = takeScreenshot(service)) {
                             is ShotResult.Ok -> {
                                 hardFailures = 0
                                 rateLimits.reset()
                                 val chipRect = ScreenReaderState.overlayChipRect
                                 processShot(shot.bitmap, chipRect, pipeline, permit, token,
-                                    service.resources.displayMetrics.density, diagnostics, service, requireNotNull(host))
+                                    service.resources.displayMetrics.density, diagnostics, service, requireNotNull(host),
+                                    capturedAtMs, windowOwnership)
                                 delay(THROTTLE_MS)
                             }
                             ShotResult.NoCapability -> {
@@ -225,13 +228,13 @@ class SilentScreenshotLane(
 
     private suspend fun processShot(bitmap: Bitmap, chipRect: ScreenRect?, pipeline: OfferFramePipeline,
         permit: CapturePermit, token: Long, density: Float, diagnostics: OcrDiagnostics,
-        service: AccessibilityService, capturedHost: String) {
+        service: AccessibilityService, capturedHost: String, capturedAtMs: Long,
+        windowOwnership: mx.kompara.capture.HostWindowOwnership?) {
         if (ownership.permit(permit.session) != permit || !readiness.canRead(token = token)) {
             diagnostics.blocked("SCREENSHOT_STALE_OR_READINESS")
             bitmap.recycle()
             return
         }
-        val capturedAtMs = System.currentTimeMillis()
         val display = mx.kompara.parsers.model.HostRect(0, 0, bitmap.width, bitmap.height)
         val accessibility = mx.kompara.capture.HostGeometryEvidence.state.value
         val blocks = try {
@@ -258,13 +261,16 @@ class SilentScreenshotLane(
             // Recognition can finish after an app switch. Never publish an old host frame into the
             // new foreground session; the next loop closes the old burst before reading its successor.
             val current = foregroundHostObservation(service)
-            if ((current as? HostForegroundObservation.Target)?.packageName == capturedHost) {
+            val currentWindows = mx.kompara.capture.HostWindowOwnershipSource.current(capturedHost, System.currentTimeMillis())
+            if ((current as? HostForegroundObservation.Target)?.packageName == capturedHost &&
+                windowOwnership?.samePixels(currentWindows) == true) {
                 pipeline.process(blocks, chipRect, null, capturedAtMs = capturedAtMs, token = token,
                     displayBounds = display, density = density, accessibility = accessibility, appearance = appearance,
-                    foregroundPackage = capturedHost)
+                    foregroundPackage = capturedHost, windowOwnership = windowOwnership)
             } else {
-                pipeline.captureBlocked("SCREENSHOT_HOST_CHANGED")
-                if (current == HostForegroundObservation.Unknown) {
+                pipeline.captureBlocked("SCREENSHOT_HOST_OR_WINDOWS_CHANGED")
+                if (current == HostForegroundObservation.Unknown ||
+                    (current as? HostForegroundObservation.Target)?.packageName == capturedHost) {
                     pipeline.onCaptureUncertain(System.currentTimeMillis())
                 } else {
                     pipeline.onCaptureEnd(System.currentTimeMillis())
