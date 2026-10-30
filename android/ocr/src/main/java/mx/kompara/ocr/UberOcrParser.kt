@@ -2,6 +2,7 @@ package mx.kompara.ocr
 
 import mx.kompara.parsers.model.OfferCard
 import mx.kompara.parsers.model.OfferContentBounds
+import mx.kompara.parsers.model.OfferActionLabel
 import mx.kompara.data.service.ScreenRect
 import java.util.Locale
 import kotlin.math.abs
@@ -62,7 +63,6 @@ class UberOcrParser {
 
     private val distanceRegex = Regex("""([0-9OlI][0-9OlI.,]*)\s*km\b""", RegexOption.IGNORE_CASE)
     private val minutesRegex = Regex("""([0-9OlI]+)\s*min\b""", RegexOption.IGNORE_CASE)
-    private val acceptRegex = Regex("""\b(Aceptar|Coincidir)\b""", RegexOption.IGNORE_CASE)
     private val hostRegex = Regex("""\bUber\w*|Radar de solicitud""", RegexOption.IGNORE_CASE)
 
     fun parse(blocks: List<OcrBlock>, cardBounds: OcrBounds? = null, chipRect: ScreenRect? = null,
@@ -113,7 +113,7 @@ class UberOcrParser {
         val fare = extractFare(cardBlocks, cardBounds, hostConfirmed)
         val text = cardBlocks.joinToString(" ") { it.text }
         val trip = extractTripLeg(cardBlocks, hostConfirmed)
-        val action = acceptRegex.containsMatchIn(text)
+        val action = cardBlocks.any { OfferActionLabel.from(it.text) != null }
         val host = hostRegex.containsMatchIn(text)
         // A zero wallet pill cannot erase an independently recognized offer with an unread fare.
         if (fare == null && !(action && (trip != null || host)) &&
@@ -147,7 +147,7 @@ class UberOcrParser {
             .sortedWith(compareBy<OcrBlock> { it.bounds.top }.thenBy { it.bounds.left })
         val heading = ordered.firstOrNull { hostRegex.containsMatchIn(it.text) } ?: return ordered
         val action = ordered.firstOrNull {
-            it.bounds.top >= heading.bounds.top && acceptRegex.containsMatchIn(it.text)
+            it.bounds.top >= heading.bounds.top && OfferActionLabel.from(it.text) != null
         }
         return ordered.filter {
             it.bounds.top >= heading.bounds.top && (action == null || it.bounds.bottom <= action.bounds.bottom)
@@ -236,7 +236,7 @@ class UberOcrParser {
         val amounts = currencyAmounts(positioned) ?: return null
         val moneyBlocks = amounts.flatMap { it.members }.toSet()
         val body = positioned.filterNot {
-            hostRegex.containsMatchIn(it.text) || acceptRegex.containsMatchIn(it.text) ||
+            hostRegex.containsMatchIn(it.text) || OfferActionLabel.from(it.text) != null ||
                 it.text.trim().length <= 1 || it.text.equals("Exclusivo", true) ||
                 it in moneyBlocks || currencyFragmentRegex.matches(it.text.trim())
         }

@@ -34,7 +34,7 @@ internal data class OcrOfferIdentity(
 internal class OcrOfferSessionTracker {
     enum class Confidence { CONFIDENT, UNCERTAIN }
     data class Decision(val card: OfferCard?, val confidence: Confidence, val replaced: Boolean = false,
-        val identityUnresolved: Boolean = false)
+        val identityUnresolved: Boolean = false, val rejection: OcrPublicationRejectionReason? = null)
     private val presence = CardPresenceTracker()
     private var baseline: OfferCard? = null
     private var previous: OfferCard? = null
@@ -76,7 +76,13 @@ internal class OcrOfferSessionTracker {
             val maskedEvidence = mask != null && (card.hostGeometry?.offerCard?.overlaps(mask) == true ||
                 card.instanceEvidence?.cardBands.orEmpty().any(mask::overlaps) ||
                 card.instanceEvidence?.headingBounds == null)
-            if (route == null || maskedEvidence || !extractionCertain) return Decision(null, Confidence.UNCERTAIN)
+            val rejection = when {
+                route == null -> OcrPublicationRejectionReason.PARSED_ROUTE_INCOMPLETE
+                maskedEvidence -> OcrPublicationRejectionReason.PARSED_CARD_MASKED
+                !extractionCertain -> OcrPublicationRejectionReason.PARSED_EXTRACTION_UNCERTAIN
+                else -> null
+            }
+            if (rejection != null) return Decision(null, Confidence.UNCERTAIN, rejection = rejection)
             start(card, atMs, nowMs)
             return Decision(stamped(card), Confidence.CONFIDENT)
         }
@@ -121,7 +127,8 @@ internal class OcrOfferSessionTracker {
         if (votes.values.count { it.second >= 2 } >= 2) {
             reset()
             // Corroborated replacement can reveal a missing fare, but must have a readable route.
-            if (route == null) return Decision(null, Confidence.UNCERTAIN, true)
+            if (route == null) return Decision(null, Confidence.UNCERTAIN, true,
+                rejection = OcrPublicationRejectionReason.PARSED_ROUTE_INCOMPLETE)
             start(card, atMs, nowMs)
             return Decision(stamped(card), Confidence.CONFIDENT, true)
         }

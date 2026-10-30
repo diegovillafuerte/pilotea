@@ -504,7 +504,7 @@ class ClearLifecycleBoundaryReplayTest {
         assertTrue(result.trips.all().isEmpty())
     }
 }
-private class BoundaryOfferDao : OfferDao {
+internal class BoundaryOfferDao : OfferDao {
     override suspend fun hasSeenBefore(before: Long) = rows.values.any { it.seenAt < before }
     private val rows = mutableMapOf<Long, OfferEntity>()
     private var nextId = 1L
@@ -551,7 +551,7 @@ private class BoundaryOfferDao : OfferDao {
         MutableStateFlow(rows.values.filter { it.seenAt in from until until }.sortedBy { it.seenAt })
 }
 
-private class BoundaryTripDao(private val offers: BoundaryOfferDao? = null) : TripDao {
+internal class BoundaryTripDao(private val offers: BoundaryOfferDao? = null) : TripDao {
     override suspend fun startedBetween(from: Long, until: Long) = rows.values.filter { it.startedAt >= from && it.startedAt < until }.sortedBy { it.startedAt }
 
     private val rows = mutableMapOf<Long, TripEntity>()
@@ -597,7 +597,7 @@ private class BoundaryTripDao(private val offers: BoundaryOfferDao? = null) : Tr
         )
 }
 
-private class BoundaryShiftDao : ShiftDao {
+internal class BoundaryShiftDao : ShiftDao {
     private val rows = mutableMapOf<Long, ShiftEntity>()
     private var nextId = 1L
 
@@ -626,7 +626,7 @@ private class BoundaryShiftDao : ShiftDao {
             .sortedBy { it.startedAt }
 }
 
-private class BoundaryCostProfileDao : CostProfileDao {
+internal class BoundaryCostProfileDao : CostProfileDao {
     // These tests isolate thresholds/lifecycle from running costs: explicitly configured zero.
     private val costVersions = mutableListOf(mx.kompara.data.db.entity.CostVersionEntity.from(
         mx.kompara.data.accounting.RunningCostVersion(1, 0, 0,

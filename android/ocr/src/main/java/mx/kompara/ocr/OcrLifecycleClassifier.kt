@@ -93,6 +93,7 @@ class OcrLifecycleClassifier(private val markers: OcrTripMarkers = OcrTripMarker
         hostPackage: String,
         timestampMs: Long,
         observedIdle: Boolean = false,
+        transition: OcrLifecycleTransition = markers.transition(joinedText),
     ): LifecycleSignal? {
         val hostChanged = lastHost != hostPackage
         if (hostChanged) { phase = Phase.NONE; offerEmitted = false; sessionOfferKey = null }
@@ -124,9 +125,10 @@ class OcrLifecycleClassifier(private val markers: OcrTripMarkers = OcrTripMarker
 
         // A random map, unread frame or cancel dialog does not prove a trip ended.
         val next = when {
-            markers.isCancelled(joinedText) -> Phase.CANCELLED
-            markers.isTripLike(joinedText) -> if (markers.isUnderWay(joinedText)) Phase.TRIP else Phase.ACCEPTED
-            observedIdle || markers.isIdle(joinedText) -> Phase.IDLE
+            transition == OcrLifecycleTransition.CANCELLED -> Phase.CANCELLED
+            transition == OcrLifecycleTransition.UNDERWAY -> Phase.TRIP
+            transition == OcrLifecycleTransition.ACCEPTED -> Phase.ACCEPTED
+            observedIdle || transition == OcrLifecycleTransition.IDLE -> Phase.IDLE
             else -> Phase.UNKNOWN
         }
         if (next == phase) return null

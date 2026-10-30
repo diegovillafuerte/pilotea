@@ -22,6 +22,16 @@ internal data class OcrReadingEvidence(
 
 internal enum class OcrRejectionReason { EMPTY_OCR, NO_OFFER_SIGNATURE, SIGNATURE_UNPARSED, OWN_UI }
 
+/** A parsed frame must either publish or account for its withheld result with one fixed code. */
+internal enum class OcrPublicationRejectionReason {
+    PARSED_READINESS_BLOCKED,
+    PARSED_ROUTE_INCOMPLETE,
+    PARSED_CARD_MASKED,
+    PARSED_EXTRACTION_UNCERTAIN,
+    PARSED_SESSION_UNCONFIRMED,
+    PARSED_OCR_OUTLIER,
+}
+
 /** Log only reason codes and measured geometry, never recognized screen text. */
 internal class OcrDiagnostics(
     private val now: () -> Long = SystemClock::elapsedRealtime,
@@ -66,6 +76,11 @@ internal class OcrDiagnostics(
     }
 
     @Synchronized fun publishedOffer() { publishedOffers++ }
+
+    /** Count every withheld parse even when its individual log line is throttled. */
+    @Synchronized fun unpublishedOffer(reason: OcrPublicationRejectionReason) {
+        blocked(reason.name)
+    }
 
     @Synchronized fun endBurst() {
         if (!burstActive) return

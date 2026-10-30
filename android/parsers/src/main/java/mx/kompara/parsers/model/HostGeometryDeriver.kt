@@ -16,9 +16,8 @@ object HostGeometryDeriver {
     private const val HEADING_DISTANCE_DP = 96
     private val fare = Regex("""(?:MX[N$]|\$)\s*\$?\s*([0-9][0-9.,]*)""", RegexOption.IGNORE_CASE)
     private val leg = Regex("""(?:\d[\d.,]*\s*(?:km|min|m)\b|\bviaje\s*:)""", RegexOption.IGNORE_CASE)
-    private val accept = Regex("""\b(?:aceptar|coincidir)\b""", RegexOption.IGNORE_CASE)
     private val close = Regex("""^(?:x|×|✕|✖|cerrar|close)$""", RegexOption.IGNORE_CASE)
-    private val button = Regex("""\b(?:aceptar|coincidir|rechazar)\b""", RegexOption.IGNORE_CASE)
+    private val reject = Regex("""\brechazar\b""", RegexOption.IGNORE_CASE)
     private val heading = Regex("""\b(?:uber\w*|didi|exclusivo|reserva|programado|radar de solicitud|pon tu precio)\b""", RegexOption.IGNORE_CASE)
     private val uberHeading = Regex("""\b(?:uber\w*|radar de solicitud)\b""", RegexOption.IGNORE_CASE)
     private val chrome = Regex("""\b(?:en l[ií]nea|buscando viajes|men[uú]|buscar|gira|gire|dobla)\b""", RegexOption.IGNORE_CASE)
@@ -45,7 +44,7 @@ object HostGeometryDeriver {
         val content = contentBounds?.let { HostRect(it.left, it.top, it.right, it.bottom) }
             ?.takeIf(displayBounds::contains)
         val fares = boxes.filter { fareValue(it.text) != null }
-        val accepts = boxes.filter { accept.containsMatchIn(it.text) }
+        val accepts = boxes.filter { OfferActionLabel.from(it.text) != null }
         val anchors = if (content != null) {
             // DiDi's amount extractor prefers "Aceptar $X". Its text union can start at the
             // pickup row, below the large fare; recover that matching fare instead of overlapping it.
@@ -100,7 +99,7 @@ object HostGeometryDeriver {
         val top = HostRect(displayBounds.left, displayBounds.top, displayBounds.right,
             maxOf(measuredChrome?.bottom ?: displayBounds.top + 1, chromeBottom ?: displayBounds.top + 1))
         val controls = (protectedControls + boxes.filter {
-            button.containsMatchIn(it.text) || close.matches(it.text.trim())
+            OfferActionLabel.from(it.text) != null || reject.containsMatchIn(it.text) || close.matches(it.text.trim())
         }.map { it.bounds })
             .mapNotNull { it.intersection(displayBounds) }.distinct()
         val routes = boxes.filter { leg.containsMatchIn(it.text) && fareValue(it.text) == null }

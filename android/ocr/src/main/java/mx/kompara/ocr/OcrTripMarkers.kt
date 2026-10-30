@@ -1,5 +1,8 @@
 package mx.kompara.ocr
 
+/** Classified evidence, so a scoped decision never reclassifies unrelated window text. */
+enum class OcrLifecycleTransition { UNKNOWN, ACCEPTED, UNDERWAY, IDLE, CANCELLED }
+
 /**
  * OCR-text markers that identify a **trip-in-progress** screen (navigation / active ride) for the
  * B-039 OCR ledger path. The OCR analogue of `:capture`'s node-side `TripStateMarkers`, but matched
@@ -26,6 +29,37 @@ data class OcrTripMarkers(
     val excludedMarkers: List<String> = DEFAULT_EXCLUDED_MARKERS,
 ) {
 
+    fun transition(text: String): OcrLifecycleTransition = when {
+        isCancelled(text) -> OcrLifecycleTransition.CANCELLED
+        isUnderWay(text) -> OcrLifecycleTransition.UNDERWAY
+        isTripLike(text) -> OcrLifecycleTransition.ACCEPTED
+        isIdle(text) -> OcrLifecycleTransition.IDLE
+        else -> OcrLifecycleTransition.UNKNOWN
+    }
+
+    /**
+     * Only B-084 transitions can act outside the former card. Best guesses remain confined to
+     * that card region; exclusions still veto acceptance/idle across the entire owned window.
+     * The caller must never use transition evidence on a surviving offer-signature frame.
+     */
+    fun scopedTransition(windowText: String, cardRegionText: String,
+        allowWindowIdle: Boolean = false): OcrLifecycleTransition {
+        if (windowText.contains("cancelaste el viaje", ignoreCase = true)) return OcrLifecycleTransition.CANCELLED
+        val local = transition(cardRegionText)
+        if (local == OcrLifecycleTransition.CANCELLED) return local
+        val excluded = excludedMarkers.any { windowText.contains(it, ignoreCase = true) }
+        if (excluded) return OcrLifecycleTransition.UNKNOWN
+        if (local == OcrLifecycleTransition.UNDERWAY) return local
+        if (CONFIRMED_TRIP_MARKERS.any { windowText.contains(it, ignoreCase = true) }) {
+            return OcrLifecycleTransition.ACCEPTED
+        }
+        if (local != OcrLifecycleTransition.UNKNOWN) return local
+        // S25-confirmed idle chrome can start an idle phase, or corroborate independently observed
+        // semantic-card disappearance. It cannot retire a semanticless card from the background.
+        return if (allowWindowIdle && windowText.contains("Buscando viajes", ignoreCase = true))
+            OcrLifecycleTransition.IDLE else OcrLifecycleTransition.UNKNOWN
+    }
+
     /**
      * Whether [text] (the joined OCR frame) looks like a trip-in-progress screen: a trip marker
      * matches AND no [excludedMarkers] (cancel-reason dialog) does — the exclusion wins so a
@@ -49,7 +83,7 @@ data class OcrTripMarkers(
 
     companion object {
         /** Trip-screen phrases (es-MX). The first block is confirmed from real captures (B-084). */
-        val DEFAULT_TRIP_MARKERS: List<String> = listOf(
+        val CONFIRMED_TRIP_MARKERS: List<String> = listOf(
             // DiDi offer-accepted / to-pickup navigation, confirmed on-device 2026-06-15 (B-084).
             "Viaje aceptado",
             "Llegué por el pasajero",
@@ -61,6 +95,9 @@ data class OcrTripMarkers(
             // (Uber's accepted screen is Uber-specific text the DiDi anchors above never matched, so
             // accepted Uber rides used to open an orphan bare trip instead of linking the offer.)
             "Agenda de viajes",
+        )
+
+        val DEFAULT_TRIP_MARKERS: List<String> = CONFIRMED_TRIP_MARKERS + listOf(
             // Best-guess on-trip / completion phrases — still NEEDS on-device calibration (TD-030).
             "Viaje en curso",
             "Iniciar viaje",

@@ -106,6 +106,25 @@ class OcrDiagnosticsTest {
             "chipVisibleFrames=0 hidden{SCREENSHOT_RATE_LIMIT=2}", messages.last())
     }
 
+    @Test fun `withheld parsed frames have a reason on every frame while messages remain throttled`() {
+        var time = 0L
+        val messages = mutableListOf<String>()
+        val diagnostics = OcrDiagnostics({ time }, messages::add)
+        repeat(4) {
+            diagnostics.frame(8, false)
+            diagnostics.reading(OcrReadingEvidence(8, false, true, true, true))
+            diagnostics.unpublishedOffer(OcrPublicationRejectionReason.PARSED_SESSION_UNCONFIRMED)
+            time += 1_000
+        }
+        assertEquals(listOf("offer visibility: PARSED_SESSION_UNCONFIRMED"), messages)
+        diagnostics.endBurst()
+        assertEquals("burst: frames=4 ocrBlocks=32 signature=4 parsed=4 publishedOffers=0 " +
+            "chipVisibleFrames=0 hidden{PARSED_SESSION_UNCONFIRMED=4}", messages.last())
+        diagnostics.beginBurst()
+        diagnostics.endBurst()
+        assertTrue(messages.last().endsWith("hidden{}"))
+    }
+
     @Test fun `new host burst resets counts and distinguishes published offers from visible chips`() {
         val messages = mutableListOf<String>()
         val diagnostics = OcrDiagnostics({ 0L }, messages::add)

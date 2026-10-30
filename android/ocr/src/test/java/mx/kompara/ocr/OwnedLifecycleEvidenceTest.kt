@@ -81,6 +81,79 @@ class OwnedLifecycleEvidenceTest {
         assertTrue(result.signals.none { it is LifecycleSignal.IdleStateEntered })
     }
 
+    @Test fun `uncalibrated transition words above former card cannot retire a live session`() {
+        for (marker in OcrTripMarkers.DEFAULT_TRIP_MARKERS.drop(5) + "Viaje cancelado") {
+            replay {
+                frame(fixture())
+                frame(listOf(block(marker, 140, 220)))
+                frame(fixture())
+                assertEquals("Offer must publish again after unknown background", 2, parsed.size)
+                assertHeld()
+            }
+        }
+    }
+
+    @Test fun `uncalibrated window words before any offer cannot open a trip`() {
+        for (marker in OcrTripMarkers.DEFAULT_TRIP_MARKERS.drop(5) + "Viaje cancelado") {
+            val result = replay { frame(listOf(block(marker, 140, 220)), mask = null) }
+            assertTrue("Uncalibrated window text cannot establish a transition",
+                result.signals.none { it is LifecycleSignal.TripStateEntered || it is LifecycleSignal.TripCancelled })
+        }
+    }
+
+    @Test fun `idle pixels in old card cannot promote background navigation words to acceptance`() {
+        val result = replay {
+            frame(fixture())
+            frame(listOf(block("Navegar", 140, 220), block("Buscando viajes", 1900, 2000)))
+        }
+        assertEquals(1, result.signals.filterIsInstance<LifecycleSignal.IdleStateEntered>().size)
+        assertTrue(result.signals.none { it is LifecycleSignal.TripStateEntered })
+    }
+
+    @Test fun `confirmed acceptance cannot inherit uncalibrated underway words from the window`() {
+        val result = replay {
+            frame(fixture())
+            frame(listOf(header, block("Finalizar viaje", 30, 100)))
+        }
+        val accepted = result.signals.filterIsInstance<LifecycleSignal.TripStateEntered>().single()
+        assertFalse(accepted.inProgress)
+    }
+
+    @Test fun `after acceptance best guesses remain restricted to the former card region`() {
+        val result = replay {
+            frame(fixture())
+            frame(listOf(header))
+            frame(listOf(block("Viaje en curso", 30, 100)), mask = null)
+            assertEquals(1, signals.filterIsInstance<LifecycleSignal.TripStateEntered>().size)
+            frame(listOf(block("Viaje en curso", 1900, 2000)), mask = null)
+        }
+        assertEquals(listOf(false, true), result.signals.filterIsInstance<LifecycleSignal.TripStateEntered>()
+            .map { it.inProgress })
+    }
+
+    @Test fun `terminal idle expires the retained accepted card region`() {
+        val result = replay {
+            frame(fixture())
+            frame(listOf(header))
+            frame(listOf(block("Buscando viajes", 1900, 2000)), mask = null)
+            frame(listOf(block("Viaje en curso", 1900, 2000)), mask = null)
+        }
+        assertEquals(1, result.signals.filterIsInstance<LifecycleSignal.TripStateEntered>().size)
+        assertEquals(1, result.signals.filterIsInstance<LifecycleSignal.IdleStateEntered>().size)
+    }
+
+    @Test fun `accepted header cannot override later in-region progression or cancellation`() {
+        val result = replay {
+            frame(fixture())
+            frame(listOf(header))
+            frame(listOf(header, block("Viaje en curso", 1900, 2000)), mask = null)
+            frame(listOf(header, block("Viaje cancelado", 1900, 2000)), mask = null)
+        }
+        assertEquals(listOf(false, true), result.signals.filterIsInstance<LifecycleSignal.TripStateEntered>()
+            .map { it.inProgress })
+        assertEquals(1, result.signals.filterIsInstance<LifecycleSignal.TripCancelled>().size)
+    }
+
     @Test fun `accepted header outside selected host window cannot retire offer`() {
         replay {
             frame(fixture())

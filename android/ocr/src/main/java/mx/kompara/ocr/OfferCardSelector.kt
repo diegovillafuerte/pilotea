@@ -8,6 +8,7 @@ import mx.kompara.parsers.model.HostGeometrySource
 import mx.kompara.parsers.model.HostRect
 import mx.kompara.parsers.model.HostTextBounds
 import mx.kompara.parsers.model.HostOcrGeometryEvidence
+import mx.kompara.parsers.model.OfferActionLabel
 import mx.kompara.capture.HostWindowEvidence
 import mx.kompara.data.service.ScreenRect
 
@@ -80,7 +81,6 @@ private fun OcrBlock.hostRect() = bounds.let { HostRect(it.left, it.top, it.righ
 private val offerUpperAnchor = Regex("""\b(?:Uber\w*|Didi|Exclusivo|Reserva|Programado|Radar de solicitud|Pon tu precio)\b""", RegexOption.IGNORE_CASE)
 private val upperControl = Regex("""(?:x|×|✕|✖|cerrar|close)""", RegexOption.IGNORE_CASE)
 private val uberHeading = Regex("""\bUber\w*|Radar de solicitud""", RegexOption.IGNORE_CASE)
-private val uberAction = Regex("""\b(?:Aceptar|Coincidir)\b""", RegexOption.IGNORE_CASE)
 private val uberRoute = Regex("""(?:[0-9OlI]+|—|-)\s*min\s*\(\s*[0-9OlI][0-9OlI.,]*\s*km""", RegexOption.IGNORE_CASE)
 
 /**
@@ -95,12 +95,12 @@ private fun HostWindowEvidence.currentUberCardBounds(blocks: List<OcrBlock>, atM
     val ordered = blocks.sortedBy { it.bounds.top }
     val heading = ordered.firstOrNull { uberHeading.containsMatchIn(it.text) } ?: return null
     val action = ordered.firstOrNull {
-        it.bounds.top >= heading.bounds.top && uberAction.containsMatchIn(it.text)
+        it.bounds.top >= heading.bounds.top && OfferActionLabel.from(it.text) != null
     }
     val anchors = ordered.filter {
         it == heading || it.bounds.top >= heading.bounds.top &&
             (action == null || it.bounds.bottom <= action.bounds.bottom) &&
-            (uberRoute.containsMatchIn(it.text) || uberAction.containsMatchIn(it.text))
+            (uberRoute.containsMatchIn(it.text) || OfferActionLabel.from(it.text) != null)
     }
     return measured.takeIf {
         anchors.all { block -> block.bounds.let { b -> measured.contains(HostRect(b.left, b.top, b.right, b.bottom)) } }

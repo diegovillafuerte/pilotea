@@ -166,35 +166,30 @@ class OfferFramePipeline(private val readiness: mx.kompara.data.service.ReaderRe
             active.semanticCardWindowId = ownedAccessibility?.windowId?.takeIf { matchingNodeOffer }
         }
         val markers = OcrTripMarkers.DEFAULT
-        fun lifecycleMarker(text: String) = markers.isIdle(text) || markers.isTripLike(text) || markers.isCancelled(text)
-        // Idle chrome can coexist with a semanticless card: require idle pixels where that card
-        // was. Accepted/navigation/cancelled UI instead proves a different screen anywhere in
-        // the owned, unmasked window (B-084's "Agenda de viajes" may be above the former card).
-        val cardRegionText = if (sessions.isPresent()) blocks.filter { block ->
+        fun cardRegionText(evidence: List<OcrBlock>) = evidence.filter { block ->
             active.lastCardDisplay == displayBounds && active.lastCardBounds?.contains(
                 HostRect(block.bounds.left, block.bounds.top, block.bounds.right, block.bounds.bottom)) == true
-        }.joinToString(" | ") { it.text } else joined
-        val pixelLifecycleText = when {
-            markers.isCancelled(joined) || markers.isTripLike(joined) -> joined
-            // Classify the whole window so a cancellation veto outside the card cannot be lost
-            // by cropping. The crop is only corroboration for ambiguous background-idle text.
-            markers.isIdle(joined) && markers.isIdle(cardRegionText) -> joined
-            else -> ""
+        }.joinToString(" | ") { it.text }
+        // A live signature vetoes ALL transition evidence from this frame. Outside the former
+        // card, only device-confirmed B-084 transitions count (including the accepted header).
+        // Pass the scoped decision downstream, never whole-window text that can reintroduce guesses.
+        val pixelTransition = if (signature || ownUi) OcrLifecycleTransition.UNKNOWN else {
+            markers.scopedTransition(joined, cardRegionText(blocks), allowWindowIdle = !sessions.isPresent())
         }
         val lifecycleNodes = ownedAccessibility?.takeIf {
             active.semanticCardWindowId != null && it.windowId == active.semanticCardWindowId &&
                 it.capturedAtMs > active.lastCardObservedAtMs && it.observedCardBounds == null && nodeCard == null
         }
-        val lifecycleText = if (!signature && !lifecycleMarker(pixelLifecycleText))
-            lifecycleNodes?.textBounds?.joinToString(" | ") { it.text }
-                ?.takeIf(::lifecycleMarker)
-                // Semantic disappearance must also preserve exclusions seen in owned pixels.
-                ?.let { "$joined | $it" } ?: pixelLifecycleText else pixelLifecycleText
-        val clearAbsence = observedAbsent || (!ownUi && !signature && lifecycleMarker(lifecycleText))
+        val transition = if (!ownUi && !signature && pixelTransition == OcrLifecycleTransition.UNKNOWN &&
+            lifecycleNodes != null) {
+            // Matching semantic-card disappearance is independent absence evidence, but cannot
+            // widen uncalibrated navigation markers. Keep exclusions from BOTH owned sources.
+            markers.scopedTransition("$joined | ${nodeBlocks.joinToString(" | ") { it.text }}",
+                cardRegionText(nodeBlocks), allowWindowIdle = true)
+        } else pixelTransition
+        val clearAbsence = observedAbsent || (!ownUi && !signature && transition != OcrLifecycleTransition.UNKNOWN)
         val card = decision?.card?.takeIf {
-            val accepted = frameOutlierGuard.accept(parsed, now)
-            if (!accepted) diagnostics.blocked("OCR outlier withheld")
-            accepted
+            frameOutlierGuard.accept(parsed, now)
         }
         var disappeared = false
         if (card == null) {
@@ -207,8 +202,19 @@ class OfferFramePipeline(private val readiness: mx.kompara.data.service.ReaderRe
         if (disappeared) {
             fareStabilizer.reset()
             frameOutlierGuard.reset()
-            active.lastCardBounds = null
+            // Keep only the accepted offer's region for later in-region trip evidence. The offer
+            // identity/payment are retired; guesses still cannot act elsewhere in the window.
+            if (transition != OcrLifecycleTransition.ACCEPTED && transition != OcrLifecycleTransition.UNDERWAY) {
+                active.lastCardBounds = null
+            }
             active.semanticCardWindowId = null
+        }
+        if (!signature && (observedAbsent || transition == OcrLifecycleTransition.IDLE ||
+                transition == OcrLifecycleTransition.CANCELLED)) {
+            // Completion/cancellation also expires a retained accepted-card region, even though
+            // acceptance already retired the offer session and miss() can no longer disappear it.
+            active.lastCardBounds = null
+            active.lastCardDisplay = null
         }
         diagnostics.reading(OcrReadingEvidence(blocks.size, ownUi, signature, parsed != null, parsed?.fare != null))
         if (signature && (parsed == null || parsed.fare == null)) {
@@ -219,6 +225,13 @@ class OfferFramePipeline(private val readiness: mx.kompara.data.service.ReaderRe
         val shownCard = card?.let { fareStabilizer.onParsed(it, now,
             confident = decision.confidence == OcrOfferSessionTracker.Confidence.CONFIDENT,
             identityUnresolved = decision.identityUnresolved) }
+        if (parsed != null && shownCard == null) {
+            diagnostics.unpublishedOffer(when {
+                decision == null -> OcrPublicationRejectionReason.PARSED_READINESS_BLOCKED
+                decision.card == null -> decision.rejection ?: OcrPublicationRejectionReason.PARSED_SESSION_UNCONFIRMED
+                else -> OcrPublicationRejectionReason.PARSED_OCR_OUTLIER
+            })
+        }
         if (shownCard != null) {
             if (shownCard.fare != null) readiness?.readOffer(shownCard.platform,
                 shownCard.sessionId ?: "${shownCard.platform}:$capturedAtMs", capturedAtMs, token)
@@ -271,8 +284,8 @@ class OfferFramePipeline(private val readiness: mx.kompara.data.service.ReaderRe
             // sessions.isPresent() is the DEBOUNCED "card on screen" state (held through garble),
             // so the offer session doesn't split on a single OCR dropout — same policy as the chip.
             // Both consumers receive the same stabilized card and immutable session identity.
-            lifecycleClassifier.onFrame(lifecycleText, shownCard, sessions.isPresent(), hostPackage, capturedAtMs,
-                observedIdle = observedAbsent)
+            lifecycleClassifier.onFrame("", shownCard, signature || sessions.isPresent(), hostPackage, capturedAtMs,
+                observedIdle = observedAbsent, transition = transition)
                 ?.let { OcrLifecycleBus.tryEmit(it) }
         }
 
