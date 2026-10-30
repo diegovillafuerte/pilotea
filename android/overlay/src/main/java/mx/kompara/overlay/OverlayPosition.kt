@@ -1,8 +1,10 @@
 package mx.kompara.overlay
 
 import mx.kompara.parsers.model.HostGeometry
+import mx.kompara.parsers.model.HostGeometrySource
 import mx.kompara.parsers.model.HostOrientation
 import mx.kompara.parsers.model.HostRect
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /** Screen pixels throughout; conversion to WindowManager's origin happens only at the boundary. */
@@ -44,6 +46,29 @@ object OverlayPositioning {
     fun sameLayout(previous: HostGeometry?, next: HostGeometry): Boolean =
         previous?.copy(capturedAtMs = next.capturedAtMs, layoutId = next.layoutId, source = next.source,
             appearance = next.appearance) == next
+
+    /** A moving sheet may hide its own upper edge behind the chip; that is not a larger safe band. */
+    fun lostMaskedAnchors(previous: HostGeometry?, next: HostGeometry, viewport: OverlayViewport): Boolean {
+        if (next.source == HostGeometrySource.HOST_LAYOUT) return false
+        val before = previous?.ocrEvidence ?: return false
+        val after = next.ocrEvidence ?: return false
+        if (previous.packageName != next.packageName || previous.displayBounds != next.displayBounds ||
+            after.independentlyMeasuredCard) return false
+        val mask = after.overlayMask ?: return false
+        if (before.routeAnchors.isEmpty() || before.routeAnchors.size != after.routeAnchors.size) return false
+        val tolerance = viewport.dp(8)
+        val dx = after.routeAnchors.first().left - before.routeAnchors.first().left
+        val dy = after.routeAnchors.first().top - before.routeAnchors.first().top
+        if (abs(dx) <= tolerance && abs(dy) <= tolerance) return false
+        // Losing one leg is not displacement. Require the visible route anchors to move together.
+        if (before.routeAnchors.zip(after.routeAnchors).any { (old, fresh) ->
+            abs(fresh.left - old.left - dx) > tolerance || abs(fresh.top - old.top - dy) > tolerance
+        }) return false
+        return before.upperAnchors.any { old ->
+            val displaced = HostRect(old.left + dx, old.top + dy, old.right + dx, old.bottom + dy)
+            displaced.overlaps(mask) && after.upperAnchors.none { it.overlaps(displaced.expanded(tolerance)) }
+        }
+    }
 
     fun geometryProblem(g: HostGeometry?, host: String, viewport: OverlayViewport, nowMs: Long): String? = when {
         g == null -> "UNVALIDATED_GEOMETRY"

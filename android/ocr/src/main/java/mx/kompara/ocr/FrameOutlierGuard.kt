@@ -12,9 +12,8 @@ import kotlin.math.min
  * Within one offer the true fare and leg distances are constant, so a lone frame that reads a value
  * ≥ [OUTLIER_FACTOR]× (or ≤ 1/[OUTLIER_FACTOR]×) the median of the last ~second is an OCR misread, not
  * a new reality — e.g. a decimal drop that slips past recovery (13.0 km → 130 km) or a gross fare
- * garble (DiDi `$200.85` read as `$7.84`, live 2026-06-15). [FareStabilizer] can't catch the distance
- * case because it *keys the offer session on the trip leg*: a ×10 trip leg starts a brand-new session
- * and the bad frame paints immediately. This guard runs BEFORE the stabilizer, the overlay emit AND the
+ * garble (DiDi `$200.85` read as `$7.84`, live 2026-06-15). Payment confirmation alone cannot validate
+ * route numbers. This guard runs BEFORE stabilization, durable route confirmation, overlay emit AND the
  * B-039 ledger, so a rejected frame reaches none of them — it is treated like a garbled parse and
  * [CardPresenceTracker] holds the last good verdict across it.
  *
@@ -24,7 +23,7 @@ import kotlin.math.min
  * bounded and [reset] when the card leaves the screen, so each offer is judged only against itself.
  *
  * Sub-[OUTLIER_FACTOR] jitter (the `MXN137.28` ↔ `37.28` flicker, ~3.7×) is deliberately left to
- * [FareStabilizer]'s mode smoothing; this guard only fires on the gross, order-of-magnitude class.
+ * [FareStabilizer]'s repeated-reading confirmation; this guard only fires on gross outliers.
  *
  * Pure, single-threaded (driven under the OCR frame mutex) → JVM-testable.
  */
@@ -76,7 +75,7 @@ class FrameOutlierGuard(private val windowMs: Long = WINDOW_MS) {
         /** Prior readings needed before anything is judged an outlier (the first frames paint blind). */
         const val MIN_CONSENSUS = 2
 
-        /** ≈ a dropped/added digit. Below this is left to [FareStabilizer]'s mode smoothing. */
+        /** ≈ a dropped/added digit. Below this is left to [FareStabilizer]'s confirmation. */
         const val OUTLIER_FACTOR = 5.0
     }
 }

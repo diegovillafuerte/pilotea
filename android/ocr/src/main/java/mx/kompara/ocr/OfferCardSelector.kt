@@ -7,7 +7,9 @@ import mx.kompara.parsers.model.HostGeometryDeriver
 import mx.kompara.parsers.model.HostGeometrySource
 import mx.kompara.parsers.model.HostRect
 import mx.kompara.parsers.model.HostTextBounds
+import mx.kompara.parsers.model.HostOcrGeometryEvidence
 import mx.kompara.capture.HostWindowEvidence
+import mx.kompara.data.service.ScreenRect
 
 /**
  * Picks the offer card for a frame from its OCR blocks, identifying the platform in the process.
@@ -36,6 +38,7 @@ internal fun selectOfferCard(
     density: Float = 1f,
     accessibility: HostWindowEvidence? = null,
     appearance: HostAppearanceSamples? = null,
+    chipRect: ScreenRect? = null,
 ): OfferCard? {
     // Validate independently observed card edges before fare selection, so a large map label
     // outside the card cannot become payment. Derived OCR geometry remains the fallback below.
@@ -62,12 +65,27 @@ internal fun selectOfferCard(
             protectedControls = nodes?.protectedControls.orEmpty(), markers = nodes?.markers.orEmpty(),
             navigation = nodes?.navigation ?: false, recognizedOffer = true)
     }
-    val geometry = geometryAdapter.adapt(card.platform, capturedAtMs, observation) ?: derived
+    val observed = geometryAdapter.adapt(card.platform, capturedAtMs, observation)
+    val geometry = observed ?: derived
+    val routes = blocks.filter { uberRoute.containsMatchIn(it.text) }.map { it.hostRect() }.sortedBy { it.top }
+    val firstRoute = routes.firstOrNull()?.top
+    val upper = blocks.filter { firstRoute != null && it.bounds.bottom <= firstRoute &&
+        (offerUpperAnchor.containsMatchIn(it.text) || standaloneAmount.matches(it.text.trim()) ||
+            it.text.trim().equals("X", true)) }.map { it.hostRect() }
     return card.copy(hostGeometry = geometry?.let { g ->
-        g.copy(appearance = appearance?.appearance(g) ?: g.appearance)
+        g.copy(appearance = appearance?.appearance(g) ?: g.appearance,
+            // Keep an authoritative host-layout observation intact; only the OCR fallback needs
+            // mask provenance to distinguish observed card edges from inferred whitespace.
+            ocrEvidence = if (observed != null) g.ocrEvidence else HostOcrGeometryEvidence(
+                chipRect?.let { HostRect(it.left, it.top, it.right, it.bottom).expanded(ChipMask.DEFAULT_MARGIN_PX) },
+                upper, routes,
+                independentlyMeasuredCard = nodes?.observedCardBounds == g.offerCard))
     })
 }
 
+private fun OcrBlock.hostRect() = bounds.let { HostRect(it.left, it.top, it.right, it.bottom) }
+private val offerUpperAnchor = Regex("""\b(?:Uber\w*|Didi|Exclusivo|Reserva|Programado|Radar de solicitud|Pon tu precio)\b""", RegexOption.IGNORE_CASE)
+private val standaloneAmount = Regex("""(?:(?:MX[N$]|\$)\s*\$?\s*[0-9][0-9.,]*(?:\s+MXN)?|[0-9][0-9.,]*\s+MXN)""", RegexOption.IGNORE_CASE)
 private val uberHeading = Regex("""\bUber\w*|Radar de solicitud""", RegexOption.IGNORE_CASE)
 private val uberAction = Regex("""\b(?:Aceptar|Coincidir)\b""", RegexOption.IGNORE_CASE)
 private val uberRoute = Regex("""(?:[0-9OlI]+|—|-)\s*min\s*\(\s*[0-9OlI][0-9OlI.,]*\s*km""", RegexOption.IGNORE_CASE)

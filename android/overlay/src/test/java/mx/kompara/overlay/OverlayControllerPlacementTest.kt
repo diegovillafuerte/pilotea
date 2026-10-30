@@ -146,6 +146,81 @@ class OverlayControllerPlacementTest {
     }
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Config(qualifiers = "w360dp-h780dp-xxhdpi")
+    @Test fun `grown legacy card cannot pin the chip over its masked close control`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val controller = controller()
+        try {
+            val v = method("readViewport", WindowInsets::class.java).invoke(controller, null) as OverlayViewport
+            assertEquals(viewport.bounds, v.bounds)
+            assertEquals(3f, v.density)
+            fun box(text: String, left: Int, top: Int, right: Int, bottom: Int) =
+                OcrBlock(text, OcrBounds(left, top, right, bottom))
+            val full = listOf(
+                box("Uber Priority", 96, 653, 502, 746),
+                box("Exclusivo", 530, 653, 785, 746),
+                box("X", 837, 650, 983, 793),
+                box("MXN79.45", 96, 770, 499, 897),
+                box("A 1 min (0.2 km)", 190, 1420, 510, 1477),
+                box("Viaje: 24 min (2.4 km)", 190, 1625, 741, 1682),
+                box("Aceptar", 442, 1989, 640, 2046),
+            )
+            val grown = full.map { if (it.text == "Aceptar") it else
+                it.copy(bounds = it.bounds.copy(top = it.bounds.top - 250, bottom = it.bounds.bottom - 250)) }
+            val close = HostRect(837, 400, 983, 543)
+            val accept = HostRect(442, 1989, 640, 2046)
+            val pipeline = OfferFramePipeline()
+            val parsed = mutableListOf<OfferEvent.Parsed>()
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                OfferEventBus.events.collect { if (it is OfferEvent.Parsed) parsed += it }
+            }
+            pipeline.process(full, null, null, displayBounds = v.bounds, density = v.density)
+            testScheduler.runCurrent()
+            val first = parsed.single()
+            assertEquals(605, first.card.hostGeometry!!.offerCard.top)
+            var shown = OverlayPositioning.place(first.card.hostGeometry, first.packageName, v,
+                first.timestampMs, ChipSize(720, 336), ChipSize(720, 200)) as OverlayPlacement.Displayed
+            assertEquals(OverlayPosition(324, 221), shown.position)
+            assertTrue(shown.position.bounds(shown.size).overlaps(close))
+            @Suppress("UNCHECKED_CAST")
+            val savedPositions = field("savedPositions").get(controller) as MutableMap<OverlayPositionKey, OverlayPosition?>
+            savedPositions[OverlayPositionKey(first.packageName, v.orientation)] = shown.position
+            val view = ComposeView(context).apply { alpha = 1f }
+            field("composeView").set(controller, view)
+            field("layoutParams").set(controller, WindowManager.LayoutParams().apply {
+                x = shown.position.x; y = shown.position.y
+            })
+            state(controller, "geometry", first.card.hostGeometry)
+            state(controller, "viewport", v)
+            field("event").set(controller, first)
+            repeat(5) {
+                field("placement").set(controller, shown)
+                val rect = shown.position.bounds(shown.size)
+                pipeline.process(grown, ScreenRect(rect.left, rect.top, rect.right, rect.bottom), null,
+                    displayBounds = v.bounds, density = v.density)
+                testScheduler.runCurrent()
+                val next = parsed.last()
+                assertEquals(it + 2, parsed.size)
+                if (it == 0) {
+                    assertEquals("The masked frame must exercise the same-instance placement path",
+                        first.card.sessionId, next.card.sessionId)
+                    assertEquals(1122, next.card.hostGeometry!!.offerCard.top)
+                }
+                render(controller, backgroundScope, OverlayVisibility.Showing(rated, next.card.sessionId!!, next))
+                val saved = (field("savedPosition\$delegate").get(controller) as MutableState<*>).value as OverlayPosition?
+                shown = OverlayPositioning.place(next.card.hostGeometry, next.packageName, v,
+                    next.timestampMs, ChipSize(720, 336), ChipSize(720, 200), saved) as OverlayPlacement.Displayed
+                assertFalse("Frame $it must relocate away from the close control",
+                    shown.position.bounds(shown.size).overlaps(close))
+                assertFalse("Frame $it must keep Aceptar clear", shown.position.bounds(shown.size).overlaps(accept))
+            }
+            assertFalse("Self-masked geometry must not preserve a chip over the host close control",
+                shown.position.bounds(shown.size).overlaps(close))
+            assertFalse(shown.position.bounds(shown.size).overlaps(accept))
+        } finally { controller.stop(); Dispatchers.resetMain() }
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     @Test fun `visible same-slot content and geometry updates never hide or reset placement`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val scope = CoroutineScope(SupervisorJob() + StandardTestDispatcher(testScheduler))

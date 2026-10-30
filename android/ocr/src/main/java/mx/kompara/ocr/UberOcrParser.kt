@@ -100,6 +100,7 @@ class UberOcrParser {
             paymentType = null,
             raw = fareHit?.let { mapOf("fare" to String.format(Locale.US, "%.2f", it.value)) } ?: emptyMap(),
             contentBounds = unionBounds(fareHit?.bounds, trip?.bounds, pickup?.bounds),
+            instanceEvidence = instanceEvidence(cardBlocks, ChipMask.maskOwnChip(blocks, chipRect)),
         )
     }
 

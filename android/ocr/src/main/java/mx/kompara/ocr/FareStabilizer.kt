@@ -3,71 +3,100 @@ package mx.kompara.ocr
 import mx.kompara.parsers.model.OfferCard
 
 /**
- * Smooths the OCR fare across frames of one offer so a single garbled frame can't flip the chip's
- * number and traffic-light colour.
+ * Payment confirmation for a single offer instance, independent of its durable ledger identity.
+ * The parser is fail-safe, so the first confident payment of a NEW instance paints immediately.
+ * Once revealed, revisions (including reacquisition after lost route confidence) need two consecutive
+ * agreeing readings within [WINDOW_MS]. Unreadable, invalid or disagreeing frames break agreement.
+ * Candidate expiry never changes the confirmed payment; only confirmed payment survives unread OCR.
  *
- * On-device (Galaxy S25, 2026-06-15) one offer's fare flipped `MXN137.28` ↔ `MXN37.28` every ~0.4 s —
- * ML Kit drops the leading `1` off the tall bold fare glyph — so the verdict strobed 3×/sec. The trip
- * leg, by contrast, read `51 min (13.0 km)` on *every* frame. So we:
- *  - **key the offer session on the host and both complete, exact legs**, so the jittery fare never
- *    starts a new session and a different/unknown route resets before any payment can be retained;
- *  - within a session, display the **mode** of a short rolling window of parsed fares, breaking ties
- *    toward the **larger** value (a dropped leading digit only ever *lowers* the read, so the higher of
- *    a tie is the truer fare). The first frame of a session paints immediately (no warm-up lag).
- *
- * A recognized offer can have a null fare. Retain the proven payment only when that frame identifies
- * the same complete route; keep all current-frame bounds. Whole-card misses are handled by
- * [CardPresenceTracker]; a signature-free frame also resets this state before a replacement arrives.
- *
- * Pure, no Android, single-threaded (the OCR service drives it under its frame mutex) → JVM-testable.
+ * The pipeline assigns the instance ID before calling this class and invalidates payment confidence
+ * even for a changed/incomplete route rejected by the outlier guard. Geometry remains current-frame.
+ * Pure, single-threaded (the OCR frame mutex serializes calls) and JVM-testable.
  */
 class FareStabilizer(private val windowMs: Long = WINDOW_MS) {
 
     private data class Sample(val fare: Double, val atMs: Long, val paymentBasis: String, val rawFare: String?)
 
-    private var sessionKey: OcrOfferIdentity? = null
-    private val window = ArrayDeque<Sample>()
-    private var displayed: Sample? = null
+    private var instanceId: String? = null
+    private var route: OcrOfferIdentity? = null
+    private var confirmed: Sample? = null
+    private var candidate: Sample? = null
+    private var firstRevealUsed = false
 
-    /** Return [card] with its `fare` replaced by the stabilized value for the current offer session. */
+    /** Only confirmed payment is published to the shared overlay/ledger path. */
     fun onParsed(card: OfferCard, nowMs: Long): OfferCard {
-        val key = OcrOfferIdentity.from(card)
-        if (key == null || key != sessionKey) {
-            // Check identity even on a missing-fare frame, before looking at the previous payment.
+        val nextRoute = OcrOfferIdentity.from(card)
+        if (card.sessionId != null) {
+            if (instanceId != card.sessionId) {
+                reset()
+                instanceId = card.sessionId
+            } else if (nextRoute == null || nextRoute != route) {
+                invalidatePayment()
+            }
+        } else if (nextRoute == null || nextRoute != route) {
+            // Standalone callers lack the pipeline's durable instance ID. Never carry money across
+            // unknown/changed routes; the production path always supplies the assigned session ID.
             reset()
-            sessionKey = key
         }
-        if (key == null) return card
+        route = nextRoute
+        if (nextRoute == null) return card.withoutPayment()
+
         val fare = card.fare
-        if (fare == null) return displayed?.let { card.withPayment(it) } ?: card
-        if (!fare.isFinite() || fare <= 0.0) return card
-        window.addLast(Sample(fare, nowMs, card.paymentBasis, card.raw["fare"]))
-        while (window.isNotEmpty() && nowMs - window.first().atMs > windowMs) window.removeFirst()
-        val stable = mode(window.map { it.fare }) ?: fare
-        val sample = window.last { it.fare == stable }
-        displayed = sample
-        return card.withPayment(sample)
+        if (fare == null || !fare.isFinite() || fare <= 0.0) {
+            candidate = null
+            return confirmed?.let { card.withPayment(it) } ?: card
+        }
+        val reading = Sample(fare, nowMs, card.paymentBasis, card.raw["fare"])
+        if (!firstRevealUsed) {
+            confirm(reading)
+        } else if (confirmed?.fare == fare && confirmed?.paymentBasis == card.paymentBasis) {
+            candidate = null
+        } else {
+            val prior = candidate
+            if (prior != null && prior.fare == fare && prior.paymentBasis == card.paymentBasis &&
+                nowMs - prior.atMs in 0..windowMs) {
+                confirm(reading)
+            } else {
+                candidate = reading
+            }
+        }
+        return confirmed?.let { card.withPayment(it) } ?: card.withoutPayment()
     }
 
-    /** Forget the session (card left the screen / capture torn down) so the next card paints fresh. */
+    /** Lose money confidence without spending another first-reveal allowance for this instance. */
+    fun invalidatePayment() {
+        confirmed = null
+        candidate = null
+    }
+
+    /** A dropped/unparsed frame cannot connect two otherwise nonconsecutive candidate readings. */
+    fun breakCandidateAgreement() {
+        candidate = null
+    }
+
+    /** The instance left the screen: the next instance gets its own immediate first reveal. */
     fun reset() {
-        sessionKey = null
-        window.clear()
-        displayed = null
+        instanceId = null
+        route = null
+        invalidatePayment()
+        firstRevealUsed = false
+    }
+
+    private fun confirm(sample: Sample) {
+        confirmed = sample
+        firstRevealUsed = true
+        candidate = null
     }
 
     private fun OfferCard.withPayment(sample: Sample) = copy(fare = sample.fare,
         paymentBasis = sample.paymentBasis,
         raw = (raw - "fare") + (sample.rawFare?.let { mapOf("fare" to it) } ?: emptyMap()))
 
-    /** Most frequent fare in the window; ties resolve to the larger value (dropped digits read low). */
-    private fun mode(values: List<Double>): Double? =
-        values.groupingBy { it }.eachCount().entries
-            .maxWithOrNull(compareBy({ it.value }, { it.key }))
-            ?.key
+    private fun OfferCard.withoutPayment() = copy(fare = null, paymentBasis = "UNCONFIRMED",
+        raw = raw - "fare")
 
     companion object {
-        /** Rolling window (~5 frames at the ~300ms OCR cadence). NEEDS-CALIBRATION on more offers. */
+        /** Maximum gap for the two consecutive agreeing readings (about five OCR frames). */
         const val WINDOW_MS = 1500L
     }
 }

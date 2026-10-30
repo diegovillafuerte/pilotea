@@ -172,6 +172,12 @@ class OverlayController @Inject constructor(
         val threshold = if (evaluation.unit == PreferredMetric.IPK.name)
             thresholdSnapshot().copy(minPerKmMxn = evaluation.goal.toDouble(), redPerKmMxn = evaluation.minimum.toDouble())
         else thresholdSnapshot().copy(minPerHourMxn = evaluation.goal.toDouble(), redPerHourMxn = evaluation.minimum.toDouble())
+        // Durable history keeps its last confirmed payment when current OCR confidence is lost.
+        // It must not rehydrate that payment into a live frame whose instance confidence withheld it.
+        if (event.card.captureSource == "OCR" && event.card.fare == null) {
+            return VerdictChipState(VerdictChipState.reading(threshold, PreferredMetric.valueOf(evaluation.unit))
+                .copy(band = ReglaBand.Unavailable(mx.kompara.ui.components.ReglaUnavailable.FARE)), "—")
+        }
         return VerdictChipState.from(row.recordedMetrics(), threshold)
     }
 
@@ -222,7 +228,8 @@ class OverlayController @Inject constructor(
         // A changed frame may still leave the current footprint safe and in the same slot.
         // Keep it visible until measurement proves a move/resize is required.
         val current = placement
-        val currentIsSafe = current != null &&
+        val maskedAnchorsLost = OverlayPositioning.lostMaskedAnchors(geometry, g!!, v)
+        val currentIsSafe = current != null && !maskedAnchorsLost &&
             OverlayPositioning.valid(current.position, current.size, g!!, v, current.overMarker)
         if (current != null && !currentIsSafe)
             hideUntilSettled()
@@ -230,8 +237,13 @@ class OverlayController @Inject constructor(
         // Current-frame geometry still gates safety. Small OCR envelope changes must not pull an
         // already safe same-offer chip toward the headline on each measurement. New offers detach
         // in Reading, so they cannot inherit this transient position.
-        savedPosition = if (currentIsSafe) current!!.position
-            else savedPositions[OverlayPositionKey(next.packageName, v.orientation)]
+        // Clear both transient and persisted preferences when the chip concealed moving anchors.
+        // The regular placement path moves its mask away, exposing the host on the next capture.
+        savedPosition = when {
+            maskedAnchorsLost -> null
+            currentIsSafe -> current!!.position
+            else -> savedPositions[OverlayPositionKey(next.packageName, v.orientation)]
+        }
         attach()
         geometryExpiry = scope.launch(Dispatchers.Main) {
             delay((g.capturedAtMs + OverlayPositioning.MAX_GEOMETRY_AGE_MS - System.currentTimeMillis() + 1).coerceAtLeast(1))

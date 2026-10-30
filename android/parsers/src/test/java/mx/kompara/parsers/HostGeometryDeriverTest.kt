@@ -27,6 +27,15 @@ class HostGeometryDeriverTest {
         assertNotNull(HostGeometryAdapter().adapt(host,1000,HostLayoutObservation(g,false,false)))
     }
 
+    @Test fun `Coincidir anchors the unread radar card and remains protected`() {
+        val texts = listOf(box("Radar de solicitud", 200), box("5 min (2.0 km)", 620),
+            box("19 min (10.0 km)", 660), box("Coincidir", 760, 808))
+        val g = requireNotNull(HostGeometryDeriver.offer(host, 1000, display, 1f, texts,
+            HostGeometrySource.OCR_TEXT_BOUNDS, topChrome = chrome, recognizedOffer = true))
+        assertEquals(184, g.offerCard.top)
+        assertEquals(listOf(texts.last().bounds), g.protectedControls)
+    }
+
     @Test fun `content anchors prevent an unrelated earnings pill from lifting the card`() {
         val g = requireNotNull(derive(listOf(box("MXN0.00",170)) + boxes,
             OfferContentBounds(24,561,369,684)))

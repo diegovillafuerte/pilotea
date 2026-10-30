@@ -33,6 +33,15 @@ enum class HostAppearance { UNKNOWN, LIGHT, DARK }
 @Serializable
 enum class HostGeometrySource { HOST_LAYOUT, OCR_TEXT_BOUNDS, ACCESSIBILITY_BOUNDS, OCR_AND_ACCESSIBILITY, IDLE_HOST }
 
+/** Bounds-only provenance: an OCR envelope cannot prove safety where our own chip hid anchors. */
+@Serializable
+data class HostOcrGeometryEvidence(
+    val overlayMask: HostRect?,
+    val upperAnchors: List<HostRect>,
+    val routeAnchors: List<HostRect>,
+    val independentlyMeasuredCard: Boolean,
+)
+
 /** Measured or conservatively derived bounds for ONE frame, in physical display pixels. */
 @Serializable
 data class HostGeometry(
@@ -51,6 +60,7 @@ data class HostGeometry(
     val isIdleHost: Boolean = false,
     /** Appearance of this captured host, never the Android or Kompara theme preference. */
     val appearance: HostAppearance = HostAppearance.UNKNOWN,
+    val ocrEvidence: HostOcrGeometryEvidence? = null,
 )
 
 /**

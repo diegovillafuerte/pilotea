@@ -21,6 +21,26 @@ class OverlayPositioningTest {
         OverlayPositioning.place(g, "uber", viewport, 1000, full, compact, saved)
     private fun shown(g: HostGeometry) = place(g) as OverlayPlacement.Displayed
 
+    @Test fun `masked upper anchors require relocation only with displaced route and no measured card`() {
+        val previous = geometry().copy(source = HostGeometrySource.OCR_TEXT_BOUNDS, ocrEvidence = HostOcrGeometryEvidence(null,
+            listOf(HostRect(40, 650, 600, 730)),
+            listOf(HostRect(40, 900, 600, 940), HostRect(40, 1000, 600, 1040)), false))
+        val masked = previous.ocrEvidence!!.copy(overlayMask = HostRect(20, 400, 700, 640),
+            upperAnchors = emptyList(), routeAnchors = listOf(HostRect(40, 650, 600, 690), HostRect(40, 750, 600, 790)))
+        val next = previous.copy(ocrEvidence = masked)
+        assertTrue(OverlayPositioning.lostMaskedAnchors(previous, next, viewport))
+        assertFalse(OverlayPositioning.lostMaskedAnchors(previous,
+            next.copy(source = HostGeometrySource.HOST_LAYOUT), viewport))
+        assertFalse(OverlayPositioning.lostMaskedAnchors(previous,
+            next.copy(ocrEvidence = masked.copy(independentlyMeasuredCard = true)), viewport))
+        assertFalse(OverlayPositioning.lostMaskedAnchors(previous,
+            next.copy(ocrEvidence = masked.copy(routeAnchors = previous.ocrEvidence!!.routeAnchors)), viewport))
+        assertFalse(OverlayPositioning.lostMaskedAnchors(previous,
+            next.copy(ocrEvidence = masked.copy(overlayMask = null)), viewport))
+        assertFalse(OverlayPositioning.lostMaskedAnchors(previous,
+            next.copy(ocrEvidence = masked.copy(upperAnchors = listOf(HostRect(40, 400, 600, 480)))), viewport))
+    }
+
     @Test fun `C1 and N8 N9 N10 share the measured right foot independent of colour`() {
         assertEquals(OverlayPosition(282, 834), shown(geometry()).position)
         assertEquals(PlateFormat.FULL, shown(geometry()).format)

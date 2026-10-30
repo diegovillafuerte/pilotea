@@ -16,8 +16,8 @@ object HostGeometryDeriver {
     private const val HEADING_DISTANCE_DP = 96
     private val fare = Regex("""(?:MX[N$]|\$)\s*\$?\s*([0-9][0-9.,]*)""", RegexOption.IGNORE_CASE)
     private val leg = Regex("""(?:\d[\d.,]*\s*(?:km|min|m)\b|\bviaje\s*:)""", RegexOption.IGNORE_CASE)
-    private val accept = Regex("""\baceptar\b""", RegexOption.IGNORE_CASE)
-    private val button = Regex("""\b(?:aceptar|rechazar)\b""", RegexOption.IGNORE_CASE)
+    private val accept = Regex("""\b(?:aceptar|coincidir)\b""", RegexOption.IGNORE_CASE)
+    private val button = Regex("""\b(?:aceptar|coincidir|rechazar)\b""", RegexOption.IGNORE_CASE)
     private val heading = Regex("""\b(?:uber\w*|didi|exclusivo|reserva|programado|radar de solicitud|pon tu precio)\b""", RegexOption.IGNORE_CASE)
     private val uberHeading = Regex("""\b(?:uber\w*|radar de solicitud)\b""", RegexOption.IGNORE_CASE)
     private val chrome = Regex("""\b(?:en l[ií]nea|buscando viajes|men[uú]|buscar|gira|gire|dobla)\b""", RegexOption.IGNORE_CASE)

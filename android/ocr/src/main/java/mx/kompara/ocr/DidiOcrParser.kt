@@ -65,6 +65,7 @@ class DidiOcrParser {
             paymentType = payment,
             raw = fareHit?.let { mapOf("fare" to String.format(Locale.US, "%.2f", it.value)) } ?: emptyMap(),
             contentBounds = unionBounds(fareHit?.bounds, pickup?.bounds, trip?.bounds),
+            instanceEvidence = instanceEvidence(blocks, blocks),
         )
     }
 

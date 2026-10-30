@@ -33,7 +33,7 @@ class OfferFramePipeline(private val readiness: mx.kompara.data.service.ReaderRe
     private val didiParser = DidiOcrParser()
     private val uberParser = UberOcrParser()
     private val presence = CardPresenceTracker()
-    // Smooth the parsed fare before assigning the shared overlay/ledger session identity.
+    // Confirm payment only after assigning the shared overlay/ledger offer instance.
     private val fareStabilizer = FareStabilizer()
     // Drops a single gross OCR-outlier frame (a ×10 distance that slipped past decimal recovery, or a
     // gross fare garble) before it can reach the chip, the stabilizer, OR the B-039 ledger.
@@ -91,18 +91,32 @@ class OfferFramePipeline(private val readiness: mx.kompara.data.service.ReaderRe
         val now = SystemClock.elapsedRealtime()
         // Pick the card (and the platform) for this frame; see [selectOfferCard] — Uber first, with a
         // cross-app hold so a garbled Uber frame can't be mis-attributed to DiDi via a "$0.00" pill.
-        val parsed = if (ownUi) null else selectOfferCard(uberParser, didiParser, blocks, capturedAtMs, hostObservation,
-            displayBounds = displayBounds, density = density, accessibility = accessibility, appearance = appearance)
+        // An explicit, same-frame idle layout is independent disappearance evidence. Absent node
+        // bounds alone mean unknown (Uber often exposes no card nodes), not a vanished card.
+        val observedAbsent = hostObservation?.geometry?.let {
+            it.capturedAtMs == capturedAtMs && it.isIdleHost &&
+                it.packageName in mx.kompara.parsers.model.HostGeometryAdapter.SUPPORTED_HOSTS &&
+                (displayBounds == null || it.displayBounds == displayBounds)
+        } == true
+        val parsed = if (ownUi || observedAbsent) null else selectOfferCard(uberParser, didiParser, blocks, capturedAtMs, hostObservation,
+            displayBounds = displayBounds, density = density, accessibility = accessibility, appearance = appearance,
+            chipRect = chipRect)
         parsed?.let {
             if (it.hostGeometry == null) diagnostics.blocked("geometry missing",
                 "display=$displayBounds capturedAtMs=$capturedAtMs ageMs=${System.currentTimeMillis() - capturedAtMs}")
-            // An outlier can still reveal that the prior route is no longer established. Invalidate
-            // retained payment BEFORE rejecting that frame; otherwise a later unread frame could
-            // resurrect the old payment after intervening changed/unknown route evidence.
+            // Instance replacement is structural, not numeric. Observe it before the outlier guard
+            // so a new card never inherits money or numeric consensus from the preceding card.
+            if (sessions.stackChanged(it)) fareStabilizer.invalidatePayment()
+            if (sessions.observe(it)) {
+                fareStabilizer.reset()
+                frameOutlierGuard.reset()
+                observedIdentity = null
+            }
+            // Missing/changed legs invalidate money confidence even on a rejected outlier, but
+            // must not manufacture a UUID or ledger row for a transient OCR error.
             val nextIdentity = OcrOfferIdentity.from(it)
             if (nextIdentity == null || nextIdentity != observedIdentity) {
-                sessions.reset()
-                fareStabilizer.reset()
+                fareStabilizer.invalidatePayment()
             }
             observedIdentity = nextIdentity
         }
@@ -121,9 +135,10 @@ class OfferFramePipeline(private val readiness: mx.kompara.data.service.ReaderRe
                 else -> true
             }
         }
+        if (card == null) fareStabilizer.breakCandidateAgreement()
         // The offer-card signature (fare + leg) survives the OCR garble that fails a full parse;
         // shared by the presence tracker (hold the chip) and the lifecycle classifier (hold OFFER).
-        val signature = !ownUi &&
+        val signature = !ownUi && !observedAbsent &&
             (uberParser.hasCardSignature(blocks) || didiParser.hasCardSignature(blocks))
         // Keep visual disappearance debounced, but never retain a payment across an observed gap.
         // A replacement can have identical legs, so even one signature-free frame breaks identity.
@@ -137,9 +152,9 @@ class OfferFramePipeline(private val readiness: mx.kompara.data.service.ReaderRe
         if (signature && (parsed == null || parsed.fare == null)) {
             diagnostics.blocked("incomplete reading", "parsed=${parsed != null} paymentRead=${parsed?.fare != null}")
         }
-        // Replace the raw parsed fare with the stabilized one so a one-frame OCR garble can't flip
-        // the verdict. Both complete legs identify the offer, including when its fare is unreadable.
-        val shownCard = card?.let { sessions.parsed(fareStabilizer.onParsed(it, System.currentTimeMillis()), System.currentTimeMillis()) }
+        // One instance ID reaches both consumers; only confirmed payment is allowed onto either bus.
+        // Confirmation uses monotonic time; session/event/ledger timestamps remain epoch time.
+        val shownCard = card?.let { fareStabilizer.onParsed(sessions.parsed(it, capturedAtMs, now), now) }
         if (shownCard != null) {
             if (shownCard.fare != null) readiness?.readOffer(shownCard.platform,
                 shownCard.sessionId ?: "${shownCard.platform}:$capturedAtMs", capturedAtMs, token)
@@ -149,7 +164,7 @@ class OfferFramePipeline(private val readiness: mx.kompara.data.service.ReaderRe
             // chip for at most one OCR frame (~300 ms). Downstream distinctUntilChanged collapses
             // identical verdicts, so steady re-assertion causes no re-render churn.
             OfferEventBus.tryEmit(
-                OfferEvent.Parsed(shownCard.platform, System.currentTimeMillis(), shownCard),
+                OfferEvent.Parsed(shownCard.platform, capturedAtMs, shownCard),
             )
             diagnostics.publishedOffer()
             lastOfferPackage = shownCard.platform
@@ -196,7 +211,7 @@ class OfferFramePipeline(private val readiness: mx.kompara.data.service.ReaderRe
             // presence.isPresent() is the DEBOUNCED "card on screen" state (held through garble),
             // so the offer session doesn't split on a single OCR dropout — same policy as the chip.
             // Both consumers receive the same stabilized card and immutable session identity.
-            lifecycleClassifier.onFrame(joined, shownCard, presence.isPresent(), hostPackage, System.currentTimeMillis())
+            lifecycleClassifier.onFrame(joined, shownCard, presence.isPresent(), hostPackage, capturedAtMs)
                 ?.let { OcrLifecycleBus.tryEmit(it) }
         }
 

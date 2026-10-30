@@ -98,11 +98,10 @@ class OcrLifecycleClassifier(private val markers: OcrTripMarkers = OcrTripMarker
             phase = Phase.OFFER
             if (entering) offerEmitted = false // a fresh offer session begins
             if (card == null) return null // garbled frame: hold the session, nothing to emit yet
-            // A genuinely different offer can replace the previous one with NO intervening non-offer
-            // frame (Uber → DiDi, or a new fare on the same platform). Key the session on
-            // (platform, fare) — both STABLE across frames — to start a fresh OfferSeen for it. The
-            // jittery distance/duration (TD-028: "1.4 km" ↔ "14 km") is deliberately NOT in the key,
-            // so OCR noise on the same card never re-emits a duplicate ledger offer.
+            // The pipeline assigns an instance UUID before payment confirmation. A structural
+            // replacement emits a new OfferSeen even with identical legs and unread payment;
+            // missing or briefly misread fields keep the UUID. Fare changes are confirmed upstream.
+            // The legacy fallback is for callers without assigned sessions, not the OCR pipeline.
             val key = card.sessionId ?: "${card.platform}|${card.fare}"
             if (key != sessionOfferKey) {
                 offerEmitted = false

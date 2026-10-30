@@ -167,10 +167,17 @@ class OfferFramePipelineVerdictTest {
         assertNotEquals(seen.filterIsInstance<OverlayVisibility.Showing>().first().state, corrected.state)
         assertEquals(1, seen.filterIsInstance<OverlayVisibility.Reading>().size)
 
-        // Same fare shape and trip, but a different pickup, is a different offer.
-        pipeline.process(unread.map {
+        // A transient changed pickup loses money confidence, but needs a second agreeing route
+        // observation before it can create a durable replacement instance.
+        val changedPickup = unread.map {
             if (it.text == "4 min (0.7 km)") it.copy(text = "5 min (0.9 km)") else it
-        }, ownChip, null, capturedAtMs = start + 2100, displayBounds = display, density = 3f)
+        }
+        pipeline.process(changedPickup, ownChip, null, capturedAtMs = start + 2100, displayBounds = display, density = 3f)
+        testScheduler.runCurrent()
+        val uncertain = seen.last() as OverlayVisibility.Showing
+        assertNull(uncertain.event.card.fare)
+        assertEquals(parsed.first().card.sessionId, uncertain.event.card.sessionId)
+        pipeline.process(changedPickup, ownChip, null, capturedAtMs = start + 2400, displayBounds = display, density = 3f)
         testScheduler.runCurrent()
         val next = seen.last() as OverlayVisibility.Showing
         assertNull(next.event.card.fare)

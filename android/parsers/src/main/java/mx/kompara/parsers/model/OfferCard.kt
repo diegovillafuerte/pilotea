@@ -42,6 +42,18 @@ data class OfferCard(
     val sessionStartedAt: Long? = null,
     /** Measured/derived host bounds for this frame; null gates the overlay only. */
     val hostGeometry: HostGeometry? = null,
+    /** Card-local replacement evidence; missing OCR tokens are unknown, never proof of continuity. */
+    val instanceEvidence: OfferInstanceEvidence? = null,
+)
+
+@Serializable
+data class OfferInstanceEvidence(
+    val product: String? = null,
+    val action: String? = null,
+    val headingBounds: HostRect? = null,
+    val actionBounds: HostRect? = null,
+    /** Count only recognizable heading/action card bands, including cards behind the active one. */
+    val visibleCards: Int? = null,
 )
 
 /**
