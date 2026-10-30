@@ -11,7 +11,8 @@ import org.robolectric.shadows.ShadowLog
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class OfferFramePipelineDiagnosticsTest {
-    private fun block(text: String, top: Int) = OcrBlock(text, OcrBounds(20, top, 373, top + 24))
+    private fun block(text: String, top: Int) =
+        OcrBlock(text, OcrBounds(20, top, 373, top + if (text == "MXN148.00") 40 else 24))
 
     @Test fun `read offer without geometry logs reason but no recognized personal or payment data`() {
         ShadowLog.clear()

@@ -1,5 +1,10 @@
 package mx.kompara.ocr
 
+import mx.kompara.capture.HostWindowEvidence
+import mx.kompara.parsers.model.HostGeometry
+import mx.kompara.parsers.model.HostLayoutObservation
+import mx.kompara.parsers.model.HostOrientation
+import mx.kompara.parsers.model.HostRect
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -78,6 +83,74 @@ class OfferCardSelectorTest {
         assertNull(selectOfferCard(uber,didi,frame,1001,observation,adapter)?.hostGeometry)
         assertEquals(g,selectOfferCard(uber,didi,frame,1000,observation)?.hostGeometry)
     }
-    private fun block(text: String) = OcrBlock(text, OcrBounds(0, 0, 0, 0))
+
+    // The amount fits the OCR-only card envelope, but crosses independently observed right edges.
+    // Core heading/action/route blocks remain inside, so rejection must retain an incomplete card.
+    private val boundedFrame = listOf(
+        block("UberX", 20, 550, 180, 574),
+        block("Exclusivo", 250, 550, 380, 574),
+        block("MXN96.17", 20, 590, 373, 630),
+        block("A5 min (0.8 km)", 20, 650, 290, 674),
+        block("Viaje: 32 min (11.3 km)", 20, 700, 290, 724),
+        block("Aceptar", 100, 780, 220, 804),
+    )
+    private val boundedGeometry = HostGeometry(
+        UberOcrParser.UBER_PACKAGE, "measured-card", 1_000, HostRect(0, 0, 393, 852),
+        HostOrientation.PORTRAIT, HostRect(0, 80, 393, 128), HostRect(0, 545, 300, 838),
+        listOf(HostRect(100, 780, 220, 804)), emptyList(),
+    )
+
+    @Test fun `observed layout bounds exclude an outside headline before fare selection`() {
+        val observation = HostLayoutObservation(boundedGeometry, true, true)
+        val card = selectOfferCard(uber, didi, boundedFrame, 1_000, observation,
+            displayBounds = boundedGeometry.displayBounds)!!
+        assertEquals(UberOcrParser.UBER_PACKAGE, card.platform)
+        assertEquals(11.3, card.tripDistanceKm!!, 0.001)
+        assertNull(card.fare)
+    }
+
+    @Test fun `fresh accessibility card bounds exclude an outside headline before fare selection`() {
+        val evidence = boundedEvidence()
+        val card = selectOfferCard(uber, didi, boundedFrame, 1_000,
+            displayBounds = boundedGeometry.displayBounds, accessibility = evidence)!!
+        assertEquals(UberOcrParser.UBER_PACKAGE, card.platform)
+        assertEquals(11.3, card.tripDistanceKm!!, 0.001)
+        assertNull(card.fare)
+    }
+
+    @Test fun `other host and stale layout bounds cannot suppress a valid OCR fare`() {
+        assertEquals(96.17, selectOfferCard(uber, didi, boundedFrame)!!.fare!!, 0.001)
+        for (geometry in listOf(boundedGeometry.copy(capturedAtMs = 999),
+            boundedGeometry.copy(packageName = DidiOcrParser.DIDI_PACKAGE))) {
+            val card = selectOfferCard(uber, didi, boundedFrame, 1_000,
+                HostLayoutObservation(geometry, true, true), displayBounds = boundedGeometry.displayBounds)!!
+            assertEquals(96.17, card.fare!!, 0.001)
+        }
+    }
+
+    @Test fun `other host stale future or rotated accessibility bounds cannot suppress a valid OCR fare`() {
+        val good = boundedEvidence()
+        for (evidence in listOf(good.copy(packageName = DidiOcrParser.DIDI_PACKAGE),
+            good.copy(capturedAtMs = -1), good.copy(capturedAtMs = 1_001),
+            good.copy(displayBounds = HostRect(0, 0, 852, 393)))) {
+            val card = selectOfferCard(uber, didi, boundedFrame, 1_000,
+                displayBounds = boundedGeometry.displayBounds, accessibility = evidence)!!
+            assertEquals(96.17, card.fare!!, 0.001)
+        }
+    }
+
+    private fun boundedEvidence() = HostWindowEvidence(UberOcrParser.UBER_PACKAGE, 900,
+        boundedGeometry.displayBounds, 1f, boundedGeometry.topChrome, emptyList(), boundedGeometry.offerCard)
+
+    /** Card-local geometry also fits the measured 393×852 host fixture above. */
+    private fun block(text: String): OcrBlock {
+        val top = when {
+            text.contains("Uber") -> 550
+            text.startsWith("MX") -> 590
+            text.startsWith("Viaje:") -> 700
+            else -> 650
+        }
+        return OcrBlock(text, OcrBounds(20, top, 373, top + if (text.startsWith("MX")) 40 else 24))
+    }
     private fun block(text: String, l: Int, t: Int, r: Int, b: Int) = OcrBlock(text, OcrBounds(l, t, r, b))
 }

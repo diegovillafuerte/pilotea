@@ -15,7 +15,9 @@ class LiveOfferIntegrationTest {
     private val viewport = OverlayViewport(HostRect(0, 0, 393, 852), 1f, HostOrientation.PORTRAIT)
     private val limits = PlatformThreshold.DEFAULT
     private val engine = NetProfitEngine()
-    private fun box(text: String, top: Int) = OcrBlock(text, OcrBounds(20, top, 373, top + 24))
+    // Synthetic Uber headline geometry must establish payment independently of the body text.
+    private fun box(text: String, top: Int) =
+        OcrBlock(text, OcrBounds(20, top, 373, top + if (text.startsWith("MXN")) 40 else 24))
     private fun uber(fare: Boolean = true, time: Boolean = true) = listOfNotNull(
         box("UberX Exclusivo", 500), if (fare) box("MXN148.00", 540) else null,
         box("A ${if (time) "4" else "—"} min (2.0 km)", 600),

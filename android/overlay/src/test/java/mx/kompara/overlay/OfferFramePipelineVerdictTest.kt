@@ -4,6 +4,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
+import mx.kompara.capture.OfferEvent
 import mx.kompara.capture.OfferEventBus
 import mx.kompara.data.service.ScreenRect
 import mx.kompara.data.settings.PlatformThreshold
@@ -97,6 +98,7 @@ class OfferFramePipelineVerdictTest {
 
     @Test fun `supported currency formats survive the complete pipeline`() {
         for ((text, expected) in listOf("MX\$79.45" to 79.45, "MXN 79.45" to 79.45,
+            "\$79.45 MXN" to 79.45, "MX\$79.45 MXN" to 79.45, "79.45 MXN" to 79.45,
             "\$1,234.56" to 1234.56)) {
             val (showing, metrics) = replay(fixture().map { if (it.text == "\$79.45") it.copy(text = text) else it })
             assertEquals(expected, showing.event.card.fare!!, 0.000001)
@@ -121,5 +123,62 @@ class OfferFramePipelineVerdictTest {
         assertNull(showing.event.card.fare)
         assertEquals("FARE", metrics.verdict.unavailableReason)
         assertEquals(ReglaUnavailable.FARE, (showing.state.regla.band as ReglaBand.Unavailable).input)
+    }
+
+    @Test fun `split per-km summary cannot produce a verdict on first or repeated frames`() {
+        for (unreadable in listOf("S79.45", "unreadable")) {
+            val blocks = fixture().filterNot { it.text.contains("/km") }
+                .map { if (it.text == "$79.45") it.copy(text = unreadable) else it } + listOf(
+                    OcrBlock("25 min • 2.6 km •", OcrBounds(96, 926, 540, 988)),
+                    OcrBlock("$30.56", OcrBounds(550, 926, 720, 988)),
+                    OcrBlock("/km est.", OcrBounds(730, 926, 858, 988)),
+                )
+            assertMissingFareAcrossFrames(blocks)
+        }
+    }
+
+    @Test fun `split included bonus cannot produce a verdict on first or repeated frames`() {
+        for (unreadable in listOf("S79.45", "unreadable")) {
+            val blocks = fixture().filterNot { it.text == "+$16.00 incluido" }
+                .map { if (it.text == "$79.45") it.copy(text = unreadable) else it } + listOf(
+                    OcrBlock("+", OcrBounds(476, 1123, 510, 1212)),
+                    OcrBlock("$16.00", OcrBounds(520, 1123, 735, 1212)),
+                    OcrBlock("incluido", OcrBounds(745, 1123, 959, 1212)),
+                )
+            assertMissingFareAcrossFrames(blocks)
+        }
+    }
+
+    private fun assertMissingFareAcrossFrames(blocks: List<OcrBlock>) {
+        // The first frame reaches the complete presentation path immediately.
+        val (showing, metrics) = replay(blocks)
+        assertNull(showing.event.card.fare)
+        assertEquals("FARE", metrics.verdict.unavailableReason)
+        assertEquals(ReglaUnavailable.FARE, (showing.state.regla.band as ReglaBand.Unavailable).input)
+        assertEquals("Sin lectura", showing.state.heroRate)
+
+        // Repeat through one real pipeline: outlier filtering and stabilization must never turn
+        // a contextual rate/bonus into payment, even when every frame repeats the same amount.
+        runTest {
+            val parsed = mutableListOf<OfferEvent.Parsed>()
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                OfferEventBus.events.collect { if (it is OfferEvent.Parsed) parsed += it }
+            }
+            val pipeline = OfferFramePipeline()
+            repeat(5) { frame ->
+                pipeline.process(blocks, ownChip, fixtureDir = null,
+                    capturedAtMs = System.currentTimeMillis() + frame * 300,
+                    displayBounds = display, density = 3f)
+                testScheduler.runCurrent()
+                assertEquals(frame + 1, parsed.size)
+                val card = parsed.last().card
+                assertNull("Frame $frame must have no fare", card.fare)
+                val evaluated = NetProfitEngine().evaluate(OfferMapping.toTripOffer(card),
+                    "2.84".toBigDecimal(), limits, PreferredMetric.IPK)
+                assertEquals("FARE", evaluated.verdict.unavailableReason)
+                assertEquals(ReglaUnavailable.FARE,
+                    (VerdictChipState.from(evaluated, limits).regla.band as ReglaBand.Unavailable).input)
+            }
+        }
     }
 }

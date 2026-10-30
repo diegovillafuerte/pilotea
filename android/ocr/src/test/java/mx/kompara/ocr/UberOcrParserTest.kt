@@ -10,6 +10,7 @@ import org.junit.Test
  * Pinned to REAL OCR captures from live Uber offers on a Samsung S25 in CDMX (2026-06-15), the same
  * corpus the parser was tuned against. Uber renders the offer card in a Compose/TextureView with no
  * accessibility text, so the node path can't read it — these frames come from MediaProjection OCR.
+ * Value-only transcriptions use deterministic synthetic card geometry; address text is fictitious.
  */
 class UberOcrParserTest {
 
@@ -24,7 +25,7 @@ class UberOcrParserTest {
         block("Identidad verificada"),
         block("★ 4.58 (587)"),
         block("A5 min (0.8 km)"),
-        block("Av Horacio, Polanco / Anzures"),
+        block("Avenida Ficticia 123, Colonia Ejemplo"),
         block("Viaje: 32 min (11.3 km)"),
         block("Aceptar"),
     )
@@ -52,7 +53,7 @@ class UberOcrParserTest {
         block("* 4.62 (83)"),
         block("+MXN12.63 por inicio de viaje"),
         block("A 8 min (1.8 km)"),
-        block("Calle Juan de Lafontaine, Polanco / Anzures"),
+        block("Calle Falsa 456, Colonia Ejemplo"),
         block("Viaje: 55 min (45.6 km)"),
     )
 
@@ -260,9 +261,11 @@ class UberOcrParserTest {
 
     @Test
     fun `contentBounds degrades to a degenerate rect when blocks carry no bounds`() {
-        // The value-only fixtures (zero-bounds blocks) still parse; the union is (0,0,0,0), which the
-        // overlay's avoid() treats as no-overlap, so positioning is unaffected.
-        val cb = parser.parse(exclusivo)!!.contentBounds
+        // Host/route evidence still recognizes an incomplete card. Without glyph geometry the
+        // payment is untrusted; the degenerate route union cannot authorize overlay placement.
+        val card = parser.parse(exclusivo.map { it.copy(bounds = OcrBounds(0, 0, 0, 0)) })!!
+        assertNull(card.fare)
+        val cb = card.contentBounds
         assertTrue(cb == null || (cb.right == 0 && cb.bottom == 0))
     }
 
@@ -331,7 +334,26 @@ class UberOcrParserTest {
         assertNull(card.tripDistanceKm)
     }
 
-    private fun block(text: String) = OcrBlock(text, OcrBounds(0, 0, 0, 0))
+    /** Synthetic geometry for text transcriptions, separate from the explicit captured bounds. */
+    private fun block(text: String): OcrBlock {
+        val top = when {
+            text == "+MXN 4" || text == "+MXN 10" -> 400 // map incentive, above the card
+            text.contains("Uber") || text.startsWith("Radar de solicitud") -> 650
+            text.startsWith("MX") || text.startsWith("$") -> 770
+            text.startsWith("Aceptar") -> 1980
+            text.startsWith("Viaje:") || text.startsWith("Vlaje") -> 1600
+            text.startsWith("Viaje disponible") -> 1720
+            text.contains("min") && text.contains("(") -> if (text.startsWith("39")) 1600 else 1400
+            text.startsWith("Avenida Ficticia") || text.startsWith("Calle Falsa") -> 1480
+            text.contains("incluido") || text.startsWith("+MXN") -> 1200
+            text.contains("★") || text.startsWith("*") -> 1100
+            text == "Reserva" || text == "2 paradas" || text == "Tarifa dinámica" -> 1250
+            else -> 1000
+        }
+        val headline = text.startsWith("MX") || text.startsWith("$")
+        return OcrBlock(text, OcrBounds(96, top, if (headline) 499 else 960,
+            top + if (headline) 127 else 60))
+    }
     private fun block(text: String, left: Int, top: Int, right: Int, bottom: Int) =
         OcrBlock(text, OcrBounds(left, top, right, bottom))
 }

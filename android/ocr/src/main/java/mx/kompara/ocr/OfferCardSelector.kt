@@ -37,7 +37,16 @@ internal fun selectOfferCard(
     accessibility: HostWindowEvidence? = null,
     appearance: HostAppearanceSamples? = null,
 ): OfferCard? {
-    val card = uber.parse(blocks)
+    // Validate independently observed card edges before fare selection, so a large map label
+    // outside the card cannot become payment. Derived OCR geometry remains the fallback below.
+    val uberBounds = geometryAdapter.adapt(UberOcrParser.UBER_PACKAGE, capturedAtMs, observation)?.offerCard
+        ?: accessibility?.takeIf {
+            it.packageName == UberOcrParser.UBER_PACKAGE && it.displayBounds == displayBounds &&
+                capturedAtMs - it.capturedAtMs in 0..1_000
+        }?.observedCardBounds
+    val fareBounds = uberBounds?.let { OcrBounds(it.left, it.top, it.right, it.bottom) }
+    val card = uber.parse(blocks, cardBounds = fareBounds)
+        // Retain the cross-app hold even if the observed edges withheld every Uber amount.
         ?: (if (uber.hasCardSignature(blocks)) null else didi.parse(blocks)) ?: return null
     val nodes = accessibility?.takeIf {
         it.packageName == card.platform && it.displayBounds == displayBounds &&
