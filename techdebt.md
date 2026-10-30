@@ -717,3 +717,24 @@ Conscious deferrals. Each entry: date, severity, context, why deferred, when to 
 - **TD-044 / TD-049 S20 update — 2026-10-29 (existing physical-validation gates):** All N1–N10 twins now have 1×/1.3×/2× render comparisons; forced/system theme transitions retain selected state, brand/nav/chip tokens and native status/navigation icon contrast in JVM tests. Inter and retired presentation resources are removed. These checks do not establish mounted 13sp legibility, real TalkBack traversal or OEM window behavior. Hardware remains `unauthorized`, with no AVD. S21 must validate automatic/Claro/Oscuro transitions, physical native bar/inset contrast, large-font/IME/Back behavior, bundled-font legibility and the existing driver/capture replay gates. G9 and other external capabilities retain their existing gates; the 118-state debug contract does not certify production data.
 
 - **TD-044 / TD-045 / TD-047 / TD-048 / TD-049 S21 update — 2026-10-29 (existing release gates remain open):** The 0.2.0 debug handoff fixes demonstrated target-size, cutout, OTP/import recreation and stopped-tab window defects and adds three native Compose accessibility tests alongside Room/PDF instrumentation. Attached hardware remains `unauthorized` and no AVD is configured; compiling an instrumentation APK and passing JVM tests do not certify physical TalkBack, IME/Back/rotation/process death, 13sp legibility, Room/PDF on-device execution, OEM capture/permission recovery or live Uber/DiDi geometry. No layout/payment-basis/server gate was enabled. Before release, execute the device matrix and complete real-driver walkthrough/mounted-glance studies under the full pre-registered rule, including D2e's neutral $133/no-car/$548-after-car probes. Evidence, commands and the complete remaining gate checklist are in [v3-s21-release-qa.md](docs/v3-s21-release-qa.md); no participants or physical passes are claimed.
+
+## TD-058: Live offer-session edge cases still open after the 0.2.9 review (capture/overlay)
+
+- **Date / severity:** 2026-10-29 / High. Two of the cases are realistic and affect the displayed fare and the ledger.
+- **Context:** The first real-device runs on the Galaxy S25 (0.2.2–0.2.9) fixed four things:
+  - the crashing capture service (missing `canTakeScreenshot`);
+  - the current Uber fare format (`$79.45`, no `MX$`);
+  - verdicts that changed mid-offer (now steady per offer);
+  - offer identity.
+
+  Live result: a $147.46 Uber Priority offer showed "▲ $18.22 /km neto · Arriba de tu meta". The independent Codex review of b6f607d (0.2.9) still FAILS on four findings (verbatim in [v3-0.2.9-review-findings.md](docs/v3-0.2.9-review-findings.md)):
+  1. Split-screen DiDi content creates a phantom Uber offer, because OCR is not scoped to the host window.
+  2. Back-to-back offers less than ~1 s apart can inherit the previous fare or overwrite its ledger row.
+  3. A first frame without the card heading (during the slide-in) can leave the chip over Uber's close control.
+  4. Leaving and returning to an unchanged offer duplicates its ledger row.
+- **Decision / why deferred:** Codex CLI hit its usage limit mid-fix, and is locked out until 2026-11-04. The Claude weekly budget is at 97%. The partial fix is preserved on branch `wip/v3-0.2.10-partial` (d91671c). Its gate FAILS: 2 failures in `:overlay` `OfferFramePipelineVerdictTest`, and later modules did not run. 0.2.9 stays installed on the S25.
+- **Exit criterion:**
+  1. Finish 0.2.10 from the WIP branch: host-window OCR scoping, a clear-absence lifecycle boundary, validated initial placement, and suspend-on-departure.
+  2. Get the gate green.
+  3. Get an independent adversarial review PASS.
+  4. Replay back-to-back offers and slide-in placement live on the S25.
