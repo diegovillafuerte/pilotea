@@ -6,6 +6,8 @@ import mx.kompara.capture.OfferEventBus
 import mx.kompara.capture.lifecycle.OcrLifecycleBus
 import mx.kompara.data.service.ScreenReaderState
 import mx.kompara.data.service.ScreenRect
+import mx.kompara.parsers.model.HostGeometrySource
+import mx.kompara.parsers.model.HostRect
 import java.io.File
 
 /**
@@ -39,6 +41,9 @@ class OfferFramePipeline(private val readiness: mx.kompara.data.service.ReaderRe
         val offers = OcrOfferSessionTracker()
         val lifecycle = OcrLifecycleClassifier()
         var lastCardObservedAtMs = Long.MIN_VALUE
+        var lastCardBounds: HostRect? = null
+        var lastCardDisplay: HostRect? = null
+        var semanticCardWindowId: Int? = null
     }
     private val hosts = mutableMapOf<String, HostSession>()
     private var currentHost: String? = null
@@ -105,12 +110,17 @@ class OfferFramePipeline(private val readiness: mx.kompara.data.service.ReaderRe
         val joined = blocks.joinToString(" | ") { it.text }
         val ownUi = KomparaUiGuard.isOwnUi(joined)
         val ownedAccessibility = accessibility?.ownedBy(requireNotNull(windowOwnership))
-        val observedAbsent = hostObservation?.geometry?.let {
+        // IDLE_HOST is also synthesized for the stopped-reader tab when nodes expose no card.
+        // Only an independently observed full layout can override the screenshot itself.
+        val offerObservation = hostObservation?.takeUnless {
+            it.geometry.isIdleHost && it.geometry.source != HostGeometrySource.HOST_LAYOUT
+        }
+        val observedAbsent = offerObservation?.geometry?.let {
             it.capturedAtMs == capturedAtMs && it.isIdleHost && it.packageName == hostPackage &&
                 (displayBounds == null || it.displayBounds == displayBounds)
         } == true
         val parsed = if (ownUi || observedAbsent) null else selectOfferCard(uberParser, didiParser,
-            blocks, capturedAtMs, hostObservation, displayBounds = displayBounds, density = density,
+            blocks, capturedAtMs, offerObservation, displayBounds = displayBounds, density = density,
             accessibility = ownedAccessibility, appearance = appearance, chipRect = chipRect,
             foregroundPackage = hostPackage)?.let {
                 it.copy(hostGeometry = it.hostGeometry?.withinOwnership(requireNotNull(windowOwnership)))
@@ -123,22 +133,53 @@ class OfferFramePipeline(private val readiness: mx.kompara.data.service.ReaderRe
             UberOcrParser.UBER_PACKAGE -> uberParser.hasCardSignature(blocks, hostConfirmed = true)
             else -> didiParser.hasCardSignature(blocks)
         }
-        // A positive host idle observation is a hard boundary. A blank OCR frame is only
-        // lost visibility; elapsed time and missing signatures cannot retire durable identity.
-        if (signature) active.lastCardObservedAtMs = maxOf(active.lastCardObservedAtMs, capturedAtMs)
-        val lifecycleNodes = ownedAccessibility?.takeIf { it.capturedAtMs >= active.lastCardObservedAtMs }
-        val markers = OcrTripMarkers.DEFAULT
-        val lifecycleText = if (!signature && lifecycleNodes?.observedCardBounds == null &&
-            !markers.isIdle(joined) && !markers.isTripLike(joined) && !markers.isCancelled(joined))
-            lifecycleNodes?.textBounds?.joinToString(" | ") { it.text } ?: joined else joined
-        val clearAbsence = observedAbsent || (!ownUi && !signature &&
-            (markers.isIdle(lifecycleText) || markers.isTripLike(lifecycleText) || markers.isCancelled(lifecycleText)))
         val decision = parsed?.takeIf { readiness?.canRead(it.platform, token) != false }
             ?.let { sessions.update(it, capturedAtMs, now) }
         if (decision?.replaced == true) {
             fareStabilizer.reset()
             frameOutlierGuard.reset()
+            active.lastCardBounds = null
+            active.semanticCardWindowId = null
         }
+        val nodeBlocks = ownedAccessibility?.textBounds.orEmpty().map {
+            OcrBlock(it.text, OcrBounds(it.bounds.left, it.bounds.top, it.bounds.right, it.bounds.bottom))
+        }
+        val nodeCard = when (hostPackage) {
+            UberOcrParser.UBER_PACKAGE -> uberParser.parse(nodeBlocks, hostConfirmed = true)
+            else -> didiParser.parse(nodeBlocks)
+        }
+        if (signature) {
+            active.lastCardObservedAtMs = maxOf(active.lastCardObservedAtMs, capturedAtMs)
+            parsed?.hostGeometry?.let {
+                active.lastCardBounds = it.offerCard
+                active.lastCardDisplay = it.displayBounds
+            }
+            // A fresh poll alone proves nothing: Uber's semanticless card coexists with idle
+            // chrome. Remember semantics only when the node offer matches this pixel offer.
+            val pixelIdentity = parsed?.let { OcrOfferIdentity.from(it) }
+            val matchingNodeOffer = parsed != null && pixelIdentity != null && nodeCard != null &&
+                pixelIdentity == OcrOfferIdentity.from(nodeCard) && parsed.fare == nodeCard.fare &&
+                parsed.contentBounds?.let { content ->
+                    ownedAccessibility?.observedCardBounds?.contains(
+                        HostRect(content.left, content.top, content.right, content.bottom)) != false
+                } == true
+            active.semanticCardWindowId = ownedAccessibility?.windowId?.takeIf { matchingNodeOffer }
+        }
+        val markers = OcrTripMarkers.DEFAULT
+        fun lifecycleMarker(text: String) = markers.isIdle(text) || markers.isTripLike(text) || markers.isCancelled(text)
+        // To retire a semanticless card, the host screenshot must show lifecycle UI where that
+        // card was, with no surviving card signature. Idle pixels elsewhere are background too.
+        val pixelLifecycleText = if (sessions.isPresent()) blocks.filter { block ->
+            active.lastCardDisplay == displayBounds && active.lastCardBounds?.contains(
+                HostRect(block.bounds.left, block.bounds.top, block.bounds.right, block.bounds.bottom)) == true
+        }.joinToString(" | ") { it.text } else joined
+        val lifecycleNodes = ownedAccessibility?.takeIf {
+            active.semanticCardWindowId != null && it.windowId == active.semanticCardWindowId &&
+                it.capturedAtMs > active.lastCardObservedAtMs && it.observedCardBounds == null && nodeCard == null
+        }
+        val lifecycleText = if (!signature && !lifecycleMarker(pixelLifecycleText))
+            lifecycleNodes?.textBounds?.joinToString(" | ") { it.text } ?: pixelLifecycleText else pixelLifecycleText
+        val clearAbsence = observedAbsent || (!ownUi && !signature && lifecycleMarker(lifecycleText))
         val card = decision?.card?.takeIf {
             val accepted = frameOutlierGuard.accept(parsed, now)
             if (!accepted) diagnostics.blocked("OCR outlier withheld")
@@ -155,6 +196,8 @@ class OfferFramePipeline(private val readiness: mx.kompara.data.service.ReaderRe
         if (disappeared) {
             fareStabilizer.reset()
             frameOutlierGuard.reset()
+            active.lastCardBounds = null
+            active.semanticCardWindowId = null
         }
         diagnostics.reading(OcrReadingEvidence(blocks.size, ownUi, signature, parsed != null, parsed?.fare != null))
         if (signature && (parsed == null || parsed.fare == null)) {

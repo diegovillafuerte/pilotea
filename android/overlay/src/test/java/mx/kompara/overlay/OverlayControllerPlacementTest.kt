@@ -43,10 +43,12 @@ import mx.kompara.ocr.OcrBlock
 import mx.kompara.ocr.OcrBounds
 import mx.kompara.ocr.OfferFramePipeline
 import mx.kompara.parsers.model.HostGeometry
+import mx.kompara.parsers.model.HostGeometryDeriver
 import mx.kompara.parsers.model.HostGeometrySource
 import mx.kompara.parsers.model.HostOcrGeometryEvidence
 import mx.kompara.parsers.model.HostOrientation
 import mx.kompara.parsers.model.HostRect
+import mx.kompara.parsers.model.HostTextBounds
 import mx.kompara.parsers.model.OfferCard
 import mx.kompara.ui.components.ReglaBand
 import mx.kompara.ui.components.ReglaPosition
@@ -124,6 +126,7 @@ class OverlayControllerPlacementTest {
         try {
             val v = method("readViewport", WindowInsets::class.java).invoke(controller, null) as OverlayViewport
             val observed = geometry.copy(displayBounds = v.bounds,
+                capturedAtMs = System.currentTimeMillis() - 2_000,
                 offerCard = HostRect(0, 605, v.bounds.right, v.bounds.bottom),
                 source = HostGeometrySource.OCR_TEXT_BOUNDS,
                 ocrEvidence = HostOcrGeometryEvidence(null, listOf(HostRect(40, 653, 600, 710)),
@@ -131,7 +134,12 @@ class OverlayControllerPlacementTest {
             val first = OfferEvent.Parsed(observed.packageName, observed.capturedAtMs,
                 OfferCard(platform = observed.packageName, fare = 79.45, sessionId = "old-card", hostGeometry = observed))
             render(controller, backgroundScope, OverlayVisibility.Reading("old-card", first))
+            assertNull("An unknown layout has no independently validated initial band", field("composeView").get(controller))
             render(controller, backgroundScope, OverlayVisibility.Showing(rated, "old-card", first))
+            assertNull("Rendering the same capture twice does not establish stability", field("composeView").get(controller))
+            val stableFirst = first.copy(timestampMs = first.timestampMs + 500,
+                card = first.card.copy(hostGeometry = observed.copy(capturedAtMs = observed.capturedAtMs + 500)))
+            render(controller, backgroundScope, OverlayVisibility.Showing(rated, "old-card", stableFirst))
             assertNotNull("The preceding card has a measured upper band", field("composeView").get(controller))
 
             val partial = observed.copy(offerCard = observed.offerCard.copy(top = 722),
@@ -148,6 +156,10 @@ class OverlayControllerPlacementTest {
             }
             val resolved = replacement.copy(card = replacement.card.copy(hostGeometry = observed))
             render(controller, backgroundScope, OverlayVisibility.Showing(rated, "replacement", resolved))
+            assertNull("One new unknown-layout boundary is not yet settled", field("composeView").get(controller))
+            val stableReplacement = resolved.copy(timestampMs = resolved.timestampMs + 1_000,
+                card = resolved.card.copy(hostGeometry = observed.copy(capturedAtMs = observed.capturedAtMs + 1_000)))
+            render(controller, backgroundScope, OverlayVisibility.Showing(rated, "replacement", stableReplacement))
             assertNotNull("Fresh upper evidence restores attachment", field("composeView").get(controller))
         } finally { controller.stop(); Dispatchers.resetMain() }
     }
@@ -185,6 +197,18 @@ class OverlayControllerPlacementTest {
                     b.getInt("right"), b.getInt("bottom")))
             }
             val unread = full.filterNot { it.text == "$79.45" }
+            // This harness starts with an already verified window. Establish its corresponding
+            // two-capture geometry history too; the following four frames test payment dropout,
+            // not first attachment of an unknown layout at this fixture's mdpi viewport.
+            val at = System.currentTimeMillis() - 1_000
+            val settledGeometry = requireNotNull(HostGeometryDeriver.offer("com.ubercab.driver", at,
+                v.bounds, v.density, full.filter { it.bounds.top >= 650 }.map {
+                    HostTextBounds(it.text, HostRect(it.bounds.left, it.bounds.top, it.bounds.right, it.bounds.bottom))
+                }, HostGeometrySource.OCR_TEXT_BOUNDS, recognizedOffer = true))
+            val placementHistory = field("placementEvidence").get(controller) as PlacementEvidence
+            assertTrue(placementHistory.observe(settledGeometry, v).needsUnobscuredCapture)
+            assertFalse(placementHistory.observe(settledGeometry.copy(capturedAtMs = at + 500), v).needsUnobscuredCapture)
+            state(controller, "geometry", settledGeometry.copy(capturedAtMs = at + 500))
             val pipeline = OfferFramePipeline()
             for (frame in listOf(full, unread, unread, full)) {
                 pipeline.processOwnedFrame(frame, ScreenRect(325, 242, 1040, 572), null,

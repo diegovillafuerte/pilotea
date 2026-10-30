@@ -106,7 +106,8 @@ class ClearLifecycleBoundaryReplayTest {
         suspend fun frame(blocks: List<OcrBlock>, atMs: Long = nextFrameMs,
             chip: ScreenRect? = ScreenRect(325, 242, 1040, 572),
             host: String? = "com.ubercab.driver",
-            accessibilityLabel: String? = null, accessibilityAgeMs: Long = 0L) {
+            accessibilityLabel: String? = null, accessibilityAgeMs: Long = 0L,
+            accessibilityCardBounds: HostRect? = null, synthesizedIdleLayout: Boolean = false) {
             require(atMs >= elapsedMs)
             ShadowSystemClock.advanceBy(Duration.ofMillis(atMs - elapsedMs))
             elapsedMs = atMs
@@ -116,10 +117,21 @@ class ClearLifecycleBoundaryReplayTest {
             ScreenReaderState.setForegroundHost(host, SystemClock.elapsedRealtime())
             pipeline.processOwnedFrame(blocks, chip, null, capturedAtMs = epochStart + atMs,
                 displayBounds = HostRect(0, 0, 1080, 2340), density = 3f,
+                hostObservation = if (synthesizedIdleLayout) mx.kompara.parsers.model.HostLayoutObservation(
+                    requireNotNull(mx.kompara.parsers.model.HostGeometryDeriver.idleHost(requireNotNull(host),
+                        epochStart + atMs, HostRect(0, 0, 1080, 2340), HostRect(0, 0, 1080, 100))),
+                    true, true) else null,
                 accessibility = accessibilityLabel?.let { label ->
+                    val cardNodes = if (accessibilityCardBounds == null) emptyList() else blocks.mapNotNull { block ->
+                        val bounds = HostRect(block.bounds.left, block.bounds.top, block.bounds.right, block.bounds.bottom)
+                        bounds.takeIf(accessibilityCardBounds::contains)?.let {
+                            mx.kompara.parsers.model.HostTextBounds(block.text, it)
+                        }
+                    }
                     mx.kompara.capture.HostWindowEvidence(requireNotNull(host), epochStart + atMs - accessibilityAgeMs,
                         HostRect(0, 0, 1080, 2340), 3f, HostRect(0, 0, 1080, 100),
-                        listOf(mx.kompara.parsers.model.HostTextBounds(label, HostRect(240, 1940, 840, 2030))),
+                        cardNodes + mx.kompara.parsers.model.HostTextBounds(label, HostRect(240, 1940, 840, 2030)),
+                        observedCardBounds = accessibilityCardBounds,
                         windowId = 1)
                 })
             yield()
@@ -382,9 +394,72 @@ class ClearLifecycleBoundaryReplayTest {
     }
 
 
-    @Test fun `fresh accessibility idle is positive absence even when OCR reads nothing`() {
+    @Test fun `refreshed background idle nodes and OCR dropout preserve the unchanged semanticless offer`() {
         val result = replay {
             frame(fixture(), 0)
+            val original = offers.all().single()
+            // The background node tree was polled at 750 ms, independently of this blank OCR frame.
+            frame(emptyList(), 900, accessibilityLabel = "Buscando viajes", accessibilityAgeMs = 150)
+            assertEquals("Fresh background chrome is still not offer disappearance", "PENDING",
+                offers.all().single().outcome)
+            frame(fixture(), 1800)
+            assertEquals(original.sessionId, parsed.last().card.sessionId)
+            assertEquals(original.seenAt, offers.all().single().seenAt)
+            assertEquals(79.45, parsed.last().card.fare!!, 0.001)
+        }
+        assertEquals(1, result.offers.all().size)
+        assertEquals(1, result.parsed.map { it.card.sessionId }.distinct().size)
+        assertTrue(result.ledgerSnapshots.all { rows -> rows.size == 1 && rows.single().outcome == "PENDING" &&
+            rows.single().fareMxn == 79.45 })
+        assertFalse(result.events.any { it is OfferEvent.NoCard && it.reason == OfferEvent.Reason.CONFIRMED_ABSENCE })
+    }
+
+    @Test fun `pixel idle outside the former card is background chrome during dropout`() {
+        val result = replay {
+            frame(fixture(), 0)
+            val original = offers.all().single()
+            frame(listOf(OcrBlock("Buscando viajes", OcrBounds(80, 140, 900, 220))), 900)
+            assertEquals("PENDING", offers.all().single().outcome)
+            frame(fixture(), 1800)
+            assertEquals(original.sessionId, parsed.last().card.sessionId)
+            assertEquals(original.seenAt, offers.all().single().seenAt)
+        }
+        assertEquals(1, result.offers.all().size)
+        assertEquals(79.45, result.offers.all().single().fareMxn!!, 0.001)
+    }
+
+    @Test fun `synthesized idle geometry cannot turn semanticless OCR dropout into disappearance`() {
+        val result = replay {
+            frame(fixture(), 0)
+            val original = offers.all().single()
+            frame(emptyList(), 900, accessibilityLabel = "Buscando viajes", synthesizedIdleLayout = true)
+            assertEquals("PENDING", offers.all().single().outcome)
+            frame(fixture(), 1800)
+            assertEquals(original.sessionId, parsed.last().card.sessionId)
+            assertEquals(original.seenAt, offers.all().single().seenAt)
+        }
+        assertEquals(1, result.offers.all().size)
+        assertEquals(79.45, result.offers.all().single().fareMxn!!, 0.001)
+    }
+
+    @Test fun `pixel idle cannot retire a card while its signature remains visible`() {
+        val result = replay {
+            frame(fixture(), 0)
+            val original = offers.all().single()
+            frame(idle() + fixture().filter { it.text in setOf("Uber Priority", "1 min (0.2 km)", "24 min (2.4 km)") }, 900)
+            assertEquals("PENDING", offers.all().single().outcome)
+            frame(fixture(), 1800)
+            assertEquals(original.sessionId, parsed.last().card.sessionId)
+            assertEquals(original.seenAt, offers.all().single().seenAt)
+        }
+        assertEquals(1, result.offers.all().size)
+        assertEquals(79.45, result.offers.all().single().fareMxn!!, 0.001)
+    }
+
+    @Test fun `observed semantic card disappearance keeps accessibility idle as a clear boundary`() {
+        val result = replay {
+            frame(fixture(), 0, accessibilityLabel = "Aceptar",
+                accessibilityCardBounds = HostRect(48, 600, 1032, 2100))
             val original = offers.all().single()
             frame(emptyList(), 900, accessibilityLabel = "Buscando viajes")
             assertEquals("NOT_TAKEN", offers.all().single().outcome)

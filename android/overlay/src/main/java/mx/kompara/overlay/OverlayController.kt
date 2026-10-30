@@ -254,6 +254,9 @@ class OverlayController @Inject constructor(
                 savedPositions.remove(OverlayPositionKey(next.packageName, v.orientation))
                 null
             }
+            // Release the conservative initial slot exactly once, after independent captures
+            // establish settled upper/control geometry. Subsequent frames keep the safe position.
+            evidence.preferPreferredPosition -> null
             currentIsSafe -> current!!.position
             else -> savedPositions[OverlayPositionKey(next.packageName, v.orientation)]
         }

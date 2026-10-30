@@ -96,6 +96,7 @@ class OfferFramePipelineIdentityTest {
             val at = System.currentTimeMillis()
             val idle = mx.kompara.parsers.model.HostGeometryDeriver.idleHost(UberOcrParser.UBER_PACKAGE,
                 at + 300, display, HostRect(0, 0, 1080, 200))!!
+                .copy(source = mx.kompara.parsers.model.HostGeometrySource.HOST_LAYOUT)
             pipeline.processOwnedFrame(fixture(), null, null, capturedAtMs = at, displayBounds = display, density = 3f)
             pipeline.processOwnedFrame(fixture(), null, null, capturedAtMs = at + 300, displayBounds = display, density = 3f,
                 hostObservation = mx.kompara.parsers.model.HostLayoutObservation(idle, true, true))

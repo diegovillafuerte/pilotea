@@ -182,8 +182,12 @@ object OverlayPositioning {
  */
 internal class PlacementEvidence {
     private var reference: HostGeometry? = null
+    private var lastDistinctCapture: HostGeometry? = null
+    private var settled = false
+    private var slideCeiling: Int? = null
 
-    data class Decision(val geometry: HostGeometry, val recover: Boolean, val initialBoundaryPending: Boolean = false) {
+    data class Decision(val geometry: HostGeometry, val recover: Boolean, val initialBoundaryPending: Boolean = false,
+        val preferPreferredPosition: Boolean = false) {
         val needsUnobscuredCapture get() = recover || initialBoundaryPending
     }
 
@@ -191,7 +195,16 @@ internal class PlacementEvidence {
         val before = (reference ?: previous)?.takeIf {
             it.packageName == next.packageName && it.displayBounds == next.displayBounds
         }
-        val recover = OverlayPositioning.lostMaskedAnchors(before, next, viewport)
+        val slideMatch = UberSlideInEnvelope.match(next, viewport)
+        val previousSlideMatch = before?.let { UberSlideInEnvelope.match(it, viewport) }
+        // A complete translated profile positively observes every moving control. Missing old
+        // close/action coordinates are then motion, not lost controls. Retain every other old
+        // control and every upper/route anchor so a missing chrome control still forces recovery.
+        val maskReference = if (slideCeiling != null && !settled && slideMatch != null &&
+            previousSlideMatch != null && before != null) before.copy(protectedControls =
+            before.protectedControls.filterNot { it in previousSlideMatch.movingControls } + slideMatch.movingControls)
+            else before
+        val recover = OverlayPositioning.lostMaskedAnchors(maskReference, next, viewport)
         val after = next.ocrEvidence
         // Initial OCR can see the fare/route before the heading and close slide into view. There is
         // no established empty band above those numbers. Leave the capture unobscured until an
@@ -202,6 +215,7 @@ internal class PlacementEvidence {
             !after.independentlyMeasuredCard && after.upperAnchors.isEmpty() &&
             before?.ocrEvidence?.let { it.independentlyMeasuredCard || it.upperAnchors.isNotEmpty() } != true
         if (unresolvedInitialBoundary) {
+            lastDistinctCapture = null
             reference = before ?: next
             return Decision(next.copy(offerCard = next.offerCard.copy(top = next.topChrome.bottom)), recover,
                 initialBoundaryPending = true)
@@ -219,11 +233,52 @@ internal class PlacementEvidence {
             val guarded = if (after != null && !after.independentlyMeasuredCard &&
                 after.upperAnchors.isEmpty() && before != null) next.copy(
                 offerCard = next.offerCard.copy(top = minOf(before.offerCard.top, next.offerCard.top))) else next
+            // A current heading says where the card is, not where its animation will finish.
+            // The validated Uber family can reveal in its destination-safe band immediately.
+            // Unknown layouts need two distinct matching captures; repeated UI renders of one
+            // screenshot must never count as settled geometry.
+            if (next.packageName == "com.ubercab.driver" &&
+                next.source != HostGeometrySource.HOST_LAYOUT && after != null && !settled) {
+                val match = slideMatch
+                if (match != null) slideCeiling = minOf(slideCeiling ?: match.highestCardTop, match.highestCardTop)
+                val prior = lastDistinctCapture
+                val stable = prior != null && next.capturedAtMs > prior.capturedAtMs &&
+                    next.capturedAtMs - prior.capturedAtMs <= OverlayPositioning.MAX_GEOMETRY_AGE_MS &&
+                    stableUpperGeometry(prior, next, viewport.dp(8))
+                if (prior == null || next.capturedAtMs > prior.capturedAtMs) lastDistinctCapture = next
+                // A paused animation may produce two identical translated frames. Its independently
+                // validated destination must also have arrived before leaving the conservative band.
+                if (stable && (slideCeiling == null || match?.atDestination == true)) {
+                    settled = true
+                    return Decision(guarded, false, preferPreferredPosition = true)
+                }
+                val ceiling = slideCeiling
+                if (ceiling == null || match == null) return Decision(
+                    guarded.copy(offerCard = guarded.offerCard.copy(top = guarded.topChrome.bottom)), false,
+                    initialBoundaryPending = true)
+                return Decision(guarded.copy(offerCard = guarded.offerCard.copy(top = minOf(ceiling, guarded.offerCard.top))), false)
+            }
             return Decision(guarded, false)
         }
         reference = before
+        lastDistinctCapture = null
         return Decision(next.copy(offerCard = next.offerCard.copy(top = next.topChrome.bottom)), true)
     }
 
-    fun reset() { reference = null }
+    private fun stableUpperGeometry(before: HostGeometry, after: HostGeometry, tolerance: Int): Boolean {
+        fun near(a: HostRect, b: HostRect) = abs(a.left - b.left) <= tolerance &&
+            abs(a.top - b.top) <= tolerance && abs(a.right - b.right) <= tolerance &&
+            abs(a.bottom - b.bottom) <= tolerance
+        fun sameBounds(a: List<HostRect>, b: List<HostRect>) = a.size == b.size &&
+            a.all { old -> b.any { fresh -> near(old, fresh) } }
+        val old = before.ocrEvidence ?: return false
+        val fresh = after.ocrEvidence ?: return false
+        return before.packageName == after.packageName && before.displayBounds == after.displayBounds &&
+            near(before.offerCard, after.offerCard) &&
+            (fresh.independentlyMeasuredCard || fresh.upperAnchors.isNotEmpty()) &&
+            sameBounds(old.upperAnchors, fresh.upperAnchors) &&
+            sameBounds(before.protectedControls, after.protectedControls)
+    }
+
+    fun reset() { reference = null; lastDistinctCapture = null; settled = false; slideCeiling = null }
 }
