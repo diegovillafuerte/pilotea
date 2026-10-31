@@ -40,6 +40,8 @@ import java.io.File
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class OfferFramePipelineVerdictTest {
+    /** Round 3 (A3): the ledger row the chip is painted from agrees with every evaluated card. */
+    private val rowAgreement = RowBackedAgreement()
     @Before fun foregroundUber() = ScreenReaderState.setForegroundHost(UberOcrParser.UBER_PACKAGE, SystemClock.elapsedRealtime())
     @After fun clearForeground() = ScreenReaderState.setForegroundHost(null, SystemClock.elapsedRealtime())
     private val limits = PlatformThreshold(10.0, 200.0, 7.5, 150.0)
@@ -64,6 +66,7 @@ class OfferFramePipelineVerdictTest {
             val seen = mutableListOf<OverlayVisibility>()
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
                 OverlayStateMachine(evaluate = { event ->
+                    rowAgreement.check(event)
                     NetProfitEngine().evaluate(OfferMapping.toTripOffer(event.card), "2.84".toBigDecimal(),
                         limits, PreferredMetric.IPK).also { evaluated = it }
                         .let { VerdictChipState.from(it, limits) }
@@ -132,6 +135,7 @@ class OfferFramePipelineVerdictTest {
         val parsed = mutableListOf<OfferEvent.Parsed>()
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
             OverlayStateMachine(evaluate = { event ->
+                    rowAgreement.check(event)
                 parsed += event
                 VerdictChipState.from(NetProfitEngine().evaluate(OfferMapping.toTripOffer(event.card),
                     "2.84".toBigDecimal(), limits, PreferredMetric.IPK), limits)
@@ -176,12 +180,12 @@ class OfferFramePipelineVerdictTest {
         assertNotEquals(seen.filterIsInstance<OverlayVisibility.Showing>().first().state, corrected.state)
         assertEquals(1, seen.filterIsInstance<OverlayVisibility.Reading>().size)
 
-        // A changed action AND route each need a second observation before replacement.
-        // Until identity is resolved, the chip must not borrow the preceding offer's payment.
+        // 0.2.14: a changed TRIP leg needs a second observation before replacement (pickup only
+        // corroborates). Until identity is resolved, the chip must not borrow the preceding payment.
         val changedPickup = unread.map {
             when (it.text) {
-                "4 min (0.7 km)" -> it.copy(text = "5 min (0.9 km)")
-                "Aceptar" -> it.copy(text = "Coincidir")
+                "49 min (6.3 km)" -> it.copy(text = "52 min (6.9 km)")
+                "Aceptar" -> it.copy(text = "Me interesa")
                 else -> it
             }
         }
@@ -220,23 +224,33 @@ class OfferFramePipelineVerdictTest {
         assertNotEquals(parsed.first().card.sessionId, parsed.last().card.sessionId)
     }
 
+    // 0.2.14: dropouts hold below main's corroborated absence (3 signature-free frames, 1.8 s);
+    // past it the offer is retired and an unread return can never borrow the old payment.
     @Test fun `repeated OCR dropout retains identity and confirmed fare without inventing absence`() = runTest {
-        val pipeline = OfferFramePipeline()
-        val parsed = mutableListOf<OfferEvent.Parsed>()
-        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
-            OfferEventBus.events.collect { if (it is OfferEvent.Parsed) parsed += it }
+        for ((dropouts, sameOffer) in listOf(2 to true, 3 to false)) {
+            val pipeline = OfferFramePipeline()
+            val parsed = mutableListOf<OfferEvent.Parsed>()
+            val job = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                OfferEventBus.events.collect { if (it is OfferEvent.Parsed) parsed += it }
+            }
+            for (blocks in listOf(priority147()) + List(dropouts) { emptyList() } +
+                listOf(priority147().filterNot { it.text == "$147.46" })) {
+                ShadowSystemClock.advanceBy(Duration.ofMillis(900))
+                ScreenReaderState.setForegroundHost(UberOcrParser.UBER_PACKAGE, SystemClock.elapsedRealtime())
+                pipeline.processOwnedFrame(blocks, ownChip, null, displayBounds = display, density = 3f)
+                testScheduler.runCurrent()
+            }
+            job.cancel()
+            assertEquals(2, parsed.size)
+            if (sameOffer) {
+                assertEquals(147.46, parsed.last().card.fare!!, 0.000001)
+                assertEquals(parsed.first().card.sessionId, parsed.last().card.sessionId)
+                assertEquals(parsed.first().card.sessionStartedAt, parsed.last().card.sessionStartedAt)
+            } else {
+                assertNull("A retired offer's payment is never lent to an unread return", parsed.last().card.fare)
+                assertNotEquals(parsed.first().card.sessionId, parsed.last().card.sessionId)
+            }
         }
-        for (blocks in listOf(priority147(), emptyList(), emptyList(), emptyList(),
-            priority147().filterNot { it.text == "$147.46" })) {
-            ShadowSystemClock.advanceBy(Duration.ofMillis(900))
-            ScreenReaderState.setForegroundHost(UberOcrParser.UBER_PACKAGE, SystemClock.elapsedRealtime())
-            pipeline.processOwnedFrame(blocks, ownChip, null, displayBounds = display, density = 3f)
-            testScheduler.runCurrent()
-        }
-        assertEquals(2, parsed.size)
-        assertEquals(147.46, parsed.last().card.fare!!, 0.000001)
-        assertEquals(parsed.first().card.sessionId, parsed.last().card.sessionId)
-        assertEquals(parsed.first().card.sessionStartedAt, parsed.last().card.sessionStartedAt)
     }
 
     @Test fun `supported currency formats survive the complete pipeline`() {
@@ -284,6 +298,7 @@ class OfferFramePipelineVerdictTest {
         val evaluated = mutableListOf<OfferEvent.Parsed>()
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
             OverlayStateMachine(evaluate = { event ->
+                    rowAgreement.check(event)
                 evaluated += event
                 VerdictChipState.from(NetProfitEngine().evaluate(OfferMapping.toTripOffer(event.card),
                     "2.84".toBigDecimal(), limits, PreferredMetric.IPK), limits)

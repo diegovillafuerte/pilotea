@@ -46,7 +46,8 @@ class OfferFramePipelineDiagnosticsTest {
 
     @Test fun `recognized offer with unread payment logs incomplete reading`() {
         ShadowLog.clear()
-        OfferFramePipeline().processOwnedFrame(listOf(block("UberX", 500), block("Aceptar", 780)), null, null)
+        OfferFramePipeline().processOwnedFrame(listOf(block("UberX", 500), block("4 min (2.0 km)", 600),
+            block("Aceptar", 780)), null, null)
         assertTrue(ShadowLog.getLogsForTag("KomparaOCR").any { "incomplete reading" in it.msg })
     }
 
@@ -109,6 +110,23 @@ class OfferFramePipelineDiagnosticsTest {
         } finally { collector.cancelAndJoin() }
     }
 
+    @Test fun `a route-incomplete frame retired by the parse ceiling is counted as such, not as an outlier`() = runBlocking {
+        // Round 3 (B8): device counters must stay truthful about why the held offer stopped publishing.
+        ShadowLog.clear()
+        val pipeline = OfferFramePipeline()
+        val incomplete = fixture().map { if (it.text == "1 min (0.2 km)") it.copy(text = "— min (0.2 km)") else it }
+        pipeline.frame(fixture())
+        for (t in 1..19) {
+            org.robolectric.shadows.ShadowSystemClock.advanceBy(java.time.Duration.ofMillis(850))
+            foreground()
+            pipeline.frame(incomplete)
+        }
+        pipeline.onCaptureEnd(System.currentTimeMillis())
+        val summary = ShadowLog.getLogsForTag("KomparaOCR").map { it.msg }.single { it.startsWith("burst:") }
+        assertTrue(summary, "PARSE_CEILING_EXPIRED=1" in summary)
+        assertFalse(summary, "PARSED_OCR_OUTLIER" in summary)
+    }
+
     @Test fun `parsed host rejected by readiness reports the host gate without logging offer text`() = runBlocking {
         ShadowLog.clear()
         val readiness = ReaderReadinessRepository(object : ReaderMemoryStore {
@@ -139,8 +157,10 @@ class OfferFramePipelineDiagnosticsTest {
         } finally { collector.cancelAndJoin() }
     }
 
+    // 0.2.14: a chip over the heading alone no longer counts (a missing heading is not masked
+    // evidence: real DiDi cards print none). A chip inside the derived card still does.
     @Test fun `first parsed offer with chip over the card reports masked evidence`() = assertParsedDrop(
-        fixture(), ScreenRect(80, 640, 810, 750), "PARSED_CARD_MASKED")
+        fixture(), ScreenRect(80, 920, 810, 1000), "PARSED_CARD_MASKED")
 
     @Test fun `ambiguous visible action above the selected real card reports extraction uncertainty`() = assertParsedDrop(
         fixture() + OcrBlock("Aceptar", OcrBounds(80, 150, 500, 210)),

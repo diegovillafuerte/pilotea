@@ -42,8 +42,11 @@ class LiveOcrGeometryTest {
         }
     }
 
+    // 0.2.14: host chrome plus an action without any leg (idle Radar pill, post-tap) is not a card.
     @Test fun `recognized unreadable offer retains bounded action geometry`() {
-        val card = select(listOf(box("UberX", 500), box("Aceptar", 780)))
+        assertNull(selectOfferCard(UberOcrParser(), DidiOcrParser(), listOf(box("UberX", 500), box("Aceptar", 780)),
+            1000, displayBounds = display, foregroundPackage = UberOcrParser.UBER_PACKAGE))
+        val card = select(listOf(box("UberX", 500), box("4 min (2.0 km)", 600), box("Aceptar", 780)))
         assertNull(card.fare)
         assertNotNull(card.hostGeometry)
         assertEquals("UNCONFIRMED", card.paymentBasis)

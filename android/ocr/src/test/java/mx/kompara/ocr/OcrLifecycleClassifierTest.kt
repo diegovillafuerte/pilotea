@@ -50,8 +50,29 @@ class OcrLifecycleClassifierTest {
         val known = uberCard.copy(captureSource = "OCR", sessionId = "route-session", paymentBasis = "DRIVER_PAYMENT")
         frame(card = known, t = 1)
         assertNull(frame(card = known.copy(fare = 147.46, pickupEtaMin = null), t = 2))
-        assertNull(frame(card = known.copy(fare = 147.46, pickupEtaMin = 6.0), t = 3))
+        // Round 3 (Codex R2 #2): the trip leg is the identity key; a changed trip leg never revises.
+        assertNull(frame(card = known.copy(fare = 147.46, tripDurationMin = 33.0), t = 3))
+        assertNull(frame(card = known.copy(fare = 147.46, tripDistanceKm = 11.4), t = 3))
         assertNull(frame(card = known.copy(fare = 147.46, paymentBasis = "UNCONFIRMED"), t = 4))
+    }
+
+    @Test fun `a confirmed same-trip revision carries the moved pickup leg`() {
+        // Round 3 (Codex R2 #2): the pickup leg may change live between the misread first reveal and
+        // the stabilizer's revision; it must not keep the revision out of the ledger. Round 4 (A2):
+        // frames reach the classifier as the pipeline publishes them (FareStabilizer's confirmed
+        // economics), so the revision needs two consecutive agreeing observations.
+        val stabilizer = FareStabilizer()
+        fun observe(card: OfferCard, t: Long) = frame(card = stabilizer.onParsed(card, t * 850), t = t)
+        val known = uberCard.copy(captureSource = "OCR", sessionId = "route-session", paymentBasis = "DRIVER_PAYMENT")
+        assertTrue(observe(known, 1) is LifecycleSignal.OfferSeen)
+        val revised = known.copy(fare = 147.46, pickupEtaMin = 6.0, pickupDistanceKm = 0.9)
+        assertNull("One observation never revises the ledger", observe(revised, 2))
+        val update = observe(revised, 3) as LifecycleSignal.OfferSeen
+        assertEquals(147.46, update.card.fare!!, 0.001)
+        assertEquals(6.0, update.card.pickupEtaMin!!, 0.0)
+        assertEquals(0.9, update.card.pickupDistanceKm!!, 0.0)
+        assertNull("A payment-less frame never rewrites the pickup", frame(card = update.card.copy(fare = null,
+            paymentBasis = "UNCONFIRMED", pickupDistanceKm = 9.0), t = 3))
     }
 
     @Test
@@ -84,7 +105,7 @@ class OcrLifecycleClassifierTest {
     fun `offer to trip to idle emits one signal per transition, attributed to the offer platform`() {
         frame(card = uberCard, t = 10) // OfferSeen, sets platform context
         // Card gone, navigation screen → accept.
-        val trip = frame(text = "Iniciar viaje | Llegar a Polanco", t = 11)
+        val trip = frame(text = "Iniciar viaje | Llegar a Colonia Ejemplo", t = 11)
         assertTrue(trip is LifecycleSignal.TripStateEntered)
         assertEquals("com.ubercab.driver", (trip as LifecycleSignal.TripStateEntered).packageName)
         // Still navigating → no repeat.

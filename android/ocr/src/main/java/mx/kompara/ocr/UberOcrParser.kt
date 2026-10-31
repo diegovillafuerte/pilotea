@@ -101,12 +101,17 @@ class UberOcrParser {
             paymentType = null,
             raw = fareHit?.let { mapOf("fare" to String.format(Locale.US, "%.2f", it.value)) } ?: emptyMap(),
             contentBounds = unionBounds(fareHit?.bounds, trip?.bounds, pickup?.bounds),
+            fareBounds = fareHit?.bounds?.let { OfferContentBounds(it.left, it.top, it.right, it.bottom) },
             instanceEvidence = instanceEvidence(cardBlocks, ChipMask.maskOwnChip(blocks, chipRect)).copy(
                 routeWellFormed = cardBlocks.sumOf { legRegex.findAll(it.text).count() } >= 2),
         )
     }
 
-    /** A card survives missing money/time, but idle bonuses and explicit zero-wallet pills do not. */
+    /**
+     * A card survives missing money/time, but idle bonuses and explicit zero-wallet pills do not.
+     * A route leg is required: host chrome plus an action label alone (an idle Trip Radar pill, a
+     * post-tap state) must never hold a chip.
+     */
     fun hasCardSignature(blocks: List<OcrBlock>, cardBounds: OcrBounds? = null, chipRect: ScreenRect? = null,
         hostConfirmed: Boolean = false): Boolean {
         val cardBlocks = cardBlocks(blocks, cardBounds, chipRect)
@@ -123,7 +128,8 @@ class UberOcrParser {
             // headline checks. This preserves incomplete legacy MX offers without inventing a fare.
             (cardBlocks.any { it.text.trim().startsWith("MX", true) && (standaloneFare(it, host) ?: 0.0) > 0 } &&
                 cardBlocks.any { legRegex.containsMatchIn(it.text) }) ||
-            (trip != null && (action || host)) || (host && action)
+            (trip != null && (action || host)) ||
+            (host && action && cardBlocks.any { legRegex.containsMatchIn(it.text) })
     }
 
     private data class FareHit(

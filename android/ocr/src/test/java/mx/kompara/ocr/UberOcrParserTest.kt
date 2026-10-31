@@ -202,7 +202,7 @@ class UberOcrParserTest {
 
     @Test
     fun `recovers a pickup distance whose decimal point OCR dropped`() {
-        // Real first-frame garble from a live Polanco offer (2026-06-15): the "0.4 km" pickup OCR'd as
+        // Real first-frame garble from a live offer (2026-06-15): the "0.4 km" pickup OCR'd as
         // "04 km", which naively parsed to 4.0 km — a 10× error that the overlay self-corrected on the
         // next frame but the ledger had already frozen into the offer record. A leading-zero,
         // separator-less distance is a dropped decimal, so it must read back as 0.4 km.
@@ -329,7 +329,10 @@ class UberOcrParserTest {
 
     @Test
     fun `unknown Uber offer structure is recognized without certifying payment`() {
-        val card = parser.parse(listOf(block("Uber nueva modalidad"), block("MXN148.00"), block("Aceptar")))!!
+        // 0.2.14: a card signature needs a route leg; one unlabeled leg is still an unknown structure.
+        assertNull(parser.parse(listOf(block("Uber nueva modalidad"), block("MXN148.00"), block("Aceptar"))))
+        val card = parser.parse(listOf(block("Uber nueva modalidad"), block("MXN148.00"),
+            block("8 min (2.0 km)"), block("Aceptar")))!!
         assertEquals("UNCONFIRMED", card.paymentBasis)
         assertNull(card.tripDistanceKm)
     }

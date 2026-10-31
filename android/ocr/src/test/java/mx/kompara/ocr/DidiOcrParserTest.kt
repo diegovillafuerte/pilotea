@@ -22,9 +22,9 @@ class DidiOcrParserTest {
         block("4.84 293 viajes", 168, 1446, 527, 1499),
         block("Tarjeta bancaria verificada", 138, 1534, 756, 1580),
         block("6min (1.2km)", 139, 1692, 441, 1745),
-        block("Pisos Europeos - Avenida Horacio,", 138, 1761, 934, 1811),
+        block("Torres Ejemplo - Avenida Supuesta,", 138, 1761, 934, 1811),
         block("39min (17.3km)", 156, 1902, 514, 1960),
-        block("Ret. 26 10, Avante, Coyoacán,", 139, 1968, 832, 2025),
+        block("Priv. 26 10, Ejemplo, Prueba,", 139, 1968, 832, 2025),
     )
 
     @Test
@@ -96,8 +96,8 @@ class DidiOcrParserTest {
     @Test
     fun `non-offer screen yields null`() {
         val home = listOf(
-            block("La Magdalena", 134, 866, 393, 903),
-            block("Iztacalco", 676, 548, 839, 585),
+            block("La Inventada", 134, 866, 393, 903),
+            block("Ficticia", 676, 548, 839, 585),
             block("MEX-5D", 1038, 2, 1066, 124),
         )
         assertNull(parser.parse(home))

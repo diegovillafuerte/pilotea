@@ -296,7 +296,7 @@ class ClearLifecycleBoundaryReplayTest {
     }
 
     @Test fun `corroborated replacement on return retires suspended identity without revising its payment`() {
-        val replacement = nextOffer().map { if (it.text == "Aceptar") it.copy(text = "Coincidir") else it }
+        val replacement = nextOffer().map { if (it.text == "Aceptar") it.copy(text = "Me interesa") else it }
         val result = replay {
             frame(fixture(), 0)
             val original = offers.all().single()
@@ -317,19 +317,26 @@ class ClearLifecycleBoundaryReplayTest {
     }
 
 
-    @Test fun `extended empty OCR dropout never becomes positive card disappearance`() {
+    // 0.2.14: main's corroborated absence is back: three signature-free frames spanning 1.8 s
+    // retire the offer (v3 had made only positive markers retire). A short dropout still holds.
+    @Test fun `extended signature-free dropout retires the offer without rewriting its row`() {
         val result = replay {
             frame(fixture(), 0)
             val original = offers.all().single()
-            for (at in listOf(900L, 1800L, 2700L, 60_000L)) frame(emptyList(), at)
-            assertEquals("No OCR evidence means no ledger transition", listOf(original), offers.all())
+            frame(emptyList(), 900)
+            frame(fixture(), 1800)
+            assertEquals("One dropout frame holds the session", original.sessionId, parsed.last().card.sessionId)
+            val held = offers.all().single()
+            for (at in listOf(2700L, 3600L, 4500L, 60_000L)) frame(emptyList(), at)
+            assertEquals("Absence never writes payment or an outcome", listOf(held), offers.all())
             frame(fixture(), 60_900)
-            assertEquals(original.sessionId, parsed.last().card.sessionId)
-            assertEquals(original.seenAt, offers.all().single().seenAt)
+            assertNotEquals(original.sessionId, parsed.last().card.sessionId)
+            val retired = offers.all().first()
+            assertEquals("The next offer only resolves the retired row's outcome",
+                held.copy(outcome = "UNKNOWN", resolvedAt = retired.resolvedAt), retired)
             assertEquals(79.45, parsed.last().card.fare!!, 0.001)
         }
-        assertEquals(1, result.offers.all().size)
-        assertEquals("PENDING", result.offers.all().single().outcome)
+        assertEquals(2, result.offers.all().size)
     }
 
     @Test fun `dropout and partial route cannot resolve pending replacement by resurrecting confirmed payment`() {

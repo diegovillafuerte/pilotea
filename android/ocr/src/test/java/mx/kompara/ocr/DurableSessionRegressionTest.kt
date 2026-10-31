@@ -22,18 +22,20 @@ class DurableSessionRegressionTest {
         }
     }
 
-    @Test fun `one persistent route change is insufficient replacement evidence`() {
+    // 0.2.14: main's validated key is the trip leg; a live pickup change never replaces.
+    @Test fun `one persistent pickup change is never replacement evidence`() {
         val tracker = OcrOfferSessionTracker()
         val first = tracker.parsed(original, 100)
         repeat(4) { n ->
-            assertEquals(first.sessionId, tracker.parsed(original.copy(tripDistanceKm = 2.5), 1000L+n*900).sessionId)
+            assertEquals(first.sessionId, tracker.parsed(original.copy(pickupDistanceKm = .5), 1000L+n*900).sessionId)
         }
     }
 
-    @Test fun `both action and route must agree twice before replacement`() {
+    // 0.2.14: a different trip leg alone, read on two consecutive frames, is a new offer (R1).
+    @Test fun `a different trip leg must agree twice before replacement`() {
         val tracker = OcrOfferSessionTracker()
         val first = tracker.parsed(original, 100)
-        val changed = original.copy(tripDistanceKm = 3.5, instanceEvidence = original.instanceEvidence!!.copy(action = "COINCIDIR"))
+        val changed = original.copy(tripDistanceKm = 3.5)
         assertEquals(first.sessionId, tracker.parsed(changed, 1000).sessionId)
         assertNotEquals(first.sessionId, tracker.parsed(changed, 1900).sessionId)
     }

@@ -82,5 +82,7 @@ tasks.withType<Test>().configureEach {
     inputs.dir("src/test/snapshots/v3")
     // Shared anonymized capture used by both parser and end-to-end verdict regressions.
     inputs.file("../ocr/src/test/resources/uber_priority_s25_2026_10_29.json")
+    inputs.file("../ocr/src/test/resources/radar_me_interesa_s25_2026_10_30.json")
+    inputs.file("../ocr/src/test/resources/uberx_me_interesa_s25_2026_10_30.json")
     outputs.dir(layout.buildDirectory.dir("outputs/v3-screenshots"))
 }

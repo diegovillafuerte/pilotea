@@ -80,12 +80,18 @@ class LiveOfferIntegrationTest {
         }
     }
 
-    @Test fun `OCR band switches to compact then suppresses only when even compact cannot fit`() {
+    // 0.2.14 product decision: below the compact foot band the plate docks (fail-open); "No cupo"
+    // only when even the docked compact plate would touch the fare, legs, close or accept.
+    @Test fun `OCR band switches to compact then docks and suppresses only when even the dock cannot fit`() {
         val blocks = uber()
         val card = UberOcrParser().parse(blocks)!!
         val top = derived(blocks, card).offerCard.top
-        assertEquals(PlateFormat.COMPACT, (place(derived(blocks, card, top - 112)) as OverlayPlacement.Displayed).format)
-        assertTrue(place(derived(blocks, card, top - 111)) is OverlayPlacement.Suppressed)
+        val foot = place(derived(blocks, card, top - 112)) as OverlayPlacement.Displayed
+        assertEquals(PlateFormat.COMPACT, foot.format)
+        assertFalse(foot.docked)
+        val docked = place(derived(blocks, card, top - 111)) as OverlayPlacement.Displayed
+        assertTrue(docked.docked)
+        assertTrue(docked.position.bounds(docked.size).bottom <= 540 - 16)
         assertTrue(place(derived(blocks, card, top + 10)) is OverlayPlacement.Suppressed)
     }
 

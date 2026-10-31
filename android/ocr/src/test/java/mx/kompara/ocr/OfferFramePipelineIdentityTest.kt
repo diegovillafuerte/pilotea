@@ -32,7 +32,10 @@ class OfferFramePipelineIdentityTest {
         }
     }
 
-    private fun replay(rejected: (List<OcrBlock>) -> List<OcrBlock>): List<OfferEvent.Parsed> = runBlocking {
+    /** [misreadPublishes]: the rejected frame reads another well-formed trip leg, so (A1 (a)) it
+     *  publishes WITHOUT payment and in the same session instead of being held. */
+    private fun replay(misreadPublishes: Boolean = false,
+        rejected: (List<OcrBlock>) -> List<OcrBlock>): List<OfferEvent.Parsed> = runBlocking {
         val parsed = mutableListOf<OfferEvent.Parsed>()
         val collector = launch(Dispatchers.Unconfined) {
             OfferEventBus.events.collect { if (it is OfferEvent.Parsed) parsed += it }
@@ -45,8 +48,13 @@ class OfferFramePipelineIdentityTest {
                 pipeline.processOwnedFrame(blocks, ScreenRect(325, 242, 1040, 572), null,
                     displayBounds = HostRect(0, 0, 1080, 2340), density = 3f)
                 yield()
-                assertEquals("The third frame must be rejected before publication", if (index < 2) index + 1 else if (index == 2) 2 else 3,
+                val extra = if (misreadPublishes && index >= 2) 1 else 0
+                assertEquals("The third frame must be rejected before publication", (if (index < 2) index + 1 else if (index == 2) 2 else 3) + extra,
                     parsed.size)
+            }
+            if (misreadPublishes) {
+                assertNull("The misread frame never shows a fare", parsed[2].card.fare)
+                assertEquals(parsed.first().card.sessionId, parsed[2].card.sessionId)
             }
         } finally {
             collector.cancelAndJoin()
@@ -54,8 +62,10 @@ class OfferFramePipelineIdentityTest {
         parsed
     }
 
+    // 0.2.14 round 2 (A1 (a), accepted cost): a x10 trip-leg misread of the same offer is one
+    // payment-less frame instead of a held verdict; the confirmed payment returns on the next frame.
     @Test fun `rejected changed route retains confirmed payment before unread old route returns`() {
-        val parsed = replay { blocks -> blocks.map {
+        val parsed = replay(misreadPublishes = true) { blocks -> blocks.map {
             if (it.text == "24 min (2.4 km)") it.copy(text = "24 min (24.0 km)") else it
         } }
         assertEquals(79.45, parsed.first().card.fare!!, 0.001)
@@ -110,6 +120,28 @@ class OfferFramePipelineIdentityTest {
             assertNotEquals(parsed.first().card.sessionId, parsed.last().card.sessionId)
         } finally { collector.cancelAndJoin() }
     }
+    // Round 2 (A4): only a processed host frame may defer the overlay's soft hide.
+    @Test fun `held frames are tagged processed and unknown visibility is not`() = runBlocking {
+        val events = mutableListOf<OfferEvent>()
+        val collector = launch(Dispatchers.Unconfined) { OfferEventBus.events.collect { events += it } }
+        try {
+            val pipeline = OfferFramePipeline()
+            val full = fixture()
+            val garbled = full.map { if (it.text == "1 min (0.2 km)") it.copy(text = "— min (0.2 km)") else it }
+                .map { if (it.text == "$79.45") it.copy(text = "$7945.00") else it }
+            for (blocks in listOf(full, full, garbled)) {
+                pipeline.processOwnedFrame(blocks, null, null, displayBounds = HostRect(0, 0, 1080, 2340), density = 3f)
+                yield()
+            }
+            val held = events.filterIsInstance<OfferEvent.LayoutUncertain>()
+            assertEquals("The guard-rejected garbled frame is held", 1, held.size)
+            assertTrue(held.single().processedFrame)
+            pipeline.onCaptureUncertain(System.currentTimeMillis())
+            yield()
+            assertFalse(events.filterIsInstance<OfferEvent.LayoutUncertain>().last().processedFrame)
+        } finally { collector.cancelAndJoin() }
+    }
+
     @Test fun `unknown OS visibility retains identity and breaks consecutive payment votes`() = runBlocking {
         val parsed = mutableListOf<OfferEvent.Parsed>()
         val collector = launch(Dispatchers.Unconfined) {

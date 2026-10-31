@@ -19,7 +19,12 @@ object HostGeometryDeriver {
     private val close = Regex("""^(?:x|×|✕|✖|cerrar|close)$""", RegexOption.IGNORE_CASE)
     private val reject = Regex("""\brechazar\b""", RegexOption.IGNORE_CASE)
     private val heading = Regex("""\b(?:uber\w*|didi|exclusivo|reserva|programado|radar de solicitud|pon tu precio)\b""", RegexOption.IGNORE_CASE)
-    private val uberHeading = Regex("""\b(?:uber\w*|radar de solicitud)\b""", RegexOption.IGNORE_CASE)
+    // The floating "Radar de solicitud de viaje N" pill is host chrome above the sheet (it also
+    // shows on the idle home as "... 0"). It remains an upper anchor and a soft obstacle, never
+    // part of the card envelope: folding it in lowered the safe band to nothing (13:12:30).
+    private val radarPill = Regex("""\bradar de solicitud\b""", RegexOption.IGNORE_CASE)
+    private val cardHeading = Regex("""\b(?:uber\w*|didi|exclusivo|reserva|programado|pon tu precio)\b""", RegexOption.IGNORE_CASE)
+    private val uberHeading = Regex("""\buber\w*\b""", RegexOption.IGNORE_CASE)
     private val chrome = Regex("""\b(?:en l[ií]nea|buscando viajes|men[uú]|buscar|gira|gire|dobla)\b""", RegexOption.IGNORE_CASE)
 
     fun offer(
@@ -36,6 +41,7 @@ object HostGeometryDeriver {
         markers: List<MapMarker> = emptyList(),
         navigation: Boolean = false,
         recognizedOffer: Boolean = false,
+        fareBounds: HostRect? = null,
     ): HostGeometry? {
         if (packageName !in HostGeometryAdapter.SUPPORTED_HOSTS || !displayBounds.valid ||
             !density.isFinite() || density <= 0f) return null
@@ -62,7 +68,7 @@ object HostGeometryDeriver {
             if (!recognizedOffer && measuredCard == null &&
                 (legs.isEmpty() || fares.isEmpty() && accepts.isEmpty())) return null
             val unreadableHeading = if (recognizedOffer && fares.isEmpty() && legs.isEmpty())
-                boxes.filter { heading.containsMatchIn(it.text) } else emptyList()
+                boxes.filter { cardHeading.containsMatchIn(it.text) } else emptyList()
             (fares + legs + accepts + unreadableHeading).map { it.bounds }
         }
         if (measuredCard == null && anchors.isEmpty()) return null
@@ -78,7 +84,7 @@ object HostGeometryDeriver {
                 it.bounds.bottom <= firstText
         }.maxByOrNull { it.bounds.bottom } else null
         val headers = if (firstText != null) boxes.filter {
-            heading.containsMatchIn(it.text) && it.bounds.bottom <= firstText &&
+            cardHeading.containsMatchIn(it.text) && it.bounds.bottom <= firstText &&
                 (firstText - it.bounds.bottom <= headingDistance || it == offerHeading)
         } else emptyList()
         val currentContent = anchors + headers.map { it.bounds } + accepts.map { it.bounds }
@@ -107,10 +113,20 @@ object HostGeometryDeriver {
         val upperLimit = routes.firstOrNull()?.top ?: accepts.minOfOrNull { it.bounds.top }
         val upper = boxes.filter { upperLimit != null && it.bounds.bottom <= upperLimit &&
             (heading.containsMatchIn(it.text) || close.matches(it.text.trim())) }.map { it.bounds }
+        // The pill text and its stack count are one floating control; treat it as tappable.
+        val pills = boxes.filter { radarPill.containsMatchIn(it.text) }.map { pill ->
+            boxes.filter { other -> other == pill || other.text.trim().matches(Regex("""\d{1,2}""")) &&
+                minOf(other.bounds.bottom, pill.bounds.bottom) - maxOf(other.bounds.top, pill.bounds.top) >=
+                minOf(other.bounds.height, pill.bounds.height) / 2 &&
+                other.bounds.left - pill.bounds.right in 0..pill.bounds.height * 2
+            }.map { it.bounds }.reduce { a, c -> HostRect(minOf(a.left, c.left), minOf(a.top, c.top),
+                maxOf(a.right, c.right), maxOf(a.bottom, c.bottom)) }
+        }
         return HostGeometry(packageName, "derived-${source.name.lowercase()}", capturedAtMs,
             displayBounds, orientation(displayBounds), top, card, controls,
             clipMarkers(markers, displayBounds), navigation, source,
-            ocrEvidence = HostOcrGeometryEvidence(null, upper, routes, independentlyMeasuredCard = measuredCard == card))
+            ocrEvidence = HostOcrGeometryEvidence(null, upper, routes, independentlyMeasuredCard = measuredCard == card),
+            fareBounds = fareBounds?.takeIf(displayBounds::contains), softObstacles = pills)
     }
 
     /** A fresh host viewport can place the stopped tab without a stale or imaginary offer. */

@@ -12,8 +12,11 @@ import mx.kompara.ui.components.ReglaMotion
 
 sealed interface OverlayVisibility {
     data object Hidden : OverlayVisibility
-    /** Retain durable identity and verdict while exposing an unverified masked region. */
-    data object AwaitingUnobscuredCapture : OverlayVisibility
+    /**
+     * The latest frame showed no offer: invisible and untouchable at once, keeping the window,
+     * verdict, session and position. The next Parsed of the same session reveals it again.
+     */
+    data object SoftHidden : OverlayVisibility
     /** Clear the prior offer before any suspendable evaluation/persistence. */
     data class Reading(val offerKey: String, val event: OfferEvent.Parsed) : OverlayVisibility
     data class Showing(val state: VerdictChipState, val offerKey: String, val event: OfferEvent.Parsed) : OverlayVisibility
@@ -32,11 +35,10 @@ class OverlayStateMachine(
         var host: String? = null
         var key: String? = null
         events
-            // An unrelated recovery event must not cancel a departed host's in-flight hide.
-            // Filtering inside transformLatest is too late: it has already cancelled the grace.
-            .filter { event ->
-                event !is OfferEvent.LayoutUncertain || event.packageName == host && key != null
-            }
+            // A held/uncertain frame is only the overlay's heartbeat: never a visibility change,
+            // and it must not cancel an in-flight hide. Filtering inside transformLatest is too
+            // late: it has already cancelled the grace.
+            .filter { event -> event !is OfferEvent.LayoutUncertain }
             // A stream of missing OCR frames must not restart the 500ms timer indefinitely.
             .distinctUntilChanged { old, new ->
                 old is OfferEvent.NoCard && new is OfferEvent.NoCard &&
@@ -53,15 +55,15 @@ class OverlayStateMachine(
                         }
                         emit(OverlayVisibility.Showing(evaluate(event), next, event))
                     }
-                    is OfferEvent.LayoutUncertain -> {
-                        if (event.packageName == host && key != null)
-                            emit(OverlayVisibility.AwaitingUnobscuredCapture)
-                    }
+                    is OfferEvent.LayoutUncertain -> Unit
                     is OfferEvent.NoCard -> {
                         if (event.packageName != host || event.reason in setOf(OfferEvent.Reason.NO_SPEC,
                                 OfferEvent.Reason.CONFIRMED_ABSENCE, OfferEvent.Reason.NOT_VISIBLE)) {
                             key = null; host = null
                             emit(OverlayVisibility.Hidden)
+                        } else if (event.reason == OfferEvent.Reason.SIGNATURE_ABSENT) {
+                            // Fast dismissal without ending the session: absence is not yet corroborated.
+                            if (key != null) emit(OverlayVisibility.SoftHidden)
                         } else if (key != null) {
                             delay(graceMs)
                             emit(OverlayVisibility.Exiting)

@@ -50,13 +50,32 @@ class HostGeometryDeriverTest {
         assertTrue(g.protectedControls.contains(boxes.last().bounds))
     }
 
-    @Test fun `Coincidir anchors the unread radar card and remains protected`() {
+    // 0.2.14: the floating Trip Radar pill is host chrome, not the card (it lowered the safe band
+    // to nothing at 12:04:15 and 13:12:30). It stays an upper anchor and becomes a soft obstacle.
+    @Test fun `Me interesa is protected and the Radar pill is a soft obstacle outside the card`() {
         val texts = listOf(box("Radar de solicitud", 200), box("5 min (2.0 km)", 620),
-            box("19 min (10.0 km)", 660), box("Coincidir", 760, 808))
+            box("19 min (10.0 km)", 660), box("Me interesa", 760, 808))
         val g = requireNotNull(HostGeometryDeriver.offer(host, 1000, display, 1f, texts,
             HostGeometrySource.OCR_TEXT_BOUNDS, topChrome = chrome, recognizedOffer = true))
-        assertEquals(184, g.offerCard.top)
+        assertEquals("The pill never becomes the card top", 604, g.offerCard.top)
         assertEquals(listOf(texts.last().bounds), g.protectedControls)
+        assertEquals(listOf(texts.first().bounds), g.softObstacles)
+        assertEquals(listOf(texts.first().bounds), g.ocrEvidence!!.upperAnchors)
+    }
+
+    @Test fun `unread S25 Radar fare keeps the card top at the UberX header not the pill or pickup`() {
+        val s25 = HostRect(0, 0, 1080, 2340)
+        fun b(text: String, l: Int, t: Int, r: Int, bt: Int) = HostTextBounds(text, HostRect(l, t, r, bt))
+        val radar = listOf(b("Radar de solicitud de viaje", 202, 614, 793, 667), b("2", 834, 624, 866, 661),
+            b("UberX", 193, 817, 333, 866), b("X", 891, 842, 933, 884),
+            b("4 min (0.9 km)", 193, 1442, 515, 1488), b("34 min (12.2 km)", 193, 1585, 562, 1636),
+            b("Me interesa", 394, 1948, 687, 2001))
+        val g = requireNotNull(HostGeometryDeriver.offer(host, 1000, s25, 3f, radar,
+            HostGeometrySource.OCR_TEXT_BOUNDS, OfferContentBounds(193, 1442, 562, 1636), recognizedOffer = true))
+        assertEquals("UberX header minus 16 dp", 817 - 48, g.offerCard.top)
+        assertTrue(g.offerCard.top <= 815)
+        assertEquals(listOf(HostRect(202, 614, 866, 667)), g.softObstacles)
+        assertTrue(g.protectedControls.contains(HostRect(394, 1948, 687, 2001)))
     }
 
     @Test fun `content anchors prevent an unrelated earnings pill from lifting the card`() {

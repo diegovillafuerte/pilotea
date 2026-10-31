@@ -50,7 +50,6 @@ import mx.kompara.data.service.ScreenRect
 import mx.kompara.data.settings.PlatformThreshold
 import mx.kompara.data.settings.PreferredMetric
 import mx.kompara.data.settings.SettingsRepository
-import mx.kompara.metrics.recordedMetrics
 import mx.kompara.parsers.model.HostGeometry
 import mx.kompara.parsers.model.HostAppearance
 import mx.kompara.parsers.model.HostOrientation
@@ -77,7 +76,15 @@ class OverlayController @Inject constructor(
     private var lifecycleOwner: OverlayLifecycleOwner? = null
     private var layoutParams: WindowManager.LayoutParams? = null
     private var serviceScope: CoroutineScope? = null
-    private var geometryExpiry: Job? = null
+    /** One absolute watchdog: soft-hides [FRAME_SILENCE_MS] after the last processed host frame,
+     *  detaches [PARSE_CEILING_MS] after the last parse (see [heartbeat]). */
+    private var watchdog: Job? = null
+    @Volatile private var lastParsedAtMs = 0L
+    @Volatile private var lastProcessedAtMs = 0L
+    @Volatile private var watchdogWakeAtMs = Long.MAX_VALUE
+    private var softHidden = false
+    /** TEMP DIAG: the last on-screen rect verified by getLocationOnScreen at reveal. */
+    private var revealedRect: HostRect? = null
     private var event: OfferEvent.Parsed? = null
     private var evaluated = false
     private var chipState by mutableStateOf<ReglaModel?>(null)
@@ -86,6 +93,8 @@ class OverlayController @Inject constructor(
     private val placementEvidence = PlacementEvidence()
     private var viewport by mutableStateOf<OverlayViewport?>(null)
     private var savedPosition by mutableStateOf<OverlayPosition?>(null)
+    private var savedDocked by mutableStateOf(false)
+    private var dockRequested by mutableStateOf(false)
     private val savedPositions = mutableMapOf<OverlayPositionKey, OverlayPosition?>()
     private var placement: OverlayPlacement.Displayed? = null
     private var windowOrigin = OverlayPosition(0, 0)
@@ -117,7 +126,7 @@ class OverlayController @Inject constructor(
             override fun onConfigurationChanged(newConfig: Configuration) {
                 // Remeasure on font/inset/orientation changes, including while no window is attached.
                 detach(); detachBanner()
-                event?.let { show(overlayScope, it) }
+                event?.let { show(it) }
             }
             override fun onLowMemory() = Unit
         }.also { overlayContext.registerComponentCallbacks(it) }
@@ -142,7 +151,9 @@ class OverlayController @Inject constructor(
                         when (it) {
                             is OfferEvent.NoCard -> diagnostic("NO_CARD_${it.reason}")
                             is OfferEvent.SpecDisabled -> diagnostic("SPEC_DISABLED")
-                            is OfferEvent.Parsed, is OfferEvent.LayoutUncertain -> Unit
+                            is OfferEvent.Parsed -> heartbeat(overlayScope, parsed = true, processed = true)
+                            is OfferEvent.LayoutUncertain -> heartbeat(overlayScope, parsed = false,
+                                processed = it.processedFrame)
                         }
                     })
                     .onStart { emit(OverlayVisibility.Hidden) }
@@ -166,21 +177,9 @@ class OverlayController @Inject constructor(
         }
     }
 
-    private suspend fun evaluate(event: OfferEvent.Parsed): VerdictChipState {
-        val row = recorder.record(sessionId(event), event.card.sessionStartedAt ?: event.timestampMs,
-            OfferMapping.toTripOffer(event.card), event.card.captureSource, event.card.surge, event.timestampMs)
-        val evaluation = requireNotNull(row.evaluation)
-        val threshold = if (evaluation.unit == PreferredMetric.IPK.name)
-            thresholdSnapshot().copy(minPerKmMxn = evaluation.goal.toDouble(), redPerKmMxn = evaluation.minimum.toDouble())
-        else thresholdSnapshot().copy(minPerHourMxn = evaluation.goal.toDouble(), redPerHourMxn = evaluation.minimum.toDouble())
-        // Durable history keeps its last confirmed payment when current OCR confidence is lost.
-        // It must not rehydrate that payment into a live frame whose instance confidence withheld it.
-        if (event.card.captureSource == "OCR" && event.card.fare == null) {
-            return VerdictChipState(VerdictChipState.reading(threshold, PreferredMetric.valueOf(evaluation.unit))
-                .copy(band = ReglaBand.Unavailable(mx.kompara.ui.components.ReglaUnavailable.FARE)), "—")
-        }
-        return VerdictChipState.from(row.recordedMetrics(), threshold)
-    }
+    /** The ledger row's evaluation, shared with the replays (see [RowBackedVerdict]). */
+    private suspend fun evaluate(event: OfferEvent.Parsed): VerdictChipState =
+        RowBackedVerdict.evaluate(recorder, event, thresholdSnapshot()).state
 
     private fun sessionId(event: OfferEvent.Parsed) = event.card.sessionId ?: "${event.packageName}:${event.timestampMs}"
     private fun thresholdSnapshot() = settingsSnapshot?.effectiveThreshold ?: PlatformThreshold.DEFAULT
@@ -192,84 +191,126 @@ class OverlayController @Inject constructor(
         }
         when (visibility) {
             is OverlayVisibility.Reading -> {
-                detach(); evaluated = false
-                // Reading begins a new visible offer session. The preceding card's measured
-                // upper band cannot establish where this card's slide-in controls will settle.
-                placementEvidence.reset(); geometry = null
+                // A new session swaps content in place: the window and a still-valid position
+                // stay (no blink between back-to-back offers); only this offer's placement
+                // evidence (ceiling, anchors) starts over.
+                evaluated = false; softHidden = false
+                placementEvidence.reset()
                 chipState = VerdictChipState.reading(thresholdSnapshot(), settingsSnapshot?.preferredMetric ?: PreferredMetric.DEFAULT)
                 chipVisible = true
-                show(scope, visibility.event)
+                show(visibility.event)
             }
             is OverlayVisibility.Showing -> {
                 // Content is swapped atomically. Its measured footprint decides whether a move is
                 // needed; changing the verdict alone must not blank an already verified window.
                 chipState = visibility.state.regla; evaluated = true; chipVisible = true
-                show(scope, visibility.event)
+                val reveal = softHidden
+                softHidden = false
+                show(visibility.event)
+                if (reveal) composeView?.invalidate() // the next pre-draw re-verifies and reveals
             }
-            OverlayVisibility.AwaitingUnobscuredCapture -> {
-                detach()
-                record(OverlayPlacement.Suppressed("UNOBSCURED_CAPTURE"))
+            OverlayVisibility.SoftHidden -> {
+                // The frame showed no offer: invisible and untouchable now (v3's ~1 s dismissal),
+                // keeping window, verdict, mask and position until absence is corroborated.
+                softHidden = true
+                hideUntilSettled("SIGNATURE_ABSENT")
             }
             OverlayVisibility.Exiting -> { diagnostic("OFFER_ABSENT"); chipVisible = false }
             OverlayVisibility.Hidden -> {
                 if (event != null) diagnostic("OFFER_HIDDEN")
-                event = null; chipVisible = false; chipState = null; detach(); placementEvidence.reset()
+                event = null; chipVisible = false; chipState = null; softHidden = false; detach("HIDDEN")
+                placementEvidence.reset()
             }
         }
     }
 
-    private fun show(scope: CoroutineScope, next: OfferEvent.Parsed) {
+    private fun show(next: OfferEvent.Parsed) {
         if (!readiness.canRead(next.packageName) || !readiness.state.value.captureRunning) {
             diagnostic("READINESS", readinessDetails()); detach(); return
         }
         event = next
         val v = readViewport()
         val rawGeometry = next.card.hostGeometry
-        geometryExpiry?.cancel()
-        val problem = OverlayPositioning.geometryProblem(rawGeometry, next.packageName, v, System.currentTimeMillis())
+        // Age never detaches a live chip; presence and the no-frame watchdog bound it.
+        val problem = OverlayPositioning.geometryProblem(rawGeometry, next.packageName, v,
+            System.currentTimeMillis(), checkAge = false)
         if (problem != null) {
             diagnostic(problem, geometryDetails(rawGeometry, v))
-            detach()
+            detach(problem)
             record(OverlayPlacement.Unsupported(problem))
             return
         }
         // A changed frame may still leave the current footprint safe and in the same slot.
-        // Keep it visible until measurement proves a move/resize is required.
+        // Keep it visible until measurement proves a move/resize is required. The ceiling only
+        // rises within an offer, so a safe chip never moves down; an unsafe one moves up.
         val current = placement
-        val evidence = placementEvidence.observe(rawGeometry!!, v, geometry)
+        val evidence = placementEvidence.observe(rawGeometry!!, v)
         val g = evidence.geometry
-        val needsUnobscuredCapture = evidence.needsUnobscuredCapture
-        val currentIsSafe = current != null && !needsUnobscuredCapture &&
-            OverlayPositioning.valid(current.position, current.size, g, v, current.overMarker)
+        val currentIsSafe = current != null && !(evidence.dock && !current.docked) &&
+            OverlayPositioning.valid(current.position, current.size, g, v, current.overMarker, current.docked)
         if (current != null && !currentIsSafe)
             hideUntilSettled()
         geometry = g; viewport = v
-        // Current-frame geometry still gates safety. Small OCR envelope changes must not pull an
-        // already safe same-offer chip toward the headline on each measurement. New offers detach
-        // in Reading, so they cannot inherit this transient position.
-        // Clear both transient and persisted preferences when the chip concealed moving anchors.
-        // The regular placement path moves its mask away, exposing the host on the next capture.
+        dockRequested = evidence.dock
+        savedDocked = currentIsSafe && current.docked
+        // While this card's upper boundary is unobserved beneath our own mask, the driver's slot
+        // cannot be vouched for either (0.2.9's savedPositions.remove, without the detach).
         savedPosition = when {
-            needsUnobscuredCapture -> {
-                savedPositions.remove(OverlayPositionKey(next.packageName, v.orientation))
-                null
-            }
-            // Release the conservative initial slot exactly once, after independent captures
-            // establish settled upper/control geometry. Subsequent frames keep the safe position.
-            evidence.preferPreferredPosition -> null
-            currentIsSafe -> current!!.position
+            currentIsSafe -> current.position
+            evidence.dock && rawGeometry.ocrEvidence?.overlayMask != null -> null
             else -> savedPositions[OverlayPositionKey(next.packageName, v.orientation)]
         }
-        if (needsUnobscuredCapture) {
-            detach()
-            record(OverlayPlacement.Suppressed("UNOBSCURED_CAPTURE"))
-            return
-        }
+        if (debugDiag) Log.d(TAG, "TEMP DIAG show at=${rawGeometry.capturedAtMs} rawCardTop=${rawGeometry.offerCard.top} " +
+            "fare=${rawGeometry.fareBounds?.diag()} upper=${rawGeometry.ocrEvidence?.upperAnchors?.map { it.diag() }} " +
+            "routes=${rawGeometry.ocrEvidence?.routeAnchors?.map { it.diag() }} controls=${rawGeometry.protectedControls.map { it.diag() }} " +
+            "soft=${rawGeometry.softObstacles.map { it.diag() }} mask=${rawGeometry.ocrEvidence?.overlayMask?.diag()} " +
+            "ceiling=${evidence.ceiling} dock=${evidence.dock} current=${current?.position?.bounds(current.size)?.diag()} " +
+            "currentIsSafe=$currentIsSafe saved=$savedPosition savedDocked=$savedDocked")
         attach()
-        geometryExpiry = scope.launch(Dispatchers.Main) {
-            delay((g.capturedAtMs + OverlayPositioning.MAX_GEOMETRY_AGE_MS - System.currentTimeMillis() + 1).coerceAtLeast(1))
-            detach()
-            record(OverlayPlacement.Unsupported("STALE_GEOMETRY"))
+    }
+
+    /**
+     * Absolute deadlines: a Parsed refreshes both, a held host frame only the soft hide, and an
+     * unknown-visibility beat (IDLE ticks with a null root, dropped screenshots: no frame) neither.
+     * ONE watchdog on Main wakes at min(soft hide, ceiling), re-checks both and re-arms. Deadlines
+     * only move later, so it is (re)launched only when absent or asleep past a newer soft-hide
+     * deadline (after a soft hide it sleeps to the ceiling): at most once per hide, never per beat.
+     */
+    private fun heartbeat(scope: CoroutineScope, parsed: Boolean, processed: Boolean) {
+        if (!parsed && !processed) return
+        val now = SystemClock.elapsedRealtime()
+        if (parsed) lastParsedAtMs = now
+        lastProcessedAtMs = now
+        if (watchdog?.isActive == true && watchdogWakeAtMs <= now + FRAME_SILENCE_MS) return
+        watchdog?.cancel()
+        watchdogWakeAtMs = now // the new loop re-checks at once; beats meanwhile need no relaunch
+        watchdog = scope.launch(Dispatchers.Main) {
+            while (true) {
+                val at = SystemClock.elapsedRealtime()
+                val ceilingAt = lastParsedAtMs + PARSE_CEILING_MS
+                if (at >= ceilingAt) {
+                    if (composeView != null) {
+                        diagnostic("PARSE_CEILING")
+                        detach("PARSE_CEILING"); placementEvidence.reset()
+                    }
+                    // As on confirmed absence: nothing stale is left for a configuration change to
+                    // re-show; the next Parsed repopulates it.
+                    event = null; chipVisible = false; chipState = null; softHidden = false
+                    watchdogWakeAtMs = Long.MAX_VALUE
+                    // A parse that raced this exit sees the wake reset and relaunches, or we see it.
+                    if (SystemClock.elapsedRealtime() >= lastParsedAtMs + PARSE_CEILING_MS) return@launch
+                    continue
+                }
+                val silenceAt = lastProcessedAtMs + FRAME_SILENCE_MS
+                if (at >= silenceAt && composeView != null && !softHidden) {
+                    softHidden = true; hideUntilSettled("FRAME_SILENCE")
+                }
+                watchdogWakeAtMs = if (at < silenceAt) minOf(silenceAt, ceilingAt) else ceilingAt
+                // Beats run on the collector's thread: one that landed while this iteration acted saw
+                // the old wake time and did not relaunch us. Recompute rather than sleep on a stale read.
+                if (lastProcessedAtMs + FRAME_SILENCE_MS != silenceAt || lastParsedAtMs + PARSE_CEILING_MS != ceilingAt) continue
+                delay(watchdogWakeAtMs - at)
+            }
         }
     }
 
@@ -290,7 +331,8 @@ class OverlayController @Inject constructor(
                     val reduced = android.provider.Settings.Global.getFloat(context.contentResolver,
                         android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
                     MeasuredVerdictChip(state, g, v, g.capturedAtMs, savedPosition, chipVisible, reduced,
-                        g.appearance == HostAppearance.DARK, VerdictChipCallbacks(::onDrag) { onDragEnd() }) { decision ->
+                        g.appearance == HostAppearance.DARK, VerdictChipCallbacks(::onDrag) { onDragEnd() },
+                        dock = dockRequested, savedDocked = savedDocked) { decision ->
                         // Consume this measurement at pre-draw in the SAME traversal, after layout.
                         // No window/Compose mutation during measurement and no extra posted frame.
                         val frameGeneration = generation
@@ -344,18 +386,25 @@ class OverlayController @Inject constructor(
     }
 
     private fun applyPlacement(decision: OverlayPlacement) {
+        if (debugDiag) Log.d(TAG, "TEMP DIAG place at=${geometry?.capturedAtMs} " + when (decision) {
+            is OverlayPlacement.Displayed -> "rule=${decision.rule} format=${decision.format} " +
+                "rect=${decision.position.bounds(decision.size).diag()}"
+            is OverlayPlacement.Suppressed -> "rule=C11 cause=${decision.cause}"
+            is OverlayPlacement.Unsupported -> "rule=UNSUPPORTED cause=${decision.cause}"
+        })
         if (decision !is OverlayPlacement.Displayed) {
-            record(decision); detach(); return
+            record(decision); detach("PLACEMENT_${decision.javaClass.simpleName}"); return
         }
         val g = geometry ?: run { diagnostic("UNVALIDATED_GEOMETRY"); return }
         val v = viewport ?: run { diagnostic("VIEWPORT_MISSING"); return }
         if (!readiness.canRead(g.packageName) || !readiness.state.value.captureRunning) {
             diagnostic("READINESS", readinessDetails()); detach(); return
         }
-        val problem = OverlayPositioning.geometryProblem(g, event?.packageName.orEmpty(), v, System.currentTimeMillis())
+        val problem = OverlayPositioning.geometryProblem(g, event?.packageName.orEmpty(), v,
+            System.currentTimeMillis(), checkAge = false)
         if (problem != null) {
             diagnostic(problem, geometryDetails(g, v))
-            detach(); return
+            detach(problem); return
         }
         val view = composeView ?: return
         val params = layoutParams ?: return
@@ -394,10 +443,11 @@ class OverlayController @Inject constructor(
         }
         val g = geometry ?: return
         val v = viewport ?: return
-        val problem = OverlayPositioning.geometryProblem(g, event?.packageName.orEmpty(), v, System.currentTimeMillis())
+        val problem = OverlayPositioning.geometryProblem(g, event?.packageName.orEmpty(), v,
+            System.currentTimeMillis(), checkAge = false)
         if (problem != null) {
             diagnostic(problem, geometryDetails(g, v))
-            detach(); return
+            detach(problem); return
         }
         val location = IntArray(2); view.getLocationOnScreen(location)
         val actual = OverlayPosition(location[0], location[1])
@@ -415,9 +465,13 @@ class OverlayController @Inject constructor(
             }
             return
         }
-        if (!OverlayPositioning.valid(actual, shown.size, g, v, shown.overMarker)) {
+        if (!OverlayPositioning.valid(actual, shown.size, g, v, shown.overMarker, shown.docked)) {
             hideUntilSettled("SUPPRESSED_OCCLUSION", geometryDetails(g, v)); return
         }
+        // A soft-hidden chip stays settled but invisible until the next parsed frame.
+        if (softHidden) return
+        if (debugDiag && view.alpha != 1f) Log.d(TAG, "TEMP DIAG window reveal rect=${actual.bounds(shown.size).diag()}")
+        revealedRect = actual.bounds(shown.size)
         view.alpha = 1f
         if (params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE != 0) {
             params.flags = params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
@@ -449,6 +503,7 @@ class OverlayController @Inject constructor(
 
     private fun hideUntilSettled(reason: String = "LAYOUT_PENDING", details: String = "") {
         if (event != null) diagnostic(reason, details)
+        if (debugDiag && composeView?.alpha == 1f) Log.d(TAG, "TEMP DIAG window hide reason=$reason rect=${revealedRect?.diag()}")
         composeView?.alpha = 0f
         val params = layoutParams
         val view = composeView
@@ -462,9 +517,10 @@ class OverlayController @Inject constructor(
         // compositor may still contain those pixels while the transparent update is in flight.
     }
 
-    private fun detach() {
+    private fun detach(reason: String = "") {
         generation++
-        geometryExpiry?.cancel(); geometryExpiry = null
+        if (debugDiag && composeView != null) Log.d(TAG, "TEMP DIAG window detach reason=$reason rect=${revealedRect?.diag()}")
+        revealedRect = null
         composeView?.let { runCatching { windowManager.removeView(it) } }
         lifecycleOwner?.onDestroy()
         composeView = null; lifecycleOwner = null; layoutParams = null; placement = null
@@ -631,11 +687,13 @@ class OverlayController @Inject constructor(
 
     override fun stop() {
         serviceScope?.cancel()
+        watchdog?.cancel(); watchdog = null; softHidden = false
         configurationCallbacks?.let { overlayContext?.unregisterComponentCallbacks(it) }
         configurationCallbacks = null
         detach(); detachBanner()
         event = null; chipState = null; chipVisible = false; geometry = null; viewport = null
         evaluated = false; lastRecord = null; savedPositions.clear(); savedPosition = null
+        savedDocked = false; dockRequested = false
         placementEvidence.reset()
         serviceScope = null; overlayContext = null
     }
@@ -650,13 +708,25 @@ class OverlayController @Inject constructor(
             " card=${g?.offerCard} chrome=${g?.topChrome} controls=${g?.protectedControls}" +
             " markers=${g?.markers?.map { it.outerBounds }}"
 
+    /** TEMP DIAG lines (geometry only, never screen text) are written in debuggable builds. */
+    private val debugDiag: Boolean get() = overlayContext?.applicationInfo?.let {
+        it.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0 } == true
+
+    private fun HostRect.diag() = "$left,$top,$right,$bottom"
+
     /** Fixed reason keys keep changing frame coordinates from defeating the log limit. */
     private fun diagnostic(reason: String, details: String = "") {
         if (diagnostics.shouldLog(reason, SystemClock.elapsedRealtime()))
             Log.d(TAG, "chip hidden reason=$reason $details")
     }
 
-    companion object { private const val TAG = "OverlayController" }
+    companion object {
+        private const val TAG = "OverlayController"
+        /** Soft-hide when no processed host frame (parsed or held) arrives for this long. */
+        const val FRAME_SILENCE_MS = 3_000L
+        /** Main's ceiling without a successful parse: the window detaches. */
+        const val PARSE_CEILING_MS = 15_000L
+    }
 }
 
 internal class OverlayDiagnosticThrottle(private val intervalMs: Long = 5_000L) {

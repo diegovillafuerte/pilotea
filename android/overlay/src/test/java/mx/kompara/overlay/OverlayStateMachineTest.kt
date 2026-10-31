@@ -43,14 +43,18 @@ class OverlayStateMachineTest {
         assertEquals(0, testScheduler.currentTime)
     }
 
-    @Test fun `masked unreadable frame exposes host without losing session or evaluating money`() = runTest {
+    // 0.2.14: a held/uncertain frame (LayoutUncertain) is only a heartbeat; it no longer detaches.
+    @Test fun `held frames keep the chip and a signature-free frame soft-hides without losing the session`() = runTest {
         var evaluations = 0
         val run = observe { evaluations++; state() }
         run.events.emit(parsed()); testScheduler.runCurrent()
         repeat(3) {
             run.events.emit(OfferEvent.LayoutUncertain("uber", 2L + it)); testScheduler.runCurrent()
         }
-        assertEquals(OverlayVisibility.AwaitingUnobscuredCapture, run.seen.last())
+        assertTrue("Held frames never change visibility", run.seen.last() is OverlayVisibility.Showing)
+        run.events.emit(noCard(5, reason = OfferEvent.Reason.SIGNATURE_ABSENT)); testScheduler.runCurrent()
+        assertEquals(OverlayVisibility.SoftHidden, run.seen.last())
+        assertEquals("No grace or exit timer for the soft hide", 0, testScheduler.currentTime)
         assertEquals(1, evaluations)
         run.events.emit(parsed(6)); testScheduler.runCurrent()
         assertEquals("uber:one", (run.seen.last() as OverlayVisibility.Showing).offerKey)

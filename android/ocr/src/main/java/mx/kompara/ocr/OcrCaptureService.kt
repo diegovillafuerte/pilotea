@@ -225,6 +225,8 @@ class OcrCaptureService : Service() {
         if (!consumerStarted) {
             consumerStarted = true
             scope.launch(CoroutineName("MediaProjection frame pipeline")) {
+                // TEMP DIAG: the debug recorder's files are capped when the lane starts.
+                if (BuildConfig.DEBUG) runCatching { getExternalFilesDir(null)?.let { OfferFramePipeline.pruneFixtures(it) } }
                 for (frame in frameChannel) runOcr(frame)
             }.invokeOnCompletion { error ->
                 // A cancelled OCR continuation need not cancel the supervisor. Never retain a

@@ -56,9 +56,18 @@ data class OcrTripMarkers(
         if (local != OcrLifecycleTransition.UNKNOWN) return local
         // S25-confirmed idle chrome can start an idle phase, or corroborate independently observed
         // semantic-card disappearance. It cannot retire a semanticless card from the background.
-        return if (allowWindowIdle && windowText.contains("Buscando viajes", ignoreCase = true))
+        return if (allowWindowIdle && isConfirmedIdleChrome(windowText))
             OcrLifecycleTransition.IDLE else OcrLifecycleTransition.UNKNOWN
     }
+
+    /**
+     * S25 idle home chrome: "Buscando viajes" (2026-06-18); "Buscando solicitud de viaje",
+     * "Estás conectado" and the empty Trip Radar pill "Radar de solicitud de viaje 0"
+     * (shot-131226 / shot-131245, 2026-10-30). An offer frame never prints the empty pill.
+     */
+    private fun isConfirmedIdleChrome(text: String): Boolean =
+        listOf("Buscando viajes", "Buscando solicitud de viaje", "Estás conectado").any { text.contains(it, ignoreCase = true) } ||
+            EMPTY_RADAR_PILL.containsMatchIn(text)
 
     /**
      * Whether [text] (the joined OCR frame) looks like a trip-in-progress screen: a trip marker
@@ -77,9 +86,9 @@ data class OcrTripMarkers(
     }
 
     fun isIdle(text: String): Boolean = excludedMarkers.none { text.contains(it, true) } &&
-        listOf("Buscando viajes", "Buscando solicitud de viaje", "Buscando solicitudes", "Esperando solicitudes", "Estás desconectado", "Viaje finalizado").any {
+        (listOf("Buscando viajes", "Buscando solicitud de viaje", "Buscando solicitudes", "Esperando solicitudes", "Estás desconectado", "Estás conectado", "Viaje finalizado").any {
             text.contains(it, ignoreCase = true)
-        }
+        } || EMPTY_RADAR_PILL.containsMatchIn(text))
 
     companion object {
         /** Trip-screen phrases (es-MX). The first block is confirmed from real captures (B-084). */
@@ -134,5 +143,8 @@ data class OcrTripMarkers(
         )
 
         val DEFAULT = OcrTripMarkers()
+
+        /** The pill text and its count can be separate OCR blocks joined by " | ". */
+        private val EMPTY_RADAR_PILL = Regex("""Radar de solicitud de viaje\s*\|?\s*0\b""", RegexOption.IGNORE_CASE)
     }
 }

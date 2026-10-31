@@ -23,13 +23,15 @@ internal fun MeasuredVerdictChip(
     darkHost: Boolean,
     callbacks: VerdictChipCallbacks,
     modifier: Modifier = Modifier,
+    dock: Boolean = false,
+    savedDocked: Boolean = false,
     onPlacement: (OverlayPlacement) -> Unit,
 ) {
     SubcomposeLayout(modifier) { _ ->
         val full = subcompose("measure-full") { Regla(state, Modifier.clearAndSetSemantics {}) }.single().measure(Constraints())
         val compact = subcompose("measure-compact") { Regla(state, Modifier.clearAndSetSemantics {}, compact = true) }.single().measure(Constraints())
         val decision = OverlayPositioning.place(geometry, geometry.packageName, viewport, nowMs,
-            ChipSize(full.width, full.height), ChipSize(compact.width, compact.height), saved)
+            ChipSize(full.width, full.height), ChipSize(compact.width, compact.height), saved, dock, savedDocked)
         val shown = decision as? OverlayPlacement.Displayed
         val plate = shown?.let {
             subcompose("display") {

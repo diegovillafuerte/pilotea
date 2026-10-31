@@ -4,6 +4,7 @@ import android.accessibilityservice.AccessibilityService
 import android.graphics.Bitmap
 import android.os.Build
 import android.os.PowerManager
+import android.os.SystemClock
 import android.util.Log
 import android.view.Display
 import androidx.annotation.RequiresApi
@@ -118,8 +119,11 @@ class SilentScreenshotLane(
     private suspend fun captureLoop(service: AccessibilityService, session: CaptureSession, pipeline: OfferFramePipeline) {
         val diagnostics = OcrDiagnostics()
         val rateLimits = ScreenshotRateLimits()
+        var rateLimitRetries = 0
         var capturing = false
         var hostPackage: String? = null
+        // TEMP DIAG: the debug recorder's files are capped when the lane starts.
+        if (BuildConfig.DEBUG) runCatching { service.getExternalFilesDir(null)?.let { OfferFramePipeline.pruneFixtures(it) } }
         try {
             val power = service.getSystemService(PowerManager::class.java)
             var hardFailures = 0
@@ -168,14 +172,17 @@ class SilentScreenshotLane(
                         val token = readiness.captureToken()
                         val capturedAtMs = System.currentTimeMillis()
                         val windowOwnership = mx.kompara.capture.HostWindowOwnershipSource.current(requireNotNull(host), capturedAtMs)
+                        val shotStarted = SystemClock.elapsedRealtime()
                         when (val shot = takeScreenshot(service)) {
                             is ShotResult.Ok -> {
                                 hardFailures = 0
+                                val retries = rateLimitRetries
+                                rateLimitRetries = 0
                                 rateLimits.reset()
                                 val chipRect = ScreenReaderState.overlayChipRect
                                 processShot(shot.bitmap, chipRect, pipeline, permit, token,
                                     service.resources.displayMetrics.density, diagnostics, service, requireNotNull(host),
-                                    capturedAtMs, windowOwnership)
+                                    capturedAtMs, windowOwnership, SystemClock.elapsedRealtime() - shotStarted, retries)
                                 delay(THROTTLE_MS)
                             }
                             ShotResult.NoCapability -> {
@@ -184,6 +191,7 @@ class SilentScreenshotLane(
                                 return
                             }
                             ShotResult.RateLimited -> {
+                                rateLimitRetries++
                                 val count = rateLimits.onRateLimited()
                                 ownership.withOwner(permit) { pipeline.captureBlocked("SCREENSHOT_RATE_LIMIT", count) }
                                 delay(RATE_LIMIT_BACKOFF_MS)
@@ -229,7 +237,7 @@ class SilentScreenshotLane(
     private suspend fun processShot(bitmap: Bitmap, chipRect: ScreenRect?, pipeline: OfferFramePipeline,
         permit: CapturePermit, token: Long, density: Float, diagnostics: OcrDiagnostics,
         service: AccessibilityService, capturedHost: String, capturedAtMs: Long,
-        windowOwnership: mx.kompara.capture.HostWindowOwnership?) {
+        windowOwnership: mx.kompara.capture.HostWindowOwnership?, screenshotMs: Long, rateLimitRetries: Int) {
         if (ownership.permit(permit.session) != permit || !readiness.canRead(token = token)) {
             diagnostics.blocked("SCREENSHOT_STALE_OR_READINESS")
             bitmap.recycle()
@@ -237,6 +245,7 @@ class SilentScreenshotLane(
         }
         val display = mx.kompara.parsers.model.HostRect(0, 0, bitmap.width, bitmap.height)
         val accessibility = mx.kompara.capture.HostGeometryEvidence.state.value
+        val ocrStarted = SystemClock.elapsedRealtime()
         val blocks = try {
             engine.recognize(bitmap)
         } catch (cancellation: kotlinx.coroutines.CancellationException) {
@@ -251,6 +260,7 @@ class SilentScreenshotLane(
             bitmap.recycle()
             return
         }
+        val ocrMs = SystemClock.elapsedRealtime() - ocrStarted
         // Retain only coarse luminance evidence from this frame; no bitmap crosses the pipeline.
         val appearance = try {
             HostAppearanceSamples.capture(bitmap, capturedAtMs, chipRect)
@@ -264,9 +274,12 @@ class SilentScreenshotLane(
             val currentWindows = mx.kompara.capture.HostWindowOwnershipSource.current(capturedHost, System.currentTimeMillis())
             if ((current as? HostForegroundObservation.Target)?.packageName == capturedHost &&
                 windowOwnership?.samePixels(currentWindows) == true) {
-                pipeline.process(blocks, chipRect, null, capturedAtMs = capturedAtMs, token = token,
+                // TEMP DIAG: debug builds record offer frames (main's OcrCaptureService wiring).
+                pipeline.process(blocks, chipRect, if (BuildConfig.DEBUG) service.getExternalFilesDir(null) else null,
+                    capturedAtMs = capturedAtMs, token = token,
                     displayBounds = display, density = density, accessibility = accessibility, appearance = appearance,
-                    foregroundPackage = capturedHost, windowOwnership = windowOwnership)
+                    foregroundPackage = capturedHost, windowOwnership = windowOwnership,
+                    timing = OfferFramePipeline.FrameTiming(screenshotMs, ocrMs, rateLimitRetries))
             } else {
                 pipeline.captureBlocked("SCREENSHOT_HOST_OR_WINDOWS_CHANGED")
                 if (current == HostForegroundObservation.Unknown ||

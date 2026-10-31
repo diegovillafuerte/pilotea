@@ -8,6 +8,8 @@ import mx.kompara.data.service.ScreenReaderState
 import mx.kompara.data.service.ScreenRect
 import mx.kompara.parsers.model.HostGeometrySource
 import mx.kompara.parsers.model.HostRect
+import org.json.JSONArray
+import org.json.JSONObject
 import java.io.File
 
 /**
@@ -30,18 +32,25 @@ import java.io.File
  * (both lanes already do — the MediaProjection lane via its generation-tagged mutex, the screenshot
  * lane via its sequential capture loop).
  */
-class OfferFramePipeline(private val readiness: mx.kompara.data.service.ReaderReadinessRepository? = null) {
+class OfferFramePipeline(
+    private val readiness: mx.kompara.data.service.ReaderReadinessRepository? = null,
+    /** TEMP DIAG fixture recording; release builds never write screen content. */
+    private val recordFixtures: Boolean = BuildConfig.DEBUG,
+) {
 
     private val didiParser = DidiOcrParser()
     private val uberParser = UberOcrParser()
     /** Visibility belongs to capture; identity, payment and lifecycle belong to each host. */
     private class HostSession {
         val fare = FareStabilizer()
-        val outliers = FrameOutlierGuard()
+        // The silent lane captures every ~0.85 s; a 1.5 s window held one prior and never judged.
+        val outliers = FrameOutlierGuard(windowMs = OUTLIER_WINDOW_MS)
         val offers = OcrOfferSessionTracker()
         val lifecycle = OcrLifecycleClassifier()
         var lastCardObservedAtMs = Long.MIN_VALUE
         var lastCardBounds: HostRect? = null
+        /** The held card's legs: our own chip over them could erase the signature. */
+        var lastLegs: List<HostRect> = emptyList()
         var lastCardDisplay: HostRect? = null
         var semanticCardWindowId: Int? = null
     }
@@ -55,6 +64,12 @@ class OfferFramePipeline(private val readiness: mx.kompara.data.service.ReaderRe
     private var lastOfferKey: String? = null
     private var lastOfferPackage: String? = null
     private val diagnostics = OcrDiagnostics()
+    private var lastCapturedAtMs: Long? = null
+    /** TEMP DIAG: last recorded signature-free, session-free lookalike frame (monotonic). */
+    private var lastLookalikeRecordAtMs: Long? = null
+
+    /** TEMP DIAG: lane-side cost of one frame. Durations and counts only. */
+    data class FrameTiming(val screenshotMs: Long, val ocrMs: Long, val rateLimitRetries: Int)
 
     /** Start before requesting a frame, so even a burst with no successful screenshots is reported. */
     fun onCaptureStart() { diagnostics.beginBurst() }
@@ -79,8 +94,11 @@ class OfferFramePipeline(private val readiness: mx.kompara.data.service.ReaderRe
         appearance: HostAppearanceSamples? = null,
         foregroundPackage: String? = ScreenReaderState.freshForegroundHost(
             SystemClock.elapsedRealtime(), HOST_FOREGROUND_FRESHNESS_MS),
-        windowOwnership: mx.kompara.capture.HostWindowOwnership? = null) {
+        windowOwnership: mx.kompara.capture.HostWindowOwnership? = null,
+        timing: FrameTiming? = null) {
         diagnostics.frame(rawBlocks.size, chipRect != null)
+        val gapMs = lastCapturedAtMs?.let { capturedAtMs - it }
+        lastCapturedAtMs = capturedAtMs
         if (readiness?.canRead(token = token) == false) {
             diagnostics.blocked("pipeline readiness/canRead false or stale capture token")
             return
@@ -99,6 +117,7 @@ class OfferFramePipeline(private val readiness: mx.kompara.data.service.ReaderRe
         if (currentHost != null && currentHost != hostPackage) onCaptureEnd(capturedAtMs)
         currentHost = hostPackage
         hosts.getOrPut(hostPackage) { HostSession() }
+        val sessionAtStart = sessions.isPresent()
         // Every consumer, including absence/trip classification and debug fixtures, sees only
         // pixels owned by the selected OS window. Unknown ownership is loss of observation.
         val ownedBlocks = ownedOcrBlocks(rawBlocks, windowOwnership, hostPackage, capturedAtMs,
@@ -133,13 +152,26 @@ class OfferFramePipeline(private val readiness: mx.kompara.data.service.ReaderRe
             UberOcrParser.UBER_PACKAGE -> uberParser.hasCardSignature(blocks, hostConfirmed = true)
             else -> didiParser.hasCardSignature(blocks)
         }
+        // The outlier guard judges this frame against the CURRENT instance's window before the
+        // frame can vote for a new one (its KDoc; main's order). A rejected frame may only vote.
+        val guardOk = parsed?.let { frameOutlierGuard.accept(it, now) } != false
         val decision = parsed?.takeIf { readiness?.canRead(it.platform, token) != false }
-            ?.let { sessions.update(it, capturedAtMs, now) }
-        if (decision?.replaced == true) {
+            ?.let { sessions.update(it, capturedAtMs, now, guardAccepted = guardOk) }
+        val newInstance = decision?.replaced == true
+        if (newInstance) {
             fareStabilizer.reset()
             frameOutlierGuard.reset()
+            // The new instance is judged against its own admitted numbers: a confirming frame the
+            // guard rejected keeps them out (its pending frame's accepted economics stand instead).
+            frameOutlierGuard.accept(decision.admitted ?: parsed, now)
             active.lastCardBounds = null
             active.semanticCardWindowId = null
+            // The admitted seed (the pending frame's guard-accepted fare, or the fare this frame
+            // agrees with) paints the new instance at once. A fare-less admitted pending frame
+            // still seeds its legs: its pickup is the first reveal, so a later fare reveals on its
+            // first admitted reading while the pickup is revised only by two agreeing frames (A1
+            // round 5; a single guard-blind frame never re-reveals it).
+            (decision.seed ?: decision.admitted)?.let { fareStabilizer.onParsed(it, now, confident = true) }
         }
         val nodeBlocks = ownedAccessibility?.textBounds.orEmpty().map {
             OcrBlock(it.text, OcrBounds(it.bounds.left, it.bounds.top, it.bounds.right, it.bounds.bottom))
@@ -153,6 +185,7 @@ class OfferFramePipeline(private val readiness: mx.kompara.data.service.ReaderRe
             parsed?.hostGeometry?.let {
                 active.lastCardBounds = it.offerCard
                 active.lastCardDisplay = it.displayBounds
+                it.ocrEvidence?.routeAnchors?.takeIf { legs -> legs.isNotEmpty() }?.let { legs -> active.lastLegs = legs }
             }
             // A fresh poll alone proves nothing: Uber's semanticless card coexists with idle
             // chrome. Remember semantics only when the node offer matches this pixel offer.
@@ -188,16 +221,42 @@ class OfferFramePipeline(private val readiness: mx.kompara.data.service.ReaderRe
                 cardRegionText(nodeBlocks), allowWindowIdle = true)
         } else pixelTransition
         val clearAbsence = observedAbsent || (!ownUi && !signature && transition != OcrLifecycleTransition.UNKNOWN)
+        // A frame with unreadable legs still cannot keep showing the held payment when what it does
+        // read contradicts the held offer, whatever the guard says (A1 (a)): another trip leg, or,
+        // with no readable trip leg, a fare that is not the confirmed one. The same readable trip leg
+        // with a disagreeing fare keeps the confirmed fare (A1 (c), FareStabilizer semantics).
+        val readTrip = parsed?.let { p ->
+            val km = p.tripDistanceKm
+            val min = p.tripDurationMin
+            if (km != null && min != null) OcrOfferIdentity(p.platform, 0.0, 0.0, km, min).tripKey else null
+        }
+        val contradicts = decision?.card?.let { held ->
+            decision.confidence == OcrOfferSessionTracker.Confidence.UNCERTAIN && !decision.identityUnresolved &&
+                OcrOfferIdentity.from(parsed) == null &&
+                if (readTrip != null) readTrip != OcrOfferIdentity.from(held)?.tripKey
+                else parsed.fare != null && fareStabilizer.confirmedFare()?.let { it != parsed.fare } == true
+        } == true
+        // A route-incomplete parse is not a successful parse: main's 15 s ceiling still bounds it.
+        val expired = decision != null && OcrOfferIdentity.from(parsed) == null && sessions.parseCeilingExpired(now)
+        // A guard-rejected frame of the held offer only votes and is held (main's hold-last-good).
+        // It publishes, WITHOUT payment and with its own geometry (A1 (a)), when it confirms a new
+        // instance or reads another trip leg / contradicts the held offer; never the bare heartbeat.
         val card = decision?.card?.takeIf {
-            frameOutlierGuard.accept(parsed, now)
+            !expired && (guardOk || newInstance || decision.identityUnresolved || contradicts)
         }
         var disappeared = false
-        if (card == null) {
+        // Placement never puts the chip over the legs; if our mask does cover them, a missing
+        // signature may be self-inflicted and cannot count as absence (the parse ceiling bounds it).
+        val selfMasked = chipRect != null && active.lastLegs.any {
+            it.overlaps(HostRect(chipRect.left, chipRect.top, chipRect.right, chipRect.bottom).expanded(ChipMask.DEFAULT_MARGIN_PX))
+        }
+        if (decision == null) {
+            // No card this frame. A signature holds; only corroborated absence retires the offer.
             fareStabilizer.breakCandidateAgreement()
-            disappeared = sessions.miss(cardLike = true, nowMs = now, observedGone = clearAbsence)
-            if (!disappeared && chipRect != null && (sessions.isPresent() || parsed != null)) {
-                OfferEventBus.tryEmit(OfferEvent.LayoutUncertain(hostPackage, capturedAtMs))
-            }
+            disappeared = sessions.miss(cardLike = signature || selfMasked, nowMs = now, observedGone = clearAbsence)
+        } else if (card == null) {
+            fareStabilizer.breakCandidateAgreement()
+            disappeared = expired
         }
         if (disappeared) {
             fareStabilizer.reset()
@@ -207,6 +266,7 @@ class OfferFramePipeline(private val readiness: mx.kompara.data.service.ReaderRe
             if (transition != OcrLifecycleTransition.ACCEPTED && transition != OcrLifecycleTransition.UNDERWAY) {
                 active.lastCardBounds = null
             }
+            active.lastLegs = emptyList()
             active.semanticCardWindowId = null
         }
         if (!signature && (observedAbsent || transition == OcrLifecycleTransition.IDLE ||
@@ -222,13 +282,16 @@ class OfferFramePipeline(private val readiness: mx.kompara.data.service.ReaderRe
         }
         // One instance ID reaches both consumers; only confirmed payment is allowed onto either bus.
         // Confirmation uses monotonic time; session/event/ledger timestamps remain epoch time.
+        // Identity confirmation is not payment admission: a guard-rejected fare adds no payment
+        // evidence, not even as a new instance's first reveal (A1 (b); the seed is admitted above).
         val shownCard = card?.let { fareStabilizer.onParsed(it, now,
             confident = decision.confidence == OcrOfferSessionTracker.Confidence.CONFIDENT,
-            identityUnresolved = decision.identityUnresolved) }
+            identityUnresolved = decision.identityUnresolved || contradicts, paymentAdmissible = guardOk) }
         if (parsed != null && shownCard == null) {
             diagnostics.unpublishedOffer(when {
                 decision == null -> OcrPublicationRejectionReason.PARSED_READINESS_BLOCKED
                 decision.card == null -> decision.rejection ?: OcrPublicationRejectionReason.PARSED_SESSION_UNCONFIRMED
+                expired -> OcrPublicationRejectionReason.PARSE_CEILING_EXPIRED
                 else -> OcrPublicationRejectionReason.PARSED_OCR_OUTLIER
             })
         }
@@ -249,6 +312,14 @@ class OfferFramePipeline(private val readiness: mx.kompara.data.service.ReaderRe
                 lastOfferKey = key
             }
         } else if (lastOfferKey != null) {
+            if (!disappeared && decision == null && !signature) {
+                // The card may have gone: hide at once (v3's fast dismissal) but keep the
+                // session, verdict and window until absence is corroborated.
+                OfferEventBus.tryEmit(OfferEvent.NoCard(hostPackage, capturedAtMs, OfferEvent.Reason.SIGNATURE_ABSENT))
+            } else if (!disappeared) {
+                // A held host frame: the overlay's heartbeat (it defers the soft hide), never a hide.
+                OfferEventBus.tryEmit(OfferEvent.LayoutUncertain(hostPackage, capturedAtMs, processedFrame = true))
+            }
             if (disappeared) {
                 diagnostics.blocked(if (ownUi) "hidden: Kompara foreground" else "hidden: offer no longer detected")
                 // Hide the chip for whichever platform's card we last showed (NOT always DiDi).
@@ -289,17 +360,84 @@ class OfferFramePipeline(private val readiness: mx.kompara.data.service.ReaderRe
                 ?.let { OcrLifecycleBus.tryEmit(it) }
         }
 
-        // Record offer frames for fixture building / spec hardening — debug builds only (never our
-        // own UI). Release builds must store NO screen content, per the Play data-safety posture.
-        if (BuildConfig.DEBUG && fixtureDir != null && !ownUi && looksLikeOffer(joined)) {
+        diagnostics.diag(frameDiagnostic(capturedAtMs, gapMs, timing, blocks.size, ownUi, signature, parsed,
+            decision, shownCard, chipRect))
+        // TEMP DIAG: record offer frames for fixture building — debug builds only (never our own
+        // UI). Release builds must store NO screen content, per the Play data-safety posture. The
+        // files hold real addresses: pull them to .session-captures, never into the repository.
+        // Signature frames and frames of a present session are always recorded; a lookalike with
+        // neither (the idle Uber home: "$" earnings, "+$N" surge, "N-N min" wait pills) at most
+        // once per [LOOKALIKE_RECORD_INTERVAL_MS].
+        val sessionFrame = signature || sessionAtStart || sessions.isPresent()
+        val lookalike = !sessionFrame && recordFixtures && fixtureDir != null &&
+            lastLookalikeRecordAtMs?.let { now - it >= LOOKALIKE_RECORD_INTERVAL_MS } != false &&
+            looksLikeOffer(rawBlocks.joinToString(" | ") { it.text })
+        if (recordFixtures && fixtureDir != null && !ownUi && (sessionFrame || lookalike)) {
+            if (lookalike) lastLookalikeRecordAtMs = now
             runCatching {
                 val dir = File(fixtureDir, "ocr-fixtures").apply { mkdirs() }
-                File(dir, "ocr_${System.currentTimeMillis()}.json").writeText(blocksToJson(blocks))
+                File(dir, "ocr_$capturedAtMs.json").writeText(fixtureJson(capturedAtMs, hostPackage, chipRect,
+                    requireNotNull(windowOwnership), rawBlocks, ownedBlocks, parsed, signature, decision, shownCard))
             }
         }
     }
 
-    /** Unknown OS visibility pauses evidence agreement without ending the durable offer. */
+    /** TEMP DIAG: numbers, booleans and rects only — never the fare, addresses or screen text. */
+    private fun frameDiagnostic(capturedAtMs: Long, gapMs: Long?, timing: FrameTiming?, blocks: Int, ownUi: Boolean,
+        signature: Boolean, parsed: mx.kompara.parsers.model.OfferCard?,
+        decision: OcrOfferSessionTracker.Decision?, shown: mx.kompara.parsers.model.OfferCard?,
+        chipRect: ScreenRect?): String =
+        "frame at=$capturedAtMs gapMs=$gapMs shotMs=${timing?.screenshotMs} ocrMs=${timing?.ocrMs} " +
+            "retries=${timing?.rateLimitRetries} blocks=$blocks ownUi=$ownUi signature=$signature " +
+            "parsed=${parsed != null} paymentRead=${parsed?.fare != null} fareBounds=${parsed?.fareBounds?.rect()} " +
+            "legs=${parsed?.pickupEtaMin}/${parsed?.pickupDistanceKm}+${parsed?.tripDurationMin}/${parsed?.tripDistanceKm} " +
+            "routeHash=${parsed?.let(OcrOfferIdentity::from)?.tripKey?.hashCode()} " +
+            "sid=${decision?.card?.sessionId?.takeLast(4)} confidence=${decision?.confidence} " +
+            "unresolved=${decision?.identityUnresolved} replaced=${decision?.replaced} " +
+            "votes=${decision?.votes} rejection=${decision?.rejection} shownPayment=${shown?.fare != null} " +
+            "chip=${chipRect?.let { "${it.left},${it.top},${it.right},${it.bottom}" }}"
+
+    private fun mx.kompara.parsers.model.OfferContentBounds.rect() = "$left,$top,$right,$bottom"
+
+    private fun fixtureJson(capturedAtMs: Long, host: String, chipRect: ScreenRect?,
+        ownership: mx.kompara.capture.HostWindowOwnership, raw: List<OcrBlock>, owned: List<OcrBlock>,
+        parsed: mx.kompara.parsers.model.OfferCard?, signature: Boolean,
+        decision: OcrOfferSessionTracker.Decision?, shown: mx.kompara.parsers.model.OfferCard?): String {
+        fun rect(l: Int, t: Int, r: Int, b: Int) = JSONObject().put("left", l).put("top", t).put("right", r).put("bottom", b)
+        fun HostRect.json() = rect(left, top, right, bottom)
+        fun OcrBlock.json(withText: Boolean) = rect(bounds.left, bounds.top, bounds.right, bounds.bottom).apply {
+            // Other windows (notifications, the edge panel) can carry private text: bounds only.
+            if (withText) put("text", text) else put("package", "non-host").put("redacted", true)
+        }
+        val ownedSet = owned.toSet()
+        return JSONObject()
+            .put("capturedAtMs", capturedAtMs).put("host", host)
+            .put("chipRect", chipRect?.let { rect(it.left, it.top, it.right, it.bottom) } ?: JSONObject.NULL)
+            .put("ownership", JSONObject().put("windowBounds", ownership.windowBounds.json())
+                .put("excludedBounds", JSONArray(ownership.excludedBounds.map { it.json() }))
+                .put("placementExcludedBounds", JSONArray(ownership.placementExcludedBounds.map { it.json() })))
+            .put("raw", JSONArray(raw.map { it.json(it in ownedSet) }))
+            .put("owned", JSONArray(owned.map { it.json(true) }))
+            .put("parsed", parsed?.let { p -> JSONObject().put("fare", p.fare ?: JSONObject.NULL)
+                .put("fareBounds", p.fareBounds?.let { rect(it.left, it.top, it.right, it.bottom) } ?: JSONObject.NULL)
+                .put("pickup", JSONArray(listOf(p.pickupEtaMin, p.pickupDistanceKm).map { it ?: JSONObject.NULL }))
+                .put("trip", JSONArray(listOf(p.tripDurationMin, p.tripDistanceKm).map { it ?: JSONObject.NULL }))
+                .put("contentBounds", p.contentBounds?.let { rect(it.left, it.top, it.right, it.bottom) } ?: JSONObject.NULL)
+                .put("variant", p.variant ?: JSONObject.NULL).put("action", p.instanceEvidence?.action ?: JSONObject.NULL)
+            } ?: JSONObject.NULL)
+            .put("signature", signature)
+            .put("decision", decision?.let { d -> JSONObject().put("confidence", d.confidence.name)
+                .put("identityUnresolved", d.identityUnresolved).put("replaced", d.replaced)
+                .put("rejection", d.rejection?.name ?: JSONObject.NULL) } ?: JSONObject.NULL)
+            .put("shownFare", shown?.fare ?: JSONObject.NULL)
+            .toString(1)
+    }
+
+    /**
+     * Unknown OS visibility pauses evidence agreement without ending the durable offer or hiding
+     * its chip. No frame was processed, so the event postpones none of the overlay's watchdog
+     * deadlines (soft hide 3 s after the last processed frame, detach 15 s after the last parse).
+     */
     fun onCaptureUncertain(nowWallMs: Long) {
         currentHost?.let {
             fareStabilizer.breakCandidateAgreement()
@@ -330,16 +468,24 @@ class OfferFramePipeline(private val readiness: mx.kompara.data.service.ReaderRe
         (text.contains("$") || text.contains("MXN", true)) &&
             (text.contains("km", true) || text.contains("min", true))
 
-    private fun blocksToJson(blocks: List<OcrBlock>): String =
-        blocks.joinToString(prefix = "[\n", postfix = "\n]", separator = ",\n") { b ->
-            val t = b.text.replace("\\", "\\\\").replace("\"", "\\\"")
-            "  {\"text\":\"$t\",\"left\":${b.bounds.left},\"top\":${b.bounds.top}," +
-                "\"right\":${b.bounds.right},\"bottom\":${b.bounds.bottom}}"
+    companion object {
+        /** TEMP DIAG: newest fixture files kept when a capture lane starts (debug builds only). */
+        const val MAX_FIXTURE_FILES = 1_500
+        private const val LOOKALIKE_RECORD_INTERVAL_MS = 5_000L
+
+        /** TEMP DIAG: prune [fixtureDir]/ocr-fixtures to the newest [keep] frames; never throws. */
+        fun pruneFixtures(fixtureDir: File, keep: Int = MAX_FIXTURE_FILES) {
+            runCatching {
+                File(fixtureDir, "ocr-fixtures").listFiles { f -> f.isFile && f.name.startsWith("ocr_") }
+                    ?.sortedByDescending { it.name.removePrefix("ocr_").substringBefore('.').toLongOrNull() ?: 0L }
+                    ?.drop(keep)?.forEach { runCatching { it.delete() } }
+            }
         }
 
-    companion object {
         // How recently the accessibility service must have seen a target app foreground for an OCR
         // frame (without a parsed card) to be attributed to the trip ledger. NEEDS ON-DEVICE CALIBRATION.
         private const val HOST_FOREGROUND_FRESHNESS_MS = 1_500L
+        /** Three silent-lane frames (0.85 s cadence), so the guard holds the two priors it needs. */
+        private const val OUTLIER_WINDOW_MS = 3_000L
     }
 }

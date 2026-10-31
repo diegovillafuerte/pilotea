@@ -63,6 +63,7 @@ class DidiOcrParser {
             paymentType = payment,
             raw = fareHit?.let { mapOf("fare" to String.format(Locale.US, "%.2f", it.value)) } ?: emptyMap(),
             contentBounds = unionBounds(fareHit?.bounds, pickup?.bounds, trip?.bounds),
+            fareBounds = visibleFareBounds(blocks, legs.firstOrNull()?.bounds?.top),
             instanceEvidence = instanceEvidence(blocks, blocks),
         )
     }
@@ -126,6 +127,21 @@ class DidiOcrParser {
             }
             .maxByOrNull { it.second }
             ?.first
+    }
+
+    /**
+     * Where the fare is DRAWN, for placement only: the tallest standalone amount above the first
+     * leg. Never the "Aceptar $X" button below the legs, which [extractFare] prefers for the value
+     * (techdebt 2026-06-15, DiDi Aceptar bounds). This never changes the parsed payment.
+     */
+    private fun visibleFareBounds(blocks: List<OcrBlock>, firstLegTop: Int?): OfferContentBounds? {
+        if (firstLegTop == null) return null
+        return blocks.filterNot { isRate(it, blocks) || acceptRegex.containsMatchIn(it.text) ||
+                it.text.contains("tarifa base", ignoreCase = true) || it.text.contains("bono", ignoreCase = true) ||
+                it.text.trimStart().startsWith("+") }
+            .filter { it.bounds.bottom <= firstLegTop && fareRegex.containsMatchIn(it.text) }
+            .maxByOrNull { it.bounds.bottom - it.bounds.top }
+            ?.bounds?.let { OfferContentBounds(it.left, it.top, it.right, it.bottom) }
     }
 
     private data class Leg(val min: Double?, val km: Double, val bounds: OcrBounds)

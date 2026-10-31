@@ -21,90 +21,67 @@ class OverlayPositioningTest {
         OverlayPositioning.place(g, "uber", viewport, 1000, full, compact, saved)
     private fun shown(g: HostGeometry) = place(g) as OverlayPlacement.Displayed
 
-    @Test fun `masked upper anchors require relocation only with displaced route and no measured card`() {
-        val previous = geometry().copy(source = HostGeometrySource.OCR_TEXT_BOUNDS, ocrEvidence = HostOcrGeometryEvidence(null,
-            listOf(HostRect(40, 650, 600, 730)),
-            listOf(HostRect(40, 900, 600, 940), HostRect(40, 1000, 600, 1040)), false))
-        val masked = previous.ocrEvidence!!.copy(overlayMask = HostRect(20, 400, 700, 640),
-            upperAnchors = emptyList(), routeAnchors = listOf(HostRect(40, 650, 600, 690), HostRect(40, 750, 600, 790)))
-        val next = previous.copy(ocrEvidence = masked)
-        assertTrue(OverlayPositioning.lostMaskedAnchors(previous, next, viewport))
-        assertFalse(OverlayPositioning.lostMaskedAnchors(previous,
-            next.copy(source = HostGeometrySource.HOST_LAYOUT), viewport))
-        assertFalse(OverlayPositioning.lostMaskedAnchors(previous,
-            next.copy(ocrEvidence = masked.copy(independentlyMeasuredCard = true)), viewport))
-        assertFalse(OverlayPositioning.lostMaskedAnchors(previous,
-            next.copy(ocrEvidence = masked.copy(routeAnchors = previous.ocrEvidence!!.routeAnchors)), viewport))
-        assertFalse(OverlayPositioning.lostMaskedAnchors(previous,
-            next.copy(ocrEvidence = masked.copy(overlayMask = null)), viewport))
-        assertTrue(OverlayPositioning.lostMaskedAnchors(previous,
-            next.copy(ocrEvidence = masked.copy(upperAnchors = listOf(HostRect(40, 400, 600, 480)))), viewport))
+    // 0.2.14: the masked-anchor recovery and initial-boundary gates (0.2.8-0.2.11) detached the
+    // chip; they are converted into a monotone card ceiling plus the top dock. Nothing detaches.
+    private fun ocrGeometry(upper: List<HostRect>, routes: List<HostRect>, mask: HostRect? = null) =
+        geometry().copy(source = HostGeometrySource.OCR_TEXT_BOUNDS,
+            ocrEvidence = HostOcrGeometryEvidence(mask, upper, routes, false))
+
+    @Test fun `masked header with a rigid route shift raises the ceiling to its displaced position`() {
+        val tracker = PlacementEvidence()
+        val initial = ocrGeometry(listOf(HostRect(40, 650, 600, 730)),
+            listOf(HostRect(40, 900, 600, 940), HostRect(40, 1000, 600, 1040)))
+        val first = tracker.observe(initial, viewport)
+        assertFalse(first.dock)
+        assertEquals("The header bounds the card", 650 - viewport.dp(16), first.geometry.offerCard.top)
+        val masked = ocrGeometry(emptyList(), listOf(HostRect(40, 650, 600, 690), HostRect(40, 750, 600, 790)),
+            mask = HostRect(20, 400, 700, 640))
+        val next = tracker.observe(masked, viewport)
+        assertTrue("The header moved 250 px up beneath our mask", next.geometry.offerCard.top <= 400 - viewport.dp(16))
+        assertTrue("Only legs are visible: the dock tier", next.dock)
+        // The unread fare lies between the hidden header and the first leg: even the dock keeps off it.
+        val shown = OverlayPositioning.place(next.geometry, "uber", viewport, 1000, full, compact, dock = next.dock)
+        assertTrue(shown is OverlayPlacement.Suppressed || shown is OverlayPlacement.Displayed &&
+            !shown.position.bounds(shown.size).overlaps(HostRect(0, 400, 786, 650)))
     }
 
-    @Test fun `uncertain route correspondence requires unobscured recovery`() {
-        val previous = geometry().copy(source = HostGeometrySource.OCR_TEXT_BOUNDS,
-            ocrEvidence = HostOcrGeometryEvidence(null,
-                listOf(HostRect(40, 650, 600, 730)),
-                listOf(HostRect(40, 900, 600, 940), HostRect(40, 1000, 600, 1040)), false))
+    @Test fun `masked header with unknown route correspondence docks instead of detaching`() {
         for (routes in listOf(emptyList(), listOf(HostRect(40, 750, 600, 790)),
             listOf(HostRect(40, 650, 600, 690), HostRect(40, 820, 600, 860)))) {
-            val next = previous.copy(ocrEvidence = HostOcrGeometryEvidence(
-                HostRect(20, 400, 700, 640), emptyList(), routes, false))
-            assertTrue("An unknown route correspondence cannot establish mask safety: $routes",
-                OverlayPositioning.lostMaskedAnchors(previous, next, viewport))
+            val tracker = PlacementEvidence()
+            tracker.observe(ocrGeometry(listOf(HostRect(40, 650, 600, 730)),
+                listOf(HostRect(40, 900, 600, 940), HostRect(40, 1000, 600, 1040))), viewport)
+            val next = tracker.observe(ocrGeometry(emptyList(), routes, HostRect(20, 400, 700, 690)), viewport)
+            assertTrue("An unknown displacement docks: $routes", next.dock)
+            val shown = OverlayPositioning.place(next.geometry, "uber", viewport, 1000, full, compact, dock = true)
+            assertTrue("Never hidden for lack of proof: $routes", shown is OverlayPlacement.Displayed)
         }
     }
 
-    @Test fun `unresolved mask preserves original anchors until unobscured capture resolves them`() {
+    @Test fun `a disappeared close glyph under the mask raises the ceiling even when routes are still`() {
+        val close = HostRect(600, 650, 740, 790)
         val tracker = PlacementEvidence()
-        val initial = geometry().copy(source = HostGeometrySource.OCR_TEXT_BOUNDS,
-            ocrEvidence = HostOcrGeometryEvidence(null, listOf(HostRect(40, 650, 600, 730)),
-                listOf(HostRect(40, 900, 600, 940), HostRect(40, 1000, 600, 1040)), false))
-        assertFalse(tracker.observe(initial, viewport).recover)
-        val masked = initial.copy(offerCard = initial.offerCard.copy(top = 750),
-            ocrEvidence = HostOcrGeometryEvidence(HostRect(20, 400, 700, 640), emptyList(),
-                listOf(HostRect(40, 750, 600, 790)), false))
-        val first = tracker.observe(masked, viewport)
-        assertTrue(first.recover)
-        assertTrue(place(first.geometry) is OverlayPlacement.Suppressed)
-        // Restoring the second route still must compare against the retained unobscured frame.
-        val twoRoutes = masked.copy(ocrEvidence = masked.ocrEvidence!!.copy(routeAnchors =
-            listOf(HostRect(40, 650, 600, 690), HostRect(40, 750, 600, 790))))
-        repeat(3) { assertTrue(tracker.observe(twoRoutes, viewport).recover) }
-        val exposed = twoRoutes.copy(offerCard = initial.offerCard.copy(top = 380),
-            ocrEvidence = twoRoutes.ocrEvidence!!.copy(overlayMask = null,
-                upperAnchors = listOf(HostRect(40, 400, 600, 480))))
-        assertFalse(tracker.observe(exposed, viewport).recover)
-        repeat(3) { assertFalse(tracker.observe(exposed, viewport).recover) }
-    }
-
-    @Test fun `stable partial frame cannot erase evidence needed to detect later masked movement`() {
-        val tracker = PlacementEvidence()
-        val initial = geometry().copy(source = HostGeometrySource.OCR_TEXT_BOUNDS,
-            ocrEvidence = HostOcrGeometryEvidence(null, listOf(HostRect(40, 650, 600, 730)),
-                listOf(HostRect(40, 900, 600, 940), HostRect(40, 1000, 600, 1040)), false))
-        tracker.observe(initial, viewport)
-        val partial = initial.copy(ocrEvidence = initial.ocrEvidence!!.copy(
-            overlayMask = HostRect(20, 400, 700, 640), upperAnchors = emptyList()))
-        assertFalse(tracker.observe(partial, viewport).recover)
-        val moved = partial.copy(ocrEvidence = partial.ocrEvidence!!.copy(routeAnchors =
-            listOf(HostRect(40, 650, 600, 690), HostRect(40, 750, 600, 790))))
-        assertTrue(tracker.observe(moved, viewport).recover)
+        val routes = listOf(HostRect(40, 900, 600, 940), HostRect(40, 1000, 600, 1040))
+        tracker.observe(ocrGeometry(listOf(close, HostRect(40, 700, 500, 780)), routes), viewport)
+        val next = tracker.observe(ocrGeometry(listOf(HostRect(40, 700, 500, 780)), routes,
+            HostRect(20, 400, 750, 680)), viewport)
+        assertTrue(next.geometry.offerCard.top <= close.top - viewport.dp(16))
+        assertFalse(next.dock)
     }
 
     @Test fun `a partial fare envelope cannot lower the retained upper-card boundary`() {
         val tracker = PlacementEvidence()
-        val initial = geometry().copy(source = HostGeometrySource.OCR_TEXT_BOUNDS,
-            ocrEvidence = HostOcrGeometryEvidence(null, listOf(HostRect(40, 1100, 600, 1140)),
-                listOf(HostRect(40, 1300, 600, 1340), HostRect(40, 1400, 600, 1440)), false))
-        assertFalse(tracker.observe(initial, viewport).needsUnobscuredCapture)
+        val initial = ocrGeometry(listOf(HostRect(40, 1100, 600, 1140)),
+            listOf(HostRect(40, 1300, 600, 1340), HostRect(40, 1400, 600, 1440)))
+        val ceiling = tracker.observe(initial, viewport).geometry.offerCard.top
         val partial = initial.copy(offerCard = initial.offerCard.copy(top = 1200),
             ocrEvidence = initial.ocrEvidence!!.copy(upperAnchors = emptyList()))
         repeat(4) {
             val decision = tracker.observe(partial, viewport)
-            assertFalse(decision.needsUnobscuredCapture)
-            assertEquals(initial.offerCard.top, decision.geometry.offerCard.top)
+            assertEquals("Within one offer the ceiling only rises", ceiling, decision.geometry.offerCard.top)
         }
+        tracker.reset()
+        assertEquals("A new session starts its own ceiling", 1200, tracker.observe(partial, viewport).geometry.offerCard.top)
     }
 
     @Test fun `measured controls override mask recovery and always reject occupied saved positions`() {
@@ -114,52 +91,26 @@ class OverlayPositioningTest {
             ocrEvidence = HostOcrGeometryEvidence(HostRect(280, 800, 770, 1080),
                 emptyList(), emptyList(), true))
         val decision = tracker.observe(g, viewport)
-        assertFalse(decision.recover)
+        assertFalse("An independently measured card is an observed upper boundary", decision.dock)
         val shown = place(decision.geometry, OverlayPosition(282, 834)) as OverlayPlacement.Displayed
         assertTrue(g.protectedControls.none { shown.position.bounds(shown.size).overlaps(it) })
     }
 
-    @Test fun `unknown masked sheet suppresses for unobscured capture without oscillating`() {
+    @Test fun `a card without any upper label docks on every frame without alternating`() {
         val tracker = PlacementEvidence()
-        val initial = geometry().copy(source = HostGeometrySource.OCR_TEXT_BOUNDS,
-            ocrEvidence = HostOcrGeometryEvidence(null, listOf(HostRect(40, 850, 600, 930)),
-                listOf(HostRect(40, 1100, 600, 1140), HostRect(40, 1200, 600, 1240)), false))
-        tracker.observe(initial, viewport)
-        val masked = initial.copy(ocrEvidence = HostOcrGeometryEvidence(HostRect(20, 650, 700, 890),
-            emptyList(), listOf(HostRect(40, 900, 600, 940)), false))
-        val recovered = tracker.observe(masked, viewport)
-        val slot = place(recovered.geometry)
-        assertTrue(slot is OverlayPlacement.Suppressed)
+        val initial = ocrGeometry(emptyList(), listOf(HostRect(40, 1100, 600, 1140), HostRect(40, 1200, 600, 1240)))
+        val first = tracker.observe(initial, viewport)
+        assertTrue("No upper anchor observed yet: main's top dock, not the foot slot", first.dock)
+        val slot = OverlayPositioning.place(first.geometry, "uber", viewport, 1000, full, compact, dock = true)
+            as OverlayPlacement.Displayed
+        assertTrue(slot.docked)
+        val masked = initial.copy(ocrEvidence = initial.ocrEvidence!!.copy(overlayMask = slot.position.bounds(slot.size)))
         repeat(5) {
             val next = tracker.observe(masked, viewport)
-            assertEquals(slot, place(next.geometry))
+            assertTrue(next.dock)
+            assertEquals(slot, OverlayPositioning.place(next.geometry, "uber", viewport, 1000, full, compact,
+                slot.position, dock = true, savedDocked = true))
         }
-    }
-
-    @Test fun `unobscured card without upper labels does not alternate recovery forever`() {
-        val tracker = PlacementEvidence()
-        val initial = geometry().copy(source = HostGeometrySource.OCR_TEXT_BOUNDS,
-            ocrEvidence = HostOcrGeometryEvidence(null, emptyList(),
-                listOf(HostRect(40, 1100, 600, 1140), HostRect(40, 1200, 600, 1240)), false))
-        assertFalse(tracker.observe(initial, viewport).recover)
-        val masked = initial.copy(ocrEvidence = initial.ocrEvidence!!.copy(
-            overlayMask = HostRect(20, 650, 700, 890)))
-        repeat(5) { assertFalse(tracker.observe(masked, viewport).recover) }
-        val moved = masked.copy(ocrEvidence = masked.ocrEvidence!!.copy(routeAnchors =
-            listOf(HostRect(40, 850, 600, 890), HostRect(40, 950, 600, 990))))
-        assertTrue(tracker.observe(moved, viewport).recover)
-    }
-
-    @Test fun `a disappeared protected control is uncertain even when route movement is zero`() {
-        val close = HostRect(600, 650, 740, 790)
-        val previous = geometry().copy(source = HostGeometrySource.OCR_TEXT_BOUNDS,
-            protectedControls = geometry().protectedControls + close,
-            ocrEvidence = HostOcrGeometryEvidence(null, listOf(close, HostRect(40, 650, 500, 730)),
-                listOf(HostRect(40, 900, 600, 940), HostRect(40, 1000, 600, 1040)), false))
-        val next = previous.copy(protectedControls = geometry().protectedControls,
-            ocrEvidence = previous.ocrEvidence!!.copy(overlayMask = HostRect(20, 400, 750, 640),
-                upperAnchors = listOf(HostRect(40, 650, 500, 730))))
-        assertTrue(OverlayPositioning.lostMaskedAnchors(previous, next, viewport))
     }
 
     @Test fun `C1 and N8 N9 N10 share the measured right foot independent of colour`() {

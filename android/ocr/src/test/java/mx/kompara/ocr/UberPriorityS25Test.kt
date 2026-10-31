@@ -98,11 +98,15 @@ class UberPriorityS25Test {
         }
     }
 
-    @Test fun `Priority heading and Accept action retain host signature without readable numbers`() {
+    // 0.2.14: under hold-last-good a legless host+action signature would pin a stale chip on idle
+    // frames; heading and action now need one visible leg (the fare still needs none of them).
+    @Test fun `Priority heading and Accept action retain host signature with one leg but no readable fare`() {
         val anchors = cardBlocks().filter { it.text in setOf("Uber Priority", "Exclusivo", "Aceptar") }
-        assertTrue(parser.hasCardSignature(anchors))
-        assertEquals("exclusive", parser.parse(anchors)!!.variant)
-        assertFalse(parser.hasCardSignature(anchors.filterNot { it.text == "Aceptar" }))
-        assertFalse(parser.hasCardSignature(anchors.filterNot { it.text == "Uber Priority" }))
+        assertFalse(parser.hasCardSignature(anchors))
+        val leg = cardBlocks().filter { it.text == "1 min (0.2 km)" }
+        assertTrue(parser.hasCardSignature(anchors + leg))
+        assertEquals("exclusive", parser.parse(anchors + leg)!!.variant)
+        assertFalse(parser.hasCardSignature((anchors + leg).filterNot { it.text == "Aceptar" }))
+        assertFalse(parser.hasCardSignature((anchors + leg).filterNot { it.text == "Uber Priority" }))
     }
 }

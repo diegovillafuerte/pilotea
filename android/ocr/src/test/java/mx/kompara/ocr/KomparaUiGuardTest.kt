@@ -17,7 +17,7 @@ class KomparaUiGuardTest {
     @Test
     fun `didi offer card is not own UI`() {
         val text = "\$132.59 | Tarjeta bancaria verificada | 6min (1.2km) | " +
-            "Pisos Europeos - Avenida Horacio | 39min (17.3km) | Aceptar"
+            "Torres Ejemplo - Avenida Supuesta | 39min (17.3km) | Aceptar"
         assertFalse(KomparaUiGuard.isOwnUi(text))
     }
 }

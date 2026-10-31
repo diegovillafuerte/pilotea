@@ -21,7 +21,6 @@ import mx.kompara.data.service.ReaderReadinessRepository
 import mx.kompara.data.service.ScreenRect
 import mx.kompara.data.settings.CostProfileRepository
 import mx.kompara.data.settings.PlatformThreshold
-import mx.kompara.data.settings.PreferredMetric
 import mx.kompara.data.settings.SettingsRepository
 import mx.kompara.metrics.NetProfitEngine
 import mx.kompara.metrics.OfferRecorder
@@ -83,6 +82,10 @@ class S25LiveOfferLifecycleReplayTest {
         val parsed = mutableListOf<OfferEvent.Parsed>()
         val signals = mutableListOf<LifecycleSignal>()
         val visibilities = mutableListOf<OverlayVisibility>()
+        /** The ledger row each evaluation read (production paints the chip from this row). */
+        val rows = mutableListOf<mx.kompara.data.db.entity.OfferEntity>()
+        /** What each evaluation displayed: production's row-backed verdict (OverlayController.evaluate). */
+        val verdicts = mutableListOf<RowBackedVerdict>()
         var displayed: OverlayPlacement.Displayed? = null
             private set
         private val placementEvidence = PlacementEvidence()
@@ -114,23 +117,28 @@ class S25LiveOfferLifecycleReplayTest {
                 OcrLifecycleBus.signals.collect { signals += it }
             },
             scope.backgroundScope.launch(UnconfinedTestDispatcher(scope.testScheduler)) {
+                // Production-faithful: the chip shows the ledger row's evaluation, never the incoming card.
                 OverlayStateMachine(evaluate = { event ->
-                    recorder.record(requireNotNull(event.card.sessionId), requireNotNull(event.card.sessionStartedAt),
-                        OfferMapping.toTripOffer(event.card), event.card.captureSource, event.card.surge, event.timestampMs)
-                    VerdictChipState.from(NetProfitEngine().evaluate(OfferMapping.toTripOffer(event.card),
-                        "2.84".toBigDecimal(), PlatformThreshold.DEFAULT, PreferredMetric.IPK), PlatformThreshold.DEFAULT)
+                    RowBackedVerdict.evaluate(recorder, event, PlatformThreshold.DEFAULT)
+                        .also { verdicts += it; rows += it.row }.state
                 }).visibility(OfferEventBus.events).collect { visibility ->
                     visibilities += visibility
                     when (visibility) {
-                        is OverlayVisibility.Reading -> { placementEvidence.reset(); displayed = null }
+                        // OverlayController semantics: Reading swaps content in place, keeping the window.
+                        is OverlayVisibility.Reading -> placementEvidence.reset()
                         is OverlayVisibility.Showing -> {
                             val event = visibility.event
                             val evidence = placementEvidence.observe(requireNotNull(event.card.hostGeometry), viewport)
-                            displayed = if (evidence.needsUnobscuredCapture) null else OverlayPositioning.place(
+                            val current = displayed
+                            val keep = current != null && !(evidence.dock && !current.docked) &&
+                                OverlayPositioning.valid(current.position, current.size, evidence.geometry, viewport,
+                                    current.overMarker, current.docked)
+                            displayed = OverlayPositioning.place(
                                 evidence.geometry, event.packageName, viewport, event.timestampMs,
-                                ChipSize(720, 336), ChipSize(720, 200),
-                                if (evidence.preferPreferredPosition) null else displayed?.position) as? OverlayPlacement.Displayed
+                                ChipSize(720, 336), ChipSize(720, 200), current?.position?.takeIf { keep },
+                                evidence.dock, keep && current!!.docked) as? OverlayPlacement.Displayed
                         }
+                        OverlayVisibility.SoftHidden, OverlayVisibility.Exiting -> Unit
                         else -> displayed = null
                     }
                 }
@@ -157,6 +165,8 @@ class S25LiveOfferLifecycleReplayTest {
             val showing = visibilities.last() as? OverlayVisibility.Showing
             assertNotNull("The actual visibility flow must expose a showing verdict", showing)
             assertTrue(showing!!.state.regla.band is ReglaBand.Rated)
+            assertTrue("The chip displays the row's payment: $context", verdicts.last().paymentShown)
+            assertEquals("The chip displays the row-backed fare: $context", fare, verdicts.last().row.fareMxn!!, 0.000001)
             assertNotNull("The actual placement gates must admit the chip", displayed)
             val bounds = displayed!!.position.bounds(displayed!!.size)
             assertFalse("The chip must leave the offer unobscured", bounds.overlaps(parsed.last().card.hostGeometry!!.offerCard))
@@ -214,6 +224,72 @@ class S25LiveOfferLifecycleReplayTest {
                 assertNotEquals(offered.sessionId, replay.parsed.last().card.sessionId)
                 assertEquals(listOf("ACCEPTED", "PENDING"), replay.offers.all().map { it.outcome })
                 assertEquals(1, replay.trips.all().size)
+            } finally { replay.close() }
+        }
+    }
+
+    // A2: a Radar re-order A -> B -> A mints a fresh session for the returning A (no resume), so its
+    // OfferSeen retires B and the accept links to A's fare. Cost: one extra "offer seen" row for A.
+    @Test fun `Radar A then B then A keeps one pending row for the card on screen and links the accept to A`() = runTest {
+        val own = mapOf("a" to (129.55 to 12.2), "b" to (104.41 to 7.3))
+        val blocks = mapOf("a" to RealGeometryFixtures.radar(), "b" to RealGeometryFixtures.uberx())
+        val replay = Replay(this)
+        try {
+            listOf("a", "a", "b", "b", "a", "a").forEachIndexed { i, offer ->
+                replay.frame(blocks.getValue(offer), i * 850L)
+                val pending = replay.offers.all().filter { it.outcome == "PENDING" }
+                assertTrue("step $i ($offer): at most one PENDING row: $pending", pending.size <= 1)
+                if (i % 2 == 1) {
+                    // Each visit's second frame confirms the card on screen.
+                    val (fare, trip) = own.getValue(offer)
+                    assertEquals("step $i: the PENDING row is the card on screen", fare, pending.single().fareMxn!!, 1e-6)
+                    assertEquals(trip, pending.single().tripKm!!, 1e-6)
+                    assertEquals(fare, replay.parsed.last().card.fare!!, 1e-6)
+                    assertEquals("step $i: the chip reads a live row, never a frozen one", "PENDING", replay.rows.last().outcome)
+                    assertEquals(fare, replay.rows.last().fareMxn!!, 1e-6)
+                }
+            }
+            val accepted = listOf(background("Agenda de viajes"))
+            replay.frame(accepted, 6 * 850L)
+            replay.frame(accepted, 6 * 850L + 300)
+            val trip = replay.trips.all().single()
+            val linked = replay.offers.all().single { it.id == trip.offerId }
+            assertEquals("The accept links to the row carrying A's fare", 129.55, linked.fareMxn!!, 1e-6)
+            assertEquals("ACCEPTED", linked.outcome)
+            assertEquals(129.55, trip.grossMxn!!, 1e-6)
+            val b = replay.offers.all().single { it.fareMxn == 104.41 }
+            assertEquals("B is retired, never pending or accepted", "UNKNOWN", b.outcome)
+        } finally { replay.close() }
+    }
+
+    // Codex R2 #2: production displays the ledger row's evaluation. A same-trip fare revision must
+    // reach that row (and the lifecycle's copy) even when the pickup leg moved; a pending frame of a
+    // different trip leg, still stamped with this session, never enriches it.
+    @Test fun `a same-trip fare revision reaches the displayed row and another trip leg never enriches it`() = runTest {
+        for (pickup in listOf("1 min (0.2 km)", "1 min (0.3 km)")) {
+            val km = if (pickup.contains("0.3")) 0.3 else 0.2
+            val misread = fixture(79.45).map { if (it.text == "$79.45") it.copy(text = "$19.45") else it }
+            val later = fixture(79.45).map { if (it.text == "1 min (0.2 km)") it.copy(text = pickup) else it }
+            val replay = Replay(this)
+            try {
+                replay.frame(misread, 0)
+                replay.frame(later, 850)
+                replay.frame(later, 1700)
+                replay.assertChip(79.45, "$pickup f2: the second agreeing frame")
+                replay.frame(later, 2550)
+                replay.assertChip(79.45, "$pickup f3")
+                assertEquals(km, replay.verdicts.last().row.pickupKm!!, 1e-6)
+                val row = replay.offers.all().single()
+                assertEquals(79.45, row.fareMxn!!, 1e-6)
+                assertEquals(km, row.pickupKm!!, 1e-6)
+                assertEquals(2.4, row.tripKm!!, 1e-6)
+                // The next card's first frame (6.3 km trip) is published under this session id.
+                replay.frame(fixture(147.46), 3400)
+                assertEquals(row.sessionId, replay.parsed.last().card.sessionId)
+                assertNull(replay.parsed.last().card.fare)
+                assertFalse("Sin lectura over the next card", replay.verdicts.last().paymentShown)
+                val after = replay.offers.all().single()
+                assertEquals("Another trip leg never enriches the row", row.copy(lastSeenAt = after.lastSeenAt), after)
             } finally { replay.close() }
         }
     }

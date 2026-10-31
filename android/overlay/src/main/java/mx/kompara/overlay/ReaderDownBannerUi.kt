@@ -60,7 +60,8 @@ internal fun stoppedTabWindowDecision(
 ): StoppedTabWindowDecision {
     // Admission checked freshness before capture stopped. Keep that bounded five-second visit;
     // recheck its measured dimensions/insets without pretending capture still supplies frames.
-    val placed = OverlayPositioning.place(geometry, host, viewport, geometry.capturedAtMs, size, size)
+    val placed = OverlayPositioning.place(geometry, host, viewport, geometry.capturedAtMs, size, size,
+        dockFallback = false)
         as? OverlayPlacement.Displayed ?: return StoppedTabWindowDecision.Hide
     if (layoutPending || lastMoveFrom == actualPosition) return StoppedTabWindowDecision.WaitForLayout
     if (actualPosition == placed.position) return StoppedTabWindowDecision.Show

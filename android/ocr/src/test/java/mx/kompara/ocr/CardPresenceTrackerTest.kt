@@ -71,6 +71,15 @@ class CardPresenceTrackerTest {
     }
 
     @Test
+    fun `main's fifteen second ceiling without a parse ends even a signature-holding card`() {
+        val production = CardPresenceTracker()
+        production.onParsed(0)
+        assertFalse(production.onMiss(cardLike = true, nowMs = 14_999))
+        assertTrue(production.onMiss(cardLike = true, nowMs = 15_000))
+        assertFalse(production.isPresent())
+    }
+
+    @Test
     fun `misses before any parse are ignored`() {
         assertFalse(tracker.onMiss(cardLike = false, nowMs = 300L))
         assertFalse(tracker.onMiss(cardLike = true, nowMs = 600L))

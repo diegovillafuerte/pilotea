@@ -375,23 +375,32 @@ class OfferInstanceLedgerReplayTest {
         assertTrue(result.ledgerSnapshots.all { it.single().platform == "UBER" && it.single().fareMxn == 79.45 })
     }
 
+    // 0.2.14: main's rule is back: a different trip leg on two consecutive frames is a new offer
+    // (back-to-back Radar cards differ only in route). Countdown text and one isolated route
+    // misread still cannot replace.
     @Test fun `countdown and isolated route changes cannot manufacture replacement evidence`() {
         val full = fixture()
+        val changedRoute = full.map {
+            if (it.text == "24 min (2.4 km)") it.copy(text = "25 min (2.5 km)") else it
+        }
         val result = replay {
             for (seconds in 8 downTo 0) {
                 frame(full + OcrBlock("${seconds}s", OcrBounds(700, 1990, 780, 2040)), (8 - seconds) * 900L)
             }
-            val changedRoute = full.map {
-                if (it.text == "24 min (2.4 km)") it.copy(text = "25 min (2.5 km)") else it
-            }
             frame(changedRoute, 8100)
-            frame(changedRoute, 9000)
-            frame(full, 9900)
+            frame(full, 9000)
+            assertEquals(1, parsed.map { it.card.sessionId }.distinct().size)
+            assertNull("The isolated misread shows no payment", parsed[9].card.fare)
+            assertTrue(ledgerSnapshots.all { it.single().fareMxn == 79.45 && it.single().tripKm == 2.4 })
+            frame(changedRoute, 9900)
+            frame(changedRoute, 10800)
         }
-        assertEquals(12, result.parsed.size)
-        assertEquals(1, result.parsed.map { it.card.sessionId }.distinct().size)
-        assertEquals(1, result.offers.all().size)
-        assertTrue(result.ledgerSnapshots.all { it.single().fareMxn == 79.45 && it.single().tripKm == 2.4 })
+        assertEquals(13, result.parsed.size)
+        assertEquals(2, result.parsed.map { it.card.sessionId }.distinct().size)
+        assertEquals(2, result.offers.all().size)
+        assertEquals(2.4, result.offers.all().first().tripKm!!, 0.0)
+        assertEquals(2.5, result.offers.all().last().tripKm!!, 0.0)
+        assertTrue(result.offers.all().all { it.fareMxn == 79.45 })
     }
 
     @Test fun `a dropout breaks revision agreement without dropping the confirmed session payment`() {
@@ -464,7 +473,7 @@ class OfferInstanceLedgerReplayTest {
             it.copy(text = when (it.text) {
                 "Uber Priority" -> "UberX"
                 "Exclusivo" -> "Radar de solicitud"
-                "Aceptar" -> "Coincidir"
+                "Aceptar" -> "Me interesa"
                 "$79.45" -> "$149.45"
                 "1 min (0.2 km)" -> "4 min (0.7 km)"
                 "24 min (2.4 km)" -> "49 min (6.3 km)"
@@ -545,7 +554,7 @@ class OfferInstanceLedgerReplayTest {
         val radar = original.filterNot { it.text == "$79.45" }.map {
             it.copy(text = when (it.text) {
                 "Exclusivo" -> "Radar de solicitud"
-                "Aceptar" -> "Coincidir"
+                "Aceptar" -> "Me interesa"
                 else -> it.text
             })
         }

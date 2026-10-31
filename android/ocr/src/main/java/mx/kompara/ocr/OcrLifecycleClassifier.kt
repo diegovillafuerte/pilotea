@@ -143,14 +143,23 @@ class OcrLifecycleClassifier(private val markers: OcrTripMarkers = OcrTripMarker
     }
 }
 
-/** Emit newly readable fields and confirmed same-route OCR fare revisions, never missing inputs. */
+/**
+ * Emit newly readable fields and confirmed OCR revisions of the same TRIP leg (the identity key,
+ * as the ledger row). Only a payment-bearing card revises, and the pipeline publishes it from
+ * [FareStabilizer]: its fare and pickup leg are the first reveal or a revision two consecutive
+ * agreeing frames confirmed, so a single frame never revises the ledger. A payment-less card only
+ * fills missing fields; a different trip leg never enriches; missing inputs never erase.
+ */
 private fun OfferCard.enrichedWith(next: OfferCard): OfferCard {
     val identity = OcrOfferIdentity.from(this)
+    val nextIdentity = OcrOfferIdentity.from(next)
     if (sessionId != null && sessionId == next.sessionId && captureSource == "OCR" && next.captureSource == "OCR" &&
-        identity != null && identity == OcrOfferIdentity.from(next) &&
-        paymentBasis == "DRIVER_PAYMENT" && next.paymentBasis == "DRIVER_PAYMENT" &&
-        next.fare?.let { it.isFinite() && it > 0.0 } == true) {
-        return copy(fare = next.fare, raw = (raw - "fare") + next.raw.filterKeys { it == "fare" })
+        identity != null && nextIdentity != null &&
+        identity.tripKm == nextIdentity.tripKm && identity.tripMin == nextIdentity.tripMin &&
+        next.paymentBasis == "DRIVER_PAYMENT" && next.fare?.let { it.isFinite() && it > 0.0 } == true) {
+        return copy(fare = next.fare, paymentBasis = next.paymentBasis,
+            raw = (raw - "fare") + next.raw.filterKeys { it == "fare" },
+            pickupDistanceKm = next.pickupDistanceKm, pickupEtaMin = next.pickupEtaMin)
     }
     val pairs = listOf(fare to next.fare, pickupDistanceKm to next.pickupDistanceKm,
         tripDistanceKm to next.tripDistanceKm, pickupEtaMin to next.pickupEtaMin, tripDurationMin to next.tripDurationMin)

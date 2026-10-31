@@ -188,6 +188,52 @@ class FareStabilizerTest {
         assertEquals(99.45, s.onParsed(known.copy(fare = 99.45), 900).fare!!, 0.001)
     }
 
+    @Test fun `a pickup revision needs two consecutive agreeing admitted readings`() {
+        // Round 4 (A2): the pickup leg has the fare's semantics. A single reading (e.g. the guard-blind
+        // second frame losing a decimal) never reaches the published card.
+        val s = FareStabilizer()
+        val known = uber(79.45).copy(sessionId = "same-instance", pickupDistanceKm = 0.6, pickupEtaMin = 3.0)
+        val lost = known.copy(pickupDistanceKm = 6.0)
+        assertEquals(0.6, s.onParsed(known, 0).pickupDistanceKm!!, 0.0)
+        assertEquals("One reading never revises", 0.6, s.onParsed(lost, 850).pickupDistanceKm!!, 0.0)
+        assertEquals(0.6, s.onParsed(known, 1700).pickupDistanceKm!!, 0.0)
+        s.onParsed(lost, 2550)
+        assertEquals("A guard-rejected reading is no evidence", 0.6,
+            s.onParsed(lost, 3400, paymentAdmissible = false).pickupDistanceKm!!, 0.0)
+        s.onParsed(lost, 4250)
+        assertEquals("An uncertain frame breaks agreement and keeps the confirmed pickup", 0.6,
+            s.onParsed(lost, 5100, confident = false).pickupDistanceKm!!, 0.0)
+        assertEquals(0.6, s.onParsed(lost, 5950).pickupDistanceKm!!, 0.0)
+        val moved = s.onParsed(lost, 6800)
+        assertEquals("Two consecutive agreeing readings revise", 6.0, moved.pickupDistanceKm!!, 0.0)
+        assertEquals(79.45, moved.fare!!, 0.0)
+        // The first reveal is the instance's first confident frame, even when its fare is unread.
+        val t = FareStabilizer()
+        assertNull(t.onParsed(known.copy(fare = null), 0).fare)
+        val reveal = t.onParsed(lost, 850)
+        assertEquals(79.45, reveal.fare!!, 0.0)
+        assertEquals("The fare's first reveal never revises the pickup alone", 0.6, reveal.pickupDistanceKm!!, 0.0)
+    }
+
+    @Test fun `a payment-less card carries the confirmed pickup`() {
+        // Round 5 (B1, Codex R4 low): the published legs are always the confirmed legs, with or
+        // without payment, so a fare-less card differs from the row only by its missing fare.
+        val s = FareStabilizer()
+        val known = uber(79.45).copy(sessionId = "same-instance", fare = null, pickupDistanceKm = 0.2, pickupEtaMin = 1.0)
+        val lost = known.copy(pickupDistanceKm = 2.0)
+        assertEquals(0.2, s.onParsed(known, 0).pickupDistanceKm!!, 0.0)
+        assertEquals("One fare-less reading never revises the payment-less card", 0.2,
+            s.onParsed(lost, 850).pickupDistanceKm!!, 0.0)
+        assertEquals("A guard-rejected reading is no evidence", 0.2,
+            s.onParsed(lost.copy(fare = 8.30), 1700, paymentAdmissible = false).pickupDistanceKm!!, 0.0)
+        assertEquals("An uncertain frame keeps the confirmed pickup", 0.2,
+            s.onParsed(lost, 2550, confident = false).pickupDistanceKm!!, 0.0)
+        assertEquals(0.2, s.onParsed(lost, 3400).pickupDistanceKm!!, 0.0)
+        val moved = s.onParsed(lost, 4250)
+        assertEquals("Two consecutive agreeing readings revise", 2.0, moved.pickupDistanceKm!!, 0.0)
+        assertNull(moved.fare)
+    }
+
     @Test fun `uncertain rejected frame keeps confirmed payment and breaks revision agreement`() {
         val s = FareStabilizer()
         val known = uber(79.45).copy(sessionId = "same-instance")

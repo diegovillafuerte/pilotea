@@ -30,6 +30,8 @@ internal enum class OcrPublicationRejectionReason {
     PARSED_EXTRACTION_UNCERTAIN,
     PARSED_SESSION_UNCONFIRMED,
     PARSED_OCR_OUTLIER,
+    /** A held route-incomplete frame reached main's 15 s no-parse ceiling: the offer retired. */
+    PARSE_CEILING_EXPIRED,
 }
 
 /** Log only reason codes and measured geometry, never recognized screen text. */
@@ -90,6 +92,11 @@ internal class OcrDiagnostics(
             "publishedOffers=$publishedOffers chipVisibleFrames=$chipVisibleFrames " +
             hidden.entries.joinToString(prefix = "hidden{", postfix = "}") { "${it.key}=${it.value}" })
         burstActive = false
+    }
+
+    /** TEMP DIAG: one unthrottled line per capture, debug builds only. Numbers/rects only. */
+    @Synchronized fun diag(line: String) {
+        if (BuildConfig.DEBUG) write("TEMP DIAG $line")
     }
 
     @Synchronized fun blocked(reason: String, details: String = "") {

@@ -35,6 +35,8 @@ data class OfferCard(
     val raw: Map<String, String> = emptyMap(),
     /** OCR fare/leg union used with heading/action bounds to derive the card envelope. */
     val contentBounds: OfferContentBounds? = null,
+    /** The VISIBLE headline fare block (never a button echo); placement keeps the chip above it. */
+    val fareBounds: OfferContentBounds? = null,
     /** Recognized offer variants declare estimated driver payment; unknown shapes stay unconfirmed. */
     val paymentBasis: String = "UNCONFIRMED",
     val captureSource: String = "ACCESSIBILITY",

@@ -208,8 +208,32 @@ class KomparaAccessibilityService : AccessibilityService() {
                 @Suppress("DEPRECATION") it.recycle()
             }
         }
+        logWindowsIfChanged(metadata)
         return HostWindowOwnership.fromWindows(host, atMs, readHostDisplay().bounds, selectedId, metadata,
             ownOverlayPackage = packageName)
+    }
+
+    private var lastWindowSnapshot: List<VisibleHostWindow>? = null
+
+    /**
+     * TEMP DIAG: OS window metadata (category, type, layer, bounds) on change; debug builds only.
+     * Only a host package is logged by name; every other app is a fixed category, never its package.
+     */
+    private fun logWindowsIfChanged(windows: List<VisibleHostWindow>) {
+        if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE == 0) return
+        if (windows == lastWindowSnapshot) return
+        lastWindowSnapshot = windows
+        Log.d(TAG, "TEMP DIAG windows " + windows.joinToString(" ") {
+            "[${windowCategory(it.packageName, it.application)} app=${it.application} overlay=${it.accessibilityOverlay} " +
+                "layer=${it.layer} bounds=${it.bounds?.let { b -> "${b.left},${b.top},${b.right},${b.bottom}" }}]"
+        })
+    }
+
+    private fun windowCategory(pkg: String?, application: Boolean): String = when {
+        pkg != null && pkg in OCR_OWNED_PACKAGES -> pkg
+        pkg == packageName -> "kompara"
+        pkg == null || pkg == "android" || pkg.startsWith("com.android.") || !application -> "system"
+        else -> "other"
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {

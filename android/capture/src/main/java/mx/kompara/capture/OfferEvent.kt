@@ -25,10 +25,16 @@ sealed interface OfferEvent {
         val card: OfferCard,
     ) : OfferEvent
 
-    /** Placement cannot be verified through our mask; expose the host without ending its session. */
+    /**
+     * The OCR offer may still be on screen but this frame published nothing (a held signature
+     * frame, or unknown visibility). It never hides a chip. [processedFrame] true: a host frame was
+     * processed and held (defers the overlay's soft hide); false: unknown visibility with no frame,
+     * which postpones neither of the overlay's watchdog deadlines.
+     */
     data class LayoutUncertain(
         override val packageName: String,
         override val timestampMs: Long,
+        val processedFrame: Boolean = false,
     ) : OfferEvent
 
     /**
@@ -66,5 +72,11 @@ sealed interface OfferEvent {
 
         /** Host visibility ended; hide immediately while the OCR session remains suspended. */
         NOT_VISIBLE,
+
+        /**
+         * This frame shows no offer signature: hide the chip softly at once, keeping the session,
+         * verdict and window until absence is corroborated (then CONFIRMED_ABSENCE follows).
+         */
+        SIGNATURE_ABSENT,
     }
 }

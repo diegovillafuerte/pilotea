@@ -28,7 +28,7 @@ class OfferRecorder @Inject constructor(
         offers.forSession(sessionId)?.let { existing ->
             val saved = existing.evaluation
             val enriched = existing.enrichMissingInputs(offer, observedAt,
-                allowFareRevision = source == "OCR" && saved?.source == "OCR")
+                allowOcrRevision = source == "OCR" && saved?.source == "OCR")
             val updated = if (saved != null && enriched != existing) {
                 val unit = PreferredMetric.valueOf(saved.unit)
                 val goal = saved.goal.toDouble()
@@ -83,21 +83,34 @@ fun OfferEntity.recordedMetrics(): OfferMetrics {
         saved.contribution, saved.perKm, saved.perHour)
 }
 
-/** Fill unread inputs; a newer stabilized OCR fare may revise only the same complete pending route. */
-internal fun OfferEntity.enrichMissingInputs(incoming: TripOffer, observedAt: Long, allowFareRevision: Boolean = false): OfferEntity {
+/**
+ * Fill unread inputs, keyed on the TRIP leg (the offer identity): a different trip leg is another
+ * offer (e.g. the next card's pending frame, still stamped with this session) and is refused whole.
+ * Only a STABILIZER-CONFIRMED observation revises: on the OCR path a payment-bearing card (driver
+ * payment with a valid fare and complete legs) is FareStabilizer's output, which carries only the
+ * first reveal or a revision two consecutive agreeing frames confirmed, for the fare AND the pickup
+ * leg (round 4 policy: a single frame never revises the row, whatever the outlier guard said). Such
+ * a newer observation of the same complete trip leg revises the fare and takes its (confirmed)
+ * pickup, which may change live. A payment-less observation, a single guard-blind frame included,
+ * only fills what is missing and never overwrites, so the row's economics are confirmed ones.
+ */
+internal fun OfferEntity.enrichMissingInputs(incoming: TripOffer, observedAt: Long, allowOcrRevision: Boolean = false): OfferEntity {
     if (outcome != "PENDING" || observedAt < lastSeenAt || platform != incoming.platform.uppercase()) return this
-    val legs = listOf(pickupKm to incoming.pickupKm, tripKm to incoming.tripKm,
-        pickupMin to incoming.pickupMin, tripMin to incoming.tripMin)
-    val reviseFare = allowFareRevision && observedAt > lastSeenAt &&
-        paymentBasis == "DRIVER_PAYMENT" && incoming.paymentBasis == "DRIVER_PAYMENT" &&
-        incoming.fareMxn?.let { it.isFinite() && it > 0 } == true &&
-        legs.all { (old, fresh) -> old != null && old.isFinite() && old >= 0 && old == fresh }
-    val pairs = legs + if (reviseFare) emptyList() else listOf(fareMxn to incoming.fareMxn)
+    fun known(value: Double?) = value != null && value.isFinite() && value >= 0
+    val trip = listOf(tripKm to incoming.tripKm, tripMin to incoming.tripMin)
+    val confirmed = allowOcrRevision && observedAt > lastSeenAt &&
+        trip.all { (old, fresh) -> known(old) && old == fresh } &&
+        known(incoming.pickupKm) && known(incoming.pickupMin) &&
+        incoming.paymentBasis == "DRIVER_PAYMENT" && incoming.fareMxn?.let { it.isFinite() && it > 0 } == true
+    val reviseFare = confirmed && paymentBasis == "DRIVER_PAYMENT"
+    val pairs = trip + (if (confirmed) emptyList() else listOf(pickupKm to incoming.pickupKm, pickupMin to incoming.pickupMin)) +
+        (if (reviseFare) emptyList() else listOf(fareMxn to incoming.fareMxn))
     if (pairs.any { (old, fresh) -> old != null && fresh != null && old != fresh }) return this
     fun readable(value: Double?) = value?.takeIf { it.isFinite() && it >= 0 }
     return copy(fareMxn = if (reviseFare) incoming.fareMxn else fareMxn ?: readable(incoming.fareMxn),
-        pickupKm = pickupKm ?: readable(incoming.pickupKm),
-        tripKm = tripKm ?: readable(incoming.tripKm), pickupMin = pickupMin ?: readable(incoming.pickupMin),
+        pickupKm = if (confirmed) incoming.pickupKm else pickupKm ?: readable(incoming.pickupKm),
+        tripKm = tripKm ?: readable(incoming.tripKm),
+        pickupMin = if (confirmed) incoming.pickupMin else pickupMin ?: readable(incoming.pickupMin),
         tripMin = tripMin ?: readable(incoming.tripMin),
         paymentBasis = if (paymentBasis == "UNCONFIRMED" && incoming.paymentBasis == "DRIVER_PAYMENT")
             "DRIVER_PAYMENT" else paymentBasis)

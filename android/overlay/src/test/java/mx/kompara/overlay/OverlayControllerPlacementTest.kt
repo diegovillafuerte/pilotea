@@ -16,6 +16,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -97,8 +98,10 @@ class OverlayControllerPlacementTest {
     private val reading = VerdictChipState.reading(PlatformThreshold.DEFAULT, PreferredMetric.IPK)
     private val rated = VerdictChipState(reading.copy(band = ReglaBand.Rated(ReglaPosition.ABOVE, BigDecimal("12"))), "15")
 
+    // 0.2.14: the initial-boundary / two-capture gates detached the first frame of every real
+    // offer (12:04:14, 13:12:09...). An unobserved upper boundary now docks at once instead.
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-    @Test fun `initial fare-only geometry never attaches a controller window before upper evidence`() = runTest {
+    @Test fun `initial fare-only geometry attaches at once and asks for the top dock`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val controller = controller()
         try {
@@ -113,20 +116,19 @@ class OverlayControllerPlacementTest {
                     OfferCard(platform = pending.packageName, fare = 79.45, sessionId = "slide-in",
                         hostGeometry = pending))
                 render(controller, backgroundScope, OverlayVisibility.Showing(rated, "slide-in", event))
-                assertNull("A stable fare cannot authorize the initial window", field("composeView").get(controller))
-                assertNull(ScreenReaderState.overlayChipRect)
+                assertNotNull("A fare-only first frame is never left without a chip", field("composeView").get(controller))
+                assertEquals(true, (field("dockRequested\$delegate").get(controller) as MutableState<*>).value)
             }
         } finally { controller.stop(); Dispatchers.resetMain() }
     }
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-    @Test fun `replacement slide-in cannot reuse the preceding offers upper boundary`() = runTest {
+    @Test fun `replacement swaps content in place and restarts only its placement evidence`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val controller = controller()
         try {
             val v = method("readViewport", WindowInsets::class.java).invoke(controller, null) as OverlayViewport
             val observed = geometry.copy(displayBounds = v.bounds,
-                capturedAtMs = System.currentTimeMillis() - 2_000,
                 offerCard = HostRect(0, 605, v.bounds.right, v.bounds.bottom),
                 source = HostGeometrySource.OCR_TEXT_BOUNDS,
                 ocrEvidence = HostOcrGeometryEvidence(null, listOf(HostRect(40, 653, 600, 710)),
@@ -134,13 +136,10 @@ class OverlayControllerPlacementTest {
             val first = OfferEvent.Parsed(observed.packageName, observed.capturedAtMs,
                 OfferCard(platform = observed.packageName, fare = 79.45, sessionId = "old-card", hostGeometry = observed))
             render(controller, backgroundScope, OverlayVisibility.Reading("old-card", first))
-            assertNull("An unknown layout has no independently validated initial band", field("composeView").get(controller))
             render(controller, backgroundScope, OverlayVisibility.Showing(rated, "old-card", first))
-            assertNull("Rendering the same capture twice does not establish stability", field("composeView").get(controller))
-            val stableFirst = first.copy(timestampMs = first.timestampMs + 500,
-                card = first.card.copy(hostGeometry = observed.copy(capturedAtMs = observed.capturedAtMs + 500)))
-            render(controller, backgroundScope, OverlayVisibility.Showing(rated, "old-card", stableFirst))
-            assertNotNull("The preceding card has a measured upper band", field("composeView").get(controller))
+            val window = field("composeView").get(controller)
+            assertNotNull("A heading-bounded card is displayed on its first frame", window)
+            assertEquals(false, (field("dockRequested\$delegate").get(controller) as MutableState<*>).value)
 
             val partial = observed.copy(offerCard = observed.offerCard.copy(top = 722),
                 ocrEvidence = observed.ocrEvidence!!.copy(upperAnchors = emptyList()))
@@ -148,19 +147,10 @@ class OverlayControllerPlacementTest {
                 hostGeometry = partial))
             // A corroborated replacement may emit Reading directly, without an intervening Hidden.
             render(controller, backgroundScope, OverlayVisibility.Reading("replacement", replacement))
-            repeat(3) {
-                render(controller, backgroundScope, OverlayVisibility.Showing(rated, "replacement", replacement))
-                assertNull("Old upper anchors cannot authorize the replacement's first attachment",
-                    field("composeView").get(controller))
-                assertNull(ScreenReaderState.overlayChipRect)
-            }
-            val resolved = replacement.copy(card = replacement.card.copy(hostGeometry = observed))
-            render(controller, backgroundScope, OverlayVisibility.Showing(rated, "replacement", resolved))
-            assertNull("One new unknown-layout boundary is not yet settled", field("composeView").get(controller))
-            val stableReplacement = resolved.copy(timestampMs = resolved.timestampMs + 1_000,
-                card = resolved.card.copy(hostGeometry = observed.copy(capturedAtMs = observed.capturedAtMs + 1_000)))
-            render(controller, backgroundScope, OverlayVisibility.Showing(rated, "replacement", stableReplacement))
-            assertNotNull("Fresh upper evidence restores attachment", field("composeView").get(controller))
+            assertSame("Back-to-back offers keep the window: no blink between them", window,
+                field("composeView").get(controller))
+            assertEquals("The old card's upper band cannot vouch for the replacement: it docks", true,
+                (field("dockRequested\$delegate").get(controller) as MutableState<*>).value)
         } finally { controller.stop(); Dispatchers.resetMain() }
     }
 
@@ -179,8 +169,10 @@ class OverlayControllerPlacementTest {
             field("layoutParams").set(controller, params)
             state(controller, "viewport", v)
             val seen = mutableListOf<OverlayVisibility>()
+            val rowAgreement = RowBackedAgreement()
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
                 OverlayStateMachine(evaluate = { event ->
+                    rowAgreement.check(event) // Round 3 (A3): the row the chip is painted from agrees
                     VerdictChipState.from(NetProfitEngine().evaluate(OfferMapping.toTripOffer(event.card),
                         "2.84".toBigDecimal(), PlatformThreshold.DEFAULT, PreferredMetric.IPK), PlatformThreshold.DEFAULT)
                 }).visibility(OfferEventBus.events).collect {
@@ -206,8 +198,7 @@ class OverlayControllerPlacementTest {
                     HostTextBounds(it.text, HostRect(it.bounds.left, it.bounds.top, it.bounds.right, it.bounds.bottom))
                 }, HostGeometrySource.OCR_TEXT_BOUNDS, recognizedOffer = true))
             val placementHistory = field("placementEvidence").get(controller) as PlacementEvidence
-            assertTrue(placementHistory.observe(settledGeometry, v).needsUnobscuredCapture)
-            assertFalse(placementHistory.observe(settledGeometry.copy(capturedAtMs = at + 500), v).needsUnobscuredCapture)
+            assertFalse(placementHistory.observe(settledGeometry, v).dock)
             state(controller, "geometry", settledGeometry.copy(capturedAtMs = at + 500))
             val pipeline = OfferFramePipeline()
             for (frame in listOf(full, unread, unread, full)) {
@@ -291,9 +282,8 @@ class OverlayControllerPlacementTest {
                     assertEquals(1122, next.card.hostGeometry!!.offerCard.top)
                 }
                 render(controller, backgroundScope, OverlayVisibility.Showing(rated, next.card.sessionId!!, next))
-                val saved = (field("savedPosition\$delegate").get(controller) as MutableState<*>).value as OverlayPosition?
-                shown = OverlayPositioning.place(next.card.hostGeometry, next.packageName, v,
-                    next.timestampMs, ChipSize(720, 336), ChipSize(720, 200), saved) as OverlayPlacement.Displayed
+                assertNotNull("Masked frames never detach the window", field("composeView").get(controller))
+                shown = measuredPlacement(controller, next, v)
                 assertFalse("Frame $it must relocate away from the close control",
                     shown.position.bounds(shown.size).overlaps(close))
                 assertFalse("Frame $it must keep Aceptar clear", shown.position.bounds(shown.size).overlaps(accept))
@@ -369,9 +359,8 @@ class OverlayControllerPlacementTest {
                     assertEquals(1122, next.card.hostGeometry!!.offerCard.top)
                 }
                 render(controller, backgroundScope, OverlayVisibility.Showing(rated, next.card.sessionId!!, next))
-                val saved = (field("savedPosition\$delegate").get(controller) as MutableState<*>).value as OverlayPosition?
-                shown = OverlayPositioning.place(next.card.hostGeometry, next.packageName, v,
-                    next.timestampMs, ChipSize(720, 336), ChipSize(720, 200), saved) as OverlayPlacement.Displayed
+                assertNotNull("Masked frames never detach the window", field("composeView").get(controller))
+                shown = measuredPlacement(controller, next, v)
                 assertFalse("Frame $it must relocate away from the close control",
                     shown.position.bounds(shown.size).overlaps(close))
                 assertFalse("Frame $it must keep Aceptar clear", shown.position.bounds(shown.size).overlaps(accept))
@@ -415,7 +404,7 @@ class OverlayControllerPlacementTest {
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     @Config(qualifiers = "w360dp-h780dp-xxhdpi")
-    @Test fun `independently moving close control requires unobscured recovery despite stationary routes`() = runTest {
+    @Test fun `independently moving close control never detaches and is avoided once observed`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val controller = controller()
         try {
@@ -454,8 +443,11 @@ class OverlayControllerPlacementTest {
             assertEquals(first.card.sessionId, hidden.card.sessionId)
             assertEquals(605, hidden.card.hostGeometry!!.offerCard.top)
             render(controller, backgroundScope, OverlayVisibility.Showing(rated, hidden.card.sessionId!!, hidden))
-            assertNull("A missing close cannot be explained by stationary route anchors", field("composeView").get(controller))
-            assertNull(ScreenReaderState.overlayChipRect)
+            // 0.2.14: a synthetic independently moving close no longer detaches (review-only case).
+            assertNotNull("A masked frame never detaches the window", field("composeView").get(controller))
+            // The recovery half below runs on an UNMASKED frame (e.g. after a detach). With the
+            // controller's live mask the chip keeps covering the moved close (ChipMask hides it and
+            // its last rect lies outside the mask, so it is never "lost"): synthetic, TD-059 (C2).
             pipeline.processOwnedFrame(moved, null, null, displayBounds = v.bounds, density = v.density,
                 foregroundPackage = "com.ubercab.driver")
             testScheduler.runCurrent()
@@ -472,22 +464,232 @@ class OverlayControllerPlacementTest {
         } finally { controller.stop(); Dispatchers.resetMain() }
     }
 
+    // 0.2.14: AwaitingUnobscuredCapture (detach) is gone. A signature-free frame soft-hides.
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-    @Test fun `unverified masked layout clears the compositor mask without clearing durable verdict`() = runTest {
+    @Test fun `signature-free frame soft-hides without detaching or clearing the durable verdict`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val controller = prepared()
         try {
             val currentEvent = field("event").get(controller)
             val currentGeometry = field("geometry\$delegate").let { it.get(controller) as MutableState<*> }.value
-            field("composeView").set(controller, ComposeView(context))
-            field("placement").set(controller, placement)
-            ScreenReaderState.setOverlayChipRect(ScreenRect(324, 243, 1044, 579))
-            render(controller, backgroundScope, OverlayVisibility.AwaitingUnobscuredCapture)
-            assertNull(field("composeView").get(controller))
-            assertNull(ScreenReaderState.overlayChipRect)
+            method("attach").invoke(controller)
+            val view = field("composeView").get(controller) as ComposeView
+            val params = field("layoutParams").get(controller) as WindowManager.LayoutParams
+            view.layout(0, 0, 720, 336)
+            method("applyPlacement", OverlayPlacement::class.java).invoke(controller, placement)
+            view.viewTreeObserver.dispatchOnPreDraw()
+            assertEquals(1f, view.alpha)
+            val chip = ScreenReaderState.overlayChipRect
+            assertNotNull(chip)
+            render(controller, backgroundScope, OverlayVisibility.SoftHidden)
+            assertSame("The window survives a soft hide", view, field("composeView").get(controller))
+            assertEquals(0f, view.alpha)
+            assertTrue(params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE != 0)
+            assertEquals("The mask stays while the compositor may still hold the plate", chip, ScreenReaderState.overlayChipRect)
             assertSame(currentEvent, field("event").get(controller))
             assertSame(currentGeometry, (field("geometry\$delegate").get(controller) as MutableState<*>).value)
             assertNotNull((field("chipState\$delegate").get(controller) as MutableState<*>).value)
+            view.viewTreeObserver.dispatchOnPreDraw()
+            assertEquals("A settled pre-draw does not reveal a soft-hidden chip", 0f, view.alpha)
+        } finally { controller.stop(); Dispatchers.resetMain() }
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test fun `frame silence soft-hides after three seconds and the parse ceiling detaches at fifteen`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val controller = prepared()
+        try {
+            method("attach").invoke(controller)
+            val view = field("composeView").get(controller) as ComposeView
+            view.layout(0, 0, 720, 336)
+            method("applyPlacement", OverlayPlacement::class.java).invoke(controller, placement)
+            view.viewTreeObserver.dispatchOnPreDraw()
+            assertEquals(1f, view.alpha)
+            val heartbeat = heartbeat()
+            heartbeat.invoke(controller, backgroundScope, true, true)
+            advance(2_999)
+            assertEquals("A live offer keeps its chip between frames", 1f, view.alpha)
+            heartbeat.invoke(controller, backgroundScope, false, true) // a held signature frame
+            advance(2_999)
+            assertEquals(1f, view.alpha)
+            advance(2)
+            assertEquals("No processed frame for 3 s: invisible and untouchable", 0f, view.alpha)
+            assertSame(view, field("composeView").get(controller))
+            advance(15_000)
+            assertNull("15 s without a successful parse detaches", field("composeView").get(controller))
+        } finally { controller.stop(); Dispatchers.resetMain() }
+    }
+
+    private fun heartbeat() = method("heartbeat", CoroutineScope::class.java,
+        Boolean::class.javaPrimitiveType!!, Boolean::class.javaPrimitiveType!!)
+
+    /** The watchdog's deadlines are absolute on the clock: advance it with virtual time, 10 ms at a time. */
+    private fun kotlinx.coroutines.test.TestScope.advance(ms: Long) {
+        var left = ms
+        while (left > 0) {
+            val step = minOf(10L, left)
+            org.robolectric.shadows.ShadowSystemClock.advanceBy(java.time.Duration.ofMillis(step))
+            testScheduler.advanceTimeBy(step); testScheduler.runCurrent()
+            left -= step
+        }
+    }
+
+    /** Beats every [everyMs] until [untilMs]; returns when the chip soft-hid and when it detached. */
+    private fun kotlinx.coroutines.test.TestScope.beats(controller: OverlayController, everyMs: Long, untilMs: Long,
+        beat: () -> Unit): Pair<Long?, Long?> {
+        val view = field("composeView").get(controller) as ComposeView
+        var elapsed = 0L
+        var softHiddenAt: Long? = null
+        var detachedAt: Long? = null
+        while (elapsed < untilMs) {
+            advance(everyMs); elapsed += everyMs
+            if (softHiddenAt == null && view.alpha == 0f) softHiddenAt = elapsed
+            if (detachedAt == null && field("composeView").get(controller) == null) detachedAt = elapsed
+            beat()
+        }
+        return softHiddenAt to detachedAt
+    }
+
+    private fun revealed(controller: OverlayController) {
+        method("attach").invoke(controller)
+        val view = field("composeView").get(controller) as ComposeView
+        view.layout(0, 0, 720, 336)
+        method("applyPlacement", OverlayPlacement::class.java).invoke(controller, placement)
+        view.viewTreeObserver.dispatchOnPreDraw()
+        assertEquals(1f, view.alpha)
+    }
+
+    // A4 (Codex C4): unknown visibility (IDLE ticks with a null root every 750 ms, window-change
+    // drops) delivers no frame, so it can postpone neither deadline.
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test fun `uncertainty beats postpone neither the soft hide nor the parse ceiling`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val controller = prepared()
+        try {
+            revealed(controller)
+            val heartbeat = heartbeat()
+            heartbeat.invoke(controller, backgroundScope, true, true)
+            val (softHiddenAt, detachedAt) = beats(controller, 750, 20_000) {
+                heartbeat.invoke(controller, backgroundScope, false, false) // onCaptureUncertain: no frame
+            }
+            assertTrue("Soft hide 3 s after the last processed frame: $softHiddenAt", softHiddenAt in 3_000L..3_750L)
+            assertTrue("Detach 15 s after the last parse: $detachedAt", detachedAt in 15_000L..15_750L)
+        } finally { controller.stop(); Dispatchers.resetMain() }
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test fun `held signature frames defer the soft hide but not the parse ceiling`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val controller = prepared()
+        try {
+            revealed(controller)
+            val heartbeat = heartbeat()
+            heartbeat.invoke(controller, backgroundScope, true, true)
+            val (softHiddenAt, detachedAt) = beats(controller, 850, 20_000) {
+                heartbeat.invoke(controller, backgroundScope, false, true) // a held signature frame
+            }
+            assertTrue("Held frames keep the chip visible until the ceiling: $softHiddenAt",
+                softHiddenAt == null || softHiddenAt >= 15_000L)
+            assertTrue("Detach 15 s after the last parse: $detachedAt", detachedAt in 15_000L..15_850L)
+        } finally { controller.stop(); Dispatchers.resetMain() }
+    }
+
+    /** The real event path: start() with a controlled bus and a real ledger behind the evaluation. */
+    private suspend fun kotlinx.coroutines.test.TestScope.started(controller: OverlayController): MutableSharedFlow<OfferEvent> {
+        val events = MutableSharedFlow<OfferEvent>(extraBufferCapacity = 64)
+        controller.start(backgroundScope, events, context, flowOf(null))
+        testScheduler.runCurrent()
+        val v = method("readViewport", WindowInsets::class.java).invoke(controller, null) as OverlayViewport
+        val live = geometry.copy(displayBounds = v.bounds, capturedAtMs = System.currentTimeMillis())
+        events.emit(OfferEvent.Parsed(live.packageName, live.capturedAtMs, OfferCard(platform = live.packageName,
+            fare = 79.45, pickupDistanceKm = 0.2, pickupEtaMin = 1.0, tripDistanceKm = 2.4, tripDurationMin = 24.0,
+            paymentBasis = "DRIVER_PAYMENT", captureSource = "OCR", sessionId = "live", sessionStartedAt = live.capturedAtMs,
+            hostGeometry = live)))
+        testScheduler.runCurrent()
+        assertNotNull("The Parsed attached the chip", field("composeView").get(controller))
+        assertEquals(false, field("softHidden").get(controller))
+        return events
+    }
+
+    // B5 (round 3): the event path's LayoutUncertain -> heartbeat(processed = processedFrame) wiring.
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test fun `unknown visibility beats on the event path never defer the soft hide but held frames do`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        for (processed in listOf(false, true)) {
+            val controller = controller(BoundaryOfferDao(), BoundaryCostProfileDao())
+            try {
+                val events = started(controller)
+                var elapsed = 0L
+                var softHiddenAt: Long? = null
+                var detachedAt: Long? = null
+                while (elapsed < 16_500) {
+                    advance(750); elapsed += 750
+                    val view = field("composeView").get(controller) as ComposeView?
+                    if (softHiddenAt == null && field("softHidden").get(controller) == true && view?.alpha == 0f) softHiddenAt = elapsed
+                    if (detachedAt == null && view == null) detachedAt = elapsed
+                    events.emit(OfferEvent.LayoutUncertain(geometry.packageName, System.currentTimeMillis(), processedFrame = processed))
+                    testScheduler.runCurrent()
+                }
+                if (processed) assertTrue("Held frames keep the chip until the ceiling: $softHiddenAt",
+                    softHiddenAt == null || softHiddenAt >= 15_000L)
+                else assertTrue("Unknown-visibility beats: soft hide 3 s after the Parsed: $softHiddenAt", softHiddenAt in 3_000L..3_750L)
+                assertTrue("Detach 15 s after the Parsed: $detachedAt", detachedAt in 15_000L..15_750L)
+            } finally { controller.stop() }
+        }
+        Dispatchers.resetMain()
+    }
+
+    // B3 (round 3): the parse-ceiling detach leaves nothing a configuration change could re-show.
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test fun `a configuration change after the parse ceiling never re-shows the stale verdict`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val controller = controller(BoundaryOfferDao(), BoundaryCostProfileDao())
+        try {
+            started(controller)
+            advance(15_010)
+            assertNull("15 s without a parse detaches", field("composeView").get(controller))
+            assertNull("The stale event is cleared", field("event").get(controller))
+            assertNull((field("chipState\$delegate").get(controller) as MutableState<*>).value)
+            assertEquals(false, (field("chipVisible\$delegate").get(controller) as MutableState<*>).value)
+            (field("configurationCallbacks").get(controller) as android.content.ComponentCallbacks)
+                .onConfigurationChanged(context.resources.configuration)
+            testScheduler.runCurrent()
+            assertNull("A configuration change cannot re-attach a 15 s-stale verdict", field("composeView").get(controller))
+        } finally { controller.stop(); Dispatchers.resetMain() }
+    }
+
+    // B4 (round 3): heartbeats run on the collector's thread while the watchdog runs on Main. A
+    // Parsed landing INSIDE the soft-hide iteration (here: during its window update) must not leave
+    // the loop asleep until the stale ceiling; the next soft hide comes 3 s after that Parsed.
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test fun `a parse landing inside the soft-hide iteration never delays the next soft hide`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val controller = prepared()
+        val heartbeat = heartbeat()
+        var inside: (() -> Unit)? = null
+        val real = context.getSystemService(WindowManager::class.java)
+        val windows = Proxy.newProxyInstance(WindowManager::class.java.classLoader, arrayOf(WindowManager::class.java)) { _, m, args ->
+            if (m.name == "updateViewLayout") inside?.also { inside = null }?.invoke()
+            m.invoke(real, *(args ?: emptyArray()))
+        } as WindowManager
+        field("overlayContext").set(controller, object : android.content.ContextWrapper(context) {
+            override fun getSystemService(name: String): Any? =
+                if (name == Context.WINDOW_SERVICE) windows else super.getSystemService(name)
+        })
+        try {
+            revealed(controller)
+            val view = field("composeView").get(controller) as ComposeView
+            heartbeat.invoke(controller, backgroundScope, true, true)
+            inside = { heartbeat.invoke(controller, backgroundScope, true, true) }
+            advance(3_010)
+            assertEquals("The first soft hide fired", 0f, view.alpha)
+            assertNull("The Parsed landed inside that iteration", inside)
+            // That Parsed's Showing render reveals the chip again (render: softHidden = false, re-reveal).
+            field("softHidden").set(controller, false); view.alpha = 1f
+            advance(2_900)
+            assertEquals("Visible until 3 s after the Parsed", 1f, view.alpha)
+            advance(850)
+            assertEquals("The next soft hide comes 3 s after the Parsed, not at the stale ceiling", 0f, view.alpha)
         } finally { controller.stop(); Dispatchers.resetMain() }
     }
 
@@ -572,6 +774,14 @@ class OverlayControllerPlacementTest {
         } finally { controller.stop() }
     }
 
+    /** What MeasuredVerdictChip computes from the controller's state for this frame. */
+    private fun measuredPlacement(controller: OverlayController, next: OfferEvent.Parsed, v: OverlayViewport) =
+        OverlayPositioning.place((field("geometry\$delegate").get(controller) as MutableState<*>).value as HostGeometry,
+            next.packageName, v, next.timestampMs, ChipSize(720, 336), ChipSize(720, 200),
+            (field("savedPosition\$delegate").get(controller) as MutableState<*>).value as OverlayPosition?,
+            (field("dockRequested\$delegate").get(controller) as MutableState<*>).value as Boolean,
+            (field("savedDocked\$delegate").get(controller) as MutableState<*>).value as Boolean) as OverlayPlacement.Displayed
+
     private fun prepared() = controller().also {
         ScreenLocation.reads = 0; ScreenLocation.position = placement.position
         state(it, "geometry", geometry); state(it, "viewport", viewport); state(it, "chipState", reading)
@@ -579,7 +789,7 @@ class OverlayControllerPlacementTest {
             OfferCard(platform = geometry.packageName, hostGeometry = geometry)))
     }
 
-    private fun controller(): OverlayController {
+    private fun controller(offers: OfferDao = dao(), costs: CostProfileDao = dao()): OverlayController {
         val store = object : DataStore<Preferences> {
             override val data = flowOf(emptyPreferences())
             override suspend fun updateData(transform: suspend (Preferences) -> Preferences) = error("No writes")
@@ -591,7 +801,7 @@ class OverlayControllerPlacementTest {
         }, Clock.systemUTC()).apply {
             supportedApps(setOf(geometry.packageName)); bound(); captureRunning(true)
         }
-        return OverlayController(OfferRecorder(dao<OfferDao>(), CostProfileRepository(dao<CostProfileDao>()), settings, NetProfitEngine()),
+        return OverlayController(OfferRecorder(offers, CostProfileRepository(costs), settings, NetProfitEngine()),
             settings, OverlayPrefs(store), PresentationRecorder(dao<OfferPresentationDao>()), readiness).also {
             field("overlayContext").set(it, context)
         }

@@ -98,7 +98,7 @@ class TelemetryCollector @Inject constructor(
                 }
                 // No spec targets this screen → not a parser breakage, don't pollute the rates.
                 OfferEvent.Reason.NO_SPEC, OfferEvent.Reason.CONFIRMED_ABSENCE,
-                    OfferEvent.Reason.NOT_VISIBLE -> Unit
+                    OfferEvent.Reason.NOT_VISIBLE, OfferEvent.Reason.SIGNATURE_ABSENT -> Unit
             }
 
             // Remotely kill-switched platform (B-033): intentionally disabled, NOT a parser

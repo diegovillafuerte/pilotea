@@ -363,7 +363,6 @@ class TripLifecycleTrackerTest {
             Case(firstSource = "ACCESSIBILITY"), Case(source = "ACCESSIBILITY"),
             Case(at = 999), Case(at = 1_000), Case(outcome = "ACCEPTED"), Case(outcome = "NOT_TAKEN"),
             Case(incoming = changed.copy(platform = "didi")),
-            Case(incoming = changed.copy(pickupKm = 1.0)), Case(incoming = changed.copy(pickupMin = 1.0)),
             Case(incoming = changed.copy(tripKm = 11.0)), Case(incoming = changed.copy(tripMin = 21.0)),
             Case(incoming = changed.copy(pickupKm = null)), Case(incoming = changed.copy(pickupMin = null)),
             Case(incoming = changed.copy(tripKm = null)), Case(incoming = changed.copy(tripMin = null)),
@@ -380,6 +379,42 @@ class TripLifecycleTrackerTest {
             assertEquals(case.toString(), first.evaluation, after.evaluation)
             assertEquals(case.toString(), case.outcome, after.outcome)
         }
+    }
+
+    // 0.2.14 round 3 (Codex R2 #2): the trip leg is the row's identity key; the pickup leg may
+    // change live, so a confirmed OCR observation of the same trip revises the fare AND takes its
+    // pickup (formerly any pickup change refused the revision and pinned a misread first fare).
+    // Round 4 (A2): a payment-bearing OCR observation is the pipeline's published card, i.e.
+    // FareStabilizer's confirmed economics (the second of two agreeing frames); the row has no frame
+    // history of its own. The two-observation rule is pinned upstream of this recorder:
+    // FareStabilizerTest, OcrLifecycleClassifierTest and RealOfferBurstReplayTest (real pipeline into
+    // this recorder and tracker).
+    @Test fun `a confirmed same-trip OCR revision takes the moved pickup and a different trip leg never enriches`() = runTest {
+        val original = TripOffer("uber", 90.0, 0.0, 0.0, 10.0, 20.0)
+        for (moved in listOf(original.copy(fareMxn = 120.0, pickupKm = 1.0), original.copy(fareMxn = 120.0, pickupMin = 1.0))) {
+            val offers = FakeOfferDao()
+            val recorder = OfferRecorder(offers, CostProfileRepository(FakeCostProfileDao()), settings, NetProfitEngine())
+            val first = recorder.record("moved", 1_000, original, "OCR", false)
+            val after = recorder.record("moved", 1_000, moved, "OCR", false, 1_100)
+            assertEquals(moved.toString(), 120.0, after.fareMxn!!, 0.0)
+            assertEquals(moved.pickupKm, after.pickupKm)
+            assertEquals(moved.pickupMin, after.pickupMin)
+            assertEquals(first.evaluation!!.evaluatedAt, after.evaluation!!.evaluatedAt)
+            assertEquals(120.0, after.evaluation!!.contribution!!.toDouble(), 0.0)
+            // A payment-less observation never rewrites economics; another trip leg never enriches.
+            assertEquals(after.copy(lastSeenAt = 1_200), recorder.record("moved", 1_000,
+                original.copy(fareMxn = null, pickupKm = 3.0, paymentBasis = "UNCONFIRMED"), "OCR", false, 1_200))
+            assertEquals(after.copy(lastSeenAt = 1_300), recorder.record("moved", 1_000,
+                original.copy(fareMxn = 300.0, pickupKm = 2.0, tripKm = 31.0), "OCR", false, 1_300))
+        }
+        // A fare-less row takes the first confirmed observation's fare and pickup.
+        val offers = FakeOfferDao()
+        val recorder = OfferRecorder(offers, CostProfileRepository(FakeCostProfileDao()), settings, NetProfitEngine())
+        recorder.record("unread", 1_000, original.copy(fareMxn = null, pickupKm = 6.0, paymentBasis = "UNCONFIRMED"), "OCR", false)
+        val paid = recorder.record("unread", 1_000, original.copy(pickupKm = 0.6), "OCR", false, 1_100)
+        assertEquals(90.0, paid.fareMxn!!, 0.0)
+        assertEquals(0.6, paid.pickupKm!!, 0.0)
+        assertEquals("DRIVER_PAYMENT", paid.paymentBasis)
     }
 
     @Test fun `host switch cannot accept or finish another apps trip`() = runTest {

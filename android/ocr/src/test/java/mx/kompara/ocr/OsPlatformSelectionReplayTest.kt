@@ -49,7 +49,9 @@ class OsPlatformSelectionReplayTest {
         assertEquals(79.45, cards.last()!!.fare!!, 0.001)
     }
 
-    @Test fun `initial self masked semantic anchors cannot mint a session or ledger offer`() = runBlocking {
+    // 0.2.14: a missing heading is masked evidence only against a baseline that had one. The first
+    // frame mints its identity from the visible legs but can never publish payment it did not read.
+    @Test fun `initial self masked semantic anchors mint no payment and one ledger offer`() = runBlocking {
         val parsed = mutableListOf<OfferEvent.Parsed>()
         val seen = mutableListOf<LifecycleSignal.OfferSeen>()
         val eventJob = launch(Dispatchers.Unconfined) {
@@ -70,14 +72,21 @@ class OsPlatformSelectionReplayTest {
             pipeline.processOwnedFrame(grown, ScreenRect(324, 221, 1044, 557), null,
                 displayBounds = HostRect(0, 0, 1080, 2340), density = 3f)
             yield()
-            assertTrue("UNCERTAIN first frames never mint UUIDs", parsed.isEmpty())
-            assertTrue("UNCERTAIN first frames never feed the ledger", seen.isEmpty())
+            assertNull("A self-masked first frame never shows a fare", parsed.single().card.fare)
             pipeline.processOwnedFrame(grown, null, null, displayBounds = HostRect(0, 0, 1080, 2340), density = 3f)
             yield()
-            assertEquals(1, parsed.size)
-            assertNotNull(parsed.single().card.sessionId)
-            assertEquals(79.45, parsed.single().card.fare!!, 0.001)
-            assertEquals(1, seen.size)
+            assertEquals(2, parsed.size)
+            assertNotNull(parsed.last().card.sessionId)
+            assertEquals(parsed.first().card.sessionId, parsed.last().card.sessionId)
+            assertEquals(79.45, parsed.last().card.fare!!, 0.001)
+            assertEquals("One ledger offer, enriched", 1, seen.map { it.card.sessionId }.distinct().size)
+            // Round 2 (B1): the initial fare-less event AND the enriched event, one session, and
+            // the recovered payment reached the lifecycle consumer.
+            assertEquals(2, seen.size)
+            assertNull(seen.first().card.fare)
+            assertEquals(parsed.first().card.sessionId, seen.first().card.sessionId)
+            assertEquals(seen.first().card.sessionId, seen.last().card.sessionId)
+            assertEquals(79.45, seen.last().card.fare!!, 0.001)
         } finally {
             eventJob.cancelAndJoin()
             lifecycleJob.cancelAndJoin()

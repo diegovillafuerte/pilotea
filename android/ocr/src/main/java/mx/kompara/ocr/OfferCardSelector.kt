@@ -53,7 +53,8 @@ internal fun selectOfferCard(
             contentBounds = card.contentBounds, topChrome = nodes?.topChrome,
             observedCardBounds = nodes?.observedCardBounds,
             protectedControls = nodes?.protectedControls.orEmpty(), markers = nodes?.markers.orEmpty(),
-            navigation = nodes?.navigation ?: false, recognizedOffer = true)
+            navigation = nodes?.navigation ?: false, recognizedOffer = true,
+            fareBounds = card.fareBounds?.let { HostRect(it.left, it.top, it.right, it.bottom) })
     }
     val observed = geometryAdapter.adapt(card.platform, capturedAtMs, observation)
     val geometry = observed ?: derived

@@ -62,6 +62,10 @@ data class HostGeometry(
     /** Appearance of this captured host, never the Android or Kompara theme preference. */
     val appearance: HostAppearance = HostAppearance.UNKNOWN,
     val ocrEvidence: HostOcrGeometryEvidence? = null,
+    /** The visible headline fare, when read. Its glyph height scales the header clearance above it. */
+    val fareBounds: HostRect? = null,
+    /** Host chrome that may be tappable (Trip Radar pill): foot/higher slots avoid it, the dock may cover it. */
+    val softObstacles: List<HostRect> = emptyList(),
 )
 
 /**
