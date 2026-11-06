@@ -6,6 +6,7 @@ import mx.kompara.capture.OfferEventBus
 import mx.kompara.capture.lifecycle.OcrLifecycleBus
 import mx.kompara.data.service.ScreenReaderState
 import mx.kompara.data.service.ScreenRect
+import mx.kompara.parsers.model.ConsistencyGrade
 import mx.kompara.parsers.model.HostGeometrySource
 import mx.kompara.parsers.model.HostRect
 import org.json.JSONArray
@@ -152,11 +153,21 @@ class OfferFramePipeline(
             UberOcrParser.UBER_PACKAGE -> uberParser.hasCardSignature(blocks, hostConfirmed = true)
             else -> didiParser.hasCardSignature(blocks)
         }
+        // 0.2.15, the card's own arithmetic: a contradictory frame never enters the outlier window,
+        // casts no vote and publishes the held card without payment. An identity-validated frame of a
+        // certain selection is economically admissible whatever an older offer's window says; that
+        // never overrides session identity, selection ambiguity or contradiction.
+        val validation = parsed?.validation
+        val contradictory = validation?.grade == ConsistencyGrade.CONTRADICTORY
+        val identityAdmitted = validation?.identityValidated == true && validation.selectionCertain
         // The outlier guard judges this frame against the CURRENT instance's window before the
         // frame can vote for a new one (its KDoc; main's order). A rejected frame may only vote.
-        val guardOk = parsed?.let { frameOutlierGuard.accept(it, now) } != false
-        val decision = parsed?.takeIf { readiness?.canRead(it.platform, token) != false }
-            ?.let { sessions.update(it, capturedAtMs, now, guardAccepted = guardOk) }
+        val guardVerdict = parsed?.takeUnless { contradictory }?.let { frameOutlierGuard.accept(it, now) }
+        val guardBypassed = identityAdmitted && guardVerdict == false
+        val guardOk = parsed == null || !contradictory && (guardVerdict != false || identityAdmitted)
+        val decision = parsed?.takeIf { readiness?.canRead(it.platform, token) != false }?.let {
+            if (contradictory) sessions.contradicted(it) else sessions.update(it, capturedAtMs, now, guardAccepted = guardOk)
+        }
         val newInstance = decision?.replaced == true
         if (newInstance) {
             fareStabilizer.reset()
@@ -241,8 +252,10 @@ class OfferFramePipeline(
         // A guard-rejected frame of the held offer only votes and is held (main's hold-last-good).
         // It publishes, WITHOUT payment and with its own geometry (A1 (a)), when it confirms a new
         // instance or reads another trip leg / contradicts the held offer; never the bare heartbeat.
+        // A self-contradictory frame always publishes its suppressed card: holding would keep the
+        // previous paid chip on screen.
         val card = decision?.card?.takeIf {
-            !expired && (guardOk || newInstance || decision.identityUnresolved || contradicts)
+            !expired && (guardOk || newInstance || decision.identityUnresolved || contradicts || contradictory)
         }
         var disappeared = false
         // Placement never puts the chip over the legs; if our mask does cover them, a missing
@@ -286,7 +299,8 @@ class OfferFramePipeline(
         // evidence, not even as a new instance's first reveal (A1 (b); the seed is admitted above).
         val shownCard = card?.let { fareStabilizer.onParsed(it, now,
             confident = decision.confidence == OcrOfferSessionTracker.Confidence.CONFIDENT,
-            identityUnresolved = decision.identityUnresolved || contradicts, paymentAdmissible = guardOk) }
+            identityUnresolved = decision.identityUnresolved || contradicts, paymentAdmissible = guardOk,
+            suppressPayment = contradictory) }
         if (parsed != null && shownCard == null) {
             diagnostics.unpublishedOffer(when {
                 decision == null -> OcrPublicationRejectionReason.PARSED_READINESS_BLOCKED
@@ -361,7 +375,7 @@ class OfferFramePipeline(
         }
 
         diagnostics.diag(frameDiagnostic(capturedAtMs, gapMs, timing, blocks.size, ownUi, signature, parsed,
-            decision, shownCard, chipRect))
+            decision, shownCard, chipRect) + " " + validationDiagnostic(parsed, guardBypassed, contradictory && shownCard != null))
         // TEMP DIAG: record offer frames for fixture building — debug builds only (never our own
         // UI). Release builds must store NO screen content, per the Play data-safety posture. The
         // files hold real addresses: pull them to .session-captures, never into the repository.
@@ -396,6 +410,35 @@ class OfferFramePipeline(
             "unresolved=${decision?.identityUnresolved} replaced=${decision?.replaced} " +
             "votes=${decision?.votes} rejection=${decision?.rejection} shownPayment=${shown?.fare != null} " +
             "chip=${chipRect?.let { "${it.left},${it.top},${it.right},${it.bottom}" }}"
+
+    /**
+     * TEMP DIAG (0.2.15): the card-arithmetic validation as codes, bits and booleans only. Residuals
+     * are minutes, tenths of a km and a bounded dimensionless money ppm; NA when not evaluated. Never
+     * an amount, a token or text. Provenance: 2 bits per slot (fare, rate, total min/km, pickup min/km,
+     * trip min/km; 0 absent, 1 read, 2 repaired, 3 recovered); repairs: 1 confusable, 2 decimal, 4 unit.
+     */
+    private fun validationDiagnostic(parsed: mx.kompara.parsers.model.OfferCard?, guardBypassed: Boolean,
+        suppressed: Boolean): String {
+        val v = parsed?.validation
+        fun residual(check: mx.kompara.parsers.model.IdentityCheck?) = check?.takeIf { it.evaluated }?.residual ?: "NA"
+        val provenance = v?.slots?.foldIndexed(0) { i, bits, field ->
+            bits or (when (field.provenance) {
+                null -> 0
+                mx.kompara.parsers.model.FieldProvenance.READ -> 1
+                mx.kompara.parsers.model.FieldProvenance.REPAIRED -> 2
+                mx.kompara.parsers.model.FieldProvenance.RECOVERED -> 3
+            } shl (2 * i))
+        }
+        return "validationVersion=$VALIDATION_VERSION grade=${v?.grade?.ordinal ?: -1} " +
+            "selectionCertain=${v?.selectionCertain} selectedBands=${parsed?.instanceEvidence?.cardBands?.size} " +
+            "fareCandidates=${v?.fareCandidates} completeRoute=${parsed?.let { OcrOfferIdentity.from(it) != null }} " +
+            "provenanceBits=$provenance repairBits=${v?.slots?.fold(0) { bits, f -> bits or f.repairs }} " +
+            "minuteEval=${v?.minutes?.evaluated} minuteResidual=${residual(v?.minutes)} " +
+            "distanceEval=${v?.distance?.evaluated} distanceResidualTenths=${residual(v?.distance)} " +
+            "moneyEval=${v?.money?.evaluated} moneyResidualPpm=${residual(v?.money)} " +
+            "moneyWithinBound=${v?.money?.let { it.evaluated && it.holds }} guardBypassedByIdentity=$guardBypassed " +
+            "paymentSuppressedByContradiction=$suppressed recoveryOperands=${v?.slots?.fold(0) { bits, f -> bits or f.operands }}"
+    }
 
     private fun mx.kompara.parsers.model.OfferContentBounds.rect() = "$left,$top,$right,$bottom"
 
@@ -487,5 +530,7 @@ class OfferFramePipeline(
         private const val HOST_FOREGROUND_FRESHNESS_MS = 1_500L
         /** Three silent-lane frames (0.85 s cadence), so the guard holds the two priors it needs. */
         private const val OUTLIER_WINDOW_MS = 3_000L
+        /** TEMP DIAG: the card-arithmetic rules logged by [validationDiagnostic]. */
+        private const val VALIDATION_VERSION = 1
     }
 }

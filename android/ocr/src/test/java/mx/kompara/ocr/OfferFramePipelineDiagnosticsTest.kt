@@ -97,7 +97,8 @@ class OfferFramePipelineDiagnosticsTest {
             val good = fixture()
             pipeline.frame(good)
             pipeline.frame(good)
-            pipeline.frame(good.map { if (it.text == "$79.45") it.copy(text = "$7945.00") else it })
+            // 0.2.15: the isolated garble lost its TOTAL row too (with it, it is contradictory).
+            pipeline.frame(good.map { if (it.text == "$79.45") it.copy(text = "$7945.00") else it }.withoutTotalRow())
             yield()
             pipeline.onCaptureEnd(System.currentTimeMillis())
             val messages = ShadowLog.getLogsForTag("KomparaOCR").map { it.msg }
@@ -106,6 +107,32 @@ class OfferFramePipelineDiagnosticsTest {
             val summary = messages.single { it.startsWith("burst:") }
             assertTrue(summary, "signature=3 parsed=3 publishedOffers=2" in summary)
             assertTrue(summary, "PARSED_OCR_OUTLIER=1" in summary)
+            assertFalse(messages.any { "79.45" in it || "7945.00" in it || "Calle Falsa" in it })
+        } finally { collector.cancelAndJoin() }
+    }
+
+    // Round 2 (Codex F4): the TOTAL-bearing twin of the outlier test above. The garble keeps its TOTAL
+    // row: CONTRADICTORY, so it is published as suppressed Sin lectura instead of counted as an outlier.
+    @Test fun `modern twin - a contradictory garble is published without payment and flagged, never an outlier`() = runBlocking {
+        ShadowLog.clear()
+        val published = mutableListOf<OfferEvent.Parsed>()
+        val collector = launch(Dispatchers.Unconfined) {
+            OfferEventBus.events.collect { if (it is OfferEvent.Parsed) published += it }
+        }
+        try {
+            val pipeline = OfferFramePipeline()
+            val good = fixture()
+            pipeline.frame(good)
+            pipeline.frame(good)
+            pipeline.frame(good.map { if (it.text == "$79.45") it.copy(text = "$7945.00") else it })
+            yield()
+            pipeline.onCaptureEnd(System.currentTimeMillis())
+            val messages = ShadowLog.getLogsForTag("KomparaOCR").map { it.msg }
+            assertEquals(listOf(79.45, 79.45, null), published.map { it.card.fare })
+            assertEquals(0, messages.count { it == "offer visibility: PARSED_OCR_OUTLIER" })
+            val summary = messages.single { it.startsWith("burst:") }
+            assertTrue(summary, "signature=3 parsed=3 publishedOffers=3" in summary)
+            assertTrue(messages.filter { it.startsWith("TEMP DIAG frame") }.last().contains("paymentSuppressedByContradiction=true"))
             assertFalse(messages.any { "79.45" in it || "7945.00" in it || "Calle Falsa" in it })
         } finally { collector.cancelAndJoin() }
     }

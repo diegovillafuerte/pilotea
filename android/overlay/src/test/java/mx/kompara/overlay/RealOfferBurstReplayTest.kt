@@ -73,7 +73,10 @@ class RealOfferBurstReplayTest {
         val rect: HostRect?, val visible: Boolean, val critical: List<HostRect>,
         val shownFare: Double? = null, val shownTrip: Double? = null, val shownPickup: Double? = null,
         val read: Double? = null, val pickup: Double? = null, val readPickup: Double? = null,
-        val rows: List<mx.kompara.data.db.entity.OfferEntity> = emptyList())
+        val rows: List<mx.kompara.data.db.entity.OfferEntity> = emptyList(),
+        /** Minutes of the displayed row's legs, the published card's legs, and the displayed row's session. */
+        val shownPickupMin: Double? = null, val shownTripMin: Double? = null,
+        val pickupMin: Double? = null, val tripMin: Double? = null, val shownSession: String? = null)
 
     private inner class Lane(val host: String, val full: ChipSize = this.full, val compact: ChipSize = this.compact) {
         val pipeline = OfferFramePipeline()
@@ -98,12 +101,17 @@ class RealOfferBurstReplayTest {
         private val epoch = System.currentTimeMillis()
         private var elapsed = 0L
 
+        /**
+         * [closedLoop]: the placed chip is the next capture's mask and its text is composited (the
+         * default). Otherwise the frame is replayed exactly as captured: [recordedChip] is the device
+         * mask and no chip text is added (real fixtures never contain our own window's pixels).
+         */
         fun frame(label: String, offer: String, blocks: List<OcrBlock>, atMs: Long, signature: Boolean = true,
-            controls: List<HostRect> = emptyList()) {
+            controls: List<HostRect> = emptyList(), recordedChip: HostRect? = null, closedLoop: Boolean = true) {
             ShadowSystemClock.advanceBy(Duration.ofMillis(atMs - elapsed)); elapsed = atMs
-            val chip = shown?.position?.bounds(shown!!.size)
+            val chip = if (closedLoop) shown?.position?.bounds(shown!!.size) else recordedChip
             // A soft-hidden plate is transparent: no chip pixels, but its rect still masks.
-            val raw = blocks + (chip?.takeIf { !softHidden }?.let(::chipText) ?: emptyList())
+            val raw = blocks + (chip?.takeIf { !softHidden && closedLoop }?.let(::chipText) ?: emptyList())
             ScreenReaderState.setForegroundHost(host, SystemClock.elapsedRealtime())
             val before = events.size
             val beforeSignals = signals.size
@@ -139,7 +147,8 @@ class RealOfferBurstReplayTest {
             frames += Frame(label, offer, signature, published != null, published?.card?.sessionId,
                 published?.card?.fare, published?.card?.tripDistanceKm, state, shown?.position?.bounds(shown!!.size),
                 visible, critical(blocks), onScreen?.fareMxn, onScreen?.tripKm, onScreen?.pickupKm, readFare(blocks),
-                published?.card?.pickupDistanceKm, readPickup(blocks), offers.all())
+                published?.card?.pickupDistanceKm, readPickup(blocks), offers.all(), onScreen?.pickupMin,
+                onScreen?.tripMin, published?.card?.pickupEtaMin, published?.card?.tripDurationMin, onScreen?.sessionId)
         }
 
         fun forceDetach() { shown = null }
@@ -439,8 +448,10 @@ class RealOfferBurstReplayTest {
 
     @Test fun `TD-028 tenfold leg frame is held and a fivefold real next offer still replaces`() {
         val tenfold = RealGeometryFixtures.retext(RealGeometryFixtures.uberx(), "34 min (7.3 km)" to "34 min (73.0 km)")
+        // 0.2.15: the next offer carries its own consistent TOTAL row (9+60 min, 5.6+40.1 km, $520.00/45.7 km).
         val big = RealGeometryFixtures.retext(RealGeometryFixtures.uberx(), "$104.41" to "$520.00",
-            "34 min (7.3 km)" to "60 min (40.1 km)", "5 min (1.0 km)" to "9 min (5.6 km)")
+            "34 min (7.3 km)" to "60 min (40.1 km)", "5 min (1.0 km)" to "9 min (5.6 km)",
+            "39 min • 8.3 km • $12.58/km est." to "69 min • 45.7 km • $11.38/km est.")
         val lane = replay(UBER) {
             var t = 0L
             repeat(3) { frame("x f$it", "x", RealGeometryFixtures.uberx(), t); t += 850 }
@@ -519,7 +530,8 @@ class RealOfferBurstReplayTest {
         // its mask reaches y=627, 22 px into the Priority card's derived top (605), on every frame,
         // which kept every later frame UNCERTAIN: a misread first fare could never be revised.
         val corners = listOf(HostRect(48, 91, 192, 235), HostRect(888, 91, 1032, 235))
-        val misread = RealGeometryFixtures.retext(RealGeometryFixtures.priority(), "$79.45" to "$19.45")
+        // 0.2.15: an isolated misread reaches this policy only on a frame whose TOTAL row OCR lost.
+        val misread = RealGeometryFixtures.withoutTotal(RealGeometryFixtures.retext(RealGeometryFixtures.priority(), "$79.45" to "$19.45"))
         val lane = replay(UBER) {
             frame("pr f0 misread", "pr", misread, 0, controls = corners)
             repeat(4) { frame("pr f${it + 1}", "pr", RealGeometryFixtures.priority(), (it + 1) * 850L, controls = corners) }
@@ -566,9 +578,12 @@ class RealOfferBurstReplayTest {
         // stabilizer's revision must reach the row the chip displays, also when the pickup leg moved
         // live between the frames (0.2 -> 0.3 km). The trip leg is the identity key.
         for (pickup in listOf("1 min (0.2 km)", "1 min (0.3 km)")) {
-            val misread = RealGeometryFixtures.retext(RealGeometryFixtures.priority(), "$79.45" to "$19.45")
-            val later = RealGeometryFixtures.retext(RealGeometryFixtures.priority(), "1 min (0.2 km)" to pickup)
+            // 0.2.15: the isolated misread frame lost its TOTAL row; a live pickup move keeps the
+            // card's TOTAL consistent (0.3+2.4 = 2.7 km, $79.45/2.7 km = $29.43/km).
+            val misread = RealGeometryFixtures.withoutTotal(RealGeometryFixtures.retext(RealGeometryFixtures.priority(), "$79.45" to "$19.45"))
             val km = if (pickup.contains("0.3")) 0.3 else 0.2
+            val later = RealGeometryFixtures.retext(RealGeometryFixtures.priority(), "1 min (0.2 km)" to pickup,
+                "25 min • 2.6 km • $30.56/km est." to if (km == 0.3) "25 min • 2.7 km • $29.43/km est." else "25 min • 2.6 km • $30.56/km est.")
             val lane = replay(UBER) {
                 frame("pr f0 misread", "pr", misread, 0)
                 repeat(4) { frame("pr f${it + 1}", "pr", later, (it + 1) * 850L) }
@@ -587,8 +602,9 @@ class RealOfferBurstReplayTest {
     @Test fun `an identical-leg Exclusivo to Radar card of the same product shows the Radar fare`() {
         // B2: only the action changes (Aceptar -> Me interesa) with the exclusive label; the pill is
         // not identity. A sustained card-class action change is the second key: replace, never pin.
+        // 0.2.15: the Radar card's own TOTAL row matches its fare ($88.30/2.6 km = $33.96/km).
         val radar = RealGeometryFixtures.retext(RealGeometryFixtures.priority(), "Exclusivo" to "Radar de solicitud",
-            "Aceptar" to "Me interesa", "$79.45" to "$88.30")
+            "Aceptar" to "Me interesa", "$79.45" to "$88.30", "25 min • 2.6 km • $30.56/km est." to "25 min • 2.6 km • $33.96/km est.")
         val lane = replay(UBER) {
             var t = 0L
             repeat(3) { frame("ex f$it", "ex", RealGeometryFixtures.priority(), t); t += 850 }
@@ -611,10 +627,11 @@ class RealOfferBurstReplayTest {
     @Test fun `an identical-leg replacement paints its accepted pending vote's economics on the confirming frame`() {
         // B6 round 4: like a trip-leg replacement, the identical-leg (action-class) path seeds the
         // first reveal from the accepted voting frame and the guard window with admitted numbers.
+        // 0.2.15: the Radar card's own TOTAL row matches its fare ($88.30/2.6 km = $33.96/km).
         val radar = RealGeometryFixtures.retext(RealGeometryFixtures.priority(), "Exclusivo" to "Radar de solicitud",
-            "Aceptar" to "Me interesa", "$79.45" to "$88.30")
+            "Aceptar" to "Me interesa", "$79.45" to "$88.30", "25 min • 2.6 km • $30.56/km est." to "25 min • 2.6 km • $33.96/km est.")
         for ((name, confirming) in listOf("agree" to radar, "unread" to radar.filterNot { it.text == "$88.30" },
-            "rejected" to RealGeometryFixtures.retext(radar, "1 min (0.2 km)" to "1 min (2 km)"))) {
+            "rejected" to RealGeometryFixtures.withoutTotal(RealGeometryFixtures.retext(radar, "1 min (0.2 km)" to "1 min (2 km)")))) {
             val lane = replay(UBER) {
                 var t = 0L
                 repeat(3) { frame("ex f$it", "ex", RealGeometryFixtures.priority(), t); t += 850 }
@@ -732,7 +749,8 @@ class RealOfferBurstReplayTest {
 
     @Test fun `a pickup read on two consecutive frames revises the row at the second`() {
         // A2 round 4: a revision is two consecutive agreeing observations, nothing less and nothing more.
-        val lost = RealGeometryFixtures.retext(RealGeometryFixtures.priority(), "1 min (0.2 km)" to "1 min (2 km)")
+        // 0.2.15: the decimal-lost frames lost their TOTAL row too (with it, each is contradictory).
+        val lost = RealGeometryFixtures.withoutTotal(RealGeometryFixtures.retext(RealGeometryFixtures.priority(), "1 min (0.2 km)" to "1 min (2 km)"))
         val lane = replay(UBER) {
             frame("pr f0", "pr", RealGeometryFixtures.priority(), 0)
             frame("pr f1 lost", "pr", lost, 850)
@@ -750,11 +768,13 @@ class RealOfferBurstReplayTest {
         // OBSERVATION, not two raw pixel reads. Two legitimate holds after a misread first fare: f2's
         // Aceptar label is split by the countdown fill (an uncertain frame keeps the confirmed fare
         // and breaks agreement), or f1's pickup loses its decimal so the guard rejects the correct f2.
-        val misread = RealGeometryFixtures.retext(RealGeometryFixtures.priority(), "$79.45" to "$19.45")
+        // 0.2.15: the misreads lost their TOTAL row (with it, each is contradictory). In "pickup" the
+        // correct f2 the guard rejects lost it too: with its TOTAL it is identity-validated and admitted.
+        val misread = RealGeometryFixtures.withoutTotal(RealGeometryFixtures.retext(RealGeometryFixtures.priority(), "$79.45" to "$19.45"))
         for ((name, f1, f2) in listOf(
             Triple("split", RealGeometryFixtures.priority(), RealGeometryFixtures.retext(RealGeometryFixtures.priority(), "Aceptar" to "Acep")),
-            Triple("pickup", RealGeometryFixtures.retext(RealGeometryFixtures.priority(), "1 min (0.2 km)" to "1 min (2 km)"),
-                RealGeometryFixtures.priority()))) {
+            Triple("pickup", RealGeometryFixtures.withoutTotal(RealGeometryFixtures.retext(RealGeometryFixtures.priority(), "1 min (0.2 km)" to "1 min (2 km)")),
+                RealGeometryFixtures.withoutTotal(RealGeometryFixtures.priority())))) {
             val lane = replay(UBER) {
                 frame("$name f0 misread", name, misread, 0)
                 frame("$name f1", name, f1, 850)
@@ -793,8 +813,9 @@ class RealOfferBurstReplayTest {
     private fun assertFareLessAdmittedFramePinsPickup(name: String, a: List<OcrBlock>, b: List<OcrBlock>, bTrip: Double,
         controls: List<HostRect> = emptyList()) {
         val unread = b.filterNot { it.text == "$88.30" }
-        val garbled = RealGeometryFixtures.retext(b, "$88.30" to "$8.30")
-        val lost = RealGeometryFixtures.retext(b, "1 min (0.2 km)" to "1 min (2 km)")
+        // 0.2.15: the isolated misreads lost their TOTAL row (with it, each is contradictory).
+        val garbled = RealGeometryFixtures.withoutTotal(RealGeometryFixtures.retext(b, "$88.30" to "$8.30"))
+        val lost = RealGeometryFixtures.withoutTotal(RealGeometryFixtures.retext(b, "1 min (0.2 km)" to "1 min (2 km)"))
         for (agreeing in listOf(false, true)) {
             val lane = replay(UBER) {
                 var t = 0L
@@ -841,7 +862,8 @@ class RealOfferBurstReplayTest {
         // The payment-less card on the bus carries the confirmed legs, so it differs from the row
         // only by the missing fare; two consecutive readings revise it like any revision.
         val unread = RealGeometryFixtures.priority().filterNot { it.text == "$79.45" }
-        val lostUnread = RealGeometryFixtures.retext(unread, "1 min (0.2 km)" to "1 min (2 km)")
+        // 0.2.15: the decimal-lost frames lost their TOTAL row too (with it, each is contradictory).
+        val lostUnread = RealGeometryFixtures.withoutTotal(RealGeometryFixtures.retext(unread, "1 min (0.2 km)" to "1 min (2 km)"))
         val lane = replay(UBER) {
             frame("pr f0 unread", "pr", unread, 0)
             frame("pr f1 unread lost", "pr", lostUnread, 850)
@@ -859,7 +881,8 @@ class RealOfferBurstReplayTest {
     @Test fun `a single frame never reverts a two-frame revision`() {
         // B2 round 5: each revision needs FRESH agreement — a single frame reading the first-reveal
         // fare again after a confirmed revision is a new candidate, never a reversion.
-        val misread = RealGeometryFixtures.retext(RealGeometryFixtures.priority(), "$79.45" to "$19.45")
+        // 0.2.15: the isolated misreads lost their TOTAL row (with it, each is contradictory).
+        val misread = RealGeometryFixtures.withoutTotal(RealGeometryFixtures.retext(RealGeometryFixtures.priority(), "$79.45" to "$19.45"))
         val lane = replay(UBER) {
             frame("pr f0 misread", "pr", misread, 0)
             frame("pr f1", "pr", RealGeometryFixtures.priority(), 850)
@@ -999,6 +1022,404 @@ class RealOfferBurstReplayTest {
         }
         assertTrue("Positions exercised: $exercised (off-screen: $offScreen) of 182", exercised + offScreen == 182 && exercised >= 130)
         assertTrue(failures.take(40).joinToString("\n"), failures.isEmpty())
+    }
+
+    /**
+     * The 13 sanitized real S25 groups (190 frames, 17 card appearances) in recorded order: the
+     * device's tMs gaps within a group (G0, G1 and G2's stacked Radar transitions stay direct) and four
+     * signature-free idle frames at 850 ms between groups, as the device log shows between cards, so
+     * absence is corroborated. [closedLoop] false replays each capture with its recorded chip mask.
+     */
+    private fun replayCorpus(closedLoop: Boolean, edit: (RealS25Corpus.Frame, List<OcrBlock>) -> List<OcrBlock> = { _, b -> b },
+        groups: List<RealS25Corpus.Group> = RealS25Corpus.groups): Lane = replay(UBER) {
+        var t = 0L
+        for (g in groups) {
+            var last: Long? = null
+            for (f in g.frames) {
+                t += last?.let { f.tMs - it } ?: 850
+                last = f.tMs
+                frame(f.id, g.appearance(f.index)?.id ?: "G${g.group} gap", edit(f, f.blocks), t, signature = f.signature,
+                    recordedChip = f.chip, closedLoop = closedLoop)
+            }
+            repeat(4) { t += 850; frame("G${g.group} idle$it", "idle", emptyList(), t, signature = false, closedLoop = closedLoop) }
+        }
+    }
+
+    private val routeRow = Regex("""n?min\s*\(.*k?n?m\s*\)""")
+
+    /** What the chip may never cover on a real frame: headline, every route row (any minute glyphs), close, action. */
+    private fun realCritical(blocks: List<OcrBlock>) = critical(blocks) +
+        blocks.filter { routeRow.containsMatchIn(it.text) }.map { RealGeometryFixtures.run { it.rect() }.expanded(48) }
+
+    private fun assertCorpus(lane: Lane, mode: String) {
+        val failures = mutableListOf<String>()
+        val frames = RealS25Corpus.groups.flatMap { g -> g.frames.map { it.id to (g to it) } }.toMap()
+        val sessions = mutableMapOf<String, MutableSet<String>>()
+        val displayed = mutableSetOf<String>()
+        fun economics(a: RealS25Corpus.Appearance) = listOf(a.fare, a.pickup.first, a.pickup.second, a.trip.first, a.trip.second)
+        for (fr in lane.frames) {
+            val (g, f) = frames[fr.label] ?: (null to null)
+            val a = if (g != null && f != null) g.appearance(f.index) else null
+            // Every published payment and every visible paid chip is the current card's oracle, and the
+            // chip shows exactly its owning ledger row: pickup minutes AND kilometres included.
+            if (fr.published && fr.fare != null) {
+                val card = listOf(fr.fare, fr.pickupMin, fr.pickup, fr.tripMin, fr.tripKm)
+                if (a == null || card != economics(a)) failures += "${fr.label} publishes $card, not ${a?.let(::economics)}"
+                if (a != null && fr.sessionId != null) sessions.getOrPut(a.id) { mutableSetOf() } += fr.sessionId!!
+            }
+            if (fr.visible && fr.shownFare != null) {
+                val shown = listOf(fr.shownFare, fr.shownPickupMin, fr.shownPickup, fr.shownTripMin, fr.shownTrip)
+                if (a == null || shown != economics(a)) failures += "${fr.label} displays $shown, not ${a?.let(::economics)}"
+                val row = fr.rows.singleOrNull { it.sessionId == fr.shownSession }
+                if (row == null || listOf(row.fareMxn, row.pickupMin, row.pickupKm, row.tripMin, row.tripKm) != shown)
+                    failures += "${fr.label} displays $shown but its ledger row holds ${row?.let { listOf(it.fareMxn, it.pickupMin, it.pickupKm, it.tripMin, it.tripKm) }}"
+                if (a != null) displayed += a.id
+            }
+            // Offer content exists only on signature frames (a signature-free "$O.00" is the idle wallet).
+            if (f != null && f.signature) fr.rect?.let { r -> realCritical(f.blocks).firstOrNull { it.overlaps(r) }?.let { failures += "${fr.label} chip $r covers $it" } }
+        }
+        for (g in RealS25Corpus.groups) for (a in g.appearances) {
+            val own = lane.frames.filter { it.offer == a.id }
+            if (own.size != a.to - a.from + 1) { failures += "${a.id} replayed ${own.size} frames"; continue }
+            val (first, second) = own
+            // Direct stacked replacement: the recorded frame before it is another card's signature frame
+            // (G0, G2). G1[8] between G1's cards is the idle home screen, observed absence: fresh.
+            val direct = a.from > 0 && g.appearance(a.from - 1) != null
+            if (!direct) {
+                // A fresh session (absence corroborated before it): its first complete frame shows the true fare.
+                if (!(first.published && first.visible && first.fare == a.fare && first.shownFare == a.fare))
+                    failures += "${a.id} fresh first frame: published=${first.published} visible=${first.visible} " +
+                        "fare=${first.fare} shows=${first.shownFare} ${first.state}"
+            } else {
+                // A direct stacked replacement: the changed-route pending frame shows no payment, its
+                // confirming frame the replacement's own fare.
+                if (!(first.published && first.fare == null && first.shownFare == null))
+                    failures += "${a.id} pending frame: published=${first.published} fare=${first.fare} shows=${first.shownFare}"
+                if (!(second.published && second.visible && second.shownFare == a.fare))
+                    failures += "${a.id} confirming frame shows ${second.shownFare} (${second.state})"
+            }
+            if (a.id !in displayed) failures += "${a.id} never displays its fare"
+            if (sessions[a.id]?.size != 1) failures += "${a.id} paid in ${sessions[a.id]?.size} sessions"
+        }
+        val all = sessions.entries.toList()
+        for (i in all.indices) for (j in i + 1 until all.size)
+            if (all[i].value.intersect(all[j].value).isNotEmpty()) failures += "${all[i].key} and ${all[j].key} share a session"
+        // Signature-free tails soft-hide (or retire); every idle block ends with the chip gone.
+        lane.frames.zipWithNext().forEach { (prev, c) ->
+            if (!c.signature && prev.visible && c.visible) failures += "${c.label} keeps the chip visible without a signature"
+        }
+        lane.frames.filter { it.label.endsWith("idle3") }.forEach {
+            if (it.rect != null || it.visible) failures += "${it.label} still shows a chip after corroborated absence"
+        }
+        val oracleFares = RealS25Corpus.groups.flatMap { g -> g.appearances.map { it.fare } }.toSet()
+        lane.offers.all().forEach { if (it.fareMxn != null && it.fareMxn !in oracleFares) failures += "row ${it.id} holds ${it.fareMxn}" }
+        assertTrue("$mode: ${failures.size} failures\n" + failures.joinToString("\n") + "\n--- trace ---\n${trace(lane)}",
+            failures.isEmpty())
+    }
+
+    @Test fun `real S25 corpus replayed with its recorded masks shows each card's own validated economics`() {
+        assertCorpus(replayCorpus(closedLoop = false), "recorded-mask")
+    }
+
+    @Test fun `real S25 corpus replayed closed-loop shows each card's own validated economics clear of its content`() {
+        assertCorpus(replayCorpus(closedLoop = true), "closed-loop")
+    }
+
+    private val g4 = listOf(RealS25Corpus.groups[4])
+
+    @Test fun `a contradictory real frame suppresses the paid chip while its row keeps the confirmed fare`() {
+        for (closedLoop in listOf(false, true)) {
+            val lane = replayCorpus(closedLoop, { f, b -> if (f.index == 5) RealGeometryFixtures.retext(b, "$96.94" to "$69.94") else b }, g4)
+            val (f4, f5, f6) = listOf("G4[4]", "G4[5]", "G4[6]").map { l -> lane.frames.single { it.label == l } }
+            val sid = f4.sessionId
+            assertTrue("closedLoop=$closedLoop: the contradiction publishes a suppressed card in the same session\n${trace(lane)}",
+                f5.published && f5.fare == null && f5.shownFare == null && f5.sessionId == sid)
+            assertTrue("closedLoop=$closedLoop: the row keeps its confirmed fare\n${trace(lane)}",
+                f5.rows.single { it.sessionId == sid }.fareMxn == 96.94)
+            assertTrue("closedLoop=$closedLoop: the frames around it show the confirmed fare\n${trace(lane)}",
+                f4.visible && f4.shownFare == 96.94 && f6.visible && f6.shownFare == 96.94 && f6.sessionId == sid)
+            assertTrue("closedLoop=$closedLoop: the contradictory fare reaches neither consumer\n${trace(lane)}",
+                lane.frames.none { it.fare == 69.94 || it.shownFare == 69.94 } && lane.offers.all().none { it.fareMxn == 69.94 })
+        }
+    }
+
+    @Test fun `a contradictory first frame starts nothing and the next consistent frame reveals its fare`() {
+        for (closedLoop in listOf(false, true)) {
+            val lane = replayCorpus(closedLoop, { f, b -> if (f.index == 0) RealGeometryFixtures.retext(b, "$96.94" to "$69.94") else b }, g4)
+            val (f0, f1) = lane.frames
+            assertTrue("closedLoop=$closedLoop\n${trace(lane)}", !f0.published && f0.rect == null && f0.rows.isEmpty())
+            assertTrue("closedLoop=$closedLoop\n${trace(lane)}", f1.published && f1.visible && f1.fare == 96.94 && f1.shownFare == 96.94)
+        }
+    }
+
+    @Test fun `a validated pickup revision still needs two agreeing frames`() {
+        // The pickup changes live (4 min 0.9 km -> 5 min 1.0 km) with a self-consistent TOTAL row.
+        fun moved(b: List<OcrBlock>) = b.map {
+            when {
+                it.text == "4 min (0.9 km)" -> it.copy(text = "5 min (1.0 km)")
+                it.text.contains("\$740/km") -> it.copy(text = "41 min • 13.2 km \$734/km est.")
+                else -> it
+            }
+        }
+        for (closedLoop in listOf(false, true)) {
+            val lane = replayCorpus(closedLoop, { f, b -> if (f.index in setOf(4, 7, 8)) moved(b) else b }, g4)
+            fun shown(i: Int) = lane.frames.single { it.label == "G4[$i]" }.let { Triple(it.shownFare, it.shownPickupMin, it.shownPickup) }
+            assertTrue("closedLoop=$closedLoop: one reading never revises\n${trace(lane)}",
+                shown(4) == Triple(96.94, 4.0, 0.9) && shown(5) == Triple(96.94, 4.0, 0.9) && shown(7) == Triple(96.94, 4.0, 0.9))
+            assertTrue("closedLoop=$closedLoop: the second agreeing reading revises chip and row\n${trace(lane)}",
+                shown(8) == Triple(96.94, 5.0, 1.0) && lane.frames.single { it.label == "G4[8]" }.rows.single().pickupKm == 1.0)
+            assertTrue("closedLoop=$closedLoop: a single later reading never reverts it\n${trace(lane)}",
+                shown(9) == Triple(96.94, 5.0, 1.0) && shown(10) == Triple(96.94, 4.0, 0.9))
+        }
+    }
+
+    @Test fun `a contradiction latches withheld payment over the next card until two consistent frames confirm it`() {
+        // Codex round 2 on real G0 geometry: A ($111.75) confirmed; B's first frame misreads $84.47 as
+        // $84.41 (CONTRADICTORY); B's next four frames lose headline and trip row (UNVERIFIABLE). A's
+        // economics must never show over B, nor be booked on B's frames.
+        val g0 = RealS25Corpus.groups[0].frames
+        val unreadB = g0[7].blocks.filterNot { it.text == "$84.47" || it.text == "15 min (3.3 km)" }
+        require(g0[7].blocks.size - unreadB.size == 2)
+        val sequence = listOf(Triple("A", g0[1].blocks, g0[1].chip),
+            Triple("B contradictory", RealGeometryFixtures.retext(g0[6].blocks, "$84.47" to "$84.41"), g0[6].chip)) +
+            (1..4).map { Triple("B unread $it", unreadB, g0[7].chip) } +
+            (8..11).map { Triple("B G0[$it]", g0[it].blocks, g0[it].chip) }
+        val a = listOf(111.75, 4.0, 0.8, 23.0, 11.8)
+        val b = listOf(84.47, 4.0, 1.0, 15.0, 3.3)
+        for (closedLoop in listOf(false, true)) {
+            val lane = replay(UBER) {
+                sequence.forEachIndexed { i, (label, blocks, chip) ->
+                    frame(label, if (i == 0) "a" else "b", blocks, i * 850L, recordedChip = chip, closedLoop = closedLoop)
+                }
+            }
+            val mode = "closedLoop=$closedLoop"
+            fun shown(f: Frame) = listOf(f.shownFare, f.shownPickupMin, f.shownPickup, f.shownTripMin, f.shownTrip)
+            assertTrue("$mode: A shows its own economics\n${trace(lane)}", shown(lane.frames[0]) == a)
+            lane.frames.drop(1).take(6).forEach {
+                assertTrue("$mode: ${it.label} publishes and displays no payment\n${trace(lane)}",
+                    it.published && it.fare == null && it.shownFare == null)
+            }
+            assertTrue("$mode: B's second consistent frame confirms B\n${trace(lane)}",
+                lane.frames.single { it.label == "B G0[9]" }.let { it.visible && shown(it) == b && it.sessionId != lane.frames[0].sessionId })
+            lane.frames.filter { it.offer == "b" && it.shownFare != null }.forEach {
+                assertTrue("$mode: ${it.label} displays ${shown(it)}, not B's\n${trace(lane)}", shown(it) == b)
+            }
+            lane.frames.flatMap { it.rows }.forEach { row ->
+                val economics = listOf(row.fareMxn, row.pickupMin, row.pickupKm, row.tripMin, row.tripKm)
+                assertTrue("$mode: row ${row.id} books $economics\n${trace(lane)}",
+                    economics == a || economics == b)
+            }
+            assertTrue("$mode: one row per card\n${trace(lane)}", lane.offers.all().size == 2)
+        }
+    }
+
+    // Round 2 (Codex F4): the TOTAL-bearing twins of the legacy (TOTAL-less) misread tests above. A real
+    // single-field misread on a modern card keeps its unchanged TOTAL row, which proves it CONTRADICTORY:
+    // no payment, no vote, no guard seeding, no fare/pickup revision, the row's economics unchanged, the
+    // latch held until a consistent frame or a confirmed replacement.
+
+    private fun misreadFare(blocks: List<OcrBlock> = RealGeometryFixtures.priority()) =
+        RealGeometryFixtures.retext(blocks, "$79.45" to "$19.45")
+    private fun lostPickup(blocks: List<OcrBlock>) = RealGeometryFixtures.retext(blocks, "1 min (0.2 km)" to "1 min (2 km)")
+
+    @Test fun `modern twin - a contradictory first fare under the corner-button dock never reveals, the next frame does`() {
+        val corners = listOf(HostRect(48, 91, 192, 235), HostRect(888, 91, 1032, 235))
+        val lane = replay(UBER) {
+            frame("pr f0 misread", "pr", misreadFare(), 0, controls = corners)
+            repeat(4) { frame("pr f${it + 1}", "pr", RealGeometryFixtures.priority(), (it + 1) * 850L, controls = corners) }
+        }
+        val f0 = lane.frames[0]
+        assertTrue("The contradiction mints nothing\n${trace(lane)}", !f0.published && f0.rect == null && f0.rows.isEmpty())
+        assertTrue("From the first consistent frame the chip docks under the corner buttons with the fare\n${trace(lane)}",
+            lane.frames.drop(1).all { it.rect?.top == 283 && it.shownFare == 79.45 && it.shownPickup == 0.2 })
+        assertTrue(trace(lane), lane.frames.none { it.fare == 19.45 || it.shownFare == 19.45 } &&
+            lane.offers.all().single().fareMxn == 79.45)
+        assertContract(lane, mapOf("pr" to 79.45), mapOf("pr" to 2.4))
+    }
+
+    @Test fun `modern twin - a contradictory first fare leaves the first reveal to the next frame whether or not the pickup moved`() {
+        for (pickup in listOf("1 min (0.2 km)", "1 min (0.3 km)")) {
+            val km = if (pickup.contains("0.3")) 0.3 else 0.2
+            val later = RealGeometryFixtures.retext(RealGeometryFixtures.priority(), "1 min (0.2 km)" to pickup,
+                "25 min • 2.6 km • $30.56/km est." to if (km == 0.3) "25 min • 2.7 km • $29.43/km est." else "25 min • 2.6 km • $30.56/km est.")
+            val lane = replay(UBER) {
+                frame("pr f0 misread", "pr", misreadFare(), 0)
+                repeat(4) { frame("pr f${it + 1}", "pr", later, (it + 1) * 850L) }
+            }
+            assertTrue("$pickup: nothing from the contradiction\n${trace(lane)}", !lane.frames[0].published && lane.frames[0].rows.isEmpty())
+            lane.frames.drop(1).forEach {
+                assertTrue("$pickup ${it.label}: the first consistent frame reveals and every later one keeps it\n${trace(lane)}",
+                    it.visible && it.shownFare == 79.45 && it.shownPickup == km)
+            }
+            val row = lane.offers.all().single()
+            assertTrue("$pickup\n${trace(lane)}", row.fareMxn == 79.45 && row.pickupKm == km && row.tripKm == 2.4)
+            assertTrue(trace(lane), lane.frames.none { it.fare == 19.45 || it.shownFare == 19.45 })
+            assertContract(lane, mapOf("pr" to 79.45), mapOf("pr" to 2.4))
+        }
+    }
+
+    @Test fun `modern twin - contradictions interrupt a pending identical-leg replacement until two consistent frames`() {
+        val corners = listOf(HostRect(48, 91, 192, 235), HostRect(888, 91, 1032, 235))
+        val radarB = RealGeometryFixtures.retext(RealGeometryFixtures.radar(), "$129.55" to "$88.30",
+            "4 min (0.9 km)" to "1 min (0.2 km)", "34 min (12.2 km)" to "24 min (2.4 km)",
+            "38 min • 13.1 km • $9.89/km est." to "25 min • 2.6 km • $33.96/km est.")
+        assertContradictionsInterruptReplacement("identical legs", radarB, 2.4, corners)
+    }
+
+    @Test fun `modern twin - contradictions interrupt a pending trip-leg replacement until two consistent frames`() {
+        val other = RealGeometryFixtures.retext(RealGeometryFixtures.priority(), "$79.45" to "$88.30",
+            "24 min (2.4 km)" to "30 min (3.1 km)", "25 min • 2.6 km • $30.56/km est." to "31 min • 3.3 km • $26.76/km est.")
+        assertContradictionsInterruptReplacement("trip leg", other, 3.1)
+    }
+
+    /** B f1 ($8.30) and B f2 (pickup 2 km) keep B's TOTAL: contradictions void the pending vote. */
+    private fun assertContradictionsInterruptReplacement(name: String, b: List<OcrBlock>, bTrip: Double,
+        controls: List<HostRect> = emptyList()) {
+        val lane = replay(UBER) {
+            var t = 0L
+            repeat(3) { frame("a f$it", "a", RealGeometryFixtures.priority(), t, controls = controls); t += 850 }
+            frame("b f0 unread", "b", b.filterNot { it.text == "$88.30" }, t, controls = controls); t += 850
+            frame("b f1 garbled", "b", RealGeometryFixtures.retext(b, "$88.30" to "$8.30"), t, controls = controls); t += 850
+            frame("b f2 lost", "b", lostPickup(b), t, controls = controls); t += 850
+            repeat(3) { frame("b f${it + 3}", "b", b, t, controls = controls); t += 850 }
+        }
+        val aSession = lane.frames.first().sessionId
+        val bFrames = lane.frames.filter { it.offer == "b" }
+        bFrames.take(4).forEach {
+            assertTrue("$name ${it.label}: no payment and no new session before two consistent frames\n${trace(lane)}",
+                it.published && it.fare == null && it.shownFare == null && it.sessionId == aSession)
+        }
+        bFrames.drop(4).forEach {
+            assertTrue("$name ${it.label}: B confirmed with its own economics\n${trace(lane)}", it.published &&
+                it.sessionId != aSession && it.shownFare == 88.30 && it.shownPickup == 0.2 && it.shownTrip == bTrip)
+        }
+        assertTrue("$name: the contradictions never reach card, chip or row\n${trace(lane)}",
+            lane.frames.none { it.fare == 8.30 || it.shownFare == 8.30 || it.pickup == 2.0 || it.shownPickup == 2.0 } &&
+                lane.frames.flatMap { it.rows }.none { it.fareMxn == 8.30 || it.pickupKm == 2.0 })
+        val rows = lane.offers.all()
+        assertTrue("$name: A keeps its own row, B gets its own\n${trace(lane)}", rows.size == 2 &&
+            rows[0].fareMxn == 79.45 && rows[1].fareMxn == 88.30 && rows[1].pickupKm == 0.2)
+        // The contradictions publish A's held card without payment under B's label.
+        assertContract(lane, mapOf("a" to 79.45, "b" to 88.30), mapOf("a" to 2.4, "b" to bTrip),
+            misreads = if (bTrip == 2.4) emptyMap() else mapOf("b" to setOf(2.4)))
+    }
+
+    @Test fun `modern twin - a contradictory confirming frame voids the identical-leg replacement vote`() {
+        val radar = RealGeometryFixtures.retext(RealGeometryFixtures.priority(), "Exclusivo" to "Radar de solicitud",
+            "Aceptar" to "Me interesa", "$79.45" to "$88.30", "25 min • 2.6 km • $30.56/km est." to "25 min • 2.6 km • $33.96/km est.")
+        val lane = replay(UBER) {
+            var t = 0L
+            repeat(3) { frame("ex f$it", "ex", RealGeometryFixtures.priority(), t); t += 850 }
+            frame("radar f0", "radar", radar, t); t += 850
+            frame("radar f1 rejected", "radar", lostPickup(radar), t); t += 850
+            repeat(3) { frame("radar f${it + 2}", "radar", radar, t); t += 850 }
+        }
+        val ex = lane.frames.first().sessionId
+        val radarFrames = lane.frames.filter { it.offer == "radar" }
+        radarFrames.take(3).forEach {
+            assertTrue("${it.label}: one vote, then the contradiction voids it: no payment, no session\n${trace(lane)}",
+                it.published && it.fare == null && it.shownFare == null && it.sessionId == ex)
+        }
+        radarFrames.drop(3).forEach {
+            assertTrue("${it.label}: two fresh consistent frames replace\n${trace(lane)}",
+                it.sessionId != ex && it.shownFare == 88.30 && it.shownPickup == 0.2)
+        }
+        assertTrue(trace(lane), lane.frames.none { it.pickup == 2.0 || it.shownPickup == 2.0 } &&
+            lane.frames.flatMap { it.rows }.none { it.pickupKm == 2.0 })
+        val rows = lane.offers.all()
+        assertTrue(trace(lane), rows.size == 2 && rows[0].fareMxn == 79.45 && rows[0].outcome == "UNKNOWN" &&
+            rows[1].fareMxn == 88.30 && rows[1].outcome == "PENDING")
+        assertContract(lane, mapOf("ex" to 79.45, "radar" to 88.30), mapOf("ex" to 2.4, "radar" to 2.4))
+    }
+
+    @Test fun `modern twin - contradictory pickup readings of a payment-less card never revise it`() {
+        val unread = RealGeometryFixtures.priority().filterNot { it.text == "$79.45" }
+        val lane = replay(UBER) {
+            frame("pr f0 unread", "pr", unread, 0)
+            frame("pr f1 unread lost", "pr", lostPickup(unread), 850)
+            frame("pr f2 unread lost", "pr", lostPickup(unread), 1700)
+            frame("pr f3 unread", "pr", unread, 2550)
+        }
+        val sid = lane.frames.first().sessionId
+        lane.frames.forEach {
+            assertTrue("${it.label}: one fare-less session that keeps the 0.2 km pickup\n${trace(lane)}",
+                it.published && it.fare == null && it.pickup == 0.2 && it.sessionId == sid && it.rows.single().pickupKm == 0.2)
+        }
+    }
+
+    @Test fun `modern twin - two consecutive contradictory pickups never revise the row and payment resumes after them`() {
+        val lane = replay(UBER) {
+            frame("pr f0", "pr", RealGeometryFixtures.priority(), 0)
+            frame("pr f1 lost", "pr", lostPickup(RealGeometryFixtures.priority()), 850)
+            frame("pr f2 lost", "pr", lostPickup(RealGeometryFixtures.priority()), 1700)
+            frame("pr f3", "pr", RealGeometryFixtures.priority(), 2550)
+        }
+        val (f0, f1, f2, f3) = lane.frames
+        assertTrue(trace(lane), f0.shownFare == 79.45 && f0.shownPickup == 0.2)
+        for (f in listOf(f1, f2)) assertTrue("${f.label}: suppressed, the row keeps 0.2\n${trace(lane)}",
+            f.published && f.fare == null && f.shownFare == null && f.pickup == 0.2 && f.rows.single().pickupKm == 0.2)
+        assertTrue("A consistent frame re-establishes the offer\n${trace(lane)}",
+            f3.shownFare == 79.45 && f3.shownPickup == 0.2 && f3.rows.single().pickupKm == 0.2 && f3.sessionId == f0.sessionId)
+    }
+
+    @Test fun `modern twin - contradictory misreads never become a first reveal, a hold or a revision`() {
+        for ((name, f1, f2) in listOf(
+            Triple("split", RealGeometryFixtures.priority(), RealGeometryFixtures.retext(RealGeometryFixtures.priority(), "Aceptar" to "Acep")),
+            Triple("pickup", lostPickup(RealGeometryFixtures.priority()), RealGeometryFixtures.priority()))) {
+            val lane = replay(UBER) {
+                frame("$name f0 misread", name, misreadFare(), 0)
+                frame("$name f1", name, f1, 850)
+                frame("$name f2", name, f2, 1700)
+                frame("$name f3", name, RealGeometryFixtures.priority(), 2550)
+                frame("$name f4", name, RealGeometryFixtures.priority(), 3400)
+            }
+            val firstPaid = if (name == "split") 1 else 2
+            assertTrue("$name: the contradictions mint nothing\n${trace(lane)}",
+                lane.frames.take(firstPaid).none { it.published } && lane.frames[firstPaid - 1].rows.isEmpty())
+            lane.frames.drop(firstPaid).forEach {
+                assertTrue("$name ${it.label}: the true fare from the first consistent frame on\n${trace(lane)}",
+                    it.visible && it.shownFare == 79.45 && it.shownPickup == 0.2)
+            }
+            assertTrue(trace(lane), lane.frames.none { it.fare == 19.45 || it.shownFare == 19.45 || it.pickup == 2.0 } &&
+                lane.offers.all().single().let { it.fareMxn == 79.45 && it.pickupKm == 0.2 })
+            assertContract(lane, mapOf(name to 79.45), mapOf(name to 2.4))
+        }
+    }
+
+    @Test fun `modern twin - a contradictory misread after the first reveal is one suppressed frame, never a revision`() {
+        val lane = replay(UBER) {
+            frame("pr f0 misread", "pr", misreadFare(), 0)
+            frame("pr f1", "pr", RealGeometryFixtures.priority(), 850)
+            frame("pr f2", "pr", RealGeometryFixtures.priority(), 1700)
+            frame("pr f3 misread", "pr", misreadFare(), 2550)
+            frame("pr f4", "pr", RealGeometryFixtures.priority(), 3400)
+        }
+        val (f0, f1, f2, f3, f4) = lane.frames
+        assertTrue(trace(lane), !f0.published && f1.shownFare == 79.45 && f2.shownFare == 79.45)
+        assertTrue("The second misread publishes Sin lectura in the same session\n${trace(lane)}",
+            f3.published && f3.fare == null && f3.shownFare == null && f3.sessionId == f1.sessionId &&
+                f3.rows.single().fareMxn == 79.45)
+        assertTrue(trace(lane), f4.shownFare == 79.45 && f4.sessionId == f1.sessionId && lane.offers.all().size == 1)
+        assertTrue(trace(lane), lane.frames.none { it.fare == 19.45 || it.shownFare == 19.45 })
+        assertContract(lane, mapOf("pr" to 79.45), mapOf("pr" to 2.4))
+    }
+
+    @Test fun `competing headline prices are both protected from the chip`() {
+        // Spec D.3 / Codex round 2 F3: with two eligible prices the fare is withheld, never the pixels.
+        val g4 = RealS25Corpus.groups[4].frames.filter { it.signature }
+        val competing = OcrBlock("$90.00", mx.kompara.ocr.OcrBounds(560, 980, 840, 1060))
+        for (closedLoop in listOf(false, true)) {
+            val lane = replay(UBER) {
+                g4.forEachIndexed { i, f -> frame(f.id, "g4", f.blocks + competing, i * 850L, recordedChip = f.chip,
+                    closedLoop = closedLoop) }
+            }
+            val prices = listOf(RealGeometryFixtures.run { competing.rect() }, HostRect(100, 961, 514, 1071)).map { it.expanded(48) }
+            assertTrue("closedLoop=$closedLoop: the frames publish without payment\n${trace(lane)}",
+                lane.frames.all { it.fare == null && it.shownFare == null } && lane.frames.any { it.published })
+            lane.frames.forEach { f -> f.rect?.let { r ->
+                assertTrue("closedLoop=$closedLoop: ${f.label} chip $r covers a price\n${trace(lane)}", prices.none { it.overlaps(r) })
+            } }
+        }
     }
 
     private data class Quad(val name: String, val blocks: List<OcrBlock>, val fare: Double, val trip: Double)

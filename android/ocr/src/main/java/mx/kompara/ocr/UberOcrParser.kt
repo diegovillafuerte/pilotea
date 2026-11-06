@@ -20,6 +20,11 @@ import kotlin.math.abs
  * and as a fixture reference).
  *
  * ## Strategy (text + card geometry)
+ * - **Current card (0.2.15)**: a product heading with a TOTAL row ("27 min • 12.6 km • $8.87/km
+ *   est.") is read by geometry first (heading -> headline -> TOTAL -> two route rows in one card
+ *   band), then validated by the card's own arithmetic ([UberCardChecksum]); the result carries
+ *   per-field provenance and a grade on [OfferCard.validation]. Without a TOTAL row the legacy rules
+ *   below apply unchanged.
  * - **Fare**: an anchored currency amount in the first headline area, at least ~1.4× body height
  *   and above the legs. Visual rows and attached fragments exclude rates, bonuses and labels before
  *   considering size. Ambiguous headlines yield no fare: OCR carries no strikethrough metadata.
@@ -36,7 +41,11 @@ import kotlin.math.abs
  * the grey Sin lectura / Falta tiempo state. A known route structure supplies estimated driver
  * payment; a recognized offer with an unknown structure keeps its payment basis unconfirmed.
  */
-class UberOcrParser {
+class UberOcrParser internal constructor(
+    /** False runs only the legacy labeled-route path (0.2.14's extractor); tests pin it as a baseline. */
+    private val modernTotals: Boolean,
+) {
+    constructor() : this(modernTotals = true)
 
     // Currency is mandatory; only a terminal MXN suffix is allowed. Never recover S as $: geometry
     // cannot establish that a recognized letter was a currency glyph rather than label text.
@@ -65,13 +74,35 @@ class UberOcrParser {
     private val minutesRegex = Regex("""([0-9OlI]+)\s*min\b""", RegexOption.IGNORE_CASE)
     private val hostRegex = Regex("""\bUber\w*|Radar de solicitud""", RegexOption.IGNORE_CASE)
 
+    // Modern card (0.2.15). Slots are found by unit/currency syntax with loose tokens; only
+    // [UberCardChecksum] turns a token into a number. The floating Radar pill is never a product heading.
+    private val productRegex = Regex("""\bUber\w*""", RegexOption.IGNORE_CASE)
+    private val radarPillRegex = Regex("""Radar de solicitud""", RegexOption.IGNORE_CASE)
+    // TOTAL row "27 min • 12.6 km • $8.87/km est.": minutes -> km -> currency rate per km, in order,
+    // through missing bullets, glued tokens and a dash before the currency (a separator, never a sign).
+    private val totalRegex =
+        Regex("""(?<!\S)(\S{1,4}?)\s*(?i:min)[\s•·.\-]*(\S{1,7}?)\s*(?i:km)[\s•·.\-]*\$\s*(\S{1,8}?)\s*/\s*(?i:km)""")
+    // A unit-anchored route row, after the observed short route-icon prefixes; `nmin`/`knm` are the
+    // observed unit misreads, recognized only in these unit positions.
+    private val routeRowRegex =
+        Regex("""(?:(?:e |ad )?h |d |n )?(\S{1,4}?)\s*((?i:n?min))\s*\(\s*(\S{1,6}?)\s*((?i:knm|km))\s*\)""")
+    private val moneyToken = """([0-9lLI|Oo][0-9lLI|Oo.,]*)"""
+    private val modernMoneyRegex = Regex("""(?:(?i:MX[N$])\s*\$?|\$)\s*$moneyToken(?:\s+(?i:MXN))?|$moneyToken\s+(?i:MXN)""")
+    /** Deterministic for any input order, identical rectangles included. */
+    private val blockOrder = compareBy<OcrBlock>({ it.bounds.top }, { it.bounds.left }, { it.bounds.bottom },
+        { it.bounds.right }, { it.text })
+
     fun parse(blocks: List<OcrBlock>, cardBounds: OcrBounds? = null, chipRect: ScreenRect? = null,
         hostConfirmed: Boolean = false): OfferCard? {
         val cardBlocks = cardBlocks(blocks, cardBounds, chipRect)
         if (!hasCardSignature(cardBlocks, cardBounds, hostConfirmed = hostConfirmed)) return null
-        val fareHit = extractFare(cardBlocks, cardBounds, hostConfirmed)
-        val trip = extractTripLeg(cardBlocks, hostConfirmed)
-        val pickup = extractPickupLeg(cardBlocks, hostConfirmed)
+        val evidence = instanceEvidence(cardBlocks, ChipMask.maskOwnChip(blocks, chipRect))
+        // A recognized TOTAL row selects the modern path; it never falls back to the legacy
+        // extractor, which could refill a contradictory frame.
+        val modern = if (modernTotals) modernCard(cardBlocks, evidence.selectionCertain) else null
+        val fareHit = if (modern == null) extractFare(cardBlocks, cardBounds, hostConfirmed) else null
+        val trip = if (modern == null) extractTripLeg(cardBlocks, hostConfirmed) else null
+        val pickup = if (modern == null) extractPickupLeg(cardBlocks, hostConfirmed) else null
 
         val text = cardBlocks.joinToString(" ") { it.text }
         val surge = text.contains("dinámica", ignoreCase = true) ||
@@ -86,6 +117,29 @@ class UberOcrParser {
             else -> null
         }
 
+        if (modern != null) {
+            val result = modern.result
+            return OfferCard(
+                platform = UBER_PACKAGE,
+                variant = variant,
+                fare = result.fare,
+                captureSource = "OCR",
+                // A recognized TOTAL row is the known current card: its amounts estimate driver payment.
+                paymentBasis = if (result.fare != null || result.tripKm != null) "DRIVER_PAYMENT" else "UNCONFIRMED",
+                pickupDistanceKm = result.pickupKm,
+                pickupEtaMin = result.pickupMin,
+                tripDistanceKm = result.tripKm,
+                tripDurationMin = result.tripMin,
+                surge = surge,
+                paymentType = null,
+                raw = result.fare?.let { mapOf("fare" to String.format(Locale.US, "%.2f", it)) } ?: emptyMap(),
+                // Rows and visible money protect their pixels even when a value is withheld.
+                contentBounds = unionBounds(modern.protectedFare, *modern.rows.toTypedArray()),
+                fareBounds = modern.protectedFare?.let { OfferContentBounds(it.left, it.top, it.right, it.bottom) },
+                instanceEvidence = evidence.copy(routeWellFormed = result.routeWellFormed),
+                validation = result.evidence,
+            )
+        }
         return OfferCard(
             platform = UBER_PACKAGE,
             variant = variant,
@@ -102,10 +156,91 @@ class UberOcrParser {
             raw = fareHit?.let { mapOf("fare" to String.format(Locale.US, "%.2f", it.value)) } ?: emptyMap(),
             contentBounds = unionBounds(fareHit?.bounds, trip?.bounds, pickup?.bounds),
             fareBounds = fareHit?.bounds?.let { OfferContentBounds(it.left, it.top, it.right, it.bottom) },
-            instanceEvidence = instanceEvidence(cardBlocks, ChipMask.maskOwnChip(blocks, chipRect)).copy(
+            instanceEvidence = evidence.copy(
                 routeWellFormed = cardBlocks.sumOf { legRegex.findAll(it.text).count() } >= 2),
         )
     }
+
+    /** [protectedFare]: the unique headline, or the union of competing prices whose value is withheld. */
+    private class ModernCard(val protectedFare: OcrBounds?, val rows: List<OcrBounds>, val result: UberCardChecksum.Result)
+
+    /**
+     * The current card read by geometry before arithmetic: product heading -> headline -> TOTAL ->
+     * two route rows, inside one card band (never across another product heading or action label).
+     * The headline is bounded by its own heading and TOTAL row and must overlap the TOTAL's content
+     * column, so a side fragment elsewhere on screen can never end it (39 of 42 real fare misses).
+     * Null without a product heading and TOTAL row: legacy formats keep the labeled-route path.
+     */
+    private fun modernCard(blocks: List<OcrBlock>, selectionCertain: Boolean): ModernCard? {
+        val ordered = blocks.filter { it.bounds.valid }.sortedWith(blockOrder)
+        fun product(b: OcrBlock) = productRegex.containsMatchIn(b.text) && !radarPillRegex.containsMatchIn(b.text)
+        val heading = ordered.firstOrNull(::product) ?: return null
+        val below = ordered.filter { it !== heading && it.bounds.top >= heading.bounds.bottom }
+        val boundary = below.firstOrNull { product(it) || OfferActionLabel.from(it.text) != null }?.bounds?.top
+        fun inBand(b: OcrBlock) = boundary == null || b.bounds.bottom <= boundary
+        val totals = below.filter { inBand(it) && totalRegex.containsMatchIn(it.text) }
+        val total = totals.firstOrNull() ?: return null
+        val totalMatch = requireNotNull(totalRegex.find(total.text))
+        val routeRows = below.filter { inBand(it) && it.bounds.top >= total.bounds.bottom }
+            .mapNotNull { b -> routeRowRegex.matchEntire(b.text.trim())?.let { b to it } }
+        val legs = routeRows.takeIf { it.size == 2 && it[0].first.bounds.bottom <= it[1].first.bounds.top }
+
+        // The headline: a unique money token between this heading and this TOTAL, in its column, at
+        // least 1.4x the TOTAL row (the structural body line beside it; real ratios 2.05-2.61).
+        val bodyHeight = total.bounds.height.toDouble()
+        val visualRows = visualRows(ordered)
+        val amounts = currencyAmounts(below.filter { it.bounds.bottom <= total.bounds.top }, modernMoneyRegex)
+        val candidates = amounts?.filter { amount ->
+            val b = amount.block.bounds
+            // Like the legacy path, a zero amount is no price; an unreadable token still competes.
+            val readings = headlineMoney(amount.block.text)
+                ?: amountOnlyRegex.matchEntire(amount.block.text.trim())?.let { UberCardChecksum.money(it.groupValues[1]) }
+            b.left < total.bounds.right && b.right > total.bounds.left &&
+                !isContext(amount, ordered, visualRows, bodyHeight) &&
+                (readings.isNullOrEmpty() || readings.any { it.units > 0 })
+        }
+        // A shared currency fragment (null) or two prices: the checksum never chooses between them.
+        val fareCandidates = candidates?.size ?: 2
+        val headline = candidates?.singleOrNull()?.takeIf {
+            modernMoneyRegex.matches(it.block.text) && it.amount.bounds.height > bodyHeight &&
+                it.amount.bounds.height >= (bodyHeight * 1.4).toInt()
+        }
+        // Competing prices withhold the value, never the pixels (spec D.3): their union stays protected.
+        val competing = candidates?.takeIf { it.size > 1 }?.map { it.block.bounds }
+            ?: if (amounts == null) below.filter {
+                it.bounds.bottom <= total.bounds.top && it.bounds.left < total.bounds.right && it.bounds.right > total.bounds.left &&
+                    (modernMoneyRegex.matches(it.text.trim()) || amountOnlyRegex.matches(it.text.trim()) ||
+                        currencyFragmentRegex.matches(it.text.trim()))
+            }.map { it.bounds } else emptyList()
+        val protectedFare = headline?.block?.bounds ?: competing.takeIf { it.isNotEmpty() }?.let { b ->
+            OcrBounds(b.minOf { it.left }, b.minOf { it.top }, b.maxOf { it.right }, b.maxOf { it.bottom })
+        }
+        fun bounds(b: OcrBounds) = OfferContentBounds(b.left, b.top, b.right, b.bottom)
+        fun leg(index: Int, group: Int) = legs?.get(index)?.second?.groupValues?.get(group)
+        fun unit(index: Int, group: Int, repaired: String) = leg(index, group)?.equals(repaired, ignoreCase = true) == true
+        val pickupRow = legs?.get(0)?.first?.bounds?.let(::bounds)
+        val tripRow = legs?.get(1)?.first?.bounds?.let(::bounds)
+        val totalBounds = bounds(total.bounds)
+        val slots = listOf(
+            UberCardChecksum.Slot(headline?.let { headlineMoney(it.block.text) }.orEmpty(), headline?.block?.bounds?.let(::bounds)),
+            UberCardChecksum.Slot(UberCardChecksum.money(totalMatch.groupValues[3]), totalBounds),
+            UberCardChecksum.Slot(UberCardChecksum.minutes(totalMatch.groupValues[1]), totalBounds),
+            UberCardChecksum.Slot(UberCardChecksum.distance(totalMatch.groupValues[2]), totalBounds),
+            UberCardChecksum.Slot(UberCardChecksum.minutes(leg(0, 1), unit(0, 2, "nmin")), pickupRow),
+            UberCardChecksum.Slot(UberCardChecksum.distance(leg(0, 3), unit(0, 4, "knm")), pickupRow),
+            UberCardChecksum.Slot(UberCardChecksum.minutes(leg(1, 1), unit(1, 2, "nmin")), tripRow),
+            UberCardChecksum.Slot(UberCardChecksum.distance(leg(1, 3), unit(1, 4, "knm")), tripRow),
+        )
+        return ModernCard(protectedFare, routeRows.map { it.first.bounds },
+            UberCardChecksum.solve(slots, rowsIdentified = legs != null, selectionCertain = selectionCertain,
+                fareCandidates = fareCandidates, structuralConflict = totals.size > 1))
+    }
+
+    /** The headline's money readings: null when the block is not currency-anchored (a competing price). */
+    private fun headlineMoney(text: String): List<UberCardChecksum.Candidate>? =
+        modernMoneyRegex.matchEntire(text.trim())?.let { m ->
+            UberCardChecksum.money(m.groupValues.drop(1).firstOrNull { it.isNotEmpty() })
+        }
 
     /**
      * A card survives missing money/time, but idle bonuses and explicit zero-wallet pills do not.
@@ -199,10 +334,14 @@ class UberOcrParser {
         return (heights[(heights.size - 1) / 2] + heights[heights.size / 2]) / 2.0
     }
 
-    /** Join only adjacent, same-row currency glyphs; never merge two amounts or infer a currency. */
-    private fun currencyAmounts(blocks: List<OcrBlock>): List<CurrencyAmount>? {
+    /**
+     * Join only adjacent, same-row currency glyphs; never merge two amounts or infer a currency.
+     * [money] is the currency-anchored amount syntax: the legacy fare grammar, or the modern headline
+     * token whose digits only [UberCardChecksum] may read.
+     */
+    private fun currencyAmounts(blocks: List<OcrBlock>, money: Regex = fareRegex): List<CurrencyAmount>? {
         val amounts = blocks.filter {
-            fareRegex.matches(it.text.trim()) || amountOnlyRegex.matches(it.text.trim())
+            money.matches(it.text.trim()) || amountOnlyRegex.matches(it.text.trim())
         }
         val fragments = blocks.filter { currencyFragmentRegex.matches(it.text.trim()) }
         val owners = mutableMapOf<OcrBlock, OcrBlock>()
@@ -212,7 +351,7 @@ class UberOcrParser {
                 val f = fragment.bounds
                 val gap = maxOf(a.left - f.right, f.left - a.right, 0)
                 sameRow(a, f) && gap <= minOf(a.height, f.height) &&
-                    fareRegex.matches(listOf(amount, fragment).sortedBy { it.bounds.left }
+                    money.matches(listOf(amount, fragment).sortedBy { it.bounds.left }
                         .joinToString(" ") { it.text.trim() }) &&
                     // A label between the glyph and amount is context, not part of a currency.
                     blocks.none { other -> other != amount && other != fragment &&
@@ -227,9 +366,35 @@ class UberOcrParser {
             val token = CurrencyAmount(amount, listOf(amount) + owners.filterValues { it == amount }.keys)
             // A clean decimal without a recovered currency is still competing-price evidence.
             // It can withhold payment, but can never establish a fare by itself.
-            if (!fareRegex.matches(token.block.text) && !amountOnlyRegex.matches(token.block.text)) return null
+            if (!money.matches(token.block.text) && !amountOnlyRegex.matches(token.block.text)) return null
             token
         }
+    }
+
+    /**
+     * Bonus, rate, goal and original-price context, or a "+" prefix in the amount's visual row,
+     * attached fragments or immediate left neighbour: such an amount is never payment.
+     */
+    private fun isContext(amount: CurrencyAmount, positioned: List<OcrBlock>, rows: List<List<OcrBlock>>,
+        bodyHeight: Double): Boolean {
+        val b = amount.block.bounds
+        val row = (rows.first { amount.amount in it } + amount.members).distinct()
+        // Wrapped labels immediately above/below and touching fragments are context, but a
+        // separate body row (e.g. S25's summary 29px below the headline) is not its suffix.
+        val attached = positioned.filter { other ->
+            val o = other.bounds
+            val gap = maxOf(b.top - o.bottom, o.top - b.bottom, 0)
+            val horizontalGap = maxOf(b.left - o.right, o.left - b.right, 0)
+            other !in row && gap <= bodyHeight * 0.25 && horizontalGap <= bodyHeight * 0.5
+        }
+        val immediatelyLeft = positioned.filter {
+            it.bounds.right <= b.left && minOf(it.bounds.bottom, b.bottom) > maxOf(it.bounds.top, b.top)
+        }.maxByOrNull { it.bounds.right }
+        val context = (row + attached).joinToString(" ") { it.text.trim() }
+        return excludedContext.containsMatchIn(context) ||
+            immediatelyLeft?.text?.trimStart()?.startsWith("+") == true ||
+            row.any { it.text.trimStart().startsWith("+") } ||
+            attached.any { it.text.trimStart().startsWith("+") }
     }
 
     /** Context and headline evidence are prerequisites, never tie-breakers for arbitrary amounts. */
@@ -268,23 +433,7 @@ class UberOcrParser {
                 ?.takeIf { it > 0 && it.isFinite() } ?: return@mapNotNull null
             val b = amount.block.bounds
             if (b.bottom > firstLeg || b.bottom > headlineEnd) return@mapNotNull null
-            val row = (rows.first { amount.amount in it } + amount.members).distinct()
-            // Wrapped labels immediately above/below and touching fragments are context, but a
-            // separate body row (e.g. S25's summary 29px below the headline) is not its suffix.
-            val attached = positioned.filter { other ->
-                val o = other.bounds
-                val gap = maxOf(b.top - o.bottom, o.top - b.bottom, 0)
-                val horizontalGap = maxOf(b.left - o.right, o.left - b.right, 0)
-                other !in row && gap <= bodyHeight * 0.25 && horizontalGap <= bodyHeight * 0.5
-            }
-            val immediatelyLeft = positioned.filter {
-                it.bounds.right <= b.left && minOf(it.bounds.bottom, b.bottom) > maxOf(it.bounds.top, b.top)
-            }.maxByOrNull { it.bounds.right }
-            val context = (row + attached).joinToString(" ") { it.text.trim() }
-            if (excludedContext.containsMatchIn(context) ||
-                immediatelyLeft?.text?.trimStart()?.startsWith("+") == true ||
-                row.any { it.text.trimStart().startsWith("+") } ||
-                attached.any { it.text.trimStart().startsWith("+") }) return@mapNotNull null
+            if (isContext(amount, positioned, rows, bodyHeight)) return@mapNotNull null
             FareHit(value, b, amount.amount.bounds.height, anchoredValue != null)
         }
         // A strike is not represented by ML Kit's text/bounds. If two clean headlines survive, no

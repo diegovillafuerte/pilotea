@@ -1,0 +1,3595 @@
+{
+ "source": "Galaxy S25 (1080x2340), Kompara 0.2.14 debug recorder; numeric tokens, labels and bounds are verbatim device OCR; every address/place/name is invented",
+ "capturedAt": "2026-10-30 21:38",
+ "frames": [
+  {
+   "tMs": 0,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_14": {
+    "fare": null,
+    "pickup": [
+     4,
+     0.8
+    ],
+    "trip": [
+     null,
+     null
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "Privada Supu",
+     "left": 431,
+     "top": 148,
+     "right": 766,
+     "bottom": 202
+    },
+    {
+     "text": "Calzada Inventada 300, Col",
+     "left": 204,
+     "top": 447,
+     "right": 794,
+     "bottom": 500
+    },
+    {
+     "text": "2 Uber Priority",
+     "left": 124,
+     "top": 649,
+     "right": 476,
+     "bottom": 700
+    },
+    {
+     "text": "$111.75",
+     "left": 102,
+     "top": 756,
+     "right": 549,
+     "bottom": 865
+    },
+    {
+     "text": "27 min 12.6 km • $8.87/km est.",
+     "left": 97,
+     "top": 907,
+     "right": 847,
+     "bottom": 957
+    },
+    {
+     "text": "Calle Inventada 123",
+     "left": 195,
+     "top": 1004,
+     "right": 644,
+     "bottom": 1041
+    },
+    {
+     "text": "* 4.87 (94) 9 +$18.00 incluido",
+     "left": 125,
+     "top": 1123,
+     "right": 900,
+     "bottom": 1166
+    },
+    {
+     "text": "X",
+     "left": 891,
+     "top": 677,
+     "right": 933,
+     "bottom": 718
+    },
+    {
+     "text": "+$13.44 incluido para Ejemplo de",
+     "left": 195,
+     "top": 1278,
+     "right": 945,
+     "bottom": 1333
+    },
+    {
+     "text": "4 min (0.8 km)",
+     "left": 194,
+     "top": 1402,
+     "right": 514,
+     "bottom": 1447
+    },
+    {
+     "text": "Barrio Ficticio - Avenida Fictic",
+     "left": 195,
+     "top": 1477,
+     "right": 941,
+     "bottom": 1513
+    },
+    {
+     "text": "h 23 min (11.8 km)",
+     "left": 114,
+     "top": 1534,
+     "right": 553,
+     "bottom": 1593
+    },
+    {
+     "text": "Parque Imaginario - Avenida Fictic",
+     "left": 192,
+     "top": 1621,
+     "right": 973,
+     "bottom": 1666
+    },
+    {
+     "text": "Calle Inventada 123 - Calle Supuesta",
+     "left": 195,
+     "top": 1681,
+     "right": 971,
+     "bottom": 1726
+    },
+    {
+     "text": "Calle Invent",
+     "left": 196,
+     "top": 1743,
+     "right": 508,
+     "bottom": 1779
+    },
+    {
+     "text": "Me interesa",
+     "left": 396,
+     "top": 1908,
+     "right": 686,
+     "bottom": 1954
+    },
+    {
+     "text": "qq",
+     "left": 1037,
+     "top": 844,
+     "right": 1072,
+     "bottom": 874
+    },
+    {
+     "text": "Qq",
+     "left": 1041,
+     "top": 1352,
+     "right": 1075,
+     "bottom": 1399
+    }
+   ]
+  },
+  {
+   "tMs": 949,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_14": {
+    "fare": 111.75,
+    "pickup": [
+     4,
+     0.8
+    ],
+    "trip": [
+     null,
+     null
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "qqq",
+     "left": 10,
+     "top": 1311,
+     "right": 53,
+     "bottom": 1352
+    },
+    {
+     "text": "Qqq",
+     "left": 10,
+     "top": 1371,
+     "right": 50,
+     "bottom": 1412
+    },
+    {
+     "text": "Uber Priority",
+     "left": 210,
+     "top": 646,
+     "right": 480,
+     "bottom": 701
+    },
+    {
+     "text": "Qqqq",
+     "left": 504,
+     "top": 296,
+     "right": 767,
+     "bottom": 399
+    },
+    {
+     "text": "b Radar de solicitud de viaje3",
+     "left": 143,
+     "top": 451,
+     "right": 858,
+     "bottom": 504
+    },
+    {
+     "text": "$111.75",
+     "left": 102,
+     "top": 756,
+     "right": 549,
+     "bottom": 865
+    },
+    {
+     "text": "27 min • 12.6 km. $8.87/km est.",
+     "left": 97,
+     "top": 911,
+     "right": 836,
+     "bottom": 955
+    },
+    {
+     "text": "Calle Inventada 123",
+     "left": 195,
+     "top": 1004,
+     "right": 644,
+     "bottom": 1041
+    },
+    {
+     "text": "4 min (0.8 km)",
+     "left": 194,
+     "top": 1402,
+     "right": 514,
+     "bottom": 1447
+    },
+    {
+     "text": "* 4.87 (94) 9 +$18.00 incluido",
+     "left": 125,
+     "top": 1123,
+     "right": 900,
+     "bottom": 1167
+    },
+    {
+     "text": "+$13.44 incluido para Ejemplo de",
+     "left": 195,
+     "top": 1279,
+     "right": 945,
+     "bottom": 1334
+    },
+    {
+     "text": "X",
+     "left": 891,
+     "top": 678,
+     "right": 933,
+     "bottom": 720
+    },
+    {
+     "text": "Calzada Inventada 300, Colonia E",
+     "left": 194,
+     "top": 1475,
+     "right": 937,
+     "bottom": 1512
+    },
+    {
+     "text": "h 23 min (11.8 km)",
+     "left": 114,
+     "top": 1534,
+     "right": 553,
+     "bottom": 1593
+    },
+    {
+     "text": "Me interesa",
+     "left": 396,
+     "top": 1908,
+     "right": 686,
+     "bottom": 1954
+    },
+    {
+     "text": "Parque Imaginario - Avenida Fictic",
+     "left": 192,
+     "top": 1621,
+     "right": 973,
+     "bottom": 1666
+    },
+    {
+     "text": "Colonia Ejemplo - Calle Supuesta 77",
+     "left": 195,
+     "top": 1678,
+     "right": 980,
+     "bottom": 1726
+    },
+    {
+     "text": "Calle Invent",
+     "left": 196,
+     "top": 1743,
+     "right": 508,
+     "bottom": 1779
+    },
+    {
+     "text": "Lugar",
+     "left": 703,
+     "top": 2143,
+     "right": 892,
+     "bottom": 2193
+    }
+   ]
+  },
+  {
+   "tMs": 1885,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_14": {
+    "fare": 111.75,
+    "pickup": [
+     4,
+     0.8
+    ],
+    "trip": [
+     null,
+     null
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "d",
+     "left": 26,
+     "top": 684,
+     "right": 38,
+     "bottom": 726
+    },
+    {
+     "text": "Radar de solicitud de viaje",
+     "left": 204,
+     "top": 459,
+     "right": 790,
+     "bottom": 495
+    },
+    {
+     "text": "2 Uber Priority",
+     "left": 124,
+     "top": 651,
+     "right": 474,
+     "bottom": 700
+    },
+    {
+     "text": "$111.75",
+     "left": 102,
+     "top": 756,
+     "right": 549,
+     "bottom": 865
+    },
+    {
+     "text": "27 min 12.6 km • $8.87/km est.",
+     "left": 97,
+     "top": 910,
+     "right": 836,
+     "bottom": 954
+    },
+    {
+     "text": "Identidad verificada",
+     "left": 196,
+     "top": 1004,
+     "right": 644,
+     "bottom": 1041
+    },
+    {
+     "text": "qq",
+     "left": 780,
+     "top": 304,
+     "right": 850,
+     "bottom": 347
+    },
+    {
+     "text": "* 4.87 (94) 9 +$18.00 incluido",
+     "left": 125,
+     "top": 1123,
+     "right": 900,
+     "bottom": 1166
+    },
+    {
+     "text": "4 min (0.8 km)",
+     "left": 194,
+     "top": 1402,
+     "right": 514,
+     "bottom": 1447
+    },
+    {
+     "text": "+$13.44 incluido para Ejemplo de",
+     "left": 195,
+     "top": 1279,
+     "right": 945,
+     "bottom": 1334
+    },
+    {
+     "text": "X",
+     "left": 891,
+     "top": 678,
+     "right": 933,
+     "bottom": 720
+    },
+    {
+     "text": "Me interesa",
+     "left": 396,
+     "top": 1908,
+     "right": 686,
+     "bottom": 1954
+    },
+    {
+     "text": "Calzada Inventada 300, Colonia E",
+     "left": 194,
+     "top": 1475,
+     "right": 937,
+     "bottom": 1512
+    },
+    {
+     "text": "h 23 min (11.8 km)",
+     "left": 114,
+     "top": 1535,
+     "right": 553,
+     "bottom": 1591
+    },
+    {
+     "text": "Parque Imaginario - Avenida Fictic",
+     "left": 192,
+     "top": 1621,
+     "right": 973,
+     "bottom": 1666
+    },
+    {
+     "text": "Colonia Ejemplo - Calle Supuesta 77",
+     "left": 195,
+     "top": 1678,
+     "right": 980,
+     "bottom": 1726
+    },
+    {
+     "text": "Calle Invent",
+     "left": 196,
+     "top": 1743,
+     "right": 508,
+     "bottom": 1779
+    }
+   ]
+  },
+  {
+   "tMs": 2767,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_14": {
+    "fare": 111.75,
+    "pickup": [
+     4,
+     0.8
+    ],
+    "trip": [
+     null,
+     null
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "d",
+     "left": 26,
+     "top": 684,
+     "right": 38,
+     "bottom": 726
+    },
+    {
+     "text": "2 Uber Priority",
+     "left": 160,
+     "top": 648,
+     "right": 476,
+     "bottom": 700
+    },
+    {
+     "text": "Radar de solicitud de viaje",
+     "left": 204,
+     "top": 459,
+     "right": 790,
+     "bottom": 498
+    },
+    {
+     "text": "$111.75",
+     "left": 102,
+     "top": 756,
+     "right": 549,
+     "bottom": 865
+    },
+    {
+     "text": "O",
+     "left": 625,
+     "top": 323,
+     "right": 652,
+     "bottom": 400
+    },
+    {
+     "text": "27 min 12.6 km • $8.87/km est.",
+     "left": 97,
+     "top": 910,
+     "right": 836,
+     "bottom": 954
+    },
+    {
+     "text": "Identidad verificada",
+     "left": 196,
+     "top": 1004,
+     "right": 644,
+     "bottom": 1041
+    },
+    {
+     "text": "qq",
+     "left": 781,
+     "top": 305,
+     "right": 852,
+     "bottom": 348
+    },
+    {
+     "text": "4 min (0.8 km)",
+     "left": 194,
+     "top": 1402,
+     "right": 514,
+     "bottom": 1447
+    },
+    {
+     "text": "* 4.87 (94) 9 +$18.00 incluido",
+     "left": 125,
+     "top": 1123,
+     "right": 900,
+     "bottom": 1166
+    },
+    {
+     "text": "+$13.44 incluido para Ejemplo de",
+     "left": 195,
+     "top": 1279,
+     "right": 945,
+     "bottom": 1334
+    },
+    {
+     "text": "X",
+     "left": 891,
+     "top": 678,
+     "right": 933,
+     "bottom": 720
+    },
+    {
+     "text": "Me interesa",
+     "left": 396,
+     "top": 1908,
+     "right": 686,
+     "bottom": 1954
+    },
+    {
+     "text": "Calzada Inventada 300, Colonia E",
+     "left": 194,
+     "top": 1475,
+     "right": 937,
+     "bottom": 1512
+    },
+    {
+     "text": "h 23 min (11.8 km)",
+     "left": 114,
+     "top": 1535,
+     "right": 553,
+     "bottom": 1591
+    },
+    {
+     "text": "Parque Imaginario - Avenida Fictic",
+     "left": 192,
+     "top": 1621,
+     "right": 973,
+     "bottom": 1666
+    },
+    {
+     "text": "Colonia Ejemplo - Calle Supuesta 77",
+     "left": 195,
+     "top": 1678,
+     "right": 980,
+     "bottom": 1726
+    },
+    {
+     "text": "Calle Invent",
+     "left": 196,
+     "top": 1743,
+     "right": 508,
+     "bottom": 1779
+    }
+   ]
+  },
+  {
+   "tMs": 3651,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_14": {
+    "fare": 111.75,
+    "pickup": [
+     4,
+     0.8
+    ],
+    "trip": [
+     null,
+     null
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "d",
+     "left": 26,
+     "top": 684,
+     "right": 38,
+     "bottom": 726
+    },
+    {
+     "text": "Radar de solicitud de viaje",
+     "left": 204,
+     "top": 458,
+     "right": 790,
+     "bottom": 497
+    },
+    {
+     "text": "Uber Priority",
+     "left": 221,
+     "top": 648,
+     "right": 484,
+     "bottom": 700
+    },
+    {
+     "text": "$111.75",
+     "left": 102,
+     "top": 756,
+     "right": 549,
+     "bottom": 865
+    },
+    {
+     "text": "27 min 12.6 km • $8.87/km est.",
+     "left": 97,
+     "top": 910,
+     "right": 836,
+     "bottom": 954
+    },
+    {
+     "text": "Identidad verificada",
+     "left": 196,
+     "top": 1004,
+     "right": 644,
+     "bottom": 1041
+    },
+    {
+     "text": "qq",
+     "left": 763,
+     "top": 296,
+     "right": 856,
+     "bottom": 356
+    },
+    {
+     "text": "* 4.87 (94) 9 +$18.00 incluido",
+     "left": 125,
+     "top": 1123,
+     "right": 900,
+     "bottom": 1166
+    },
+    {
+     "text": "4 min (0.8 km)",
+     "left": 194,
+     "top": 1402,
+     "right": 514,
+     "bottom": 1447
+    },
+    {
+     "text": "+$13.44 incluido para Ejemplo de",
+     "left": 195,
+     "top": 1279,
+     "right": 945,
+     "bottom": 1334
+    },
+    {
+     "text": "X",
+     "left": 891,
+     "top": 678,
+     "right": 933,
+     "bottom": 720
+    },
+    {
+     "text": "Me interesa",
+     "left": 396,
+     "top": 1908,
+     "right": 686,
+     "bottom": 1954
+    },
+    {
+     "text": "Calzada Inventada 300, Colonia E",
+     "left": 194,
+     "top": 1475,
+     "right": 937,
+     "bottom": 1512
+    },
+    {
+     "text": "h 23 min (11.8 km)",
+     "left": 114,
+     "top": 1534,
+     "right": 553,
+     "bottom": 1592
+    },
+    {
+     "text": "Parque Imaginario - Avenida Fictic",
+     "left": 192,
+     "top": 1621,
+     "right": 973,
+     "bottom": 1666
+    },
+    {
+     "text": "Calle Inventada 123 - Calle Supuesta",
+     "left": 195,
+     "top": 1681,
+     "right": 980,
+     "bottom": 1724
+    },
+    {
+     "text": "Calle Invent",
+     "left": 196,
+     "top": 1743,
+     "right": 508,
+     "bottom": 1779
+    }
+   ]
+  },
+  {
+   "tMs": 4534,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_14": {
+    "fare": 111.75,
+    "pickup": [
+     4,
+     0.8
+    ],
+    "trip": [
+     null,
+     null
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "d",
+     "left": 26,
+     "top": 684,
+     "right": 38,
+     "bottom": 726
+    },
+    {
+     "text": "Radar de solicitud de viaje",
+     "left": 204,
+     "top": 458,
+     "right": 790,
+     "bottom": 500
+    },
+    {
+     "text": "Uber Priority",
+     "left": 221,
+     "top": 648,
+     "right": 484,
+     "bottom": 700
+    },
+    {
+     "text": "$111.75",
+     "left": 102,
+     "top": 756,
+     "right": 549,
+     "bottom": 865
+    },
+    {
+     "text": "27 min 12.6 km • $8.87/km est.",
+     "left": 97,
+     "top": 910,
+     "right": 836,
+     "bottom": 954
+    },
+    {
+     "text": "Identidad verificada",
+     "left": 196,
+     "top": 1004,
+     "right": 644,
+     "bottom": 1041
+    },
+    {
+     "text": "qq",
+     "left": 763,
+     "top": 296,
+     "right": 856,
+     "bottom": 356
+    },
+    {
+     "text": "* 4.87 (94) 9 +$18.00 incluido",
+     "left": 125,
+     "top": 1123,
+     "right": 900,
+     "bottom": 1166
+    },
+    {
+     "text": "4 min (0.8 km)",
+     "left": 194,
+     "top": 1402,
+     "right": 514,
+     "bottom": 1447
+    },
+    {
+     "text": "+$13.44 incluido para Ejemplo de",
+     "left": 195,
+     "top": 1279,
+     "right": 945,
+     "bottom": 1334
+    },
+    {
+     "text": "X",
+     "left": 891,
+     "top": 678,
+     "right": 933,
+     "bottom": 720
+    },
+    {
+     "text": "Me interesa",
+     "left": 395,
+     "top": 1908,
+     "right": 685,
+     "bottom": 1953
+    },
+    {
+     "text": "Calzada Inventada 300, Colonia E",
+     "left": 194,
+     "top": 1475,
+     "right": 937,
+     "bottom": 1512
+    },
+    {
+     "text": "h 23 min (11.8 km)",
+     "left": 114,
+     "top": 1534,
+     "right": 553,
+     "bottom": 1592
+    },
+    {
+     "text": "Parque Imaginario - Avenida Fictic",
+     "left": 192,
+     "top": 1621,
+     "right": 973,
+     "bottom": 1666
+    },
+    {
+     "text": "Colonia Ejemplo - Calle Supuesta 77",
+     "left": 195,
+     "top": 1678,
+     "right": 980,
+     "bottom": 1726
+    },
+    {
+     "text": "Calle Invent",
+     "left": 196,
+     "top": 1743,
+     "right": 508,
+     "bottom": 1779
+    }
+   ]
+  },
+  {
+   "tMs": 5409,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_14": {
+    "fare": 84.47,
+    "pickup": [
+     4,
+     1
+    ],
+    "trip": [
+     15,
+     3.3
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "Radar de solicitud de viaje",
+     "left": 205,
+     "top": 373,
+     "right": 791,
+     "bottom": 415
+    },
+    {
+     "text": "2 Uber Priority",
+     "left": 161,
+     "top": 569,
+     "right": 478,
+     "bottom": 622
+    },
+    {
+     "text": "$84.47",
+     "left": 102,
+     "top": 677,
+     "right": 507,
+     "bottom": 787
+    },
+    {
+     "text": "19 min • 4.3 km • $19.64/km est.",
+     "left": 97,
+     "top": 833,
+     "right": 847,
+     "bottom": 877
+    },
+    {
+     "text": "Calzada Inventada 30",
+     "left": 201,
+     "top": 924,
+     "right": 648,
+     "bottom": 971
+    },
+    {
+     "text": "Calle Inv",
+     "left": 665,
+     "top": 136,
+     "right": 992,
+     "bottom": 207
+    },
+    {
+     "text": "Lugar",
+     "left": 725,
+     "top": 218,
+     "right": 950,
+     "bottom": 289
+    },
+    {
+     "text": "4 min (1.0 km)",
+     "left": 194,
+     "top": 1324,
+     "right": 509,
+     "bottom": 1369
+    },
+    {
+     "text": "* 4.79 (2898) 4 +$18.00 incluido",
+     "left": 128,
+     "top": 1041,
+     "right": 956,
+     "bottom": 1094
+    },
+    {
+     "text": "+$10.1l incluido para Ejemplo de",
+     "left": 193,
+     "top": 1199,
+     "right": 934,
+     "bottom": 1254
+    },
+    {
+     "text": "Avenida Ficticia 45 - Priv",
+     "left": 195,
+     "top": 1398,
+     "right": 795,
+     "bottom": 1439
+    },
+    {
+     "text": "15 min (3.3 km)",
+     "left": 194,
+     "top": 1588,
+     "right": 531,
+     "bottom": 1633
+    },
+    {
+     "text": "Colonia Imaginaria - Privada Supues",
+     "left": 195,
+     "top": 1460,
+     "right": 975,
+     "bottom": 1501
+    },
+    {
+     "text": "Privada",
+     "left": 190,
+     "top": 1520,
+     "right": 370,
+     "bottom": 1557
+    },
+    {
+     "text": "Calzada Inventada 300, Co",
+     "left": 196,
+     "top": 1660,
+     "right": 788,
+     "bottom": 1706
+    },
+    {
+     "text": "Calle Inventada 123 - Cal",
+     "left": 195,
+     "top": 1723,
+     "right": 853,
+     "bottom": 1760
+    },
+    {
+     "text": "Lugar",
+     "left": 193,
+     "top": 1784,
+     "right": 340,
+     "bottom": 1821
+    },
+    {
+     "text": "X",
+     "left": 891,
+     "top": 600,
+     "right": 933,
+     "bottom": 642
+    },
+    {
+     "text": "Me interesa",
+     "left": 395,
+     "top": 1951,
+     "right": 685,
+     "bottom": 1992
+    },
+    {
+     "text": "qq",
+     "left": 1027,
+     "top": 1569,
+     "right": 1071,
+     "bottom": 1605
+    }
+   ]
+  },
+  {
+   "tMs": 6307,
+   "signature": true,
+   "chipRect": {
+    "left": 36,
+    "top": 139,
+    "right": 756,
+    "bottom": 475
+   },
+   "parsed_0_2_14": {
+    "fare": 84.47,
+    "pickup": [
+     4,
+     1
+    ],
+    "trip": [
+     15,
+     3.3
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "2 Uber Priority",
+     "left": 161,
+     "top": 569,
+     "right": 478,
+     "bottom": 622
+    },
+    {
+     "text": "$84.47",
+     "left": 102,
+     "top": 677,
+     "right": 507,
+     "bottom": 787
+    },
+    {
+     "text": "Calle Supuesta 77 - C",
+     "left": 155,
+     "top": 924,
+     "right": 648,
+     "bottom": 971
+    },
+    {
+     "text": "19 min • 4.3 km • $19.64/km est.",
+     "left": 97,
+     "top": 833,
+     "right": 847,
+     "bottom": 877
+    },
+    {
+     "text": "4 min (1.0 km)",
+     "left": 194,
+     "top": 1322,
+     "right": 508,
+     "bottom": 1369
+    },
+    {
+     "text": "★ 4.79 (2898) 9 +$18.00 incluido",
+     "left": 124,
+     "top": 1041,
+     "right": 956,
+     "bottom": 1091
+    },
+    {
+     "text": "je 2",
+     "left": 756,
+     "top": 380,
+     "right": 858,
+     "bottom": 417
+    },
+    {
+     "text": "+$10.11 incluido para Ejemplo de",
+     "left": 193,
+     "top": 1199,
+     "right": 932,
+     "bottom": 1254
+    },
+    {
+     "text": "Colonia Imaginaria - Priva",
+     "left": 196,
+     "top": 1397,
+     "right": 795,
+     "bottom": 1441
+    },
+    {
+     "text": "15 min (3.3 km)",
+     "left": 194,
+     "top": 1588,
+     "right": 531,
+     "bottom": 1633
+    },
+    {
+     "text": "Lugar",
+     "left": 193,
+     "top": 1784,
+     "right": 340,
+     "bottom": 1821
+    },
+    {
+     "text": "Me interesa",
+     "left": 394,
+     "top": 1951,
+     "right": 685,
+     "bottom": 1994
+    },
+    {
+     "text": "Colonia Imaginaria - Privada Supues",
+     "left": 195,
+     "top": 1460,
+     "right": 975,
+     "bottom": 1501
+    },
+    {
+     "text": "Privada",
+     "left": 190,
+     "top": 1520,
+     "right": 370,
+     "bottom": 1557
+    },
+    {
+     "text": "Calzada Inventada 300, Co",
+     "left": 196,
+     "top": 1663,
+     "right": 790,
+     "bottom": 1708
+    },
+    {
+     "text": "Calle Inventada 123 - Cal",
+     "left": 195,
+     "top": 1723,
+     "right": 853,
+     "bottom": 1760
+    },
+    {
+     "text": "X",
+     "left": 891,
+     "top": 600,
+     "right": 933,
+     "bottom": 642
+    },
+    {
+     "text": "qq",
+     "left": 1026,
+     "top": 1890,
+     "right": 1071,
+     "bottom": 1927
+    }
+   ]
+  },
+  {
+   "tMs": 7208,
+   "signature": true,
+   "chipRect": {
+    "left": 36,
+    "top": 139,
+    "right": 756,
+    "bottom": 475
+   },
+   "parsed_0_2_14": {
+    "fare": 84.47,
+    "pickup": [
+     4,
+     1
+    ],
+    "trip": [
+     15,
+     3.3
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "2 Uber Priority",
+     "left": 161,
+     "top": 569,
+     "right": 478,
+     "bottom": 622
+    },
+    {
+     "text": "$84.47",
+     "left": 102,
+     "top": 677,
+     "right": 507,
+     "bottom": 787
+    },
+    {
+     "text": "Calle Supuesta 77 - C",
+     "left": 155,
+     "top": 924,
+     "right": 648,
+     "bottom": 971
+    },
+    {
+     "text": "19 min • 4.3 km • $19.64/km est.",
+     "left": 97,
+     "top": 833,
+     "right": 847,
+     "bottom": 877
+    },
+    {
+     "text": "4 min (1.0 km)",
+     "left": 194,
+     "top": 1322,
+     "right": 508,
+     "bottom": 1369
+    },
+    {
+     "text": "★ 4.79 (2898) 9 +$18.00 incluido",
+     "left": 124,
+     "top": 1041,
+     "right": 956,
+     "bottom": 1091
+    },
+    {
+     "text": "je 2",
+     "left": 756,
+     "top": 380,
+     "right": 858,
+     "bottom": 417
+    },
+    {
+     "text": "+$10.11 incluido para Ejemplo de",
+     "left": 193,
+     "top": 1199,
+     "right": 932,
+     "bottom": 1254
+    },
+    {
+     "text": "Colonia Imaginaria - Priva",
+     "left": 196,
+     "top": 1397,
+     "right": 795,
+     "bottom": 1441
+    },
+    {
+     "text": "15 min (3.3 km)",
+     "left": 194,
+     "top": 1588,
+     "right": 531,
+     "bottom": 1633
+    },
+    {
+     "text": "Lugar",
+     "left": 193,
+     "top": 1784,
+     "right": 340,
+     "bottom": 1821
+    },
+    {
+     "text": "Me interesa",
+     "left": 394,
+     "top": 1951,
+     "right": 685,
+     "bottom": 1994
+    },
+    {
+     "text": "Colonia Imaginaria - Privada Supues",
+     "left": 195,
+     "top": 1459,
+     "right": 975,
+     "bottom": 1501
+    },
+    {
+     "text": "Privada",
+     "left": 190,
+     "top": 1520,
+     "right": 370,
+     "bottom": 1557
+    },
+    {
+     "text": "Calzada Inventada 300, Co",
+     "left": 196,
+     "top": 1663,
+     "right": 790,
+     "bottom": 1708
+    },
+    {
+     "text": "Calle Inventada 123 - Cal",
+     "left": 195,
+     "top": 1723,
+     "right": 853,
+     "bottom": 1760
+    },
+    {
+     "text": "X",
+     "left": 891,
+     "top": 600,
+     "right": 933,
+     "bottom": 642
+    },
+    {
+     "text": "qq",
+     "left": 1026,
+     "top": 1890,
+     "right": 1071,
+     "bottom": 1927
+    }
+   ]
+  },
+  {
+   "tMs": 8101,
+   "signature": true,
+   "chipRect": {
+    "left": 36,
+    "top": 139,
+    "right": 756,
+    "bottom": 475
+   },
+   "parsed_0_2_14": {
+    "fare": 84.47,
+    "pickup": [
+     4,
+     1
+    ],
+    "trip": [
+     15,
+     3.3
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "2 Uber Priority",
+     "left": 161,
+     "top": 569,
+     "right": 478,
+     "bottom": 622
+    },
+    {
+     "text": "$84.47",
+     "left": 102,
+     "top": 677,
+     "right": 507,
+     "bottom": 787
+    },
+    {
+     "text": "Calle Supuesta 77 - C",
+     "left": 155,
+     "top": 924,
+     "right": 648,
+     "bottom": 971
+    },
+    {
+     "text": "19 min • 4.3 km • $19.64/km est.",
+     "left": 97,
+     "top": 833,
+     "right": 847,
+     "bottom": 877
+    },
+    {
+     "text": "4 min (1.0 km)",
+     "left": 194,
+     "top": 1322,
+     "right": 508,
+     "bottom": 1369
+    },
+    {
+     "text": "★ 4.79 (2898) 9 +$18.00 incluido",
+     "left": 124,
+     "top": 1041,
+     "right": 956,
+     "bottom": 1091
+    },
+    {
+     "text": "je 2",
+     "left": 756,
+     "top": 380,
+     "right": 858,
+     "bottom": 417
+    },
+    {
+     "text": "+$10.11 incluido para Ejemplo de",
+     "left": 193,
+     "top": 1199,
+     "right": 932,
+     "bottom": 1254
+    },
+    {
+     "text": "Colonia Imaginaria - Priva",
+     "left": 196,
+     "top": 1397,
+     "right": 795,
+     "bottom": 1441
+    },
+    {
+     "text": "15 min (3.3 km)",
+     "left": 194,
+     "top": 1588,
+     "right": 531,
+     "bottom": 1633
+    },
+    {
+     "text": "Lugar",
+     "left": 193,
+     "top": 1784,
+     "right": 340,
+     "bottom": 1821
+    },
+    {
+     "text": "Me interesa",
+     "left": 394,
+     "top": 1951,
+     "right": 685,
+     "bottom": 1994
+    },
+    {
+     "text": "Colonia Imaginaria - Privada Supues",
+     "left": 195,
+     "top": 1460,
+     "right": 975,
+     "bottom": 1501
+    },
+    {
+     "text": "Avenida",
+     "left": 192,
+     "top": 1520,
+     "right": 372,
+     "bottom": 1558
+    },
+    {
+     "text": "Calzada Inventada 300, Co",
+     "left": 196,
+     "top": 1660,
+     "right": 788,
+     "bottom": 1706
+    },
+    {
+     "text": "Calle Inventada 123 - Cal",
+     "left": 195,
+     "top": 1723,
+     "right": 853,
+     "bottom": 1760
+    },
+    {
+     "text": "X",
+     "left": 891,
+     "top": 600,
+     "right": 933,
+     "bottom": 642
+    },
+    {
+     "text": "qq",
+     "left": 1026,
+     "top": 1890,
+     "right": 1071,
+     "bottom": 1927
+    }
+   ]
+  },
+  {
+   "tMs": 9000,
+   "signature": true,
+   "chipRect": {
+    "left": 36,
+    "top": 139,
+    "right": 756,
+    "bottom": 475
+   },
+   "parsed_0_2_14": {
+    "fare": 84.47,
+    "pickup": [
+     4,
+     1
+    ],
+    "trip": [
+     15,
+     3.3
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "2 Uber Priority",
+     "left": 161,
+     "top": 569,
+     "right": 478,
+     "bottom": 622
+    },
+    {
+     "text": "$84.47",
+     "left": 102,
+     "top": 677,
+     "right": 507,
+     "bottom": 787
+    },
+    {
+     "text": "Calle Supuesta 77 - C",
+     "left": 155,
+     "top": 924,
+     "right": 648,
+     "bottom": 971
+    },
+    {
+     "text": "19 min • 4.3 km • $19.64/km est.",
+     "left": 97,
+     "top": 833,
+     "right": 847,
+     "bottom": 877
+    },
+    {
+     "text": "4 min (1.0 km)",
+     "left": 194,
+     "top": 1322,
+     "right": 508,
+     "bottom": 1369
+    },
+    {
+     "text": "★ 4.79 (2898) 9 +$18.00 incluido",
+     "left": 124,
+     "top": 1041,
+     "right": 956,
+     "bottom": 1091
+    },
+    {
+     "text": "je 2",
+     "left": 756,
+     "top": 380,
+     "right": 858,
+     "bottom": 417
+    },
+    {
+     "text": "+$10.11 incluido para Ejemplo de",
+     "left": 193,
+     "top": 1199,
+     "right": 932,
+     "bottom": 1254
+    },
+    {
+     "text": "Colonia Imaginaria - Priva",
+     "left": 196,
+     "top": 1397,
+     "right": 795,
+     "bottom": 1441
+    },
+    {
+     "text": "15 min (3.3 km)",
+     "left": 194,
+     "top": 1588,
+     "right": 531,
+     "bottom": 1633
+    },
+    {
+     "text": "Lugar",
+     "left": 193,
+     "top": 1784,
+     "right": 340,
+     "bottom": 1821
+    },
+    {
+     "text": "Calzada Inventada 300, Co",
+     "left": 196,
+     "top": 1662,
+     "right": 788,
+     "bottom": 1704
+    },
+    {
+     "text": "Colonia Imaginaria - Privada Supues",
+     "left": 195,
+     "top": 1460,
+     "right": 975,
+     "bottom": 1501
+    },
+    {
+     "text": "Privada",
+     "left": 190,
+     "top": 1520,
+     "right": 370,
+     "bottom": 1557
+    },
+    {
+     "text": "Me interesa",
+     "left": 394,
+     "top": 1951,
+     "right": 685,
+     "bottom": 1994
+    },
+    {
+     "text": "Calle Inventada 123 - Cal",
+     "left": 195,
+     "top": 1723,
+     "right": 853,
+     "bottom": 1760
+    },
+    {
+     "text": "X",
+     "left": 891,
+     "top": 600,
+     "right": 933,
+     "bottom": 642
+    },
+    {
+     "text": "qq",
+     "left": 1026,
+     "top": 1890,
+     "right": 1071,
+     "bottom": 1927
+    }
+   ]
+  },
+  {
+   "tMs": 9901,
+   "signature": true,
+   "chipRect": {
+    "left": 36,
+    "top": 139,
+    "right": 756,
+    "bottom": 475
+   },
+   "parsed_0_2_14": {
+    "fare": 84.47,
+    "pickup": [
+     4,
+     1
+    ],
+    "trip": [
+     15,
+     3.3
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "2 Uber Priority",
+     "left": 161,
+     "top": 569,
+     "right": 478,
+     "bottom": 622
+    },
+    {
+     "text": "$84.47",
+     "left": 102,
+     "top": 677,
+     "right": 507,
+     "bottom": 787
+    },
+    {
+     "text": "Calle Supuesta 77 - C",
+     "left": 155,
+     "top": 924,
+     "right": 648,
+     "bottom": 971
+    },
+    {
+     "text": "19 min • 4.3 km • $19.64/km est.",
+     "left": 97,
+     "top": 833,
+     "right": 847,
+     "bottom": 877
+    },
+    {
+     "text": "4 min (1.0 km)",
+     "left": 194,
+     "top": 1322,
+     "right": 508,
+     "bottom": 1369
+    },
+    {
+     "text": "★ 4.79 (2898) 9 +$18.00 incluido",
+     "left": 124,
+     "top": 1041,
+     "right": 956,
+     "bottom": 1091
+    },
+    {
+     "text": "je 2",
+     "left": 756,
+     "top": 380,
+     "right": 858,
+     "bottom": 417
+    },
+    {
+     "text": "+$10.11 incluido para Ejemplo de",
+     "left": 193,
+     "top": 1199,
+     "right": 932,
+     "bottom": 1254
+    },
+    {
+     "text": "Colonia Imaginaria - Priva",
+     "left": 196,
+     "top": 1397,
+     "right": 795,
+     "bottom": 1441
+    },
+    {
+     "text": "15 min (3.3 km)",
+     "left": 194,
+     "top": 1588,
+     "right": 531,
+     "bottom": 1633
+    },
+    {
+     "text": "Lugar",
+     "left": 193,
+     "top": 1784,
+     "right": 340,
+     "bottom": 1821
+    },
+    {
+     "text": "Me interesa",
+     "left": 394,
+     "top": 1951,
+     "right": 685,
+     "bottom": 1994
+    },
+    {
+     "text": "Colonia Imaginaria - Privada Supues",
+     "left": 195,
+     "top": 1460,
+     "right": 975,
+     "bottom": 1501
+    },
+    {
+     "text": "Privada",
+     "left": 190,
+     "top": 1520,
+     "right": 370,
+     "bottom": 1557
+    },
+    {
+     "text": "Calzada Inventada 300, Co",
+     "left": 196,
+     "top": 1663,
+     "right": 790,
+     "bottom": 1708
+    },
+    {
+     "text": "Calle Inventada 123 - Cal",
+     "left": 195,
+     "top": 1723,
+     "right": 853,
+     "bottom": 1760
+    },
+    {
+     "text": "X",
+     "left": 891,
+     "top": 600,
+     "right": 933,
+     "bottom": 642
+    },
+    {
+     "text": "qq",
+     "left": 1026,
+     "top": 1890,
+     "right": 1071,
+     "bottom": 1927
+    }
+   ]
+  },
+  {
+   "tMs": 10800,
+   "signature": true,
+   "chipRect": {
+    "left": 36,
+    "top": 139,
+    "right": 756,
+    "bottom": 475
+   },
+   "parsed_0_2_14": {
+    "fare": 71.04,
+    "pickup": [
+     3,
+     0.7
+    ],
+    "trip": [
+     null,
+     null
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "qqq",
+     "left": 11,
+     "top": 1948,
+     "right": 37,
+     "bottom": 1975
+    },
+    {
+     "text": "2 UberX",
+     "left": 126,
+     "top": 860,
+     "right": 332,
+     "bottom": 904
+    },
+    {
+     "text": "$71.04",
+     "left": 102,
+     "top": 962,
+     "right": 497,
+     "bottom": 1072
+    },
+    {
+     "text": "20 min • 4.9 km• $14.50/km est.",
+     "left": 97,
+     "top": 1115,
+     "right": 857,
+     "bottom": 1165
+    },
+    {
+     "text": "Identidad verificada",
+     "left": 196,
+     "top": 1210,
+     "right": 644,
+     "bottom": 1249
+    },
+    {
+     "text": "3 min (0.7 km)",
+     "left": 192,
+     "top": 1481,
+     "right": 508,
+     "bottom": 1526
+    },
+    {
+     "text": "qqq",
+     "left": 798,
+     "top": 271,
+     "right": 867,
+     "bottom": 313
+    },
+    {
+     "text": "* 4.77 (698) ) +$18.00 incluido",
+     "left": 122,
+     "top": 1327,
+     "right": 927,
+     "bottom": 1377
+    },
+    {
+     "text": "Barrio Ficticio - Parqu",
+     "left": 192,
+     "top": 1704,
+     "right": 743,
+     "bottom": 1748
+    },
+    {
+     "text": "Privada Supuesta 7 - Co",
+     "left": 196,
+     "top": 1765,
+     "right": 792,
+     "bottom": 1812
+    },
+    {
+     "text": "Avenida Fictic",
+     "left": 193,
+     "top": 1821,
+     "right": 561,
+     "bottom": 1864
+    },
+    {
+     "text": "Me interesa",
+     "left": 396,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "X",
+     "left": 891,
+     "top": 884,
+     "right": 933,
+     "bottom": 926
+    },
+    {
+     "text": "Lugar",
+     "left": 956,
+     "top": 225,
+     "right": 1074,
+     "bottom": 265
+    },
+    {
+     "text": "Barrio Ficticio - Avenida Fictici",
+     "left": 193,
+     "top": 1560,
+     "right": 962,
+     "bottom": 1597
+    },
+    {
+     "text": "h 17 min (4.2 km)",
+     "left": 116,
+     "top": 1626,
+     "right": 528,
+     "bottom": 1679
+    },
+    {
+     "text": "qq",
+     "left": 1029,
+     "top": 1898,
+     "right": 1071,
+     "bottom": 1932
+    }
+   ]
+  },
+  {
+   "tMs": 11672,
+   "signature": true,
+   "chipRect": {
+    "left": 36,
+    "top": 139,
+    "right": 756,
+    "bottom": 475
+   },
+   "parsed_0_2_14": {
+    "fare": 71.04,
+    "pickup": [
+     3,
+     0.7
+    ],
+    "trip": [
+     null,
+     null
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "Qq",
+     "left": 8,
+     "top": 165,
+     "right": 33,
+     "bottom": 197
+    },
+    {
+     "text": "QqQ",
+     "left": 11,
+     "top": 852,
+     "right": 43,
+     "bottom": 888
+    },
+    {
+     "text": "qq",
+     "left": 12,
+     "top": 2058,
+     "right": 54,
+     "bottom": 2105
+    },
+    {
+     "text": "qq",
+     "left": 22,
+     "top": 2127,
+     "right": 60,
+     "bottom": 2162
+    },
+    {
+     "text": "2 UberX",
+     "left": 162,
+     "top": 855,
+     "right": 330,
+     "bottom": 907
+    },
+    {
+     "text": "$71.04",
+     "left": 102,
+     "top": 962,
+     "right": 497,
+     "bottom": 1072
+    },
+    {
+     "text": "20 min • 4.9 km• $14.50/km est.",
+     "left": 97,
+     "top": 1115,
+     "right": 857,
+     "bottom": 1165
+    },
+    {
+     "text": "Identidad verificada",
+     "left": 195,
+     "top": 1210,
+     "right": 644,
+     "bottom": 1249
+    },
+    {
+     "text": "3 min (0.7 km)",
+     "left": 194,
+     "top": 1486,
+     "right": 512,
+     "bottom": 1531
+    },
+    {
+     "text": "h 17 min (4.2 km)",
+     "left": 116,
+     "top": 1625,
+     "right": 528,
+     "bottom": 1679
+    },
+    {
+     "text": "* 4.77 (698) ) +$18.00 incluido",
+     "left": 135,
+     "top": 1326,
+     "right": 927,
+     "bottom": 1382
+    },
+    {
+     "text": "Parque Imaginario - Privada Supue",
+     "left": 194,
+     "top": 1560,
+     "right": 962,
+     "bottom": 1597
+    },
+    {
+     "text": "Barrio Ficticio - Parqu",
+     "left": 192,
+     "top": 1704,
+     "right": 743,
+     "bottom": 1748
+    },
+    {
+     "text": "Privada Supuesta 7 - Co",
+     "left": 196,
+     "top": 1765,
+     "right": 791,
+     "bottom": 1812
+    },
+    {
+     "text": "Barrio Fictici",
+     "left": 195,
+     "top": 1827,
+     "right": 562,
+     "bottom": 1863
+    },
+    {
+     "text": "Me interesa",
+     "left": 396,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "X",
+     "left": 892,
+     "top": 884,
+     "right": 933,
+     "bottom": 926
+    },
+    {
+     "text": "Qqqq",
+     "left": 989,
+     "top": 248,
+     "right": 1074,
+     "bottom": 285
+    },
+    {
+     "text": "a",
+     "left": 1030,
+     "top": 1072,
+     "right": 1059,
+     "bottom": 1101
+    },
+    {
+     "text": "qq",
+     "left": 1030,
+     "top": 2014,
+     "right": 1070,
+     "bottom": 2052
+    }
+   ]
+  },
+  {
+   "tMs": 12549,
+   "signature": true,
+   "chipRect": {
+    "left": 36,
+    "top": 139,
+    "right": 756,
+    "bottom": 475
+   },
+   "parsed_0_2_14": {
+    "fare": 71.04,
+    "pickup": [
+     3,
+     0.7
+    ],
+    "trip": [
+     null,
+     null
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "Qq",
+     "left": 8,
+     "top": 165,
+     "right": 33,
+     "bottom": 197
+    },
+    {
+     "text": "QQ",
+     "left": 11,
+     "top": 852,
+     "right": 43,
+     "bottom": 888
+    },
+    {
+     "text": "qq",
+     "left": 12,
+     "top": 2058,
+     "right": 54,
+     "bottom": 2105
+    },
+    {
+     "text": "qq",
+     "left": 22,
+     "top": 2127,
+     "right": 60,
+     "bottom": 2162
+    },
+    {
+     "text": "2 UberX",
+     "left": 162,
+     "top": 858,
+     "right": 332,
+     "bottom": 908
+    },
+    {
+     "text": "$71.04",
+     "left": 100,
+     "top": 961,
+     "right": 496,
+     "bottom": 1071
+    },
+    {
+     "text": "Identidad verificada",
+     "left": 195,
+     "top": 1210,
+     "right": 644,
+     "bottom": 1249
+    },
+    {
+     "text": "20 min • 4.9 km• $14.50/km est.",
+     "left": 97,
+     "top": 1115,
+     "right": 857,
+     "bottom": 1165
+    },
+    {
+     "text": "B",
+     "left": 647,
+     "top": 502,
+     "right": 703,
+     "bottom": 738
+    },
+    {
+     "text": "3 min (0.7 km)",
+     "left": 193,
+     "top": 1479,
+     "right": 508,
+     "bottom": 1528
+    },
+    {
+     "text": "h 17 min (4.2 km)",
+     "left": 116,
+     "top": 1625,
+     "right": 528,
+     "bottom": 1679
+    },
+    {
+     "text": "* 4.77 (698) ) +$18.00 incluido",
+     "left": 135,
+     "top": 1326,
+     "right": 927,
+     "bottom": 1382
+    },
+    {
+     "text": "Parque Imaginario - Avenida Fict",
+     "left": 194,
+     "top": 1553,
+     "right": 968,
+     "bottom": 1599
+    },
+    {
+     "text": "Barrio Ficticio - Parqu",
+     "left": 192,
+     "top": 1704,
+     "right": 743,
+     "bottom": 1748
+    },
+    {
+     "text": "Privada Supuesta 7 - Co",
+     "left": 196,
+     "top": 1765,
+     "right": 792,
+     "bottom": 1812
+    },
+    {
+     "text": "Barrio Fictici",
+     "left": 195,
+     "top": 1827,
+     "right": 562,
+     "bottom": 1863
+    },
+    {
+     "text": "Me interesa",
+     "left": 395,
+     "top": 1993,
+     "right": 686,
+     "bottom": 2038
+    },
+    {
+     "text": "X",
+     "left": 892,
+     "top": 884,
+     "right": 933,
+     "bottom": 926
+    },
+    {
+     "text": "Qqqq",
+     "left": 989,
+     "top": 248,
+     "right": 1074,
+     "bottom": 285
+    },
+    {
+     "text": "a",
+     "left": 1030,
+     "top": 1072,
+     "right": 1059,
+     "bottom": 1101
+    },
+    {
+     "text": "qq",
+     "left": 1030,
+     "top": 2014,
+     "right": 1070,
+     "bottom": 2052
+    }
+   ]
+  },
+  {
+   "tMs": 13433,
+   "signature": true,
+   "chipRect": {
+    "left": 36,
+    "top": 139,
+    "right": 756,
+    "bottom": 475
+   },
+   "parsed_0_2_14": {
+    "fare": 71.04,
+    "pickup": [
+     3,
+     0.7
+    ],
+    "trip": [
+     17,
+     4.2
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "Qq",
+     "left": 8,
+     "top": 165,
+     "right": 33,
+     "bottom": 197
+    },
+    {
+     "text": "QQ",
+     "left": 11,
+     "top": 852,
+     "right": 43,
+     "bottom": 888
+    },
+    {
+     "text": "qq",
+     "left": 12,
+     "top": 2058,
+     "right": 54,
+     "bottom": 2105
+    },
+    {
+     "text": "qq",
+     "left": 22,
+     "top": 2127,
+     "right": 60,
+     "bottom": 2162
+    },
+    {
+     "text": "2 UberX",
+     "left": 162,
+     "top": 858,
+     "right": 332,
+     "bottom": 908
+    },
+    {
+     "text": "$71.04",
+     "left": 100,
+     "top": 961,
+     "right": 496,
+     "bottom": 1071
+    },
+    {
+     "text": "20 min • 4.9 km• $14.50/km est.",
+     "left": 97,
+     "top": 1115,
+     "right": 857,
+     "bottom": 1165
+    },
+    {
+     "text": "Identidad verificada",
+     "left": 195,
+     "top": 1210,
+     "right": 644,
+     "bottom": 1249
+    },
+    {
+     "text": "3 min (0.7 km)",
+     "left": 193,
+     "top": 1479,
+     "right": 508,
+     "bottom": 1528
+    },
+    {
+     "text": "17 min (4.2 km)",
+     "left": 194,
+     "top": 1626,
+     "right": 528,
+     "bottom": 1676
+    },
+    {
+     "text": "* 4.77 (698) ) +$18.00 incluido",
+     "left": 135,
+     "top": 1326,
+     "right": 927,
+     "bottom": 1382
+    },
+    {
+     "text": "Barrio Fictici",
+     "left": 195,
+     "top": 1827,
+     "right": 562,
+     "bottom": 1863
+    },
+    {
+     "text": "Parque Imaginario - Avenida Fict",
+     "left": 194,
+     "top": 1553,
+     "right": 968,
+     "bottom": 1599
+    },
+    {
+     "text": "Barrio Ficticio - Parqu",
+     "left": 192,
+     "top": 1704,
+     "right": 743,
+     "bottom": 1748
+    },
+    {
+     "text": "Privada Supuesta 7 - Co",
+     "left": 196,
+     "top": 1765,
+     "right": 792,
+     "bottom": 1812
+    },
+    {
+     "text": "Me interesa",
+     "left": 395,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "X",
+     "left": 892,
+     "top": 884,
+     "right": 933,
+     "bottom": 926
+    },
+    {
+     "text": "Qqqq",
+     "left": 989,
+     "top": 248,
+     "right": 1074,
+     "bottom": 285
+    },
+    {
+     "text": "a",
+     "left": 1030,
+     "top": 1072,
+     "right": 1059,
+     "bottom": 1101
+    },
+    {
+     "text": "qq",
+     "left": 1030,
+     "top": 2014,
+     "right": 1070,
+     "bottom": 2052
+    }
+   ]
+  },
+  {
+   "tMs": 14314,
+   "signature": true,
+   "chipRect": {
+    "left": 36,
+    "top": 139,
+    "right": 756,
+    "bottom": 475
+   },
+   "parsed_0_2_14": {
+    "fare": 71.04,
+    "pickup": [
+     3,
+     0.7
+    ],
+    "trip": [
+     null,
+     null
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "Qq",
+     "left": 8,
+     "top": 165,
+     "right": 33,
+     "bottom": 197
+    },
+    {
+     "text": "QQ",
+     "left": 11,
+     "top": 852,
+     "right": 43,
+     "bottom": 888
+    },
+    {
+     "text": "qq",
+     "left": 12,
+     "top": 2058,
+     "right": 54,
+     "bottom": 2105
+    },
+    {
+     "text": "qq",
+     "left": 22,
+     "top": 2127,
+     "right": 60,
+     "bottom": 2162
+    },
+    {
+     "text": "2 UberX",
+     "left": 162,
+     "top": 858,
+     "right": 332,
+     "bottom": 908
+    },
+    {
+     "text": "$71.04",
+     "left": 100,
+     "top": 961,
+     "right": 496,
+     "bottom": 1071
+    },
+    {
+     "text": "20 min • 4.9 km• $14.50/km est.",
+     "left": 97,
+     "top": 1115,
+     "right": 857,
+     "bottom": 1165
+    },
+    {
+     "text": "Identidad verificada",
+     "left": 195,
+     "top": 1210,
+     "right": 644,
+     "bottom": 1249
+    },
+    {
+     "text": "3 min (0.7 km)",
+     "left": 193,
+     "top": 1479,
+     "right": 508,
+     "bottom": 1528
+    },
+    {
+     "text": "* 4.77 (698) ) +$18.00 incluido",
+     "left": 135,
+     "top": 1326,
+     "right": 927,
+     "bottom": 1382
+    },
+    {
+     "text": "h 17 min (4.2 km)",
+     "left": 116,
+     "top": 1625,
+     "right": 528,
+     "bottom": 1679
+    },
+    {
+     "text": "Parque Imaginario - Avenida Fict",
+     "left": 194,
+     "top": 1553,
+     "right": 968,
+     "bottom": 1599
+    },
+    {
+     "text": "Barrio Ficticio - Parqu",
+     "left": 192,
+     "top": 1704,
+     "right": 743,
+     "bottom": 1748
+    },
+    {
+     "text": "Privada Supuesta 7 - Co",
+     "left": 196,
+     "top": 1765,
+     "right": 792,
+     "bottom": 1812
+    },
+    {
+     "text": "Barrio Fictici",
+     "left": 195,
+     "top": 1827,
+     "right": 562,
+     "bottom": 1863
+    },
+    {
+     "text": "Me interesa",
+     "left": 395,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "X",
+     "left": 892,
+     "top": 884,
+     "right": 933,
+     "bottom": 926
+    },
+    {
+     "text": "Qqqq",
+     "left": 989,
+     "top": 248,
+     "right": 1074,
+     "bottom": 285
+    },
+    {
+     "text": "a",
+     "left": 1030,
+     "top": 1072,
+     "right": 1059,
+     "bottom": 1101
+    },
+    {
+     "text": "qq",
+     "left": 1030,
+     "top": 2014,
+     "right": 1070,
+     "bottom": 2052
+    }
+   ]
+  },
+  {
+   "tMs": 15232,
+   "signature": true,
+   "chipRect": {
+    "left": 36,
+    "top": 139,
+    "right": 756,
+    "bottom": 475
+   },
+   "parsed_0_2_14": {
+    "fare": 71.04,
+    "pickup": [
+     3,
+     0.7
+    ],
+    "trip": [
+     null,
+     null
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "Qq",
+     "left": 8,
+     "top": 165,
+     "right": 33,
+     "bottom": 197
+    },
+    {
+     "text": "QQ",
+     "left": 11,
+     "top": 852,
+     "right": 43,
+     "bottom": 888
+    },
+    {
+     "text": "qq",
+     "left": 12,
+     "top": 2058,
+     "right": 54,
+     "bottom": 2105
+    },
+    {
+     "text": "qq",
+     "left": 22,
+     "top": 2127,
+     "right": 60,
+     "bottom": 2162
+    },
+    {
+     "text": "2 UberX",
+     "left": 162,
+     "top": 858,
+     "right": 332,
+     "bottom": 908
+    },
+    {
+     "text": "$71.04",
+     "left": 100,
+     "top": 961,
+     "right": 496,
+     "bottom": 1071
+    },
+    {
+     "text": "20 min • 4.9 km• $14.50/km est.",
+     "left": 97,
+     "top": 1115,
+     "right": 857,
+     "bottom": 1165
+    },
+    {
+     "text": "Identidad verificada",
+     "left": 195,
+     "top": 1210,
+     "right": 644,
+     "bottom": 1249
+    },
+    {
+     "text": "3 min (0.7 km)",
+     "left": 194,
+     "top": 1486,
+     "right": 512,
+     "bottom": 1531
+    },
+    {
+     "text": "* 4.77 (698) ) +$18.00 incluido",
+     "left": 135,
+     "top": 1326,
+     "right": 927,
+     "bottom": 1382
+    },
+    {
+     "text": "h 17 min (4.2 km)",
+     "left": 116,
+     "top": 1625,
+     "right": 528,
+     "bottom": 1679
+    },
+    {
+     "text": "Parque Imaginario - Privada Supue",
+     "left": 194,
+     "top": 1560,
+     "right": 962,
+     "bottom": 1597
+    },
+    {
+     "text": "Barrio Ficticio - Parqu",
+     "left": 192,
+     "top": 1704,
+     "right": 743,
+     "bottom": 1748
+    },
+    {
+     "text": "Privada Supuesta 7 - Co",
+     "left": 196,
+     "top": 1765,
+     "right": 792,
+     "bottom": 1812
+    },
+    {
+     "text": "Barrio Fictici",
+     "left": 195,
+     "top": 1827,
+     "right": 562,
+     "bottom": 1863
+    },
+    {
+     "text": "Me interesa",
+     "left": 395,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "X",
+     "left": 892,
+     "top": 884,
+     "right": 933,
+     "bottom": 926
+    },
+    {
+     "text": "Qqqq",
+     "left": 989,
+     "top": 248,
+     "right": 1074,
+     "bottom": 285
+    },
+    {
+     "text": "a",
+     "left": 1030,
+     "top": 1072,
+     "right": 1059,
+     "bottom": 1101
+    },
+    {
+     "text": "qq",
+     "left": 1030,
+     "top": 2014,
+     "right": 1070,
+     "bottom": 2052
+    }
+   ]
+  },
+  {
+   "tMs": 16133,
+   "signature": true,
+   "chipRect": {
+    "left": 36,
+    "top": 139,
+    "right": 756,
+    "bottom": 475
+   },
+   "parsed_0_2_14": {
+    "fare": 71.04,
+    "pickup": [
+     3,
+     0.7
+    ],
+    "trip": [
+     null,
+     null
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "Qq",
+     "left": 8,
+     "top": 165,
+     "right": 33,
+     "bottom": 197
+    },
+    {
+     "text": "QQ",
+     "left": 11,
+     "top": 852,
+     "right": 43,
+     "bottom": 888
+    },
+    {
+     "text": "qq",
+     "left": 11,
+     "top": 2061,
+     "right": 44,
+     "bottom": 2104
+    },
+    {
+     "text": "qq",
+     "left": 22,
+     "top": 2127,
+     "right": 60,
+     "bottom": 2162
+    },
+    {
+     "text": "2 UberX",
+     "left": 162,
+     "top": 858,
+     "right": 332,
+     "bottom": 908
+    },
+    {
+     "text": "$71.04",
+     "left": 100,
+     "top": 961,
+     "right": 496,
+     "bottom": 1071
+    },
+    {
+     "text": "20 min • 4.9 km• $14.50/km est.",
+     "left": 97,
+     "top": 1115,
+     "right": 857,
+     "bottom": 1165
+    },
+    {
+     "text": "Identidad verificada",
+     "left": 195,
+     "top": 1210,
+     "right": 644,
+     "bottom": 1249
+    },
+    {
+     "text": "3 min (0.7 km)",
+     "left": 193,
+     "top": 1479,
+     "right": 508,
+     "bottom": 1528
+    },
+    {
+     "text": "h 17 min (4.2 km)",
+     "left": 116,
+     "top": 1625,
+     "right": 528,
+     "bottom": 1679
+    },
+    {
+     "text": "* 4.77 (698) ) +$18.00 incluido",
+     "left": 135,
+     "top": 1326,
+     "right": 927,
+     "bottom": 1382
+    },
+    {
+     "text": "Barrio Fictici",
+     "left": 195,
+     "top": 1827,
+     "right": 562,
+     "bottom": 1863
+    },
+    {
+     "text": "Parque Imaginario - Privada Supue",
+     "left": 194,
+     "top": 1560,
+     "right": 962,
+     "bottom": 1597
+    },
+    {
+     "text": "Barrio Ficticio - Parqu",
+     "left": 192,
+     "top": 1704,
+     "right": 743,
+     "bottom": 1748
+    },
+    {
+     "text": "Privada Supuesta 7 - Co",
+     "left": 196,
+     "top": 1765,
+     "right": 792,
+     "bottom": 1812
+    },
+    {
+     "text": "Me interesa",
+     "left": 395,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "X",
+     "left": 892,
+     "top": 884,
+     "right": 933,
+     "bottom": 926
+    },
+    {
+     "text": "Qqqq",
+     "left": 989,
+     "top": 248,
+     "right": 1074,
+     "bottom": 285
+    },
+    {
+     "text": "a",
+     "left": 1030,
+     "top": 1072,
+     "right": 1059,
+     "bottom": 1101
+    },
+    {
+     "text": "qq",
+     "left": 1030,
+     "top": 2014,
+     "right": 1070,
+     "bottom": 2052
+    }
+   ]
+  },
+  {
+   "tMs": 17016,
+   "signature": true,
+   "chipRect": {
+    "left": 36,
+    "top": 139,
+    "right": 756,
+    "bottom": 475
+   },
+   "parsed_0_2_14": {
+    "fare": 71.04,
+    "pickup": [
+     3,
+     0.7
+    ],
+    "trip": [
+     null,
+     null
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "Qq",
+     "left": 8,
+     "top": 165,
+     "right": 33,
+     "bottom": 197
+    },
+    {
+     "text": "QQ",
+     "left": 11,
+     "top": 852,
+     "right": 43,
+     "bottom": 888
+    },
+    {
+     "text": "qq",
+     "left": 12,
+     "top": 2060,
+     "right": 54,
+     "bottom": 2104
+    },
+    {
+     "text": "qq",
+     "left": 22,
+     "top": 2127,
+     "right": 60,
+     "bottom": 2162
+    },
+    {
+     "text": "2 UberX",
+     "left": 162,
+     "top": 858,
+     "right": 332,
+     "bottom": 908
+    },
+    {
+     "text": "$71.04",
+     "left": 100,
+     "top": 961,
+     "right": 496,
+     "bottom": 1071
+    },
+    {
+     "text": "20 min • 4.9 km• $14.50/km est.",
+     "left": 97,
+     "top": 1115,
+     "right": 857,
+     "bottom": 1165
+    },
+    {
+     "text": "Identidad verificada",
+     "left": 195,
+     "top": 1210,
+     "right": 644,
+     "bottom": 1249
+    },
+    {
+     "text": "3 min (0.7 km)",
+     "left": 193,
+     "top": 1479,
+     "right": 508,
+     "bottom": 1528
+    },
+    {
+     "text": "* 4.77 (698) ) +$18.00 incluido",
+     "left": 135,
+     "top": 1326,
+     "right": 927,
+     "bottom": 1382
+    },
+    {
+     "text": "h 17 min (4.2 km)",
+     "left": 116,
+     "top": 1625,
+     "right": 528,
+     "bottom": 1679
+    },
+    {
+     "text": "Parque Imaginario - Privada Supue",
+     "left": 194,
+     "top": 1560,
+     "right": 962,
+     "bottom": 1597
+    },
+    {
+     "text": "Barrio Ficticio - Parqu",
+     "left": 192,
+     "top": 1704,
+     "right": 743,
+     "bottom": 1748
+    },
+    {
+     "text": "Privada Supuesta 7 - Co",
+     "left": 196,
+     "top": 1765,
+     "right": 792,
+     "bottom": 1812
+    },
+    {
+     "text": "Barrio Fictici",
+     "left": 195,
+     "top": 1827,
+     "right": 562,
+     "bottom": 1863
+    },
+    {
+     "text": "Me interesa",
+     "left": 395,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "X",
+     "left": 892,
+     "top": 884,
+     "right": 933,
+     "bottom": 926
+    },
+    {
+     "text": "Qqqq",
+     "left": 989,
+     "top": 248,
+     "right": 1074,
+     "bottom": 285
+    },
+    {
+     "text": "a",
+     "left": 1030,
+     "top": 1072,
+     "right": 1059,
+     "bottom": 1101
+    },
+    {
+     "text": "qq",
+     "left": 1030,
+     "top": 2014,
+     "right": 1070,
+     "bottom": 2052
+    }
+   ]
+  },
+  {
+   "tMs": 17917,
+   "signature": true,
+   "chipRect": {
+    "left": 36,
+    "top": 139,
+    "right": 756,
+    "bottom": 475
+   },
+   "parsed_0_2_14": {
+    "fare": 71.04,
+    "pickup": [
+     3,
+     0.7
+    ],
+    "trip": [
+     null,
+     null
+    ],
+    "action": null
+   },
+   "blocks": [
+    {
+     "text": "Qq",
+     "left": 8,
+     "top": 165,
+     "right": 33,
+     "bottom": 197
+    },
+    {
+     "text": "a",
+     "left": 22,
+     "top": 2129,
+     "right": 33,
+     "bottom": 2166
+    },
+    {
+     "text": "Avenida Fictic",
+     "left": 13,
+     "top": 840,
+     "right": 373,
+     "bottom": 895
+    },
+    {
+     "text": "9 UberX",
+     "left": 124,
+     "top": 1159,
+     "right": 329,
+     "bottom": 1203
+    },
+    {
+     "text": "qqq",
+     "left": 11,
+     "top": 2056,
+     "right": 113,
+     "bottom": 2106
+    },
+    {
+     "text": "$71.04",
+     "left": 136,
+     "top": 1262,
+     "right": 524,
+     "bottom": 1379
+    },
+    {
+     "text": "Barrio Ficticio - Colo",
+     "left": 167,
+     "top": 1511,
+     "right": 644,
+     "bottom": 1558
+    },
+    {
+     "text": "3 min (0.7 km)",
+     "left": 220,
+     "top": 1784,
+     "right": 511,
+     "bottom": 1837
+    },
+    {
+     "text": "dlZ min (4.2 km)",
+     "left": 114,
+     "top": 1923,
+     "right": 529,
+     "bottom": 1984
+    },
+    {
+     "text": "20 min 4.9 km- $14.50/km Ejemplo Ejemplo",
+     "left": 108,
+     "top": 1416,
+     "right": 1080,
+     "bottom": 1473
+    },
+    {
+     "text": "Parque Imagina",
+     "left": 195,
+     "top": 2129,
+     "right": 561,
+     "bottom": 2165
+    },
+    {
+     "text": "Calle Invent",
+     "left": 662,
+     "top": 1101,
+     "right": 770,
+     "bottom": 1412
+    },
+    {
+     "text": "Privada Supu",
+     "left": 743,
+     "top": 815,
+     "right": 1069,
+     "bottom": 861
+    },
+    {
+     "text": "* 4.77 (698) 9 +$18.00 Ejemplo",
+     "left": 122,
+     "top": 1633,
+     "right": 927,
+     "bottom": 1678
+    },
+    {
+     "text": "Parque Imaginario - Cal",
+     "left": 192,
+     "top": 2006,
+     "right": 744,
+     "bottom": 2048
+    },
+    {
+     "text": "Colonia Ejemplo - Colon",
+     "left": 196,
+     "top": 2067,
+     "right": 791,
+     "bottom": 2114
+    },
+    {
+     "text": "QQQ",
+     "left": 968,
+     "top": 1109,
+     "right": 1079,
+     "bottom": 1157
+    },
+    {
+     "text": "X",
+     "left": 890,
+     "top": 1186,
+     "right": 934,
+     "bottom": 1230
+    },
+    {
+     "text": "Parque Imaginario - Avenida Ficti",
+     "left": 220,
+     "top": 1857,
+     "right": 965,
+     "bottom": 1905
+    },
+    {
+     "text": "Qqqq",
+     "left": 989,
+     "top": 248,
+     "right": 1074,
+     "bottom": 285
+    },
+    {
+     "text": "Lugar",
+     "left": 878,
+     "top": 1479,
+     "right": 1020,
+     "bottom": 1526
+    },
+    {
+     "text": "Calle Su",
+     "left": 721,
+     "top": 1741,
+     "right": 966,
+     "bottom": 1789
+    },
+    {
+     "text": "Barrio F",
+     "left": 914,
+     "top": 2001,
+     "right": 1066,
+     "bottom": 2054
+    }
+   ]
+  },
+  {
+   "tMs": 18816,
+   "signature": false,
+   "chipRect": {
+    "left": 36,
+    "top": 139,
+    "right": 756,
+    "bottom": 475
+   },
+   "parsed_0_2_14": {
+    "fare": null,
+    "pickup": null,
+    "trip": null,
+    "action": null
+   },
+   "blocks": [
+    {
+     "text": "Barrio Ficti",
+     "left": 71,
+     "top": 830,
+     "right": 404,
+     "bottom": 880
+    },
+    {
+     "text": "+$50",
+     "left": 283,
+     "top": 1308,
+     "right": 389,
+     "bottom": 1351
+    },
+    {
+     "text": "Radar de solicitud de viaje",
+     "left": 205,
+     "top": 1557,
+     "right": 791,
+     "bottom": 1602
+    },
+    {
+     "text": "Avenida F",
+     "left": 191,
+     "top": 1966,
+     "right": 395,
+     "bottom": 2003
+    },
+    {
+     "text": "Barrio Ficticio",
+     "left": 369,
+     "top": 1784,
+     "right": 845,
+     "bottom": 1839
+    },
+    {
+     "text": "Calle Sup",
+     "left": 196,
+     "top": 2029,
+     "right": 389,
+     "bottom": 2065
+    },
+    {
+     "text": "Calzada In",
+     "left": 194,
+     "top": 2104,
+     "right": 488,
+     "bottom": 2146
+    },
+    {
+     "text": "Parque Ima",
+     "left": 688,
+     "top": 963,
+     "right": 999,
+     "bottom": 1014
+    },
+    {
+     "text": "O O/650 puntos",
+     "left": 639,
+     "top": 2024,
+     "right": 1028,
+     "bottom": 2076
+    }
+   ]
+  },
+  {
+   "tMs": 19714,
+   "signature": false,
+   "chipRect": {
+    "left": 36,
+    "top": 139,
+    "right": 756,
+    "bottom": 475
+   },
+   "parsed_0_2_14": {
+    "fare": null,
+    "pickup": null,
+    "trip": null,
+    "action": null
+   },
+   "blocks": [
+    {
+     "text": "qq",
+     "left": 10,
+     "top": 511,
+     "right": 40,
+     "bottom": 547
+    },
+    {
+     "text": "Colonia Ima",
+     "left": 100,
+     "top": 975,
+     "right": 478,
+     "bottom": 1027
+    },
+    {
+     "text": "+$50",
+     "left": 311,
+     "top": 1458,
+     "right": 416,
+     "bottom": 1500
+    },
+    {
+     "text": "$O.00",
+     "left": 446,
+     "top": 129,
+     "right": 607,
+     "bottom": 193
+    },
+    {
+     "text": "Avenida Ficti",
+     "left": 170,
+     "top": 1643,
+     "right": 533,
+     "bottom": 1717
+    },
+    {
+     "text": "Colonia E",
+     "left": 192,
+     "top": 1964,
+     "right": 405,
+     "bottom": 2005
+    },
+    {
+     "text": "Calle Sup",
+     "left": 196,
+     "top": 2029,
+     "right": 389,
+     "bottom": 2065
+    },
+    {
+     "text": "Colonia Ejemplo",
+     "left": 528,
+     "top": 521,
+     "right": 899,
+     "bottom": 573
+    },
+    {
+     "text": "Radar de solicitud de viaje o",
+     "left": 204,
+     "top": 1549,
+     "right": 865,
+     "bottom": 1599
+    },
+    {
+     "text": "O",
+     "left": 766,
+     "top": 135,
+     "right": 776,
+     "bottom": 169
+    },
+    {
+     "text": "Privada Su",
+     "left": 193,
+     "top": 2104,
+     "right": 481,
+     "bottom": 2143
+    },
+    {
+     "text": "V",
+     "left": 842,
+     "top": 763,
+     "right": 864,
+     "bottom": 779
+    },
+    {
+     "text": "+$18 en el Ejemplo viaje",
+     "left": 235,
+     "top": 1785,
+     "right": 846,
+     "bottom": 1840
+    },
+    {
+     "text": "Colonia Ej",
+     "left": 714,
+     "top": 1099,
+     "right": 1025,
+     "bottom": 1162
+    },
+    {
+     "text": "Calzada",
+     "left": 707,
+     "top": 1627,
+     "right": 1044,
+     "bottom": 1700
+    },
+    {
+     "text": "O O/650 puntos",
+     "left": 639,
+     "top": 2024,
+     "right": 1028,
+     "bottom": 2076
+    }
+   ]
+  },
+  {
+   "tMs": 20630,
+   "signature": false,
+   "chipRect": {
+    "left": 36,
+    "top": 139,
+    "right": 756,
+    "bottom": 475
+   },
+   "parsed_0_2_14": {
+    "fare": null,
+    "pickup": null,
+    "trip": null,
+    "action": null
+   },
+   "blocks": [
+    {
+     "text": "qq",
+     "left": 10,
+     "top": 511,
+     "right": 40,
+     "bottom": 547
+    },
+    {
+     "text": "Colonia Ima",
+     "left": 100,
+     "top": 975,
+     "right": 478,
+     "bottom": 1027
+    },
+    {
+     "text": "+$50",
+     "left": 311,
+     "top": 1458,
+     "right": 416,
+     "bottom": 1500
+    },
+    {
+     "text": "$O.00",
+     "left": 446,
+     "top": 129,
+     "right": 607,
+     "bottom": 193
+    },
+    {
+     "text": "Parque Imaginar",
+     "left": 156,
+     "top": 1639,
+     "right": 594,
+     "bottom": 1716
+    },
+    {
+     "text": "Colonia E",
+     "left": 192,
+     "top": 1964,
+     "right": 405,
+     "bottom": 2005
+    },
+    {
+     "text": "Calle Sup",
+     "left": 196,
+     "top": 2029,
+     "right": 389,
+     "bottom": 2065
+    },
+    {
+     "text": "Colonia Ejemplo",
+     "left": 528,
+     "top": 521,
+     "right": 899,
+     "bottom": 573
+    },
+    {
+     "text": "Radar de solicitud de viaje o",
+     "left": 205,
+     "top": 1547,
+     "right": 863,
+     "bottom": 1597
+    },
+    {
+     "text": "O",
+     "left": 766,
+     "top": 135,
+     "right": 776,
+     "bottom": 169
+    },
+    {
+     "text": "Calzada In",
+     "left": 194,
+     "top": 2104,
+     "right": 488,
+     "bottom": 2146
+    },
+    {
+     "text": "V",
+     "left": 842,
+     "top": 763,
+     "right": 864,
+     "bottom": 779
+    },
+    {
+     "text": "+$18 en el Ejemplo viaje",
+     "left": 235,
+     "top": 1785,
+     "right": 846,
+     "bottom": 1840
+    },
+    {
+     "text": "Colonia Ej",
+     "left": 714,
+     "top": 1099,
+     "right": 1025,
+     "bottom": 1162
+    },
+    {
+     "text": "Parque Im",
+     "left": 726,
+     "top": 1626,
+     "right": 1044,
+     "bottom": 1699
+    },
+    {
+     "text": "O O/650 puntos",
+     "left": 639,
+     "top": 2024,
+     "right": 1028,
+     "bottom": 2076
+    }
+   ]
+  }
+ ]
+}

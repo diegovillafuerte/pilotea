@@ -46,9 +46,14 @@ class FareStabilizer(private val windowMs: Long = WINDOW_MS) {
     private var confirmedPickup: Pickup? = null
     private var pickupCandidate: Pickup? = null
 
-    /** Only confirmed payment is published to the shared overlay/ledger path. */
+    /**
+     * Only confirmed payment is published to the shared overlay/ledger path. [suppressPayment]: the
+     * frame contradicts its own card arithmetic (0.2.15) — it breaks agreement and publishes without
+     * payment, even where an uncertain frame would keep showing the confirmed one; the confirmed
+     * values themselves survive for the next consistent frame.
+     */
     fun onParsed(card: OfferCard, nowMs: Long, confident: Boolean = true,
-        identityUnresolved: Boolean = false, paymentAdmissible: Boolean = true): OfferCard {
+        identityUnresolved: Boolean = false, paymentAdmissible: Boolean = true, suppressPayment: Boolean = false): OfferCard {
         val nextRoute = OcrOfferIdentity.from(card)
         if (card.sessionId != null) {
             if (instanceId != card.sessionId) {
@@ -59,6 +64,10 @@ class FareStabilizer(private val windowMs: Long = WINDOW_MS) {
             // Standalone callers lack the pipeline's durable instance ID. Never carry money across
             // unknown/changed routes; the production path always supplies the assigned session ID.
             reset()
+        }
+        if (suppressPayment) {
+            breakCandidateAgreement()
+            return card.withoutPayment().withConfirmedPickup()
         }
         if (identityUnresolved) {
             breakCandidateAgreement()

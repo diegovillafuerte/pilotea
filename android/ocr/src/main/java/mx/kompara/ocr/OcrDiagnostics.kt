@@ -32,6 +32,8 @@ internal enum class OcrPublicationRejectionReason {
     PARSED_OCR_OUTLIER,
     /** A held route-incomplete frame reached main's 15 s no-parse ceiling: the offer retired. */
     PARSE_CEILING_EXPIRED,
+    /** The card's own TOTAL arithmetic contradicted the frame: no session, payment or vote from it. */
+    PARSED_CONTRADICTORY,
 }
 
 /** Log only reason codes and measured geometry, never recognized screen text. */

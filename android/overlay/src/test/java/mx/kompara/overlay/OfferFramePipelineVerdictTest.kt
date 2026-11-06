@@ -169,8 +169,13 @@ class OfferFramePipelineVerdictTest {
         assertEquals(1, seen.filterIsInstance<OverlayVisibility.Showing>().map { it.state }.distinct().size)
 
         // A sustained, independently readable fare revision wins the existing smoothing window.
+        // 0.2.15: a live revision keeps the card's TOTAL rate consistent ($160.00/7.0 km = $22.86/km).
         repeat(3) { index ->
-            pipeline.processOwnedFrame(full.map { if (it.text == "$147.46") it.copy(text = "$160.00") else it },
+            pipeline.processOwnedFrame(full.map { when (it.text) {
+                "$147.46" -> it.copy(text = "$160.00")
+                "53 min • 7.0 km • $21.07/km est." -> it.copy(text = "53 min • 7.0 km • $22.86/km est.")
+                else -> it
+            } },
                 ownChip, null, capturedAtMs = start + 1200 + index * 300, displayBounds = display, density = 3f)
             testScheduler.runCurrent()
         }
@@ -182,9 +187,11 @@ class OfferFramePipelineVerdictTest {
 
         // 0.2.14: a changed TRIP leg needs a second observation before replacement (pickup only
         // corroborates). Until identity is resolved, the chip must not borrow the preceding payment.
+        // 0.2.15: the other card's own TOTAL row matches its legs (4+52 min, 0.7+6.9 km).
         val changedPickup = unread.map {
             when (it.text) {
                 "49 min (6.3 km)" -> it.copy(text = "52 min (6.9 km)")
+                "53 min • 7.0 km • $21.07/km est." -> it.copy(text = "56 min • 7.6 km • $21.07/km est.")
                 "Aceptar" -> it.copy(text = "Me interesa")
                 else -> it
             }
@@ -257,7 +264,9 @@ class OfferFramePipelineVerdictTest {
         for ((text, expected) in listOf("MX\$79.45" to 79.45, "MXN 79.45" to 79.45,
             "\$79.45 MXN" to 79.45, "MX\$79.45 MXN" to 79.45, "79.45 MXN" to 79.45,
             "\$1,234.56" to 1234.56)) {
-            val (showing, metrics) = replay(fixture().map { if (it.text == "\$79.45") it.copy(text = text) else it })
+            // 0.2.15: the thousands-separated amount carries its own consistent TOTAL rate ($1,234.56/2.6 km).
+            val (showing, metrics) = replay(fixture().map { if (it.text == "\$79.45") it.copy(text = text) else it }
+                .map { if (expected > 1000 && it.text == "25 min • 2.6 km • \$30.56/km est.") it.copy(text = "25 min • 2.6 km • \$474.83/km est.") else it })
             assertEquals(expected, showing.event.card.fare!!, 0.000001)
             assertEquals("DRIVER_PAYMENT", showing.event.card.paymentBasis)
             assertTrue(showing.state.regla.band is ReglaBand.Rated)

@@ -89,6 +89,14 @@ internal class OcrOfferSessionTracker {
     private var id: String? = null
     private var startedAt = 0L
     private var replacementPending = false
+    /**
+     * Latched by a self-contradictory frame (0.2.15 round 2): until a frame re-establishes the held
+     * identity — its own readable trip leg equals the held one and, on a modern card, its own arithmetic
+     * validates it (CONSISTENT or REPAIRED, certain selection) — or a replacement is confirmed or the
+     * session ends, every frame of this session publishes without payment. An UNVERIFIABLE frame never
+     * clears it: an unread next card would otherwise borrow the held payment.
+     */
+    private var contradictionLatched = false
 
     fun isPresent() = presence.isPresent()
     fun obscuredBy(mask: HostRect?): Boolean {
@@ -241,13 +249,37 @@ internal class OcrOfferSessionTracker {
             val shown = if (trip != null) card else old.copy(hostGeometry = card.hostGeometry,
                 contentBounds = card.contentBounds, fareBounds = card.fareBounds)
             return Decision(stamped(shown.withoutPayment()), Confidence.UNCERTAIN,
-                identityUnresolved = replacementPending, votes = votes.mapValues { it.value.second })
+                identityUnresolved = replacementPending || contradictionLatched, votes = votes.mapValues { it.value.second })
         }
+        if (contradictionLatched && card.validation?.let { it.identityValidated && it.selectionCertain } == false) {
+            // The held trip leg read again, but not proven by the card's own arithmetic: still unresolved.
+            return Decision(stamped(card.withoutPayment()), Confidence.UNCERTAIN, identityUnresolved = true,
+                votes = votes.mapValues { it.value.second })
+        }
+        contradictionLatched = false
         replacementPending = false
         // A guard-rejected frame of the same offer is held: it refreshes evidence, never the legs.
         baseline = (if (guardAccepted) card else card.withLegsOf(old))
             .copy(instanceEvidence = b?.copy(labels = a?.labels.orEmpty() + b.labels))
         return Decision(stamped(card), Confidence.CONFIDENT)
+    }
+
+    /**
+     * A frame whose own card arithmetic contradicts itself (0.2.15): it casts no vote of any kind,
+     * breaks pending replacement agreement, refreshes no presence, holds the session's card — never
+     * its payment — with this frame's geometry, and latches identity uncertainty ([contradictionLatched]):
+     * it may be the next card's first frame. Without a session there is nothing to hold.
+     */
+    fun contradicted(card: OfferCard): Decision {
+        votes = emptyMap()
+        pendingTrip = null
+        pendingVote = null
+        val old = baseline ?: return Decision(null, Confidence.UNCERTAIN,
+            rejection = OcrPublicationRejectionReason.PARSED_CONTRADICTORY)
+        previous = card
+        contradictionLatched = true
+        return Decision(stamped(old.copy(hostGeometry = card.hostGeometry, contentBounds = card.contentBounds,
+            fareBounds = card.fareBounds).withoutPayment()), Confidence.UNCERTAIN, identityUnresolved = true)
     }
 
     /** Convenience for pure replay callers; production consumes the confidence explicitly. */
@@ -312,6 +344,7 @@ internal class OcrOfferSessionTracker {
         id = null
         startedAt = 0L
         replacementPending = false
+        contradictionLatched = false
     }
 
     /** Disappearance or a host boundary: nothing survives. */

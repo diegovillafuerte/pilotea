@@ -168,10 +168,13 @@ class ClearLifecycleBoundaryReplayTest {
     private fun idle(label: String = "Buscando viajes") = listOf(
         OcrBlock(label, OcrBounds(240, 1940, 840, 2030)))
 
+    /** 0.2.15: another offer carries its own consistent TOTAL row ($147.46 over 6.5 km or 2.6 km). */
     private fun nextOffer(differentLegs: Boolean = true) = fixture().map {
         it.copy(text = when (it.text) {
             "$79.45" -> "$147.46"
             "24 min (2.4 km)" -> if (differentLegs) "24 min (6.3 km)" else it.text
+            "25 min • 2.6 km • $30.56/km est." ->
+                if (differentLegs) "25 min • 6.5 km • $22.69/km est." else "25 min • 2.6 km • $56.72/km est."
             else -> it.text
         })
     }

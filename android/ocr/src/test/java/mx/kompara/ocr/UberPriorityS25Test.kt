@@ -48,7 +48,9 @@ class UberPriorityS25Test {
     @Test fun `bare dollar thousands and old MX formats all parse`() {
         for ((text, expected) in listOf("$79.45" to 79.45, "$1,234.56" to 1234.56,
             "MX$79.45" to 79.45, "MXN 79.45" to 79.45)) {
+            // 0.2.15: the thousands-separated amount carries its own consistent TOTAL rate ($1,234.56/2.6 km).
             val blocks = cardBlocks().map { if (it.text == "$79.45") it.copy(text = text) else it }
+                .let { if (expected > 1000) it.withTotalRow("25 min • 2.6 km • $474.83/km est.") else it }
             assertEquals(text, expected, parser.parse(blocks)!!.fare!!, 0.001)
         }
     }

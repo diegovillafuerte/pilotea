@@ -268,8 +268,14 @@ class S25LiveOfferLifecycleReplayTest {
     @Test fun `a same-trip fare revision reaches the displayed row and another trip leg never enriches it`() = runTest {
         for (pickup in listOf("1 min (0.2 km)", "1 min (0.3 km)")) {
             val km = if (pickup.contains("0.3")) 0.3 else 0.2
-            val misread = fixture(79.45).map { if (it.text == "$79.45") it.copy(text = "$19.45") else it }
-            val later = fixture(79.45).map { if (it.text == "1 min (0.2 km)") it.copy(text = pickup) else it }
+            // 0.2.15: the isolated misread frame lost its TOTAL row (with it, it is contradictory); a live
+            // pickup move keeps the card's TOTAL consistent (0.3+2.4 = 2.7 km, $79.45/2.7 km = $29.43/km).
+            val misread = RealGeometryFixtures.withoutTotal(fixture(79.45).map { if (it.text == "$79.45") it.copy(text = "$19.45") else it })
+            val later = fixture(79.45).map { when {
+                it.text == "1 min (0.2 km)" -> it.copy(text = pickup)
+                km == 0.3 && it.text == "25 min • 2.6 km • $30.56/km est." -> it.copy(text = "25 min • 2.7 km • $29.43/km est.")
+                else -> it
+            } }
             val replay = Replay(this)
             try {
                 replay.frame(misread, 0)
@@ -285,6 +291,42 @@ class S25LiveOfferLifecycleReplayTest {
                 assertEquals(2.4, row.tripKm!!, 1e-6)
                 // The next card's first frame (6.3 km trip) is published under this session id.
                 replay.frame(fixture(147.46), 3400)
+                assertEquals(row.sessionId, replay.parsed.last().card.sessionId)
+                assertNull(replay.parsed.last().card.fare)
+                assertFalse("Sin lectura over the next card", replay.verdicts.last().paymentShown)
+                val after = replay.offers.all().single()
+                assertEquals("Another trip leg never enriches the row", row.copy(lastSeenAt = after.lastSeenAt), after)
+            } finally { replay.close() }
+        }
+    }
+
+    // Round 2 (Codex F4): the TOTAL-bearing twin of the test above. The misread keeps its card's TOTAL
+    // row, so it is CONTRADICTORY: it mints no row and no chip; the first consistent frame is the reveal.
+    @Test fun `modern twin - a contradictory first fare mints no row and the first consistent frame reveals`() = runTest {
+        for (pickup in listOf("1 min (0.2 km)", "1 min (0.3 km)")) {
+            val km = if (pickup.contains("0.3")) 0.3 else 0.2
+            val misread = fixture(79.45).map { if (it.text == "$79.45") it.copy(text = "$19.45") else it }
+            val later = fixture(79.45).map { when {
+                it.text == "1 min (0.2 km)" -> it.copy(text = pickup)
+                km == 0.3 && it.text == "25 min • 2.6 km • $30.56/km est." -> it.copy(text = "25 min • 2.7 km • $29.43/km est.")
+                else -> it
+            } }
+            val replay = Replay(this)
+            try {
+                replay.frame(misread, 0)
+                assertTrue("$pickup: the contradiction publishes nothing", replay.parsed.isEmpty())
+                assertTrue("$pickup: and mints no row", replay.offers.all().isEmpty())
+                replay.frame(later, 850)
+                replay.assertChip(79.45, "$pickup f1: the first consistent frame reveals")
+                assertEquals(km, replay.verdicts.last().row.pickupKm!!, 1e-6)
+                replay.frame(later, 1700)
+                replay.assertChip(79.45, "$pickup f2")
+                val row = replay.offers.all().single()
+                assertEquals(79.45, row.fareMxn!!, 1e-6)
+                assertEquals(km, row.pickupKm!!, 1e-6)
+                assertTrue("$pickup: the misread never reaches a card or a row",
+                    replay.parsed.none { it.card.fare == 19.45 } && replay.rows.none { it.fareMxn == 19.45 })
+                replay.frame(fixture(147.46), 2550)
                 assertEquals(row.sessionId, replay.parsed.last().card.sessionId)
                 assertNull(replay.parsed.last().card.fare)
                 assertFalse("Sin lectura over the next card", replay.verdicts.last().paymentShown)

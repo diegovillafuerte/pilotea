@@ -64,16 +64,19 @@ class OfferFramePipelineIdentityTest {
 
     // 0.2.14 round 2 (A1 (a), accepted cost): a x10 trip-leg misread of the same offer is one
     // payment-less frame instead of a held verdict; the confirmed payment returns on the next frame.
+    // 0.2.15 round 2: this is the legacy variant — the misread frame lost its TOTAL row too. With its
+    // TOTAL row it is CONTRADICTORY and latches through the unread frame (modern twin below).
     @Test fun `rejected changed route retains confirmed payment before unread old route returns`() {
         val parsed = replay(misreadPublishes = true) { blocks -> blocks.map {
             if (it.text == "24 min (2.4 km)") it.copy(text = "24 min (24.0 km)") else it
-        } }
+        }.withoutTotalRow() }
         assertEquals(79.45, parsed.first().card.fare!!, 0.001)
         assertEquals(79.45, parsed.last().card.fare!!, 0.001)
         assertEquals("Rejected numeric OCR noise must not split the ledger instance",
             parsed.first().card.sessionId, parsed.last().card.sessionId)
     }
 
+    // 0.2.15: the isolated garbles below lost their TOTAL row too (with it, each is contradictory).
     @Test fun `rejected unknown route preserves confirmed payment and session`() {
         val parsed = replay { blocks -> blocks.map {
             when (it.text) {
@@ -81,7 +84,7 @@ class OfferFramePipelineIdentityTest {
                 "1 min (0.2 km)" -> it.copy(text = "— min (0.2 km)")
                 else -> it
             }
-        } }
+        }.withoutTotalRow() }
         assertEquals(79.45, parsed.last().card.fare!!, 0.001)
         assertEquals("Rejected numeric OCR noise must not split the ledger instance",
             parsed.first().card.sessionId, parsed.last().card.sessionId)
@@ -90,9 +93,75 @@ class OfferFramePipelineIdentityTest {
     @Test fun `rejected fare garble with unchanged complete legs still retains the known payment`() {
         val parsed = replay { blocks -> blocks.map {
             if (it.text == "$79.45") it.copy(text = "$7945.00") else it
-        } }
+        }.withoutTotalRow() }
         assertEquals(79.45, parsed.last().card.fare!!, 0.001)
         assertEquals(parsed.first().card.sessionId, parsed.last().card.sessionId)
+    }
+
+    // Round 2 (Codex F4): TOTAL-bearing twins of the two garble tests above. A garble on a modern card
+    // keeps its TOTAL row: CONTRADICTORY, published as Sin lectura in the same session (never held as an
+    // outlier), and the latch keeps the following unread frame payment-free until a consistent frame.
+    private fun modernReplay(garbled: List<OcrBlock>): List<OfferEvent.Parsed> = runBlocking {
+        val parsed = mutableListOf<OfferEvent.Parsed>()
+        val collector = launch(Dispatchers.Unconfined) {
+            OfferEventBus.events.collect { if (it is OfferEvent.Parsed) parsed += it }
+        }
+        try {
+            val pipeline = OfferFramePipeline()
+            val full = fixture()
+            for (blocks in listOf(full, full, garbled, full.filterNot { it.text == "$79.45" }, full)) {
+                pipeline.processOwnedFrame(blocks, ScreenRect(325, 242, 1040, 572), null,
+                    displayBounds = HostRect(0, 0, 1080, 2340), density = 3f)
+                yield()
+            }
+        } finally { collector.cancelAndJoin() }
+        parsed
+    }
+
+    @Test fun `modern twin - a contradictory garble with an unknown route publishes Sin lectura and latches`() {
+        val parsed = modernReplay(fixture().map {
+            when (it.text) {
+                "$79.45" -> it.copy(text = "$7945.00")
+                "1 min (0.2 km)" -> it.copy(text = "— min (0.2 km)")
+                else -> it
+            }
+        })
+        assertEquals(listOf(79.45, 79.45, null, null, 79.45), parsed.map { it.card.fare })
+        assertEquals(1, parsed.map { it.card.sessionId }.distinct().size)
+    }
+
+    @Test fun `modern twin - a contradictory tenfold trip leg publishes Sin lectura and latches through the unread frame`() {
+        val parsed = modernReplay(fixture().map { if (it.text == "24 min (2.4 km)") it.copy(text = "24 min (24.0 km)") else it })
+        assertEquals(listOf(79.45, 79.45, null, null, 79.45), parsed.map { it.card.fare })
+        assertEquals("Rejected numeric OCR noise must not split the ledger instance", 1,
+            parsed.map { it.card.sessionId }.distinct().size)
+    }
+
+    @Test fun `modern twin - a contradictory fare garble with complete legs publishes Sin lectura and latches`() {
+        val parsed = modernReplay(fixture().map { if (it.text == "$79.45") it.copy(text = "$7945.00") else it })
+        assertEquals(listOf(79.45, 79.45, null, null, 79.45), parsed.map { it.card.fare })
+        assertEquals(1, parsed.map { it.card.sessionId }.distinct().size)
+    }
+
+    @Test fun `modern twin - a contradictory garbled frame is published, never a held heartbeat`() = runBlocking {
+        val events = mutableListOf<OfferEvent>()
+        val collector = launch(Dispatchers.Unconfined) { OfferEventBus.events.collect { events += it } }
+        try {
+            val pipeline = OfferFramePipeline()
+            val full = fixture()
+            val garbled = full.map { if (it.text == "1 min (0.2 km)") it.copy(text = "— min (0.2 km)") else it }
+                .map { if (it.text == "$79.45") it.copy(text = "$7945.00") else it }
+            for (blocks in listOf(full, full, garbled)) {
+                pipeline.processOwnedFrame(blocks, null, null, displayBounds = HostRect(0, 0, 1080, 2340), density = 3f)
+                yield()
+            }
+            assertTrue("The contradiction is suppressed, not held", events.none { it is OfferEvent.LayoutUncertain })
+            assertNull(events.filterIsInstance<OfferEvent.Parsed>().last().card.fare)
+            assertEquals(3, events.filterIsInstance<OfferEvent.Parsed>().size)
+            pipeline.onCaptureUncertain(System.currentTimeMillis())
+            yield()
+            assertFalse(events.filterIsInstance<OfferEvent.LayoutUncertain>().last().processedFrame)
+        } finally { collector.cancelAndJoin() }
     }
 
     @Test fun `independently observed idle layout breaks continuity despite stale OCR card text`() = runBlocking {
@@ -128,7 +197,7 @@ class OfferFramePipelineIdentityTest {
             val pipeline = OfferFramePipeline()
             val full = fixture()
             val garbled = full.map { if (it.text == "1 min (0.2 km)") it.copy(text = "— min (0.2 km)") else it }
-                .map { if (it.text == "$79.45") it.copy(text = "$7945.00") else it }
+                .map { if (it.text == "$79.45") it.copy(text = "$7945.00") else it }.withoutTotalRow()
             for (blocks in listOf(full, full, garbled)) {
                 pipeline.processOwnedFrame(blocks, null, null, displayBounds = HostRect(0, 0, 1080, 2340), density = 3f)
                 yield()
@@ -150,7 +219,9 @@ class OfferFramePipelineIdentityTest {
         try {
             val pipeline = OfferFramePipeline()
             val full = fixture()
+            // 0.2.15: a live fare revision keeps the card's TOTAL rate consistent ($99.45/2.6 km).
             val revision = full.map { if (it.text == "$79.45") it.copy(text = "$99.45") else it }
+                .withTotalRow("25 min • 2.6 km • $38.25/km est.")
             suspend fun frame(blocks: List<OcrBlock>) {
                 org.robolectric.shadows.ShadowSystemClock.advanceBy(java.time.Duration.ofMillis(900))
                 pipeline.processOwnedFrame(blocks, null, null, displayBounds = HostRect(0, 0, 1080, 2340),

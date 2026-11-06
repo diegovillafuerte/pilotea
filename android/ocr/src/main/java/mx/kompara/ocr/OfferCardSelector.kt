@@ -58,7 +58,12 @@ internal fun selectOfferCard(
     }
     val observed = geometryAdapter.adapt(card.platform, capturedAtMs, observation)
     val geometry = observed ?: derived
-    val routes = blocks.filter { uberRoute.containsMatchIn(it.text) }.map { it.hostRect() }.sortedBy { it.top }
+    // The modern card's associated route rows are route anchors even when OCR garbled a unit or the
+    // minutes (knm, nmin, dlZ): placement protects every row the parser read the route from.
+    val modernRows = listOfNotNull(card.validation?.pickupKm?.bounds, card.validation?.tripKm?.bounds)
+        .map { HostRect(it.left, it.top, it.right, it.bottom) }
+    val routes = (blocks.filter { uberRoute.containsMatchIn(it.text) }.map { it.hostRect() } + modernRows)
+        .distinct().sortedBy { it.top }
     val firstRoute = routes.firstOrNull()?.top
     // Payment can remain perfectly stable while a slide-in heading/close is still missing.
     // Only upper-card semantics or independently measured controls can validate that boundary.

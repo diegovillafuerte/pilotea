@@ -29,6 +29,12 @@ android {
             isIncludeAndroidResources = true
         }
     }
+
+    // One repository copy of the sanitized real-device corpus (ocr test resources, e.g.
+    // /uber/s25/2026-11-06/): the parser replays and the end-to-end overlay replays read the same files.
+    sourceSets {
+        getByName("test").resources.srcDir("../ocr/src/test/resources")
+    }
 }
 
 dependencies {

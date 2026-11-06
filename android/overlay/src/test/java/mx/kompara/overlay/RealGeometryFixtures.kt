@@ -50,9 +50,25 @@ internal object RealGeometryFixtures {
         pairs.firstOrNull { it.first == block.text }?.let { block.copy(text = it.second) } ?: block
     }
 
-    /** o1, distinct reading: an earlier Radar card 227 px higher (logged card.top=339) with its own legs. */
+    /**
+     * 0.2.15: a misread frame whose TOTAL row ("N min • X km • $R/km est.") OCR also lost takes the
+     * legacy path, so a synthetic single-field misread still reaches the downstream policy under test.
+     * With its TOTAL row the card's own arithmetic proves such a frame contradictory.
+     */
+    fun withoutTotal(blocks: List<OcrBlock>) = blocks.filterNot { it.text.contains("/km est") }
+
+    /** 0.2.15: a genuine other card or live change keeps its TOTAL row consistent with fare and legs. */
+    fun withTotal(blocks: List<OcrBlock>, total: String) =
+        blocks.map { if (it.text.contains("/km est")) it.copy(text = total) else it }
+
+    /**
+     * o1, distinct reading: an earlier Radar card 227 px higher (logged card.top=339) with its own legs.
+     * 0.2.15: its TOTAL row now matches its own fare and legs (3+27 min, 0.7+9.6 km, $118.20/10.3 km);
+     * the transcription had kept o2's "38 min • 13.1 km • $9.89/km", which every identity contradicts.
+     */
     fun radarHighDistinct() = retext(shift(radar(), -227), "$129.55" to "$118.20",
-        "4 min (0.9 km)" to "3 min (0.7 km)", "34 min (12.2 km)" to "27 min (9.6 km)")
+        "4 min (0.9 km)" to "3 min (0.7 km)", "34 min (12.2 km)" to "27 min (9.6 km)",
+        "38 min • 13.1 km • $9.89/km est." to "30 min • 10.3 km • $11.48/km est.")
     /** o1, displaced reading: the same $129.55 card while the Radar sheet sits 227 px higher. */
     fun radarHighDisplaced() = shift(radar(), -227)
 

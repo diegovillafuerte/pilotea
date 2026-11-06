@@ -1,0 +1,2115 @@
+{
+ "source": "Galaxy S25 (1080x2340), Kompara 0.2.14 debug recorder; numeric tokens, labels and bounds are verbatim device OCR; every address/place/name is invented",
+ "capturedAt": "2026-11-06 10:30",
+ "frames": [
+  {
+   "tMs": 0,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_14": {
+    "fare": 53.53,
+    "pickup": [
+     4,
+     1.2
+    ],
+    "trip": [
+     null,
+     null
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "qq",
+     "left": 1,
+     "top": 1700,
+     "right": 50,
+     "bottom": 1741
+    },
+    {
+     "text": "n",
+     "left": 24,
+     "top": 1760,
+     "right": 37,
+     "bottom": 1804
+    },
+    {
+     "text": "Calle Inventad",
+     "left": 75,
+     "top": 400,
+     "right": 385,
+     "bottom": 452
+    },
+    {
+     "text": "2 Uber Priority",
+     "left": 124,
+     "top": 734,
+     "right": 474,
+     "bottom": 784
+    },
+    {
+     "text": "$53.53",
+     "left": 99,
+     "top": 838,
+     "right": 488,
+     "bottom": 948
+    },
+    {
+     "text": "21 min 5.5 km $9.73/km est.",
+     "left": 97,
+     "top": 995,
+     "right": 816,
+     "bottom": 1039
+    },
+    {
+     "text": "Calle Supuesta 77 - Co",
+     "left": 166,
+     "top": 1080,
+     "right": 645,
+     "bottom": 1128
+    },
+    {
+     "text": "* 4.98 (77)",
+     "left": 123,
+     "top": 1207,
+     "right": 388,
+     "bottom": 1251
+    },
+    {
+     "text": "Parque Ima",
+     "left": 518,
+     "top": 314,
+     "right": 831,
+     "bottom": 364
+    },
+    {
+     "text": "4 min (l.2 km)",
+     "left": 192,
+     "top": 1481,
+     "right": 506,
+     "bottom": 1528
+    },
+    {
+     "text": "+$10.11 incluido para Ejemplo de",
+     "left": 193,
+     "top": 1365,
+     "right": 932,
+     "bottom": 1416
+    },
+    {
+     "text": "X",
+     "left": 891,
+     "top": 762,
+     "right": 933,
+     "bottom": 804
+    },
+    {
+     "text": "Colonia Imaginaria - Privada Sup",
+     "left": 195,
+     "top": 1561,
+     "right": 910,
+     "bottom": 1604
+    },
+    {
+     "text": "h 17 min (4.3 km)",
+     "left": 116,
+     "top": 1621,
+     "right": 525,
+     "bottom": 1673
+    },
+    {
+     "text": "Me interesa",
+     "left": 395,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "Privada Supuesta 7 - Coloni",
+     "left": 195,
+     "top": 1704,
+     "right": 870,
+     "bottom": 1748
+    },
+    {
+     "text": "Privada Supuesta 7 - Privada",
+     "left": 193,
+     "top": 1763,
+     "right": 943,
+     "bottom": 1804
+    },
+    {
+     "text": "Calle Supuesta 77 - Co",
+     "left": 195,
+     "top": 1821,
+     "right": 763,
+     "bottom": 1864
+    },
+    {
+     "text": "Qqq",
+     "left": 973,
+     "top": 220,
+     "right": 1075,
+     "bottom": 285
+    },
+    {
+     "text": "qq",
+     "left": 1027,
+     "top": 2014,
+     "right": 1075,
+     "bottom": 2047
+    }
+   ]
+  },
+  {
+   "tMs": 895,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_14": {
+    "fare": 53.53,
+    "pickup": [
+     4,
+     1.2
+    ],
+    "trip": [
+     null,
+     null
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "qq",
+     "left": 11,
+     "top": 1667,
+     "right": 51,
+     "bottom": 1708
+    },
+    {
+     "text": "Privada Supues",
+     "left": 72,
+     "top": 343,
+     "right": 379,
+     "bottom": 397
+    },
+    {
+     "text": "2 Uber Priority",
+     "left": 124,
+     "top": 734,
+     "right": 474,
+     "bottom": 785
+    },
+    {
+     "text": "$53.53",
+     "left": 99,
+     "top": 838,
+     "right": 488,
+     "bottom": 948
+    },
+    {
+     "text": "Privada Su",
+     "left": 503,
+     "top": 252,
+     "right": 815,
+     "bottom": 306
+    },
+    {
+     "text": "21 min 5.5 km $9.73/km est.",
+     "left": 97,
+     "top": 995,
+     "right": 816,
+     "bottom": 1039
+    },
+    {
+     "text": "Calle Supuesta 77 - Co",
+     "left": 166,
+     "top": 1080,
+     "right": 645,
+     "bottom": 1128
+    },
+    {
+     "text": "* 4.98 (77)",
+     "left": 123,
+     "top": 1207,
+     "right": 388,
+     "bottom": 1251
+    },
+    {
+     "text": "4 min (l.2 km)",
+     "left": 192,
+     "top": 1481,
+     "right": 506,
+     "bottom": 1528
+    },
+    {
+     "text": "+$10.11 incluido para Ejemplo de",
+     "left": 193,
+     "top": 1365,
+     "right": 932,
+     "bottom": 1416
+    },
+    {
+     "text": "ad h 17 min (4.3 km)",
+     "left": 2,
+     "top": 1605,
+     "right": 528,
+     "bottom": 1680
+    },
+    {
+     "text": "X",
+     "left": 896,
+     "top": 761,
+     "right": 933,
+     "bottom": 803
+    },
+    {
+     "text": "Colonia Imaginaria - Privada Sup",
+     "left": 195,
+     "top": 1561,
+     "right": 910,
+     "bottom": 1604
+    },
+    {
+     "text": "Me interesa",
+     "left": 396,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "Privada Supuesta 7 - Coloni",
+     "left": 195,
+     "top": 1704,
+     "right": 870,
+     "bottom": 1748
+    },
+    {
+     "text": "Privada Supuesta 7 - Privada",
+     "left": 193,
+     "top": 1763,
+     "right": 943,
+     "bottom": 1804
+    },
+    {
+     "text": "Colonia Ejemplo - Parqu",
+     "left": 196,
+     "top": 1826,
+     "right": 767,
+     "bottom": 1863
+    },
+    {
+     "text": "Qqqq",
+     "left": 1000,
+     "top": 166,
+     "right": 1079,
+     "bottom": 228
+    },
+    {
+     "text": "M",
+     "left": 1006,
+     "top": 255,
+     "right": 1063,
+     "bottom": 314
+    },
+    {
+     "text": "qq",
+     "left": 1037,
+     "top": 1922,
+     "right": 1073,
+     "bottom": 1947
+    }
+   ]
+  },
+  {
+   "tMs": 1763,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_14": {
+    "fare": 53.53,
+    "pickup": [
+     4,
+     1.2
+    ],
+    "trip": [
+     null,
+     null
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "qq",
+     "left": 11,
+     "top": 1667,
+     "right": 51,
+     "bottom": 1708
+    },
+    {
+     "text": "Privada Supues",
+     "left": 72,
+     "top": 343,
+     "right": 379,
+     "bottom": 397
+    },
+    {
+     "text": "2 Uber Priority",
+     "left": 124,
+     "top": 734,
+     "right": 474,
+     "bottom": 785
+    },
+    {
+     "text": "$53.53",
+     "left": 99,
+     "top": 838,
+     "right": 488,
+     "bottom": 948
+    },
+    {
+     "text": "Privada Su",
+     "left": 503,
+     "top": 251,
+     "right": 815,
+     "bottom": 307
+    },
+    {
+     "text": "21 min 5.5 km $9.73/km est.",
+     "left": 97,
+     "top": 995,
+     "right": 816,
+     "bottom": 1039
+    },
+    {
+     "text": "Calle Supuesta 77 - Co",
+     "left": 166,
+     "top": 1080,
+     "right": 645,
+     "bottom": 1128
+    },
+    {
+     "text": "* 4.98 (77)",
+     "left": 123,
+     "top": 1207,
+     "right": 388,
+     "bottom": 1251
+    },
+    {
+     "text": "4 min (l.2 km)",
+     "left": 192,
+     "top": 1481,
+     "right": 506,
+     "bottom": 1528
+    },
+    {
+     "text": "+$10.11 incluido para Ejemplo de",
+     "left": 193,
+     "top": 1365,
+     "right": 932,
+     "bottom": 1416
+    },
+    {
+     "text": "ad h 17 min (4.3 km)",
+     "left": 2,
+     "top": 1605,
+     "right": 528,
+     "bottom": 1680
+    },
+    {
+     "text": "X",
+     "left": 896,
+     "top": 761,
+     "right": 933,
+     "bottom": 803
+    },
+    {
+     "text": "Colonia Imaginaria - Privada Sup",
+     "left": 195,
+     "top": 1561,
+     "right": 910,
+     "bottom": 1604
+    },
+    {
+     "text": "Me interesa",
+     "left": 396,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "Privada Supuesta 7 - Coloni",
+     "left": 195,
+     "top": 1704,
+     "right": 870,
+     "bottom": 1748
+    },
+    {
+     "text": "Privada Supuesta 7 - Privada",
+     "left": 193,
+     "top": 1763,
+     "right": 943,
+     "bottom": 1804
+    },
+    {
+     "text": "Colonia Ejemplo - Parqu",
+     "left": 196,
+     "top": 1826,
+     "right": 767,
+     "bottom": 1863
+    },
+    {
+     "text": "Qqqq",
+     "left": 1000,
+     "top": 166,
+     "right": 1079,
+     "bottom": 228
+    },
+    {
+     "text": "M",
+     "left": 1006,
+     "top": 255,
+     "right": 1063,
+     "bottom": 314
+    },
+    {
+     "text": "qq",
+     "left": 1037,
+     "top": 1922,
+     "right": 1073,
+     "bottom": 1947
+    }
+   ]
+  },
+  {
+   "tMs": 2646,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_14": {
+    "fare": 53.53,
+    "pickup": [
+     4,
+     1.2
+    ],
+    "trip": [
+     null,
+     null
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "qq",
+     "left": 11,
+     "top": 1667,
+     "right": 51,
+     "bottom": 1708
+    },
+    {
+     "text": "Privada Supues",
+     "left": 72,
+     "top": 343,
+     "right": 379,
+     "bottom": 397
+    },
+    {
+     "text": "2 Uber Priority",
+     "left": 124,
+     "top": 734,
+     "right": 474,
+     "bottom": 785
+    },
+    {
+     "text": "$53.53",
+     "left": 99,
+     "top": 838,
+     "right": 488,
+     "bottom": 948
+    },
+    {
+     "text": "Privada Su",
+     "left": 503,
+     "top": 253,
+     "right": 814,
+     "bottom": 306
+    },
+    {
+     "text": "21 min 5.5 km $9.73/km est.",
+     "left": 97,
+     "top": 995,
+     "right": 816,
+     "bottom": 1039
+    },
+    {
+     "text": "Calle Supuesta 77 - Co",
+     "left": 166,
+     "top": 1080,
+     "right": 645,
+     "bottom": 1128
+    },
+    {
+     "text": "* 4.98 (77)",
+     "left": 123,
+     "top": 1207,
+     "right": 388,
+     "bottom": 1251
+    },
+    {
+     "text": "4 min (l.2 km)",
+     "left": 192,
+     "top": 1481,
+     "right": 506,
+     "bottom": 1528
+    },
+    {
+     "text": "+$10.11 incluido para Ejemplo de",
+     "left": 193,
+     "top": 1365,
+     "right": 932,
+     "bottom": 1416
+    },
+    {
+     "text": "ad h 17 min (4.3 km)",
+     "left": 2,
+     "top": 1605,
+     "right": 528,
+     "bottom": 1680
+    },
+    {
+     "text": "X",
+     "left": 896,
+     "top": 761,
+     "right": 933,
+     "bottom": 803
+    },
+    {
+     "text": "Colonia Imaginaria - Privada Sup",
+     "left": 195,
+     "top": 1561,
+     "right": 910,
+     "bottom": 1604
+    },
+    {
+     "text": "Me interesa",
+     "left": 396,
+     "top": 1993,
+     "right": 686,
+     "bottom": 2038
+    },
+    {
+     "text": "Privada Supuesta 7 - Coloni",
+     "left": 195,
+     "top": 1704,
+     "right": 870,
+     "bottom": 1748
+    },
+    {
+     "text": "Privada Supuesta 7 - Privada",
+     "left": 193,
+     "top": 1763,
+     "right": 943,
+     "bottom": 1807
+    },
+    {
+     "text": "Colonia Ejemplo - Parqu",
+     "left": 196,
+     "top": 1826,
+     "right": 767,
+     "bottom": 1863
+    },
+    {
+     "text": "Qqqq",
+     "left": 1000,
+     "top": 166,
+     "right": 1079,
+     "bottom": 228
+    },
+    {
+     "text": "M",
+     "left": 1006,
+     "top": 255,
+     "right": 1063,
+     "bottom": 314
+    },
+    {
+     "text": "qq",
+     "left": 1037,
+     "top": 1922,
+     "right": 1073,
+     "bottom": 1947
+    }
+   ]
+  },
+  {
+   "tMs": 3529,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_14": {
+    "fare": 53.53,
+    "pickup": [
+     4,
+     1.2
+    ],
+    "trip": [
+     null,
+     null
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "qq",
+     "left": 11,
+     "top": 1667,
+     "right": 51,
+     "bottom": 1708
+    },
+    {
+     "text": "Privada Supues",
+     "left": 72,
+     "top": 343,
+     "right": 379,
+     "bottom": 397
+    },
+    {
+     "text": "2 Uber Priority",
+     "left": 124,
+     "top": 734,
+     "right": 474,
+     "bottom": 785
+    },
+    {
+     "text": "$53.53",
+     "left": 99,
+     "top": 838,
+     "right": 488,
+     "bottom": 948
+    },
+    {
+     "text": "Privada Su",
+     "left": 503,
+     "top": 252,
+     "right": 815,
+     "bottom": 307
+    },
+    {
+     "text": "21 min 5.5 km $9.73/km est.",
+     "left": 97,
+     "top": 995,
+     "right": 816,
+     "bottom": 1039
+    },
+    {
+     "text": "Calle Supuesta 77 - Co",
+     "left": 166,
+     "top": 1080,
+     "right": 645,
+     "bottom": 1128
+    },
+    {
+     "text": "* 4.98 (77)",
+     "left": 123,
+     "top": 1207,
+     "right": 388,
+     "bottom": 1251
+    },
+    {
+     "text": "4 min (l.2 km)",
+     "left": 192,
+     "top": 1481,
+     "right": 506,
+     "bottom": 1528
+    },
+    {
+     "text": "+$10.11 incluido para Ejemplo de",
+     "left": 193,
+     "top": 1365,
+     "right": 932,
+     "bottom": 1416
+    },
+    {
+     "text": "ad h 17 min (4.3 km)",
+     "left": 2,
+     "top": 1605,
+     "right": 528,
+     "bottom": 1680
+    },
+    {
+     "text": "X",
+     "left": 896,
+     "top": 761,
+     "right": 933,
+     "bottom": 803
+    },
+    {
+     "text": "Colonia Imaginaria - Privada Sup",
+     "left": 195,
+     "top": 1561,
+     "right": 910,
+     "bottom": 1604
+    },
+    {
+     "text": "Me interesa",
+     "left": 395,
+     "top": 1993,
+     "right": 686,
+     "bottom": 2038
+    },
+    {
+     "text": "Privada Supuesta 7 - Coloni",
+     "left": 195,
+     "top": 1704,
+     "right": 870,
+     "bottom": 1748
+    },
+    {
+     "text": "Privada Supuesta 7 - Colonia",
+     "left": 195,
+     "top": 1765,
+     "right": 946,
+     "bottom": 1808
+    },
+    {
+     "text": "Calle Supuesta 77 - Co",
+     "left": 195,
+     "top": 1823,
+     "right": 715,
+     "bottom": 1864
+    },
+    {
+     "text": "Qqqq",
+     "left": 1000,
+     "top": 166,
+     "right": 1079,
+     "bottom": 228
+    },
+    {
+     "text": "M",
+     "left": 1006,
+     "top": 255,
+     "right": 1063,
+     "bottom": 314
+    },
+    {
+     "text": "qq",
+     "left": 1037,
+     "top": 1922,
+     "right": 1073,
+     "bottom": 1947
+    }
+   ]
+  },
+  {
+   "tMs": 4410,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_14": {
+    "fare": 53.53,
+    "pickup": [
+     4,
+     1.2
+    ],
+    "trip": [
+     null,
+     null
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "qq",
+     "left": 11,
+     "top": 1667,
+     "right": 51,
+     "bottom": 1708
+    },
+    {
+     "text": "Privada Supues",
+     "left": 72,
+     "top": 343,
+     "right": 379,
+     "bottom": 397
+    },
+    {
+     "text": "2 Uber Priority",
+     "left": 124,
+     "top": 734,
+     "right": 474,
+     "bottom": 785
+    },
+    {
+     "text": "$53.53",
+     "left": 99,
+     "top": 838,
+     "right": 488,
+     "bottom": 948
+    },
+    {
+     "text": "Avenida Fi",
+     "left": 502,
+     "top": 251,
+     "right": 815,
+     "bottom": 308
+    },
+    {
+     "text": "21 min 5.5 km $9.73/km est.",
+     "left": 97,
+     "top": 995,
+     "right": 816,
+     "bottom": 1039
+    },
+    {
+     "text": "Calle Supuesta 77 - Co",
+     "left": 166,
+     "top": 1080,
+     "right": 645,
+     "bottom": 1128
+    },
+    {
+     "text": "* 4.98 (77)",
+     "left": 123,
+     "top": 1207,
+     "right": 388,
+     "bottom": 1251
+    },
+    {
+     "text": "4 min (l.2 km)",
+     "left": 192,
+     "top": 1481,
+     "right": 506,
+     "bottom": 1528
+    },
+    {
+     "text": "+$10.11 incluido para Ejemplo de",
+     "left": 193,
+     "top": 1365,
+     "right": 932,
+     "bottom": 1416
+    },
+    {
+     "text": "ad h 17 min (4.3 km)",
+     "left": 2,
+     "top": 1605,
+     "right": 528,
+     "bottom": 1680
+    },
+    {
+     "text": "X",
+     "left": 896,
+     "top": 761,
+     "right": 933,
+     "bottom": 803
+    },
+    {
+     "text": "Colonia Imaginaria - Privada Sup",
+     "left": 195,
+     "top": 1561,
+     "right": 910,
+     "bottom": 1604
+    },
+    {
+     "text": "Me interesa",
+     "left": 396,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2038
+    },
+    {
+     "text": "Privada Supuesta 7 - Coloni",
+     "left": 195,
+     "top": 1704,
+     "right": 870,
+     "bottom": 1748
+    },
+    {
+     "text": "Privada Supuesta 7 - Colonia",
+     "left": 195,
+     "top": 1765,
+     "right": 946,
+     "bottom": 1808
+    },
+    {
+     "text": "Colonia Ejemplo - Parqu",
+     "left": 196,
+     "top": 1826,
+     "right": 767,
+     "bottom": 1863
+    },
+    {
+     "text": "Qqqq",
+     "left": 1000,
+     "top": 166,
+     "right": 1079,
+     "bottom": 228
+    },
+    {
+     "text": "M",
+     "left": 1006,
+     "top": 255,
+     "right": 1063,
+     "bottom": 314
+    },
+    {
+     "text": "qq",
+     "left": 1037,
+     "top": 1922,
+     "right": 1073,
+     "bottom": 1947
+    }
+   ]
+  },
+  {
+   "tMs": 5263,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_14": {
+    "fare": 53.53,
+    "pickup": [
+     4,
+     1.2
+    ],
+    "trip": [
+     null,
+     null
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "qq",
+     "left": 2,
+     "top": 1609,
+     "right": 49,
+     "bottom": 1646
+    },
+    {
+     "text": "qq",
+     "left": 11,
+     "top": 1667,
+     "right": 51,
+     "bottom": 1708
+    },
+    {
+     "text": "Privada Supues",
+     "left": 72,
+     "top": 343,
+     "right": 379,
+     "bottom": 397
+    },
+    {
+     "text": "2 Uber Priority",
+     "left": 124,
+     "top": 734,
+     "right": 474,
+     "bottom": 785
+    },
+    {
+     "text": "$53.53",
+     "left": 99,
+     "top": 838,
+     "right": 488,
+     "bottom": 948
+    },
+    {
+     "text": "Privada Su",
+     "left": 503,
+     "top": 252,
+     "right": 815,
+     "bottom": 307
+    },
+    {
+     "text": "21 min 5.5 km $9.73/km est.",
+     "left": 97,
+     "top": 995,
+     "right": 816,
+     "bottom": 1039
+    },
+    {
+     "text": "Calle Supuesta 77 - Co",
+     "left": 166,
+     "top": 1080,
+     "right": 645,
+     "bottom": 1128
+    },
+    {
+     "text": "* 4.98 (77)",
+     "left": 123,
+     "top": 1207,
+     "right": 388,
+     "bottom": 1251
+    },
+    {
+     "text": "4 min (l.2 km)",
+     "left": 192,
+     "top": 1481,
+     "right": 506,
+     "bottom": 1528
+    },
+    {
+     "text": "+$10.11 incluido para Ejemplo de",
+     "left": 193,
+     "top": 1365,
+     "right": 932,
+     "bottom": 1416
+    },
+    {
+     "text": "X",
+     "left": 896,
+     "top": 761,
+     "right": 933,
+     "bottom": 803
+    },
+    {
+     "text": "Colonia Imaginaria - Privada Sup",
+     "left": 195,
+     "top": 1561,
+     "right": 910,
+     "bottom": 1604
+    },
+    {
+     "text": "h 17 min (4.3 km)",
+     "left": 115,
+     "top": 1621,
+     "right": 526,
+     "bottom": 1669
+    },
+    {
+     "text": "Privada Supuesta 7 - Coloni",
+     "left": 195,
+     "top": 1704,
+     "right": 870,
+     "bottom": 1748
+    },
+    {
+     "text": "Me interesa",
+     "left": 396,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "Privada Supuesta 7 - Privada",
+     "left": 193,
+     "top": 1763,
+     "right": 943,
+     "bottom": 1807
+    },
+    {
+     "text": "Colonia Ejemplo - Parqu",
+     "left": 196,
+     "top": 1826,
+     "right": 767,
+     "bottom": 1863
+    },
+    {
+     "text": "Qqqq",
+     "left": 1000,
+     "top": 166,
+     "right": 1079,
+     "bottom": 228
+    },
+    {
+     "text": "M",
+     "left": 1006,
+     "top": 255,
+     "right": 1063,
+     "bottom": 314
+    },
+    {
+     "text": "qq",
+     "left": 1037,
+     "top": 1922,
+     "right": 1073,
+     "bottom": 1947
+    }
+   ]
+  },
+  {
+   "tMs": 6113,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_14": {
+    "fare": 53.53,
+    "pickup": [
+     4,
+     1.2
+    ],
+    "trip": [
+     null,
+     null
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "qq",
+     "left": 11,
+     "top": 1667,
+     "right": 51,
+     "bottom": 1708
+    },
+    {
+     "text": "Privada Supues",
+     "left": 72,
+     "top": 343,
+     "right": 379,
+     "bottom": 397
+    },
+    {
+     "text": "2 Uber Priority",
+     "left": 124,
+     "top": 734,
+     "right": 474,
+     "bottom": 785
+    },
+    {
+     "text": "$53.53",
+     "left": 99,
+     "top": 838,
+     "right": 490,
+     "bottom": 948
+    },
+    {
+     "text": "Privada Su",
+     "left": 503,
+     "top": 252,
+     "right": 815,
+     "bottom": 306
+    },
+    {
+     "text": "21 min 5.5 km $9.73/km est.",
+     "left": 97,
+     "top": 995,
+     "right": 816,
+     "bottom": 1039
+    },
+    {
+     "text": "Calle Supuesta 77 - Co",
+     "left": 166,
+     "top": 1080,
+     "right": 645,
+     "bottom": 1128
+    },
+    {
+     "text": "* 4.98 (77)",
+     "left": 123,
+     "top": 1207,
+     "right": 388,
+     "bottom": 1251
+    },
+    {
+     "text": "4 min (l.2 km)",
+     "left": 192,
+     "top": 1481,
+     "right": 506,
+     "bottom": 1528
+    },
+    {
+     "text": "+$10.11 incluido para Ejemplo de",
+     "left": 193,
+     "top": 1365,
+     "right": 932,
+     "bottom": 1416
+    },
+    {
+     "text": "ad h 17 min (4.3 km)",
+     "left": 2,
+     "top": 1605,
+     "right": 528,
+     "bottom": 1680
+    },
+    {
+     "text": "X",
+     "left": 896,
+     "top": 761,
+     "right": 933,
+     "bottom": 803
+    },
+    {
+     "text": "Colonia Imaginaria - Privada Sup",
+     "left": 195,
+     "top": 1561,
+     "right": 910,
+     "bottom": 1604
+    },
+    {
+     "text": "Me interesa",
+     "left": 396,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "Privada Supuesta 7 - Coloni",
+     "left": 195,
+     "top": 1704,
+     "right": 870,
+     "bottom": 1748
+    },
+    {
+     "text": "Privada Supuesta 7 - Colonia",
+     "left": 195,
+     "top": 1765,
+     "right": 946,
+     "bottom": 1808
+    },
+    {
+     "text": "Colonia Ejemplo - Parqu",
+     "left": 196,
+     "top": 1823,
+     "right": 767,
+     "bottom": 1871
+    },
+    {
+     "text": "Qqqq",
+     "left": 1000,
+     "top": 166,
+     "right": 1079,
+     "bottom": 228
+    },
+    {
+     "text": "M",
+     "left": 1006,
+     "top": 255,
+     "right": 1063,
+     "bottom": 314
+    },
+    {
+     "text": "qq",
+     "left": 1037,
+     "top": 1922,
+     "right": 1073,
+     "bottom": 1947
+    }
+   ]
+  },
+  {
+   "tMs": 7016,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_14": {
+    "fare": 53.53,
+    "pickup": [
+     4,
+     1.2
+    ],
+    "trip": [
+     null,
+     null
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "qq",
+     "left": 2,
+     "top": 1609,
+     "right": 49,
+     "bottom": 1646
+    },
+    {
+     "text": "qq",
+     "left": 11,
+     "top": 1667,
+     "right": 51,
+     "bottom": 1708
+    },
+    {
+     "text": "Privada Supues",
+     "left": 72,
+     "top": 343,
+     "right": 379,
+     "bottom": 397
+    },
+    {
+     "text": "2 Uber Priority",
+     "left": 124,
+     "top": 734,
+     "right": 474,
+     "bottom": 785
+    },
+    {
+     "text": "$53.53",
+     "left": 99,
+     "top": 838,
+     "right": 488,
+     "bottom": 948
+    },
+    {
+     "text": "Avenida Fi",
+     "left": 502,
+     "top": 251,
+     "right": 815,
+     "bottom": 308
+    },
+    {
+     "text": "21 min 5.5 km $9.73/km est.",
+     "left": 97,
+     "top": 995,
+     "right": 816,
+     "bottom": 1039
+    },
+    {
+     "text": "Calle Supuesta 77 - Co",
+     "left": 166,
+     "top": 1080,
+     "right": 645,
+     "bottom": 1128
+    },
+    {
+     "text": "* 4.98 (77)",
+     "left": 123,
+     "top": 1207,
+     "right": 388,
+     "bottom": 1251
+    },
+    {
+     "text": "4 min (l.2 km)",
+     "left": 192,
+     "top": 1481,
+     "right": 506,
+     "bottom": 1528
+    },
+    {
+     "text": "+$10.11 incluido para Ejemplo de",
+     "left": 193,
+     "top": 1365,
+     "right": 932,
+     "bottom": 1416
+    },
+    {
+     "text": "X",
+     "left": 896,
+     "top": 761,
+     "right": 933,
+     "bottom": 803
+    },
+    {
+     "text": "Colonia Imaginaria - Privada Sup",
+     "left": 195,
+     "top": 1561,
+     "right": 910,
+     "bottom": 1604
+    },
+    {
+     "text": "h 17 min (4.3 km)",
+     "left": 116,
+     "top": 1623,
+     "right": 525,
+     "bottom": 1673
+    },
+    {
+     "text": "Privada Supuesta 7 - Coloni",
+     "left": 195,
+     "top": 1704,
+     "right": 870,
+     "bottom": 1748
+    },
+    {
+     "text": "Me interesa",
+     "left": 396,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "Privada Supuesta 7 - Colonia",
+     "left": 195,
+     "top": 1765,
+     "right": 946,
+     "bottom": 1808
+    },
+    {
+     "text": "Avenida Ficticia 9, Co",
+     "left": 196,
+     "top": 1825,
+     "right": 715,
+     "bottom": 1862
+    },
+    {
+     "text": "Qqqq",
+     "left": 1000,
+     "top": 166,
+     "right": 1079,
+     "bottom": 228
+    },
+    {
+     "text": "M",
+     "left": 1006,
+     "top": 255,
+     "right": 1063,
+     "bottom": 314
+    },
+    {
+     "text": "qq",
+     "left": 1037,
+     "top": 1922,
+     "right": 1073,
+     "bottom": 1947
+    }
+   ]
+  },
+  {
+   "tMs": 7914,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_14": {
+    "fare": 53.53,
+    "pickup": [
+     4,
+     1.2
+    ],
+    "trip": [
+     null,
+     null
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "qq",
+     "left": 2,
+     "top": 1609,
+     "right": 49,
+     "bottom": 1646
+    },
+    {
+     "text": "qq",
+     "left": 11,
+     "top": 1667,
+     "right": 51,
+     "bottom": 1708
+    },
+    {
+     "text": "Privada Supues",
+     "left": 72,
+     "top": 343,
+     "right": 379,
+     "bottom": 397
+    },
+    {
+     "text": "2 Uber Priority",
+     "left": 124,
+     "top": 734,
+     "right": 474,
+     "bottom": 785
+    },
+    {
+     "text": "$53.53",
+     "left": 99,
+     "top": 838,
+     "right": 488,
+     "bottom": 948
+    },
+    {
+     "text": "Privada Su",
+     "left": 503,
+     "top": 252,
+     "right": 814,
+     "bottom": 306
+    },
+    {
+     "text": "21 min 5.5 km $9.73/km est.",
+     "left": 97,
+     "top": 995,
+     "right": 816,
+     "bottom": 1039
+    },
+    {
+     "text": "Calle Supuesta 77 - Co",
+     "left": 166,
+     "top": 1080,
+     "right": 645,
+     "bottom": 1128
+    },
+    {
+     "text": "* 4.98 (77)",
+     "left": 123,
+     "top": 1207,
+     "right": 388,
+     "bottom": 1251
+    },
+    {
+     "text": "+$10.11 incluido para Ejemplo de",
+     "left": 193,
+     "top": 1365,
+     "right": 932,
+     "bottom": 1416
+    },
+    {
+     "text": "4 min (l.2 km)",
+     "left": 192,
+     "top": 1481,
+     "right": 506,
+     "bottom": 1528
+    },
+    {
+     "text": "X",
+     "left": 896,
+     "top": 761,
+     "right": 933,
+     "bottom": 803
+    },
+    {
+     "text": "Colonia Imaginaria - Privada Sup",
+     "left": 195,
+     "top": 1561,
+     "right": 910,
+     "bottom": 1604
+    },
+    {
+     "text": "h 17 min (4.3 km)",
+     "left": 116,
+     "top": 1622,
+     "right": 526,
+     "bottom": 1673
+    },
+    {
+     "text": "Privada Supuesta 7 - Coloni",
+     "left": 195,
+     "top": 1704,
+     "right": 870,
+     "bottom": 1748
+    },
+    {
+     "text": "Privada Supuesta 7 - Colonia",
+     "left": 195,
+     "top": 1765,
+     "right": 946,
+     "bottom": 1808
+    },
+    {
+     "text": "Colonia Ejemplo - Parqu",
+     "left": 196,
+     "top": 1823,
+     "right": 767,
+     "bottom": 1871
+    },
+    {
+     "text": "Me interesa",
+     "left": 395,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "Qqqq",
+     "left": 1000,
+     "top": 166,
+     "right": 1079,
+     "bottom": 228
+    },
+    {
+     "text": "M",
+     "left": 1006,
+     "top": 255,
+     "right": 1063,
+     "bottom": 314
+    },
+    {
+     "text": "qq",
+     "left": 1037,
+     "top": 1922,
+     "right": 1073,
+     "bottom": 1947
+    }
+   ]
+  },
+  {
+   "tMs": 8846,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_14": {
+    "fare": 53.53,
+    "pickup": [
+     4,
+     1.2
+    ],
+    "trip": [
+     null,
+     null
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "qq",
+     "left": 2,
+     "top": 1609,
+     "right": 49,
+     "bottom": 1646
+    },
+    {
+     "text": "qq",
+     "left": 11,
+     "top": 1667,
+     "right": 51,
+     "bottom": 1708
+    },
+    {
+     "text": "Privada Supues",
+     "left": 72,
+     "top": 343,
+     "right": 379,
+     "bottom": 397
+    },
+    {
+     "text": "2 Uber Priority",
+     "left": 124,
+     "top": 734,
+     "right": 474,
+     "bottom": 785
+    },
+    {
+     "text": "$53.53",
+     "left": 99,
+     "top": 838,
+     "right": 490,
+     "bottom": 948
+    },
+    {
+     "text": "Privada Su",
+     "left": 503,
+     "top": 252,
+     "right": 814,
+     "bottom": 306
+    },
+    {
+     "text": "21 min 5.5 km $9.73/km est.",
+     "left": 97,
+     "top": 995,
+     "right": 816,
+     "bottom": 1039
+    },
+    {
+     "text": "Calle Supuesta 77 - Co",
+     "left": 166,
+     "top": 1080,
+     "right": 645,
+     "bottom": 1128
+    },
+    {
+     "text": "* 4.98 (77)",
+     "left": 123,
+     "top": 1207,
+     "right": 388,
+     "bottom": 1251
+    },
+    {
+     "text": "+$10.11 incluido para Ejemplo de",
+     "left": 193,
+     "top": 1365,
+     "right": 932,
+     "bottom": 1416
+    },
+    {
+     "text": "4 min (l.2 km)",
+     "left": 192,
+     "top": 1481,
+     "right": 506,
+     "bottom": 1528
+    },
+    {
+     "text": "X",
+     "left": 896,
+     "top": 761,
+     "right": 933,
+     "bottom": 803
+    },
+    {
+     "text": "Colonia Imaginaria - Privada Sup",
+     "left": 195,
+     "top": 1561,
+     "right": 910,
+     "bottom": 1604
+    },
+    {
+     "text": "h 17 min (4.3 km)",
+     "left": 115,
+     "top": 1621,
+     "right": 526,
+     "bottom": 1669
+    },
+    {
+     "text": "Privada Supuesta 7 - Coloni",
+     "left": 195,
+     "top": 1704,
+     "right": 870,
+     "bottom": 1748
+    },
+    {
+     "text": "Privada Supuesta 7 - Colonia",
+     "left": 195,
+     "top": 1765,
+     "right": 946,
+     "bottom": 1808
+    },
+    {
+     "text": "Colonia Ejemplo - Parqu",
+     "left": 196,
+     "top": 1826,
+     "right": 767,
+     "bottom": 1863
+    },
+    {
+     "text": "Me interesa",
+     "left": 396,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "Qqqq",
+     "left": 1000,
+     "top": 166,
+     "right": 1079,
+     "bottom": 228
+    },
+    {
+     "text": "M",
+     "left": 1006,
+     "top": 255,
+     "right": 1063,
+     "bottom": 314
+    },
+    {
+     "text": "qq",
+     "left": 1037,
+     "top": 1922,
+     "right": 1073,
+     "bottom": 1947
+    }
+   ]
+  },
+  {
+   "tMs": 9747,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_14": {
+    "fare": 53.53,
+    "pickup": [
+     4,
+     1.2
+    ],
+    "trip": [
+     null,
+     null
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "qq",
+     "left": 2,
+     "top": 1609,
+     "right": 49,
+     "bottom": 1646
+    },
+    {
+     "text": "qq",
+     "left": 11,
+     "top": 1667,
+     "right": 51,
+     "bottom": 1708
+    },
+    {
+     "text": "Privada Supues",
+     "left": 72,
+     "top": 343,
+     "right": 379,
+     "bottom": 397
+    },
+    {
+     "text": "2 Uber Priority",
+     "left": 124,
+     "top": 734,
+     "right": 474,
+     "bottom": 785
+    },
+    {
+     "text": "$53.53",
+     "left": 99,
+     "top": 838,
+     "right": 488,
+     "bottom": 948
+    },
+    {
+     "text": "Avenida Fi",
+     "left": 502,
+     "top": 251,
+     "right": 815,
+     "bottom": 308
+    },
+    {
+     "text": "21 min 5.5 km $9.73/km est.",
+     "left": 97,
+     "top": 995,
+     "right": 816,
+     "bottom": 1039
+    },
+    {
+     "text": "Calle Supuesta 77 - Co",
+     "left": 166,
+     "top": 1080,
+     "right": 645,
+     "bottom": 1128
+    },
+    {
+     "text": "* 4.98 (77)",
+     "left": 123,
+     "top": 1207,
+     "right": 388,
+     "bottom": 1251
+    },
+    {
+     "text": "4 min (l.2 km)",
+     "left": 192,
+     "top": 1481,
+     "right": 506,
+     "bottom": 1528
+    },
+    {
+     "text": "+$10.11 incluido para Ejemplo de",
+     "left": 193,
+     "top": 1365,
+     "right": 932,
+     "bottom": 1416
+    },
+    {
+     "text": "X",
+     "left": 896,
+     "top": 761,
+     "right": 933,
+     "bottom": 803
+    },
+    {
+     "text": "Colonia Imaginaria - Privada Sup",
+     "left": 195,
+     "top": 1561,
+     "right": 910,
+     "bottom": 1604
+    },
+    {
+     "text": "h 17 min (4.3 km)",
+     "left": 116,
+     "top": 1623,
+     "right": 526,
+     "bottom": 1673
+    },
+    {
+     "text": "Privada Supuesta 7 - Coloni",
+     "left": 195,
+     "top": 1704,
+     "right": 870,
+     "bottom": 1748
+    },
+    {
+     "text": "Me interesa",
+     "left": 395,
+     "top": 1993,
+     "right": 686,
+     "bottom": 2038
+    },
+    {
+     "text": "Privada Supuesta 7 - Colonia",
+     "left": 195,
+     "top": 1765,
+     "right": 946,
+     "bottom": 1808
+    },
+    {
+     "text": "Calle Supuesta 77 - Co",
+     "left": 195,
+     "top": 1823,
+     "right": 715,
+     "bottom": 1864
+    },
+    {
+     "text": "Qqqq",
+     "left": 1000,
+     "top": 166,
+     "right": 1079,
+     "bottom": 228
+    },
+    {
+     "text": "M",
+     "left": 1006,
+     "top": 255,
+     "right": 1063,
+     "bottom": 314
+    },
+    {
+     "text": "qq",
+     "left": 1037,
+     "top": 1922,
+     "right": 1073,
+     "bottom": 1947
+    }
+   ]
+  },
+  {
+   "tMs": 10643,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_14": {
+    "fare": 53.53,
+    "pickup": [
+     4,
+     1.2
+    ],
+    "trip": [
+     null,
+     null
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "qq",
+     "left": 2,
+     "top": 1609,
+     "right": 49,
+     "bottom": 1646
+    },
+    {
+     "text": "qq",
+     "left": 11,
+     "top": 1667,
+     "right": 51,
+     "bottom": 1708
+    },
+    {
+     "text": "Privada Supues",
+     "left": 72,
+     "top": 343,
+     "right": 379,
+     "bottom": 397
+    },
+    {
+     "text": "2 Uber Priority",
+     "left": 124,
+     "top": 734,
+     "right": 474,
+     "bottom": 785
+    },
+    {
+     "text": "$53.53",
+     "left": 99,
+     "top": 838,
+     "right": 488,
+     "bottom": 948
+    },
+    {
+     "text": "Privada Su",
+     "left": 503,
+     "top": 252,
+     "right": 815,
+     "bottom": 307
+    },
+    {
+     "text": "21 min 5.5 km $9.73/km est.",
+     "left": 97,
+     "top": 995,
+     "right": 816,
+     "bottom": 1039
+    },
+    {
+     "text": "Calle Supuesta 77 - Co",
+     "left": 166,
+     "top": 1080,
+     "right": 645,
+     "bottom": 1128
+    },
+    {
+     "text": "* 4.98 (77)",
+     "left": 123,
+     "top": 1207,
+     "right": 388,
+     "bottom": 1251
+    },
+    {
+     "text": "+$10.11 incluido para Ejemplo de",
+     "left": 193,
+     "top": 1365,
+     "right": 932,
+     "bottom": 1416
+    },
+    {
+     "text": "4 min (l.2 km)",
+     "left": 192,
+     "top": 1481,
+     "right": 506,
+     "bottom": 1528
+    },
+    {
+     "text": "X",
+     "left": 896,
+     "top": 761,
+     "right": 933,
+     "bottom": 803
+    },
+    {
+     "text": "Colonia Imaginaria - Privada Sup",
+     "left": 195,
+     "top": 1561,
+     "right": 910,
+     "bottom": 1604
+    },
+    {
+     "text": "h 17 min (4.3 km)",
+     "left": 116,
+     "top": 1624,
+     "right": 526,
+     "bottom": 1673
+    },
+    {
+     "text": "Privada Supuesta 7 - Coloni",
+     "left": 195,
+     "top": 1704,
+     "right": 870,
+     "bottom": 1748
+    },
+    {
+     "text": "Privada Supuesta 7 - Colonia",
+     "left": 195,
+     "top": 1765,
+     "right": 946,
+     "bottom": 1808
+    },
+    {
+     "text": "Avenida Ficticia 9, Co",
+     "left": 196,
+     "top": 1825,
+     "right": 715,
+     "bottom": 1861
+    },
+    {
+     "text": "Me interesa",
+     "left": 395,
+     "top": 1993,
+     "right": 686,
+     "bottom": 2038
+    },
+    {
+     "text": "Qqqq",
+     "left": 1000,
+     "top": 166,
+     "right": 1079,
+     "bottom": 228
+    },
+    {
+     "text": "M",
+     "left": 1006,
+     "top": 255,
+     "right": 1063,
+     "bottom": 314
+    },
+    {
+     "text": "qq",
+     "left": 1037,
+     "top": 1922,
+     "right": 1073,
+     "bottom": 1947
+    }
+   ]
+  }
+ ]
+}

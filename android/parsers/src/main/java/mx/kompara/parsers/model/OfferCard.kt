@@ -46,6 +46,8 @@ data class OfferCard(
     val hostGeometry: HostGeometry? = null,
     /** Card-local replacement evidence; missing OCR tokens are unknown, never proof of continuity. */
     val instanceEvidence: OfferInstanceEvidence? = null,
+    /** The card's own checksum validation (modern Uber TOTAL row); null for every other format. */
+    val validation: OfferValidationEvidence? = null,
 )
 
 @Serializable

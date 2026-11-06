@@ -141,13 +141,25 @@ class OfferInstanceLedgerReplayTest {
         OcrBlock("Hoja de ruta", OcrBounds(120, 1400, 960, 1480)),
     )
 
+    /** 0.2.15: another offer carries its own consistent TOTAL row ($147.46 over 7.0 km or 2.6 km). */
     private fun nextOffer(changedLegs: Boolean): List<OcrBlock> = fixture().map {
         it.copy(text = when (it.text) {
             "$79.45" -> "$147.46"
             "1 min (0.2 km)" -> if (changedLegs) "4 min (0.7 km)" else it.text
             "24 min (2.4 km)" -> if (changedLegs) "49 min (6.3 km)" else it.text
+            "25 min • 2.6 km • $30.56/km est." ->
+                if (changedLegs) "53 min • 7.0 km • $21.07/km est." else "25 min • 2.6 km • $56.72/km est."
             else -> it.text
         })
+    }
+
+    /** 0.2.15: a live fare revision of the same card keeps its TOTAL rate consistent ($99.45/2.6 km). */
+    private fun revised(blocks: List<OcrBlock>) = blocks.map {
+        when (it.text) {
+            "$79.45" -> it.copy(text = "$99.45")
+            "25 min • 2.6 km • $30.56/km est." -> it.copy(text = "25 min • 2.6 km • $38.25/km est.")
+            else -> it
+        }
     }
 
     @Test fun `S25 accepted header above former card resolves offer and opens one linked trip`() {
@@ -296,13 +308,14 @@ class OfferInstanceLedgerReplayTest {
 
     @Test fun `review action jitter cannot reset first payment allowance or create ledger rows`() {
         val full = fixture()
+        // 0.2.15: the isolated misread frame lost its TOTAL row (with it, it is contradictory).
         val jitteredMisread = full.map {
             when (it.text) {
                 "$79.45" -> it.copy(text = "$99.45")
                 "Aceptar" -> it.copy(bounds = it.bounds.copy(top = it.bounds.top + 30, bottom = it.bounds.bottom + 30))
                 else -> it
             }
-        }
+        }.let(RealGeometryFixtures::withoutTotal)
         val result = replay {
             frame(full, 0); frame(full, 900); frame(jitteredMisread, 1800); frame(full, 2700)
         }
@@ -312,6 +325,30 @@ class OfferInstanceLedgerReplayTest {
         assertTrue("The unconfirmed 99.45 must never be shown", result.parsed.all { it.card.fare == 79.45 })
         assertEquals(1, result.offers.all().size)
         assertTrue("The unconfirmed fare must never enter even a transient DAO snapshot",
+            result.ledgerSnapshots.all { it.single().fareMxn == 79.45 })
+    }
+
+    // Round 2 (Codex F4): the TOTAL-bearing twin of the jitter test above. The misread keeps its TOTAL
+    // row, so it is CONTRADICTORY: it publishes Sin lectura in the same session and votes nothing. Its
+    // latch holds through the next frame (the action slides back 30 px: uncertain) and clears on the
+    // first steady consistent frame.
+    @Test fun `modern twin - a contradictory fare with action jitter publishes Sin lectura and never a row change`() {
+        val full = fixture()
+        val jitteredContradiction = full.map {
+            when (it.text) {
+                "$79.45" -> it.copy(text = "$99.45")
+                "Aceptar" -> it.copy(bounds = it.bounds.copy(top = it.bounds.top + 30, bottom = it.bounds.bottom + 30))
+                else -> it
+            }
+        }
+        val result = replay {
+            frame(full, 0); frame(full, 900); frame(jitteredContradiction, 1800); frame(full, 2700); frame(full, 3600)
+        }
+        assertEquals("Every frame publishes, the contradiction as Sin lectura", 5, result.parsed.size)
+        assertEquals(1, result.parsed.map { it.card.sessionId }.distinct().size)
+        assertEquals(listOf(79.45, 79.45, null, null, 79.45), result.parsed.map { it.card.fare })
+        assertEquals(1, result.offers.all().size)
+        assertTrue("The contradiction never enters even a transient DAO snapshot",
             result.ledgerSnapshots.all { it.single().fareMxn == 79.45 })
     }
 
@@ -380,14 +417,17 @@ class OfferInstanceLedgerReplayTest {
     // misread still cannot replace.
     @Test fun `countdown and isolated route changes cannot manufacture replacement evidence`() {
         val full = fixture()
-        val changedRoute = full.map {
-            if (it.text == "24 min (2.4 km)") it.copy(text = "25 min (2.5 km)") else it
+        // 0.2.15 (round 2): the isolated misread keeps the card's TOTAL row, which it contradicts
+        // (1+25 ≠ 25 min, 0.2+2.5 ≠ 2.6 km); the later genuine card carries its own consistent TOTAL.
+        val isolatedMisread = full.map { if (it.text == "24 min (2.4 km)") it.copy(text = "25 min (2.5 km)") else it }
+        val changedRoute = isolatedMisread.map {
+            if (it.text == "25 min • 2.6 km • $30.56/km est.") it.copy(text = "26 min • 2.7 km • $29.43/km est.") else it
         }
         val result = replay {
             for (seconds in 8 downTo 0) {
                 frame(full + OcrBlock("${seconds}s", OcrBounds(700, 1990, 780, 2040)), (8 - seconds) * 900L)
             }
-            frame(changedRoute, 8100)
+            frame(isolatedMisread, 8100)
             frame(full, 9000)
             assertEquals(1, parsed.map { it.card.sessionId }.distinct().size)
             assertNull("The isolated misread shows no payment", parsed[9].card.fare)
@@ -405,7 +445,7 @@ class OfferInstanceLedgerReplayTest {
 
     @Test fun `a dropout breaks revision agreement without dropping the confirmed session payment`() {
         val full = fixture()
-        val candidate = full.map { if (it.text == "$79.45") it.copy(text = "$99.45") else it }
+        val candidate = revised(full)
         val result = replay {
             frame(full, 0)
             frame(candidate, 900)
@@ -477,6 +517,8 @@ class OfferInstanceLedgerReplayTest {
                 "$79.45" -> "$149.45"
                 "1 min (0.2 km)" -> "4 min (0.7 km)"
                 "24 min (2.4 km)" -> "49 min (6.3 km)"
+                // 0.2.15: the secondary card's own consistent TOTAL row ($149.45/7.0 km).
+                "25 min • 2.6 km • $30.56/km est." -> "53 min • 7.0 km • $21.35/km est."
                 else -> it.text
             }, bounds = it.bounds.copy(top = it.bounds.top + 800, bottom = it.bounds.bottom + 800))
         }
@@ -650,7 +692,7 @@ class OfferInstanceLedgerReplayTest {
 
     @Test fun `alternating candidates never flip displayed fare or write ledger corrections`() {
         val full = fixture()
-        val candidate = full.map { if (it.text == "$79.45") it.copy(text = "$99.45") else it }
+        val candidate = revised(full)
         val result = replay {
             frame(full)
             repeat(12) { frame(if (it % 2 == 0) candidate else full, (it + 1) * 350L) }
@@ -664,7 +706,7 @@ class OfferInstanceLedgerReplayTest {
 
     @Test fun `expired samples cannot promote one candidate into displayed or persisted confirmed payment`() {
         val full = fixture()
-        val candidate = full.map { if (it.text == "$79.45") it.copy(text = "$99.45") else it }
+        val candidate = revised(full)
         val unread = full.filterNot { it.text == "$79.45" }
         val result = replay {
             frame(full, 0); frame(full, 300)
@@ -719,7 +761,7 @@ class OfferInstanceLedgerReplayTest {
 
     @Test fun `repeated confirmation revises one record and disappearance cannot persist retained money`() {
         val full = fixture()
-        val candidate = full.map { if (it.text == "$79.45") it.copy(text = "$99.45") else it }
+        val candidate = revised(full)
         val unread = full.filterNot { it.text == "$79.45" }
         val result = replay {
             frame(full); frame(full); frame(unread); frame(unread)

@@ -1,0 +1,2035 @@
+{
+ "source": "Galaxy S25 (1080x2340), Kompara 0.2.14 debug recorder; numeric tokens, labels and bounds are verbatim device OCR; every address/place/name is invented",
+ "capturedAt": "2026-11-06 10:27",
+ "frames": [
+  {
+   "tMs": 0,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_14": {
+    "fare": 79.81,
+    "pickup": [
+     1,
+     0.2
+    ],
+    "trip": [
+     35,
+     8
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "a",
+     "left": 9,
+     "top": 1757,
+     "right": 26,
+     "bottom": 1784
+    },
+    {
+     "text": "2 UberX",
+     "left": 162,
+     "top": 857,
+     "right": 332,
+     "bottom": 908
+    },
+    {
+     "text": "Colonia Imaginaria",
+     "left": 385,
+     "top": 134,
+     "right": 767,
+     "bottom": 179
+    },
+    {
+     "text": "$79.81",
+     "left": 102,
+     "top": 962,
+     "right": 482,
+     "bottom": 1072
+    },
+    {
+     "text": "36 min • 8.2 km $9.73/km est.",
+     "left": 97,
+     "top": 1116,
+     "right": 825,
+     "bottom": 1162
+    },
+    {
+     "text": "Identidad verificada",
+     "left": 196,
+     "top": 1212,
+     "right": 646,
+     "bottom": 1249
+    },
+    {
+     "text": "* 4.81 (1348)",
+     "left": 122,
+     "top": 1322,
+     "right": 433,
+     "bottom": 1375
+    },
+    {
+     "text": "l min (0.2 km)",
+     "left": 193,
+     "top": 1485,
+     "right": 502,
+     "bottom": 1531
+    },
+    {
+     "text": "35 min (8.0 km)",
+     "left": 192,
+     "top": 1683,
+     "right": 535,
+     "bottom": 1732
+    },
+    {
+     "text": "Colonia Ejemplo - Calle Supuesta",
+     "left": 192,
+     "top": 1561,
+     "right": 897,
+     "bottom": 1606
+    },
+    {
+     "text": "Avenida",
+     "left": 191,
+     "top": 1621,
+     "right": 372,
+     "bottom": 1658
+    },
+    {
+     "text": "Calzada Inventada 300, Colo",
+     "left": 220,
+     "top": 1757,
+     "right": 829,
+     "bottom": 1802
+    },
+    {
+     "text": "Calle Supuesta 77",
+     "left": 193,
+     "top": 1825,
+     "right": 579,
+     "bottom": 1862
+    },
+    {
+     "text": "Me interesa",
+     "left": 395,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "X",
+     "left": 892,
+     "top": 884,
+     "right": 933,
+     "bottom": 926
+    },
+    {
+     "text": "Calle Inventada",
+     "left": 618,
+     "top": 2161,
+     "right": 959,
+     "bottom": 2196
+    },
+    {
+     "text": "qq",
+     "left": 1029,
+     "top": 2038,
+     "right": 1071,
+     "bottom": 2073
+    }
+   ]
+  },
+  {
+   "tMs": 863,
+   "signature": true,
+   "chipRect": {
+    "left": 36,
+    "top": 402,
+    "right": 756,
+    "bottom": 738
+   },
+   "parsed_0_2_14": {
+    "fare": 79.81,
+    "pickup": [
+     1,
+     0.2
+    ],
+    "trip": [
+     35,
+     8
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "L",
+     "left": 12,
+     "top": 1140,
+     "right": 38,
+     "bottom": 1185
+    },
+    {
+     "text": "2 UberX",
+     "left": 162,
+     "top": 857,
+     "right": 332,
+     "bottom": 908
+    },
+    {
+     "text": "Qqqq",
+     "left": 402,
+     "top": 354,
+     "right": 492,
+     "bottom": 394
+    },
+    {
+     "text": "$79.81",
+     "left": 100,
+     "top": 961,
+     "right": 480,
+     "bottom": 1071
+    },
+    {
+     "text": "Identidad verificada",
+     "left": 196,
+     "top": 1212,
+     "right": 646,
+     "bottom": 1249
+    },
+    {
+     "text": "36 min • 8.2 km $9.73/km est.",
+     "left": 97,
+     "top": 1116,
+     "right": 825,
+     "bottom": 1162
+    },
+    {
+     "text": "* 4.81 (1348)",
+     "left": 122,
+     "top": 1322,
+     "right": 433,
+     "bottom": 1375
+    },
+    {
+     "text": "l min (0.2 km)",
+     "left": 211,
+     "top": 1480,
+     "right": 502,
+     "bottom": 1528
+    },
+    {
+     "text": "Parque",
+     "left": 190,
+     "top": 1620,
+     "right": 371,
+     "bottom": 1657
+    },
+    {
+     "text": "35 min (8.0 km)",
+     "left": 194,
+     "top": 1688,
+     "right": 537,
+     "bottom": 1734
+    },
+    {
+     "text": "Calle Inventada 123 - Barrio Fic",
+     "left": 208,
+     "top": 1553,
+     "right": 896,
+     "bottom": 1601
+    },
+    {
+     "text": "Colonia E",
+     "left": 742,
+     "top": 141,
+     "right": 1067,
+     "bottom": 209
+    },
+    {
+     "text": "Lugar",
+     "left": 799,
+     "top": 234,
+     "right": 1028,
+     "bottom": 283
+    },
+    {
+     "text": "Calle Supuesta 77",
+     "left": 193,
+     "top": 1825,
+     "right": 579,
+     "bottom": 1862
+    },
+    {
+     "text": "Barrio Ficticio - Barrio Fi",
+     "left": 194,
+     "top": 1763,
+     "right": 830,
+     "bottom": 1802
+    },
+    {
+     "text": "Me interesa",
+     "left": 396,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "X",
+     "left": 891,
+     "top": 885,
+     "right": 933,
+     "bottom": 927
+    }
+   ]
+  },
+  {
+   "tMs": 1747,
+   "signature": true,
+   "chipRect": {
+    "left": 36,
+    "top": 401,
+    "right": 756,
+    "bottom": 737
+   },
+   "parsed_0_2_14": {
+    "fare": 79.81,
+    "pickup": [
+     1,
+     0.2
+    ],
+    "trip": [
+     35,
+     8
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "L",
+     "left": 12,
+     "top": 1140,
+     "right": 38,
+     "bottom": 1185
+    },
+    {
+     "text": "2 UberX",
+     "left": 126,
+     "top": 860,
+     "right": 332,
+     "bottom": 904
+    },
+    {
+     "text": "$79.81",
+     "left": 100,
+     "top": 961,
+     "right": 480,
+     "bottom": 1071
+    },
+    {
+     "text": "Identidad verificada",
+     "left": 196,
+     "top": 1212,
+     "right": 646,
+     "bottom": 1249
+    },
+    {
+     "text": "36 min • 8.2 km $9.73/km est.",
+     "left": 97,
+     "top": 1116,
+     "right": 825,
+     "bottom": 1162
+    },
+    {
+     "text": "* 4.81 (1348)",
+     "left": 122,
+     "top": 1322,
+     "right": 433,
+     "bottom": 1375
+    },
+    {
+     "text": "l min (0.2 km)",
+     "left": 211,
+     "top": 1480,
+     "right": 502,
+     "bottom": 1528
+    },
+    {
+     "text": "Parque",
+     "left": 190,
+     "top": 1620,
+     "right": 371,
+     "bottom": 1657
+    },
+    {
+     "text": "35 min (8.0 km)",
+     "left": 194,
+     "top": 1688,
+     "right": 537,
+     "bottom": 1734
+    },
+    {
+     "text": "Calle Inventada 123 - Barrio Fic",
+     "left": 208,
+     "top": 1553,
+     "right": 896,
+     "bottom": 1601
+    },
+    {
+     "text": "Colonia E",
+     "left": 742,
+     "top": 143,
+     "right": 1062,
+     "bottom": 209
+    },
+    {
+     "text": "Lugar",
+     "left": 800,
+     "top": 234,
+     "right": 1029,
+     "bottom": 283
+    },
+    {
+     "text": "Calle Supuesta 77",
+     "left": 193,
+     "top": 1825,
+     "right": 579,
+     "bottom": 1862
+    },
+    {
+     "text": "Calzada Inventada 300, Colo",
+     "left": 220,
+     "top": 1757,
+     "right": 829,
+     "bottom": 1802
+    },
+    {
+     "text": "Me interesa",
+     "left": 396,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "X",
+     "left": 890,
+     "top": 885,
+     "right": 932,
+     "bottom": 927
+    }
+   ]
+  },
+  {
+   "tMs": 2616,
+   "signature": true,
+   "chipRect": {
+    "left": 36,
+    "top": 401,
+    "right": 756,
+    "bottom": 737
+   },
+   "parsed_0_2_14": {
+    "fare": 79.81,
+    "pickup": [
+     1,
+     0.2
+    ],
+    "trip": [
+     35,
+     8
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "L",
+     "left": 12,
+     "top": 1140,
+     "right": 38,
+     "bottom": 1185
+    },
+    {
+     "text": "2 UberX",
+     "left": 126,
+     "top": 860,
+     "right": 332,
+     "bottom": 904
+    },
+    {
+     "text": "$79.81",
+     "left": 100,
+     "top": 961,
+     "right": 480,
+     "bottom": 1071
+    },
+    {
+     "text": "Identidad verificada",
+     "left": 196,
+     "top": 1212,
+     "right": 646,
+     "bottom": 1249
+    },
+    {
+     "text": "36 min • 8.2 km $9.73/km est.",
+     "left": 97,
+     "top": 1116,
+     "right": 825,
+     "bottom": 1162
+    },
+    {
+     "text": "* 4.81 (1348)",
+     "left": 122,
+     "top": 1322,
+     "right": 433,
+     "bottom": 1375
+    },
+    {
+     "text": "l min (0.2 km)",
+     "left": 211,
+     "top": 1480,
+     "right": 502,
+     "bottom": 1528
+    },
+    {
+     "text": "Avenida",
+     "left": 191,
+     "top": 1621,
+     "right": 372,
+     "bottom": 1658
+    },
+    {
+     "text": "35 min (8.0 km)",
+     "left": 194,
+     "top": 1688,
+     "right": 537,
+     "bottom": 1734
+    },
+    {
+     "text": "Calle Inventada 123 - Barrio Fic",
+     "left": 208,
+     "top": 1553,
+     "right": 896,
+     "bottom": 1601
+    },
+    {
+     "text": "Colonia E",
+     "left": 742,
+     "top": 143,
+     "right": 1062,
+     "bottom": 209
+    },
+    {
+     "text": "Lugar",
+     "left": 800,
+     "top": 234,
+     "right": 1029,
+     "bottom": 283
+    },
+    {
+     "text": "Calle Supuesta 77",
+     "left": 193,
+     "top": 1825,
+     "right": 579,
+     "bottom": 1862
+    },
+    {
+     "text": "Barrio Ficticio - Barrio Fi",
+     "left": 194,
+     "top": 1763,
+     "right": 830,
+     "bottom": 1802
+    },
+    {
+     "text": "Me interesa",
+     "left": 396,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "X",
+     "left": 891,
+     "top": 885,
+     "right": 933,
+     "bottom": 927
+    }
+   ]
+  },
+  {
+   "tMs": 3499,
+   "signature": true,
+   "chipRect": {
+    "left": 36,
+    "top": 401,
+    "right": 756,
+    "bottom": 737
+   },
+   "parsed_0_2_14": {
+    "fare": 79.81,
+    "pickup": [
+     1,
+     0.2
+    ],
+    "trip": [
+     35,
+     8
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "L",
+     "left": 12,
+     "top": 1140,
+     "right": 38,
+     "bottom": 1185
+    },
+    {
+     "text": "2 UberX",
+     "left": 126,
+     "top": 860,
+     "right": 332,
+     "bottom": 904
+    },
+    {
+     "text": "$79.81",
+     "left": 100,
+     "top": 961,
+     "right": 480,
+     "bottom": 1071
+    },
+    {
+     "text": "Identidad verificada",
+     "left": 196,
+     "top": 1212,
+     "right": 646,
+     "bottom": 1249
+    },
+    {
+     "text": "36 min • 8.2 km $9.73/km est.",
+     "left": 97,
+     "top": 1116,
+     "right": 825,
+     "bottom": 1162
+    },
+    {
+     "text": "* 4.81 (1348)",
+     "left": 122,
+     "top": 1322,
+     "right": 433,
+     "bottom": 1375
+    },
+    {
+     "text": "l min (0.2 km)",
+     "left": 211,
+     "top": 1480,
+     "right": 502,
+     "bottom": 1528
+    },
+    {
+     "text": "35 min (8.0 km)",
+     "left": 194,
+     "top": 1688,
+     "right": 537,
+     "bottom": 1734
+    },
+    {
+     "text": "Colonia E",
+     "left": 742,
+     "top": 143,
+     "right": 1062,
+     "bottom": 209
+    },
+    {
+     "text": "Lugar",
+     "left": 799,
+     "top": 234,
+     "right": 1028,
+     "bottom": 283
+    },
+    {
+     "text": "Colonia Ejemplo - Calle Supuesta",
+     "left": 192,
+     "top": 1561,
+     "right": 897,
+     "bottom": 1606
+    },
+    {
+     "text": "Parque",
+     "left": 190,
+     "top": 1620,
+     "right": 371,
+     "bottom": 1657
+    },
+    {
+     "text": "Calle Supuesta 77",
+     "left": 193,
+     "top": 1825,
+     "right": 579,
+     "bottom": 1862
+    },
+    {
+     "text": "Calzada Inventada 300, Colo",
+     "left": 220,
+     "top": 1757,
+     "right": 829,
+     "bottom": 1802
+    },
+    {
+     "text": "Me interesa",
+     "left": 395,
+     "top": 1993,
+     "right": 686,
+     "bottom": 2038
+    },
+    {
+     "text": "X",
+     "left": 890,
+     "top": 885,
+     "right": 932,
+     "bottom": 927
+    }
+   ]
+  },
+  {
+   "tMs": 4383,
+   "signature": true,
+   "chipRect": {
+    "left": 36,
+    "top": 401,
+    "right": 756,
+    "bottom": 737
+   },
+   "parsed_0_2_14": {
+    "fare": 79.81,
+    "pickup": [
+     1,
+     0.2
+    ],
+    "trip": [
+     35,
+     8
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "L",
+     "left": 12,
+     "top": 1140,
+     "right": 38,
+     "bottom": 1185
+    },
+    {
+     "text": "2 UberX",
+     "left": 126,
+     "top": 860,
+     "right": 332,
+     "bottom": 904
+    },
+    {
+     "text": "$79.81",
+     "left": 100,
+     "top": 961,
+     "right": 480,
+     "bottom": 1071
+    },
+    {
+     "text": "Identidad verificada",
+     "left": 196,
+     "top": 1212,
+     "right": 646,
+     "bottom": 1249
+    },
+    {
+     "text": "36 min • 8.2 km $9.73/km est.",
+     "left": 97,
+     "top": 1116,
+     "right": 825,
+     "bottom": 1162
+    },
+    {
+     "text": "* 4.81 (1348)",
+     "left": 122,
+     "top": 1322,
+     "right": 433,
+     "bottom": 1375
+    },
+    {
+     "text": "l min (0.2 km)",
+     "left": 211,
+     "top": 1480,
+     "right": 502,
+     "bottom": 1528
+    },
+    {
+     "text": "Avenida",
+     "left": 191,
+     "top": 1621,
+     "right": 372,
+     "bottom": 1658
+    },
+    {
+     "text": "35 min (8.0 km)",
+     "left": 194,
+     "top": 1688,
+     "right": 537,
+     "bottom": 1734
+    },
+    {
+     "text": "Calle Inventada 123 - Barrio Fic",
+     "left": 208,
+     "top": 1553,
+     "right": 896,
+     "bottom": 1601
+    },
+    {
+     "text": "Colonia E",
+     "left": 742,
+     "top": 141,
+     "right": 1062,
+     "bottom": 207
+    },
+    {
+     "text": "Lugar",
+     "left": 799,
+     "top": 234,
+     "right": 1028,
+     "bottom": 283
+    },
+    {
+     "text": "Calle Supuesta 77",
+     "left": 193,
+     "top": 1825,
+     "right": 579,
+     "bottom": 1862
+    },
+    {
+     "text": "Barrio Ficticio - Barrio Fi",
+     "left": 194,
+     "top": 1763,
+     "right": 830,
+     "bottom": 1802
+    },
+    {
+     "text": "Me interesa",
+     "left": 396,
+     "top": 1993,
+     "right": 686,
+     "bottom": 2038
+    },
+    {
+     "text": "X",
+     "left": 890,
+     "top": 885,
+     "right": 932,
+     "bottom": 927
+    }
+   ]
+  },
+  {
+   "tMs": 5267,
+   "signature": true,
+   "chipRect": {
+    "left": 36,
+    "top": 401,
+    "right": 756,
+    "bottom": 737
+   },
+   "parsed_0_2_14": {
+    "fare": 79.81,
+    "pickup": [
+     1,
+     0.2
+    ],
+    "trip": [
+     35,
+     8
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "L",
+     "left": 12,
+     "top": 1140,
+     "right": 38,
+     "bottom": 1185
+    },
+    {
+     "text": "2 UberX",
+     "left": 126,
+     "top": 860,
+     "right": 332,
+     "bottom": 904
+    },
+    {
+     "text": "$79.81",
+     "left": 100,
+     "top": 961,
+     "right": 480,
+     "bottom": 1071
+    },
+    {
+     "text": "Identidad verificada",
+     "left": 196,
+     "top": 1212,
+     "right": 646,
+     "bottom": 1249
+    },
+    {
+     "text": "36 min • 8.2 km $9.73/km est.",
+     "left": 97,
+     "top": 1116,
+     "right": 825,
+     "bottom": 1162
+    },
+    {
+     "text": "* 4.81 (1348)",
+     "left": 122,
+     "top": 1322,
+     "right": 433,
+     "bottom": 1375
+    },
+    {
+     "text": "l min (0.2 km)",
+     "left": 211,
+     "top": 1480,
+     "right": 502,
+     "bottom": 1528
+    },
+    {
+     "text": "Avenida",
+     "left": 192,
+     "top": 1621,
+     "right": 372,
+     "bottom": 1659
+    },
+    {
+     "text": "35 min (8.0 km)",
+     "left": 194,
+     "top": 1688,
+     "right": 537,
+     "bottom": 1734
+    },
+    {
+     "text": "Calle Inventada 123 - Barrio Fic",
+     "left": 208,
+     "top": 1553,
+     "right": 896,
+     "bottom": 1601
+    },
+    {
+     "text": "Colonia E",
+     "left": 742,
+     "top": 143,
+     "right": 1062,
+     "bottom": 209
+    },
+    {
+     "text": "Lugar",
+     "left": 800,
+     "top": 234,
+     "right": 1029,
+     "bottom": 283
+    },
+    {
+     "text": "Calle Supuesta 77",
+     "left": 193,
+     "top": 1825,
+     "right": 579,
+     "bottom": 1862
+    },
+    {
+     "text": "Calzada Inventada 300, Colo",
+     "left": 220,
+     "top": 1757,
+     "right": 829,
+     "bottom": 1802
+    },
+    {
+     "text": "Me interesa",
+     "left": 396,
+     "top": 1993,
+     "right": 686,
+     "bottom": 2038
+    },
+    {
+     "text": "X",
+     "left": 891,
+     "top": 885,
+     "right": 933,
+     "bottom": 927
+    }
+   ]
+  },
+  {
+   "tMs": 6146,
+   "signature": true,
+   "chipRect": {
+    "left": 36,
+    "top": 401,
+    "right": 756,
+    "bottom": 737
+   },
+   "parsed_0_2_14": {
+    "fare": 79.81,
+    "pickup": [
+     1,
+     0.2
+    ],
+    "trip": [
+     35,
+     8
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "L",
+     "left": 12,
+     "top": 1140,
+     "right": 38,
+     "bottom": 1185
+    },
+    {
+     "text": "2 UberX",
+     "left": 126,
+     "top": 860,
+     "right": 332,
+     "bottom": 904
+    },
+    {
+     "text": "$79.81",
+     "left": 100,
+     "top": 961,
+     "right": 480,
+     "bottom": 1071
+    },
+    {
+     "text": "Identidad verificada",
+     "left": 196,
+     "top": 1212,
+     "right": 646,
+     "bottom": 1249
+    },
+    {
+     "text": "36 min • 8.2 km $9.73/km est.",
+     "left": 97,
+     "top": 1116,
+     "right": 825,
+     "bottom": 1162
+    },
+    {
+     "text": "* 4.81 (1348)",
+     "left": 122,
+     "top": 1322,
+     "right": 433,
+     "bottom": 1375
+    },
+    {
+     "text": "l min (0.2 km)",
+     "left": 211,
+     "top": 1480,
+     "right": 502,
+     "bottom": 1528
+    },
+    {
+     "text": "Avenida",
+     "left": 191,
+     "top": 1621,
+     "right": 372,
+     "bottom": 1658
+    },
+    {
+     "text": "35 min (8.0 km)",
+     "left": 194,
+     "top": 1688,
+     "right": 537,
+     "bottom": 1734
+    },
+    {
+     "text": "Calle Inventada 123 - Barrio Fic",
+     "left": 208,
+     "top": 1553,
+     "right": 896,
+     "bottom": 1601
+    },
+    {
+     "text": "Colonia E",
+     "left": 742,
+     "top": 141,
+     "right": 1071,
+     "bottom": 204
+    },
+    {
+     "text": "Lugar",
+     "left": 800,
+     "top": 234,
+     "right": 1029,
+     "bottom": 283
+    },
+    {
+     "text": "Calle Supuesta 77",
+     "left": 193,
+     "top": 1825,
+     "right": 579,
+     "bottom": 1862
+    },
+    {
+     "text": "Barrio Ficticio - Barrio Fi",
+     "left": 194,
+     "top": 1763,
+     "right": 830,
+     "bottom": 1802
+    },
+    {
+     "text": "Me interesa",
+     "left": 395,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "X",
+     "left": 891,
+     "top": 885,
+     "right": 933,
+     "bottom": 927
+    }
+   ]
+  },
+  {
+   "tMs": 7048,
+   "signature": true,
+   "chipRect": {
+    "left": 36,
+    "top": 401,
+    "right": 756,
+    "bottom": 737
+   },
+   "parsed_0_2_14": {
+    "fare": 79.81,
+    "pickup": [
+     1,
+     0.2
+    ],
+    "trip": [
+     35,
+     8
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "L",
+     "left": 12,
+     "top": 1140,
+     "right": 38,
+     "bottom": 1185
+    },
+    {
+     "text": "2 UberX",
+     "left": 126,
+     "top": 860,
+     "right": 332,
+     "bottom": 904
+    },
+    {
+     "text": "$79.81",
+     "left": 100,
+     "top": 961,
+     "right": 480,
+     "bottom": 1071
+    },
+    {
+     "text": "Identidad verificada",
+     "left": 196,
+     "top": 1212,
+     "right": 646,
+     "bottom": 1249
+    },
+    {
+     "text": "36 min • 8.2 km $9.73/km est.",
+     "left": 97,
+     "top": 1116,
+     "right": 825,
+     "bottom": 1162
+    },
+    {
+     "text": "* 4.81 (1348)",
+     "left": 122,
+     "top": 1322,
+     "right": 433,
+     "bottom": 1375
+    },
+    {
+     "text": "l min (0.2 km)",
+     "left": 211,
+     "top": 1483,
+     "right": 502,
+     "bottom": 1531
+    },
+    {
+     "text": "Avenida",
+     "left": 191,
+     "top": 1621,
+     "right": 372,
+     "bottom": 1658
+    },
+    {
+     "text": "35 min (8.0 km)",
+     "left": 194,
+     "top": 1690,
+     "right": 540,
+     "bottom": 1735
+    },
+    {
+     "text": "Calle Inventada 123 - Barrio Fic",
+     "left": 208,
+     "top": 1553,
+     "right": 896,
+     "bottom": 1601
+    },
+    {
+     "text": "Colonia E",
+     "left": 742,
+     "top": 143,
+     "right": 1062,
+     "bottom": 207
+    },
+    {
+     "text": "Lugar",
+     "left": 799,
+     "top": 234,
+     "right": 1028,
+     "bottom": 283
+    },
+    {
+     "text": "Calle Supuesta 77",
+     "left": 193,
+     "top": 1825,
+     "right": 579,
+     "bottom": 1862
+    },
+    {
+     "text": "Barrio Ficticio - Barrio Fi",
+     "left": 194,
+     "top": 1763,
+     "right": 830,
+     "bottom": 1802
+    },
+    {
+     "text": "Me interesa",
+     "left": 396,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "X",
+     "left": 891,
+     "top": 885,
+     "right": 933,
+     "bottom": 927
+    }
+   ]
+  },
+  {
+   "tMs": 7948,
+   "signature": true,
+   "chipRect": {
+    "left": 36,
+    "top": 401,
+    "right": 756,
+    "bottom": 737
+   },
+   "parsed_0_2_14": {
+    "fare": 79.81,
+    "pickup": [
+     1,
+     0.2
+    ],
+    "trip": [
+     35,
+     8
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "L",
+     "left": 12,
+     "top": 1140,
+     "right": 38,
+     "bottom": 1185
+    },
+    {
+     "text": "2 UberX",
+     "left": 126,
+     "top": 860,
+     "right": 332,
+     "bottom": 904
+    },
+    {
+     "text": "$79.81",
+     "left": 100,
+     "top": 961,
+     "right": 480,
+     "bottom": 1071
+    },
+    {
+     "text": "Identidad verificada",
+     "left": 196,
+     "top": 1212,
+     "right": 646,
+     "bottom": 1249
+    },
+    {
+     "text": "36 min • 8.2 km $9.73/km est.",
+     "left": 97,
+     "top": 1116,
+     "right": 825,
+     "bottom": 1162
+    },
+    {
+     "text": "* 4.81 (1348)",
+     "left": 122,
+     "top": 1322,
+     "right": 433,
+     "bottom": 1375
+    },
+    {
+     "text": "l min (0.2 km)",
+     "left": 211,
+     "top": 1480,
+     "right": 502,
+     "bottom": 1528
+    },
+    {
+     "text": "Avenida",
+     "left": 191,
+     "top": 1621,
+     "right": 372,
+     "bottom": 1658
+    },
+    {
+     "text": "35 min (8.0 km)",
+     "left": 193,
+     "top": 1686,
+     "right": 536,
+     "bottom": 1734
+    },
+    {
+     "text": "Calle Inventada 123 - Barrio Fic",
+     "left": 208,
+     "top": 1553,
+     "right": 896,
+     "bottom": 1601
+    },
+    {
+     "text": "Colonia E",
+     "left": 742,
+     "top": 141,
+     "right": 1071,
+     "bottom": 209
+    },
+    {
+     "text": "Lugar",
+     "left": 800,
+     "top": 234,
+     "right": 1029,
+     "bottom": 283
+    },
+    {
+     "text": "Calle Supuesta 77",
+     "left": 193,
+     "top": 1825,
+     "right": 579,
+     "bottom": 1862
+    },
+    {
+     "text": "Barrio Ficticio - Barrio Fi",
+     "left": 194,
+     "top": 1763,
+     "right": 830,
+     "bottom": 1802
+    },
+    {
+     "text": "Me interesa",
+     "left": 396,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "X",
+     "left": 891,
+     "top": 885,
+     "right": 933,
+     "bottom": 927
+    }
+   ]
+  },
+  {
+   "tMs": 8865,
+   "signature": true,
+   "chipRect": {
+    "left": 36,
+    "top": 401,
+    "right": 756,
+    "bottom": 737
+   },
+   "parsed_0_2_14": {
+    "fare": 79.81,
+    "pickup": [
+     1,
+     0.2
+    ],
+    "trip": [
+     35,
+     8
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "L",
+     "left": 12,
+     "top": 1140,
+     "right": 38,
+     "bottom": 1185
+    },
+    {
+     "text": "2 UberX",
+     "left": 126,
+     "top": 860,
+     "right": 332,
+     "bottom": 904
+    },
+    {
+     "text": "$79.81",
+     "left": 100,
+     "top": 961,
+     "right": 480,
+     "bottom": 1071
+    },
+    {
+     "text": "Identidad verificada",
+     "left": 196,
+     "top": 1212,
+     "right": 646,
+     "bottom": 1249
+    },
+    {
+     "text": "36 min • 8.2 km $9.73/km est.",
+     "left": 97,
+     "top": 1116,
+     "right": 825,
+     "bottom": 1162
+    },
+    {
+     "text": "* 4.81 (1348)",
+     "left": 122,
+     "top": 1322,
+     "right": 433,
+     "bottom": 1375
+    },
+    {
+     "text": "l min (0.2 km)",
+     "left": 211,
+     "top": 1483,
+     "right": 502,
+     "bottom": 1531
+    },
+    {
+     "text": "Avenida",
+     "left": 191,
+     "top": 1621,
+     "right": 372,
+     "bottom": 1658
+    },
+    {
+     "text": "35 min (8.0 km)",
+     "left": 193,
+     "top": 1684,
+     "right": 536,
+     "bottom": 1731
+    },
+    {
+     "text": "Lugar",
+     "left": 799,
+     "top": 234,
+     "right": 1028,
+     "bottom": 283
+    },
+    {
+     "text": "Calle Inventada 123 - Barrio Fic",
+     "left": 208,
+     "top": 1553,
+     "right": 896,
+     "bottom": 1601
+    },
+    {
+     "text": "Barrio Ficticio - Barrio Fi",
+     "left": 194,
+     "top": 1763,
+     "right": 830,
+     "bottom": 1802
+    },
+    {
+     "text": "Calle Supuesta 77",
+     "left": 193,
+     "top": 1821,
+     "right": 579,
+     "bottom": 1865
+    },
+    {
+     "text": "Me interesa",
+     "left": 395,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "X",
+     "left": 891,
+     "top": 885,
+     "right": 933,
+     "bottom": 927
+    }
+   ]
+  },
+  {
+   "tMs": 9779,
+   "signature": true,
+   "chipRect": {
+    "left": 36,
+    "top": 401,
+    "right": 756,
+    "bottom": 737
+   },
+   "parsed_0_2_14": {
+    "fare": 79.81,
+    "pickup": [
+     1,
+     0.2
+    ],
+    "trip": [
+     35,
+     8
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "L",
+     "left": 12,
+     "top": 1140,
+     "right": 38,
+     "bottom": 1185
+    },
+    {
+     "text": "2 UberX",
+     "left": 126,
+     "top": 860,
+     "right": 332,
+     "bottom": 904
+    },
+    {
+     "text": "$79.81",
+     "left": 100,
+     "top": 961,
+     "right": 480,
+     "bottom": 1071
+    },
+    {
+     "text": "Identidad verificada",
+     "left": 196,
+     "top": 1212,
+     "right": 646,
+     "bottom": 1249
+    },
+    {
+     "text": "36 min • 8.2 km $9.73/km est.",
+     "left": 97,
+     "top": 1116,
+     "right": 825,
+     "bottom": 1162
+    },
+    {
+     "text": "* 4.81 (1348)",
+     "left": 122,
+     "top": 1322,
+     "right": 433,
+     "bottom": 1375
+    },
+    {
+     "text": "l min (0.2 km)",
+     "left": 211,
+     "top": 1480,
+     "right": 502,
+     "bottom": 1528
+    },
+    {
+     "text": "Avenida",
+     "left": 191,
+     "top": 1621,
+     "right": 372,
+     "bottom": 1658
+    },
+    {
+     "text": "35 min (8.0 km)",
+     "left": 194,
+     "top": 1688,
+     "right": 537,
+     "bottom": 1734
+    },
+    {
+     "text": "Calle Inventada 123 - Barrio Fic",
+     "left": 208,
+     "top": 1553,
+     "right": 896,
+     "bottom": 1601
+    },
+    {
+     "text": "Colonia E",
+     "left": 742,
+     "top": 143,
+     "right": 1062,
+     "bottom": 209
+    },
+    {
+     "text": "Lugar",
+     "left": 800,
+     "top": 234,
+     "right": 1029,
+     "bottom": 283
+    },
+    {
+     "text": "Calle Supuesta 77",
+     "left": 193,
+     "top": 1825,
+     "right": 579,
+     "bottom": 1862
+    },
+    {
+     "text": "Barrio Ficticio - Barrio Fi",
+     "left": 194,
+     "top": 1763,
+     "right": 830,
+     "bottom": 1802
+    },
+    {
+     "text": "Me interesa",
+     "left": 395,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "X",
+     "left": 891,
+     "top": 885,
+     "right": 933,
+     "bottom": 927
+    }
+   ]
+  },
+  {
+   "tMs": 10665,
+   "signature": true,
+   "chipRect": {
+    "left": 36,
+    "top": 401,
+    "right": 756,
+    "bottom": 737
+   },
+   "parsed_0_2_14": {
+    "fare": 79.81,
+    "pickup": [
+     1,
+     0.2
+    ],
+    "trip": [
+     35,
+     8
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "L",
+     "left": 12,
+     "top": 1140,
+     "right": 38,
+     "bottom": 1185
+    },
+    {
+     "text": "2 UberX",
+     "left": 126,
+     "top": 860,
+     "right": 332,
+     "bottom": 904
+    },
+    {
+     "text": "$79.81",
+     "left": 100,
+     "top": 961,
+     "right": 480,
+     "bottom": 1071
+    },
+    {
+     "text": "Identidad verificada",
+     "left": 196,
+     "top": 1212,
+     "right": 646,
+     "bottom": 1249
+    },
+    {
+     "text": "36 min • 8.2 km $9.73/km est.",
+     "left": 97,
+     "top": 1116,
+     "right": 825,
+     "bottom": 1162
+    },
+    {
+     "text": "* 4.81 (1348)",
+     "left": 122,
+     "top": 1322,
+     "right": 433,
+     "bottom": 1375
+    },
+    {
+     "text": "l min (0.2 km)",
+     "left": 211,
+     "top": 1480,
+     "right": 502,
+     "bottom": 1528
+    },
+    {
+     "text": "35 min (8.0 km)",
+     "left": 194,
+     "top": 1688,
+     "right": 537,
+     "bottom": 1734
+    },
+    {
+     "text": "Colonia E",
+     "left": 742,
+     "top": 141,
+     "right": 1071,
+     "bottom": 209
+    },
+    {
+     "text": "Lugar",
+     "left": 799,
+     "top": 234,
+     "right": 1028,
+     "bottom": 283
+    },
+    {
+     "text": "Calle Inventada 123 - Barrio Fic",
+     "left": 208,
+     "top": 1553,
+     "right": 896,
+     "bottom": 1601
+    },
+    {
+     "text": "Parque",
+     "left": 190,
+     "top": 1620,
+     "right": 371,
+     "bottom": 1657
+    },
+    {
+     "text": "Calle Supuesta 77",
+     "left": 193,
+     "top": 1825,
+     "right": 579,
+     "bottom": 1862
+    },
+    {
+     "text": "Barrio Ficticio - Barrio Fi",
+     "left": 194,
+     "top": 1763,
+     "right": 830,
+     "bottom": 1802
+    },
+    {
+     "text": "Me interesa",
+     "left": 395,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "X",
+     "left": 891,
+     "top": 885,
+     "right": 933,
+     "bottom": 927
+    }
+   ]
+  },
+  {
+   "tMs": 11595,
+   "signature": true,
+   "chipRect": {
+    "left": 36,
+    "top": 401,
+    "right": 756,
+    "bottom": 737
+   },
+   "parsed_0_2_14": {
+    "fare": 79.81,
+    "pickup": [
+     1,
+     0.2
+    ],
+    "trip": [
+     null,
+     null
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "L",
+     "left": 12,
+     "top": 1140,
+     "right": 36,
+     "bottom": 1185
+    },
+    {
+     "text": "Privada Supue",
+     "left": 276,
+     "top": 767,
+     "right": 578,
+     "bottom": 837
+    },
+    {
+     "text": "2 UberX",
+     "left": 162,
+     "top": 916,
+     "right": 324,
+     "bottom": 968
+    },
+    {
+     "text": "$79.81",
+     "left": 100,
+     "top": 1020,
+     "right": 482,
+     "bottom": 1130
+    },
+    {
+     "text": "Avenida Ficticia 45",
+     "left": 166,
+     "top": 1268,
+     "right": 646,
+     "bottom": 1314
+    },
+    {
+     "text": "36 min 8.2 km $9.73/km est.",
+     "left": 97,
+     "top": 1175,
+     "right": 826,
+     "bottom": 1225
+    },
+    {
+     "text": "* 4.81 (1348)",
+     "left": 123,
+     "top": 1390,
+     "right": 434,
+     "bottom": 1434
+    },
+    {
+     "text": "l min (0.2 km)",
+     "left": 166,
+     "top": 1507,
+     "right": 457,
+     "bottom": 1557
+    },
+    {
+     "text": "n 35 min (8.0 km)",
+     "left": 98,
+     "top": 1709,
+     "right": 491,
+     "bottom": 1759
+    },
+    {
+     "text": "Colonia E",
+     "left": 742,
+     "top": 143,
+     "right": 1062,
+     "bottom": 207
+    },
+    {
+     "text": "Lugar",
+     "left": 799,
+     "top": 234,
+     "right": 1028,
+     "bottom": 283
+    },
+    {
+     "text": "Avenida Ficticia 45 - Colonia Im",
+     "left": 144,
+     "top": 1579,
+     "right": 849,
+     "bottom": 1629
+    },
+    {
+     "text": "Avenida",
+     "left": 143,
+     "top": 1646,
+     "right": 323,
+     "bottom": 1681
+    },
+    {
+     "text": "Me interesa",
+     "left": 396,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "X",
+     "left": 890,
+     "top": 944,
+     "right": 934,
+     "bottom": 988
+    },
+    {
+     "text": "Calzada Inventada 300, Colonia Ejemp",
+     "left": 147,
+     "top": 1788,
+     "right": 977,
+     "bottom": 1830
+    },
+    {
+     "text": "Colonia E",
+     "left": 148,
+     "top": 1850,
+     "right": 337,
+     "bottom": 1886
+    }
+   ]
+  },
+  {
+   "tMs": 12498,
+   "signature": false,
+   "chipRect": {
+    "left": 36,
+    "top": 401,
+    "right": 756,
+    "bottom": 737
+   },
+   "parsed_0_2_14": {
+    "fare": null,
+    "pickup": null,
+    "trip": null,
+    "action": null
+   },
+   "blocks": [
+    {
+     "text": "0A",
+     "left": 435,
+     "top": 131,
+     "right": 570,
+     "bottom": 191
+    },
+    {
+     "text": "Avenida Fictic",
+     "left": 128,
+     "top": 932,
+     "right": 453,
+     "bottom": 986
+    },
+    {
+     "text": "Colonia Imaginaria",
+     "left": 455,
+     "top": 344,
+     "right": 827,
+     "bottom": 392
+    },
+    {
+     "text": "Calzada Inventa",
+     "left": 111,
+     "top": 1312,
+     "right": 528,
+     "bottom": 1376
+    },
+    {
+     "text": "1-5 min1-6 min",
+     "left": 124,
+     "top": 1581,
+     "right": 449,
+     "bottom": 1652
+    },
+    {
+     "text": "Calle Inve",
+     "left": 629,
+     "top": 838,
+     "right": 942,
+     "bottom": 894
+    },
+    {
+     "text": "Qqqq",
+     "left": 537,
+     "top": 1012,
+     "right": 631,
+     "bottom": 1067
+    },
+    {
+     "text": "QQQQ",
+     "left": 779,
+     "top": 167,
+     "right": 896,
+     "bottom": 231
+    },
+    {
+     "text": "Avenida",
+     "left": 536,
+     "top": 1195,
+     "right": 688,
+     "bottom": 1237
+    },
+    {
+     "text": "1-3 min",
+     "left": 652,
+     "top": 1435,
+     "right": 787,
+     "bottom": 1472
+    },
+    {
+     "text": "Colonia Imagi",
+     "left": 368,
+     "top": 1719,
+     "right": 663,
+     "bottom": 1756
+    },
+    {
+     "text": "3min",
+     "left": 899,
+     "top": 1264,
+     "right": 1044,
+     "bottom": 1299
+    },
+    {
+     "text": "Radar de solicitud de viaje o",
+     "left": 205,
+     "top": 1801,
+     "right": 858,
+     "bottom": 1845
+    },
+    {
+     "text": "Buscando solicitud de viaje =",
+     "left": 206,
+     "top": 2049,
+     "right": 1017,
+     "bottom": 2104
+    }
+   ]
+  }
+ ]
+}
