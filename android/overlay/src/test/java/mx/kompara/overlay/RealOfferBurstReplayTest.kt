@@ -1051,9 +1051,9 @@ class RealOfferBurstReplayTest {
     private fun realCritical(blocks: List<OcrBlock>) = critical(blocks) +
         blocks.filter { routeRow.containsMatchIn(it.text) }.map { RealGeometryFixtures.run { it.rect() }.expanded(48) }
 
-    private fun assertCorpus(lane: Lane, mode: String) {
+    private fun assertCorpus(lane: Lane, mode: String, corpus: List<RealS25Corpus.Group> = RealS25Corpus.groups) {
         val failures = mutableListOf<String>()
-        val frames = RealS25Corpus.groups.flatMap { g -> g.frames.map { it.id to (g to it) } }.toMap()
+        val frames = corpus.flatMap { g -> g.frames.map { it.id to (g to it) } }.toMap()
         val sessions = mutableMapOf<String, MutableSet<String>>()
         val displayed = mutableSetOf<String>()
         fun economics(a: RealS25Corpus.Appearance) = listOf(a.fare, a.pickup.first, a.pickup.second, a.trip.first, a.trip.second)
@@ -1078,10 +1078,11 @@ class RealOfferBurstReplayTest {
             // Offer content exists only on signature frames (a signature-free "$O.00" is the idle wallet).
             if (f != null && f.signature) fr.rect?.let { r -> realCritical(f.blocks).firstOrNull { it.overlaps(r) }?.let { failures += "${fr.label} chip $r covers $it" } }
         }
-        for (g in RealS25Corpus.groups) for (a in g.appearances) {
+        for (g in corpus) for (a in g.appearances) {
             val own = lane.frames.filter { it.offer == a.id }
             if (own.size != a.to - a.from + 1) { failures += "${a.id} replayed ${own.size} frames"; continue }
-            val (first, second) = own
+            val first = own.first()
+            val second = own.getOrNull(1)
             // Direct stacked replacement: the recorded frame before it is another card's signature frame
             // (G0, G2). G1[8] between G1's cards is the idle home screen, observed absence: fresh.
             val direct = a.from > 0 && g.appearance(a.from - 1) != null
@@ -1095,8 +1096,8 @@ class RealOfferBurstReplayTest {
                 // confirming frame the replacement's own fare.
                 if (!(first.published && first.fare == null && first.shownFare == null))
                     failures += "${a.id} pending frame: published=${first.published} fare=${first.fare} shows=${first.shownFare}"
-                if (!(second.published && second.visible && second.shownFare == a.fare))
-                    failures += "${a.id} confirming frame shows ${second.shownFare} (${second.state})"
+                if (!(second != null && second.published && second.visible && second.shownFare == a.fare))
+                    failures += "${a.id} confirming frame shows ${second?.shownFare} (${second?.state})"
             }
             if (a.id !in displayed) failures += "${a.id} never displays its fare"
             if (sessions[a.id]?.size != 1) failures += "${a.id} paid in ${sessions[a.id]?.size} sessions"
@@ -1111,7 +1112,7 @@ class RealOfferBurstReplayTest {
         lane.frames.filter { it.label.endsWith("idle3") }.forEach {
             if (it.rect != null || it.visible) failures += "${it.label} still shows a chip after corroborated absence"
         }
-        val oracleFares = RealS25Corpus.groups.flatMap { g -> g.appearances.map { it.fare } }.toSet()
+        val oracleFares = corpus.flatMap { g -> g.appearances.map { it.fare } }.toSet()
         lane.offers.all().forEach { if (it.fareMxn != null && it.fareMxn !in oracleFares) failures += "row ${it.id} holds ${it.fareMxn}" }
         assertTrue("$mode: ${failures.size} failures\n" + failures.joinToString("\n") + "\n--- trace ---\n${trace(lane)}",
             failures.isEmpty())
@@ -1123,6 +1124,158 @@ class RealOfferBurstReplayTest {
 
     @Test fun `real S25 corpus replayed closed-loop shows each card's own validated economics clear of its content`() {
         assertCorpus(replayCorpus(closedLoop = true), "closed-loop")
+    }
+
+    private val pm get() = RealS25Corpus.pmGroups
+
+    @Test fun `0_2_15 hour run replayed with its recorded masks shows each card's own validated economics`() {
+        assertCorpus(replayCorpus(closedLoop = false, groups = pm), "hour run recorded-mask", pm)
+    }
+
+    @Test fun `0_2_15 hour run replayed closed-loop shows each card's own validated economics clear of its content`() {
+        assertCorpus(replayCorpus(closedLoop = true, groups = pm), "hour run closed-loop", pm)
+    }
+
+    /**
+     * Spec acceptance (0.2.16): each hour card's appearance, replayed fresh, publishes and displays its
+     * true fare and legs on its first complete frame — no extra wait because hours or confusables were
+     * read — and the chip's ledger row holds the same values (TOTAL minutes = pickup + trip). H3 is the
+     * card 0.2.15 booked with a 5-minute trip (recovered 25 − 20) for a true 65.
+     */
+    @Test fun `every hour card shows its true fare and legs on its first complete frame, chip and ledger alike`() {
+        val failures = firstFrameFailures(pm, listOf(
+            1794008587494L to listOf(257.91, 5.0, 0.8, 78.0, 21.4),
+            1794008634179L to listOf(257.91, 5.0, 0.8, 78.0, 21.4),
+            1794008677258L to listOf(1320.90, 18.0, 4.4, 286.0, 217.3),
+            1794008743732L to listOf(257.22, 20.0, 1.8, 65.0, 12.8),
+        ))
+        // Across the whole recorded chronology no card, chip or row ever carries a trip that drops its hour.
+        for (closedLoop in listOf(false, true)) {
+            val lane = replayCorpus(closedLoop, groups = pm)
+            val dropped = setOf(5.0, 18.0, 23.0, 25.0, 46.0)
+            lane.frames.filter { it.tripMin in dropped || it.shownTripMin in dropped }.forEach {
+                failures += "closedLoop=$closedLoop ${it.label} trip ${it.tripMin}/${it.shownTripMin}"
+            }
+            lane.offers.all().filter { it.tripMin in dropped || it.durationMin == 25.0 }.forEach {
+                failures += "closedLoop=$closedLoop row ${it.id} trip ${it.tripMin} duration ${it.durationMin}"
+            }
+        }
+        assertTrue(failures.joinToString("\n"), failures.isEmpty())
+    }
+
+    /**
+     * Each target appearance replayed fresh (its own group) publishes and displays its true (fare,
+     * pickup min, pickup km, trip min, trip km) on its first complete frame, and the chip's ledger row
+     * holds the same values with durationMin = pickup + trip. Returns the failures.
+     */
+    private fun firstFrameFailures(corpus: List<RealS25Corpus.Group>, targets: List<Pair<Long, List<Double>>>): MutableList<String> {
+        val failures = mutableListOf<String>()
+        for (closedLoop in listOf(false, true)) for ((at, truth) in targets) {
+            val g = corpus.single { g -> g.frames.any { it.capturedAtMs == at } }
+            val first = g.frames.single { it.capturedAtMs == at }
+            require(g.appearance(first.index)?.from == first.index) { "$at is not an appearance's first frame" }
+            val lane = replayCorpus(closedLoop, groups = listOf(g))
+            val fr = lane.frames.single { it.label == first.id }
+            val mode = "closedLoop=$closedLoop $at"
+            val before = failures.size
+            val published = listOf(fr.fare, fr.pickupMin, fr.pickup, fr.tripMin, fr.tripKm)
+            val shown = listOf(fr.shownFare, fr.shownPickupMin, fr.shownPickup, fr.shownTripMin, fr.shownTrip)
+            val row = fr.rows.singleOrNull { it.sessionId == fr.shownSession }
+            if (!fr.published || published != truth) failures += "$mode publishes $published (published=${fr.published})"
+            if (!fr.visible || shown != truth) failures += "$mode displays $shown (visible=${fr.visible} ${fr.state})"
+            if (row == null || listOf(row.fareMxn, row.pickupMin, row.pickupKm, row.tripMin, row.tripKm) != truth ||
+                row.durationMin != truth[1] + truth[3])
+                failures += "$mode ledger row ${row?.let { listOf(it.fareMxn, it.pickupMin, it.pickupKm, it.tripMin, it.tripKm, it.durationMin) }}"
+            if (failures.size > before) failures += trace(lane)
+        }
+        return failures
+    }
+
+    private val late get() = RealS25Corpus.lateGroups
+
+    @Test fun `0_2_15 late hour cards replayed with their recorded masks show each card's own validated economics`() {
+        assertCorpus(replayCorpus(closedLoop = false, groups = late), "late recorded-mask", late)
+    }
+
+    @Test fun `0_2_15 late hour cards replayed closed-loop show each card's own validated economics clear of their content`() {
+        assertCorpus(replayCorpus(closedLoop = true, groups = late), "late closed-loop", late)
+    }
+
+    /**
+     * Round 2 acceptance: the late cards (18:09–18:12) — H0's hour-only TOTAL `1 h` (read `lh78 km`),
+     * H4, H5 and H6 (`lh 29`/`lh 18`, `lh19`/`h lh14`, `lh14`/`h lh 10`) and the $78.08 Priority — each
+     * publish, display and book their true values on their first complete frame; no card, chip or row
+     * ever carries a trip that dropped its hour (H4 18, H5 14, H6 10).
+     */
+    @Test fun `every late card shows its true fare and legs on its first complete frame, chip and ledger alike`() {
+        val failures = firstFrameFailures(late, listOf(
+            1794010170571L to listOf(121.50, 18.0, 1.7, 42.0, 6.1),
+            1794010192213L to listOf(284.08, 11.0, 1.2, 78.0, 19.6),
+            1794010241508L to listOf(228.38, 5.0, 0.9, 74.0, 13.7),
+            1794010272035L to listOf(78.08, 7.0, 0.9, 22.0, 3.7),
+            1794010301632L to listOf(240.98, 4.0, 0.7, 70.0, 14.7),
+        ))
+        for (closedLoop in listOf(false, true)) {
+            val lane = replayCorpus(closedLoop, groups = late)
+            val dropped = setOf(18.0, 14.0, 10.0)
+            lane.frames.filter { it.tripMin in dropped || it.shownTripMin in dropped }.forEach {
+                failures += "closedLoop=$closedLoop ${it.label} trip ${it.tripMin}/${it.shownTripMin}"
+            }
+            lane.offers.all().filter { it.tripMin in dropped }.forEach {
+                failures += "closedLoop=$closedLoop row ${it.id} trip ${it.tripMin}"
+            }
+        }
+        assertTrue(failures.joinToString("\n"), failures.isEmpty())
+    }
+
+    /**
+     * Round 3 (Codex review, REALISTIC; constructed from real hour-card frames, geometry, fare and distances
+     * kept): an hour-only reading whose minute identity is not evaluated reaches neither the chip nor the
+     * ledger. H2: TOTAL `5h4 min` read `5h` (`4 min` lost) and the trip icon glued (`t4h46`) — round 2
+     * published $1,320.90 / 282 (300 − 18) at 0 and 850 ms and booked duration 300, then 304 in a
+     * replacement session. H1: TOTAL `h 23` unread and trip `1 h 18 min` read `1 h` — round 2 published 60.
+     * The card's correct frames that follow then show and book its true values in one session.
+     */
+    @Test fun `an hour-only reading without an evaluated minute identity reaches neither the chip nor the ledger`() {
+        data class Case(val name: String, val at: Long, val edits: List<Pair<String, String>>, val truth: List<Double>,
+            val wrongTrip: Set<Double>, val wrongDuration: Set<Double>)
+        val cases = listOf(
+            Case("H2", 1794008677258, listOf("5h4 min 221.7 km \$5.96/km est." to "5h 221.7 km \$5.96/km est.",
+                "t 4h46 min (217.3 km)" to "t4h46 min (217.3 km)"), listOf(1320.90, 18.0, 4.4, 286.0, 217.3),
+                wrongTrip = setOf(282.0, 300.0), wrongDuration = setOf(300.0)),
+            Case("H1", 1794008587494, listOf("lh 23 min 22.2 km \$1l.62/km est." to "h 23 min 22.2 km \$1l.62/km est.",
+                "lh 18 min (21.4 km)" to "1 h (21.4 km)"), listOf(257.91, 5.0, 0.8, 78.0, 21.4),
+                wrongTrip = setOf(60.0), wrongDuration = setOf(65.0)),
+        )
+        val failures = mutableListOf<String>()
+        for (closedLoop in listOf(false, true)) for (c in cases) {
+            val real = pm.flatMap { it.frames }.single { it.capturedAtMs == c.at }
+            c.edits.forEach { (from, _) -> require(real.blocks.any { it.text == from }) { from } }
+            val lossy = RealGeometryFixtures.retext(real.blocks, *c.edits.toTypedArray())
+            val lane = replay(UBER) {
+                listOf(lossy, lossy, real.blocks, real.blocks).forEachIndexed { i, blocks ->
+                    frame("${c.name}[$i]", c.name, blocks, i * 850L, recordedChip = real.chip, closedLoop = closedLoop)
+                }
+            }
+            val mode = "closedLoop=$closedLoop ${c.name}"
+            val before = failures.size
+            lane.frames.take(2).filter { it.tripMin != null || it.shownTripMin != null }
+                .forEach { failures += "$mode ${it.label} publishes trip ${it.tripMin}, shows ${it.shownTripMin}" }
+            lane.frames.filter { it.tripMin in c.wrongTrip || it.shownTripMin in c.wrongTrip }
+                .forEach { failures += "$mode ${it.label} trip ${it.tripMin}/${it.shownTripMin}" }
+            lane.offers.all().filter { it.tripMin in c.wrongTrip || it.durationMin in c.wrongDuration }
+                .forEach { failures += "$mode row ${it.id} trip ${it.tripMin} duration ${it.durationMin}" }
+            val first = lane.frames[2]
+            val published = listOf(first.fare, first.pickupMin, first.pickup, first.tripMin, first.tripKm)
+            val shown = listOf(first.shownFare, first.shownPickupMin, first.shownPickup, first.shownTripMin, first.shownTrip)
+            if (!first.published || published != c.truth) failures += "$mode first complete frame publishes $published"
+            if (!first.visible || shown != c.truth) failures += "$mode first complete frame displays $shown (${first.state})"
+            val rows = lane.offers.all()
+            if (rows.size != 1 || rows.single().durationMin != c.truth[1] + c.truth[3] || rows.single().tripMin != c.truth[3])
+                failures += "$mode ledger ${rows.map { listOf(it.fareMxn, it.tripMin, it.durationMin) }}"
+            if (failures.size > before) failures += trace(lane)
+        }
+        assertTrue(failures.joinToString("\n"), failures.isEmpty())
     }
 
     private val g4 = listOf(RealS25Corpus.groups[4])

@@ -1,0 +1,2261 @@
+{
+ "source": "Galaxy S25 (1080x2340), Kompara 0.2.15 debug recorder, 2026-11-06 18:09-18:12; numeric tokens, labels and bounds are verbatim device OCR; every address/place/name is invented (whitelist sanitizer)",
+ "capturedAt": "2026-11-06 18:09",
+ "frames": [
+  {
+   "capturedAtMs": 1794010192213,
+   "tMs": 0,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_15": {
+    "fare": 284.08,
+    "pickup": [
+     null,
+     null
+    ],
+    "trip": [
+     null,
+     null
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "57D",
+     "left": 84,
+     "top": 498,
+     "right": 136,
+     "bottom": 524
+    },
+    {
+     "text": "134",
+     "left": 189,
+     "top": 143,
+     "right": 238,
+     "bottom": 165
+    },
+    {
+     "text": "UberX",
+     "left": 196,
+     "top": 776,
+     "right": 331,
+     "bottom": 812
+    },
+    {
+     "text": "Privada S",
+     "left": 515,
+     "top": 153,
+     "right": 949,
+     "bottom": 247
+    },
+    {
+     "text": "Parque",
+     "left": 656,
+     "top": 241,
+     "right": 903,
+     "bottom": 300
+    },
+    {
+     "text": "$284.08",
+     "left": 99,
+     "top": 874,
+     "right": 580,
+     "bottom": 984
+    },
+    {
+     "text": "Barrio F",
+     "left": 545,
+     "top": 567,
+     "right": 797,
+     "bottom": 618
+    },
+    {
+     "text": "* 4.74 (176)",
+     "left": 127,
+     "top": 1242,
+     "right": 404,
+     "bottom": 1288
+    },
+    {
+     "text": "O ldentidad verificada",
+     "left": 127,
+     "top": 1122,
+     "right": 646,
+     "bottom": 1167
+    },
+    {
+     "text": "1l min (1.2 km)",
+     "left": 192,
+     "top": 1394,
+     "right": 519,
+     "bottom": 1443
+    },
+    {
+     "text": "lh 29 min 20.8 km- $13.66/km est.",
+     "left": 97,
+     "top": 1030,
+     "right": 960,
+     "bottom": 1076
+    },
+    {
+     "text": "Colonia Ejemplo - Calle In",
+     "left": 195,
+     "top": 1469,
+     "right": 816,
+     "bottom": 1515
+    },
+    {
+     "text": "lh 18 min (19.6 km)",
+     "left": 193,
+     "top": 1542,
+     "right": 628,
+     "bottom": 1585
+    },
+    {
+     "text": "Parque Imaginario - Colo",
+     "left": 134,
+     "top": 1810,
+     "right": 695,
+     "bottom": 1865
+    },
+    {
+     "text": "Me interesa",
+     "left": 395,
+     "top": 1993,
+     "right": 686,
+     "bottom": 2038
+    },
+    {
+     "text": "Avenida Ficticia 9, Colonia Prueb",
+     "left": 196,
+     "top": 1617,
+     "right": 920,
+     "bottom": 1660
+    },
+    {
+     "text": "Parque Imaginario - Parque Imagi",
+     "left": 194,
+     "top": 1678,
+     "right": 915,
+     "bottom": 1725
+    },
+    {
+     "text": "X",
+     "left": 891,
+     "top": 798,
+     "right": 933,
+     "bottom": 840
+    },
+    {
+     "text": "115D",
+     "left": 817,
+     "top": 2157,
+     "right": 886,
+     "bottom": 2183
+    },
+    {
+     "text": "Calle Sup",
+     "left": 817,
+     "top": 2175,
+     "right": 1048,
+     "bottom": 2196
+    }
+   ]
+  },
+  {
+   "capturedAtMs": 1794010193112,
+   "tMs": 899,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_15": {
+    "fare": 284.08,
+    "pickup": [
+     null,
+     null
+    ],
+    "trip": [
+     null,
+     null
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "qq",
+     "left": 10,
+     "top": 1548,
+     "right": 51,
+     "bottom": 1585
+    },
+    {
+     "text": "3qq",
+     "left": 11,
+     "top": 1603,
+     "right": 50,
+     "bottom": 1644
+    },
+    {
+     "text": "Parque Imagi",
+     "left": 108,
+     "top": 328,
+     "right": 433,
+     "bottom": 382
+    },
+    {
+     "text": "Privada",
+     "left": 180,
+     "top": 385,
+     "right": 364,
+     "bottom": 437
+    },
+    {
+     "text": "15",
+     "left": 103,
+     "top": 589,
+     "right": 133,
+     "bottom": 611
+    },
+    {
+     "text": "UberX",
+     "left": 196,
+     "top": 776,
+     "right": 328,
+     "bottom": 812
+    },
+    {
+     "text": "$284.08",
+     "left": 99,
+     "top": 874,
+     "right": 580,
+     "bottom": 984
+    },
+    {
+     "text": "Calzada",
+     "left": 639,
+     "top": 107,
+     "right": 896,
+     "bottom": 189
+    },
+    {
+     "text": "Privad",
+     "left": 679,
+     "top": 190,
+     "right": 865,
+     "bottom": 253
+    },
+    {
+     "text": "ldentidad verificada",
+     "left": 193,
+     "top": 1120,
+     "right": 644,
+     "bottom": 1168
+    },
+    {
+     "text": "4.74 (176)",
+     "left": 191,
+     "top": 1238,
+     "right": 404,
+     "bottom": 1288
+    },
+    {
+     "text": "11 min (1.2 km)",
+     "left": 192,
+     "top": 1392,
+     "right": 520,
+     "bottom": 1441
+    },
+    {
+     "text": "lh 29 min 20.8 km- $13.66/km est.",
+     "left": 97,
+     "top": 1030,
+     "right": 960,
+     "bottom": 1076
+    },
+    {
+     "text": "Colonia Ejemplo - Calle In",
+     "left": 195,
+     "top": 1469,
+     "right": 816,
+     "bottom": 1515
+    },
+    {
+     "text": "lh 18 min (19.6 km)",
+     "left": 193,
+     "top": 1542,
+     "right": 628,
+     "bottom": 1585
+    },
+    {
+     "text": "Colonia Eje",
+     "left": 745,
+     "top": 409,
+     "right": 995,
+     "bottom": 476
+    },
+    {
+     "text": "Parque Imaginario - Colo",
+     "left": 134,
+     "top": 1810,
+     "right": 695,
+     "bottom": 1865
+    },
+    {
+     "text": "Me interesa",
+     "left": 396,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "Avenida Ficticia 9, Colonia Prueb",
+     "left": 196,
+     "top": 1617,
+     "right": 920,
+     "bottom": 1660
+    },
+    {
+     "text": "Colonia Imaginaria - Calle Su",
+     "left": 262,
+     "top": 1679,
+     "right": 912,
+     "bottom": 1725
+    },
+    {
+     "text": "X",
+     "left": 891,
+     "top": 798,
+     "right": 933,
+     "bottom": 840
+    },
+    {
+     "text": "M",
+     "left": 1043,
+     "top": 977,
+     "right": 1069,
+     "bottom": 1010
+    }
+   ]
+  },
+  {
+   "capturedAtMs": 1794010193981,
+   "tMs": 1768,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_15": {
+    "fare": 284.08,
+    "pickup": [
+     null,
+     null
+    ],
+    "trip": [
+     null,
+     null
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "qq",
+     "left": 10,
+     "top": 1548,
+     "right": 51,
+     "bottom": 1585
+    },
+    {
+     "text": "3qq",
+     "left": 11,
+     "top": 1603,
+     "right": 50,
+     "bottom": 1644
+    },
+    {
+     "text": "Calle Invent",
+     "left": 106,
+     "top": 326,
+     "right": 431,
+     "bottom": 380
+    },
+    {
+     "text": "Privada",
+     "left": 180,
+     "top": 385,
+     "right": 364,
+     "bottom": 437
+    },
+    {
+     "text": "15",
+     "left": 103,
+     "top": 589,
+     "right": 133,
+     "bottom": 611
+    },
+    {
+     "text": "UberX",
+     "left": 196,
+     "top": 776,
+     "right": 328,
+     "bottom": 812
+    },
+    {
+     "text": "Avenida F",
+     "left": 509,
+     "top": 107,
+     "right": 899,
+     "bottom": 196
+    },
+    {
+     "text": "Avenid",
+     "left": 686,
+     "top": 190,
+     "right": 856,
+     "bottom": 253
+    },
+    {
+     "text": "$284.08",
+     "left": 99,
+     "top": 874,
+     "right": 580,
+     "bottom": 984
+    },
+    {
+     "text": "ldentidad verificada",
+     "left": 193,
+     "top": 1120,
+     "right": 644,
+     "bottom": 1168
+    },
+    {
+     "text": "4.74 (176)",
+     "left": 191,
+     "top": 1238,
+     "right": 404,
+     "bottom": 1288
+    },
+    {
+     "text": "11 min (1.2 km)",
+     "left": 192,
+     "top": 1392,
+     "right": 520,
+     "bottom": 1441
+    },
+    {
+     "text": "lh 29 min 20.8 km- $13.66/km est.",
+     "left": 97,
+     "top": 1030,
+     "right": 960,
+     "bottom": 1076
+    },
+    {
+     "text": "Colonia Ejemplo - Calle In",
+     "left": 195,
+     "top": 1469,
+     "right": 816,
+     "bottom": 1515
+    },
+    {
+     "text": "lh 18 min (19.6 km)",
+     "left": 193,
+     "top": 1542,
+     "right": 628,
+     "bottom": 1585
+    },
+    {
+     "text": "Colonia Eje",
+     "left": 745,
+     "top": 409,
+     "right": 996,
+     "bottom": 475
+    },
+    {
+     "text": "Parque Imaginario - Colo",
+     "left": 134,
+     "top": 1810,
+     "right": 696,
+     "bottom": 1865
+    },
+    {
+     "text": "Me interesa",
+     "left": 396,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "Avenida Ficticia 9, Colonia Prueb",
+     "left": 196,
+     "top": 1617,
+     "right": 920,
+     "bottom": 1660
+    },
+    {
+     "text": "Colonia Imaginaria - Calle Su",
+     "left": 262,
+     "top": 1679,
+     "right": 912,
+     "bottom": 1725
+    },
+    {
+     "text": "X",
+     "left": 891,
+     "top": 798,
+     "right": 933,
+     "bottom": 840
+    },
+    {
+     "text": "M",
+     "left": 1043,
+     "top": 977,
+     "right": 1069,
+     "bottom": 1010
+    }
+   ]
+  },
+  {
+   "capturedAtMs": 1794010194850,
+   "tMs": 2637,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_15": {
+    "fare": 284.08,
+    "pickup": [
+     null,
+     null
+    ],
+    "trip": [
+     null,
+     null
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "qq",
+     "left": 10,
+     "top": 1548,
+     "right": 51,
+     "bottom": 1585
+    },
+    {
+     "text": "3qq",
+     "left": 11,
+     "top": 1603,
+     "right": 50,
+     "bottom": 1644
+    },
+    {
+     "text": "Parque Imagi",
+     "left": 108,
+     "top": 328,
+     "right": 434,
+     "bottom": 383
+    },
+    {
+     "text": "Privada",
+     "left": 180,
+     "top": 385,
+     "right": 364,
+     "bottom": 438
+    },
+    {
+     "text": "15",
+     "left": 103,
+     "top": 589,
+     "right": 133,
+     "bottom": 611
+    },
+    {
+     "text": "2 UberX",
+     "left": 125,
+     "top": 771,
+     "right": 329,
+     "bottom": 815
+    },
+    {
+     "text": "$284.08",
+     "left": 99,
+     "top": 874,
+     "right": 580,
+     "bottom": 984
+    },
+    {
+     "text": "Avenida F",
+     "left": 620,
+     "top": 105,
+     "right": 897,
+     "bottom": 189
+    },
+    {
+     "text": "Colonia",
+     "left": 622,
+     "top": 188,
+     "right": 855,
+     "bottom": 255
+    },
+    {
+     "text": "ldentidad verificada",
+     "left": 193,
+     "top": 1120,
+     "right": 644,
+     "bottom": 1168
+    },
+    {
+     "text": "4.74 (176)",
+     "left": 191,
+     "top": 1238,
+     "right": 404,
+     "bottom": 1288
+    },
+    {
+     "text": "11 min (1.2 km)",
+     "left": 192,
+     "top": 1392,
+     "right": 520,
+     "bottom": 1441
+    },
+    {
+     "text": "lh 29 min 20.8 km- $13.66/km est.",
+     "left": 97,
+     "top": 1030,
+     "right": 960,
+     "bottom": 1076
+    },
+    {
+     "text": "Colonia Ejemplo - Calle In",
+     "left": 195,
+     "top": 1469,
+     "right": 816,
+     "bottom": 1515
+    },
+    {
+     "text": "lh 18 min (19.6 km)",
+     "left": 193,
+     "top": 1542,
+     "right": 628,
+     "bottom": 1585
+    },
+    {
+     "text": "Colonia Eje",
+     "left": 745,
+     "top": 409,
+     "right": 995,
+     "bottom": 476
+    },
+    {
+     "text": "Parque Imaginario - Colo",
+     "left": 134,
+     "top": 1810,
+     "right": 696,
+     "bottom": 1865
+    },
+    {
+     "text": "Me interesa",
+     "left": 395,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "Avenida Ficticia 9, Colonia Prueb",
+     "left": 196,
+     "top": 1617,
+     "right": 920,
+     "bottom": 1660
+    },
+    {
+     "text": "Calzada Inventada 300, Coloni",
+     "left": 262,
+     "top": 1676,
+     "right": 914,
+     "bottom": 1722
+    },
+    {
+     "text": "X",
+     "left": 891,
+     "top": 798,
+     "right": 933,
+     "bottom": 840
+    },
+    {
+     "text": "M",
+     "left": 1043,
+     "top": 977,
+     "right": 1069,
+     "bottom": 1010
+    }
+   ]
+  },
+  {
+   "capturedAtMs": 1794010195747,
+   "tMs": 3534,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_15": {
+    "fare": 284.08,
+    "pickup": [
+     null,
+     null
+    ],
+    "trip": [
+     null,
+     null
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "qq",
+     "left": 10,
+     "top": 1548,
+     "right": 51,
+     "bottom": 1585
+    },
+    {
+     "text": "3qq",
+     "left": 11,
+     "top": 1603,
+     "right": 50,
+     "bottom": 1644
+    },
+    {
+     "text": "Parque Imagi",
+     "left": 108,
+     "top": 328,
+     "right": 433,
+     "bottom": 382
+    },
+    {
+     "text": "Privada",
+     "left": 180,
+     "top": 385,
+     "right": 364,
+     "bottom": 438
+    },
+    {
+     "text": "15",
+     "left": 103,
+     "top": 589,
+     "right": 133,
+     "bottom": 611
+    },
+    {
+     "text": "UberX",
+     "left": 196,
+     "top": 776,
+     "right": 328,
+     "bottom": 812
+    },
+    {
+     "text": "$284.08",
+     "left": 99,
+     "top": 874,
+     "right": 580,
+     "bottom": 984
+    },
+    {
+     "text": "Calzada",
+     "left": 639,
+     "top": 107,
+     "right": 896,
+     "bottom": 190
+    },
+    {
+     "text": "Parque",
+     "left": 610,
+     "top": 188,
+     "right": 851,
+     "bottom": 250
+    },
+    {
+     "text": "ldentidad verificada",
+     "left": 193,
+     "top": 1120,
+     "right": 644,
+     "bottom": 1168
+    },
+    {
+     "text": "4.74 (176)",
+     "left": 191,
+     "top": 1238,
+     "right": 404,
+     "bottom": 1288
+    },
+    {
+     "text": "11 min (1.2 km)",
+     "left": 192,
+     "top": 1392,
+     "right": 520,
+     "bottom": 1441
+    },
+    {
+     "text": "lh 29 min 20.8 km- $13.66/km est.",
+     "left": 97,
+     "top": 1030,
+     "right": 960,
+     "bottom": 1076
+    },
+    {
+     "text": "Colonia Ejemplo - Calle In",
+     "left": 195,
+     "top": 1469,
+     "right": 816,
+     "bottom": 1515
+    },
+    {
+     "text": "lh 18 min (19.6 km)",
+     "left": 193,
+     "top": 1542,
+     "right": 628,
+     "bottom": 1585
+    },
+    {
+     "text": "Colonia Eje",
+     "left": 745,
+     "top": 409,
+     "right": 996,
+     "bottom": 475
+    },
+    {
+     "text": "Parque Imaginario - Colo",
+     "left": 134,
+     "top": 1810,
+     "right": 696,
+     "bottom": 1865
+    },
+    {
+     "text": "Me interesa",
+     "left": 396,
+     "top": 1993,
+     "right": 686,
+     "bottom": 2038
+    },
+    {
+     "text": "Avenida Ficticia 9, Colonia Prueb",
+     "left": 196,
+     "top": 1617,
+     "right": 920,
+     "bottom": 1660
+    },
+    {
+     "text": "Calzada Inventada 300, Coloni",
+     "left": 262,
+     "top": 1676,
+     "right": 914,
+     "bottom": 1722
+    },
+    {
+     "text": "X",
+     "left": 891,
+     "top": 798,
+     "right": 933,
+     "bottom": 840
+    },
+    {
+     "text": "M",
+     "left": 1043,
+     "top": 977,
+     "right": 1069,
+     "bottom": 1010
+    }
+   ]
+  },
+  {
+   "capturedAtMs": 1794010196681,
+   "tMs": 4468,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_15": {
+    "fare": 284.08,
+    "pickup": [
+     null,
+     null
+    ],
+    "trip": [
+     null,
+     null
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "qq",
+     "left": 10,
+     "top": 1548,
+     "right": 51,
+     "bottom": 1585
+    },
+    {
+     "text": "3qq",
+     "left": 11,
+     "top": 1603,
+     "right": 50,
+     "bottom": 1644
+    },
+    {
+     "text": "Parque Imagi",
+     "left": 108,
+     "top": 328,
+     "right": 434,
+     "bottom": 383
+    },
+    {
+     "text": "Privada",
+     "left": 180,
+     "top": 385,
+     "right": 364,
+     "bottom": 438
+    },
+    {
+     "text": "15",
+     "left": 103,
+     "top": 589,
+     "right": 133,
+     "bottom": 611
+    },
+    {
+     "text": "2 UberX",
+     "left": 125,
+     "top": 771,
+     "right": 329,
+     "bottom": 815
+    },
+    {
+     "text": "Avenida F",
+     "left": 509,
+     "top": 108,
+     "right": 897,
+     "bottom": 196
+    },
+    {
+     "text": "Avenid",
+     "left": 686,
+     "top": 190,
+     "right": 856,
+     "bottom": 254
+    },
+    {
+     "text": "$284.08",
+     "left": 99,
+     "top": 874,
+     "right": 580,
+     "bottom": 984
+    },
+    {
+     "text": "ldentidad verificada",
+     "left": 193,
+     "top": 1120,
+     "right": 644,
+     "bottom": 1168
+    },
+    {
+     "text": "4.74 (176)",
+     "left": 191,
+     "top": 1238,
+     "right": 404,
+     "bottom": 1288
+    },
+    {
+     "text": "11 min (1.2 km)",
+     "left": 192,
+     "top": 1392,
+     "right": 520,
+     "bottom": 1441
+    },
+    {
+     "text": "lh 29 min 20.8 km- $13.66/km est.",
+     "left": 97,
+     "top": 1030,
+     "right": 960,
+     "bottom": 1076
+    },
+    {
+     "text": "Colonia Ejemplo - Calle In",
+     "left": 195,
+     "top": 1469,
+     "right": 816,
+     "bottom": 1515
+    },
+    {
+     "text": "lh 18 min (19.6 km)",
+     "left": 193,
+     "top": 1542,
+     "right": 628,
+     "bottom": 1585
+    },
+    {
+     "text": "Colonia Eje",
+     "left": 745,
+     "top": 409,
+     "right": 995,
+     "bottom": 476
+    },
+    {
+     "text": "Parque Imaginario - Colo",
+     "left": 134,
+     "top": 1810,
+     "right": 695,
+     "bottom": 1865
+    },
+    {
+     "text": "Me interesa",
+     "left": 396,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2038
+    },
+    {
+     "text": "Avenida Ficticia 9, Colonia Prueb",
+     "left": 196,
+     "top": 1617,
+     "right": 920,
+     "bottom": 1660
+    },
+    {
+     "text": "Colonia Ejemplo - Barrio Fict",
+     "left": 262,
+     "top": 1678,
+     "right": 912,
+     "bottom": 1722
+    },
+    {
+     "text": "X",
+     "left": 891,
+     "top": 798,
+     "right": 933,
+     "bottom": 840
+    },
+    {
+     "text": "M",
+     "left": 1043,
+     "top": 977,
+     "right": 1069,
+     "bottom": 1010
+    }
+   ]
+  },
+  {
+   "capturedAtMs": 1794010197614,
+   "tMs": 5401,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_15": {
+    "fare": 284.08,
+    "pickup": [
+     null,
+     null
+    ],
+    "trip": [
+     null,
+     null
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "qq",
+     "left": 10,
+     "top": 1548,
+     "right": 51,
+     "bottom": 1585
+    },
+    {
+     "text": "3qq",
+     "left": 11,
+     "top": 1603,
+     "right": 50,
+     "bottom": 1644
+    },
+    {
+     "text": "Parque Imagi",
+     "left": 108,
+     "top": 328,
+     "right": 434,
+     "bottom": 383
+    },
+    {
+     "text": "Privada",
+     "left": 180,
+     "top": 385,
+     "right": 364,
+     "bottom": 438
+    },
+    {
+     "text": "15",
+     "left": 103,
+     "top": 589,
+     "right": 133,
+     "bottom": 611
+    },
+    {
+     "text": "2 UberX",
+     "left": 125,
+     "top": 771,
+     "right": 329,
+     "bottom": 815
+    },
+    {
+     "text": "$284.08",
+     "left": 99,
+     "top": 874,
+     "right": 580,
+     "bottom": 984
+    },
+    {
+     "text": "Colonia",
+     "left": 646,
+     "top": 108,
+     "right": 896,
+     "bottom": 192
+    },
+    {
+     "text": "Calle S",
+     "left": 609,
+     "top": 188,
+     "right": 852,
+     "bottom": 254
+    },
+    {
+     "text": "ldentidad verificada",
+     "left": 193,
+     "top": 1120,
+     "right": 644,
+     "bottom": 1168
+    },
+    {
+     "text": "4.74 (176)",
+     "left": 191,
+     "top": 1238,
+     "right": 404,
+     "bottom": 1288
+    },
+    {
+     "text": "11 min (1.2 km)",
+     "left": 192,
+     "top": 1392,
+     "right": 520,
+     "bottom": 1441
+    },
+    {
+     "text": "lh 29 min 20.8 km- $13.66/km est.",
+     "left": 97,
+     "top": 1030,
+     "right": 960,
+     "bottom": 1076
+    },
+    {
+     "text": "Colonia Ejemplo - Calle In",
+     "left": 195,
+     "top": 1469,
+     "right": 816,
+     "bottom": 1515
+    },
+    {
+     "text": "lh 18 min (19.6 km)",
+     "left": 193,
+     "top": 1542,
+     "right": 628,
+     "bottom": 1585
+    },
+    {
+     "text": "Colonia Eje",
+     "left": 745,
+     "top": 409,
+     "right": 995,
+     "bottom": 476
+    },
+    {
+     "text": "Parque Imaginario - Colo",
+     "left": 134,
+     "top": 1810,
+     "right": 696,
+     "bottom": 1865
+    },
+    {
+     "text": "Me interesa",
+     "left": 396,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "Avenida Ficticia 9, Colonia Prueb",
+     "left": 196,
+     "top": 1617,
+     "right": 920,
+     "bottom": 1660
+    },
+    {
+     "text": "Calzada Inventada 300, Coloni",
+     "left": 262,
+     "top": 1676,
+     "right": 914,
+     "bottom": 1722
+    },
+    {
+     "text": "X",
+     "left": 891,
+     "top": 798,
+     "right": 933,
+     "bottom": 840
+    },
+    {
+     "text": "M",
+     "left": 1043,
+     "top": 977,
+     "right": 1069,
+     "bottom": 1010
+    }
+   ]
+  },
+  {
+   "capturedAtMs": 1794010198532,
+   "tMs": 6319,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_15": {
+    "fare": 284.08,
+    "pickup": [
+     null,
+     null
+    ],
+    "trip": [
+     null,
+     null
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "qq",
+     "left": 10,
+     "top": 1548,
+     "right": 51,
+     "bottom": 1585
+    },
+    {
+     "text": "3qq",
+     "left": 11,
+     "top": 1603,
+     "right": 50,
+     "bottom": 1644
+    },
+    {
+     "text": "Parque Imagi",
+     "left": 108,
+     "top": 328,
+     "right": 434,
+     "bottom": 383
+    },
+    {
+     "text": "Privada",
+     "left": 180,
+     "top": 385,
+     "right": 364,
+     "bottom": 438
+    },
+    {
+     "text": "15",
+     "left": 103,
+     "top": 589,
+     "right": 133,
+     "bottom": 611
+    },
+    {
+     "text": "UberX",
+     "left": 196,
+     "top": 776,
+     "right": 328,
+     "bottom": 812
+    },
+    {
+     "text": "$284.08",
+     "left": 99,
+     "top": 874,
+     "right": 580,
+     "bottom": 984
+    },
+    {
+     "text": "Colonia E",
+     "left": 622,
+     "top": 107,
+     "right": 896,
+     "bottom": 190
+    },
+    {
+     "text": "Parque",
+     "left": 623,
+     "top": 188,
+     "right": 853,
+     "bottom": 252
+    },
+    {
+     "text": "ldentidad verificada",
+     "left": 193,
+     "top": 1120,
+     "right": 644,
+     "bottom": 1168
+    },
+    {
+     "text": "4.74 (176)",
+     "left": 191,
+     "top": 1238,
+     "right": 404,
+     "bottom": 1288
+    },
+    {
+     "text": "11 min (1.2 km)",
+     "left": 192,
+     "top": 1392,
+     "right": 520,
+     "bottom": 1441
+    },
+    {
+     "text": "lh 29 min 20.8 km- $13.66/km est.",
+     "left": 97,
+     "top": 1030,
+     "right": 960,
+     "bottom": 1076
+    },
+    {
+     "text": "Colonia Ejemplo - Calle In",
+     "left": 195,
+     "top": 1469,
+     "right": 816,
+     "bottom": 1515
+    },
+    {
+     "text": "lh 18 min (19.6 km)",
+     "left": 202,
+     "top": 1540,
+     "right": 625,
+     "bottom": 1588
+    },
+    {
+     "text": "Calle Supu",
+     "left": 729,
+     "top": 403,
+     "right": 990,
+     "bottom": 469
+    },
+    {
+     "text": "Parque Imaginario - Colo",
+     "left": 134,
+     "top": 1810,
+     "right": 696,
+     "bottom": 1865
+    },
+    {
+     "text": "Me interesa",
+     "left": 396,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2038
+    },
+    {
+     "text": "Avenida Ficticia 9, Colonia Prueb",
+     "left": 196,
+     "top": 1617,
+     "right": 920,
+     "bottom": 1660
+    },
+    {
+     "text": "Colonia Imaginaria - Calle Su",
+     "left": 262,
+     "top": 1679,
+     "right": 912,
+     "bottom": 1723
+    },
+    {
+     "text": "X",
+     "left": 891,
+     "top": 798,
+     "right": 933,
+     "bottom": 840
+    },
+    {
+     "text": "M",
+     "left": 1043,
+     "top": 977,
+     "right": 1069,
+     "bottom": 1010
+    }
+   ]
+  },
+  {
+   "capturedAtMs": 1794010199432,
+   "tMs": 7219,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_15": {
+    "fare": 284.08,
+    "pickup": [
+     null,
+     null
+    ],
+    "trip": [
+     null,
+     null
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "qq",
+     "left": 10,
+     "top": 1548,
+     "right": 51,
+     "bottom": 1585
+    },
+    {
+     "text": "3qq",
+     "left": 11,
+     "top": 1603,
+     "right": 50,
+     "bottom": 1644
+    },
+    {
+     "text": "Parque Imagi",
+     "left": 108,
+     "top": 328,
+     "right": 434,
+     "bottom": 383
+    },
+    {
+     "text": "Privada",
+     "left": 180,
+     "top": 385,
+     "right": 364,
+     "bottom": 438
+    },
+    {
+     "text": "15",
+     "left": 103,
+     "top": 589,
+     "right": 133,
+     "bottom": 611
+    },
+    {
+     "text": "2 UberX",
+     "left": 125,
+     "top": 771,
+     "right": 329,
+     "bottom": 815
+    },
+    {
+     "text": "Avenida F",
+     "left": 509,
+     "top": 108,
+     "right": 897,
+     "bottom": 196
+    },
+    {
+     "text": "Avenid",
+     "left": 686,
+     "top": 190,
+     "right": 856,
+     "bottom": 254
+    },
+    {
+     "text": "$284.08",
+     "left": 99,
+     "top": 874,
+     "right": 580,
+     "bottom": 984
+    },
+    {
+     "text": "ldentidad verificada",
+     "left": 193,
+     "top": 1120,
+     "right": 644,
+     "bottom": 1168
+    },
+    {
+     "text": "4.74 (176)",
+     "left": 191,
+     "top": 1238,
+     "right": 404,
+     "bottom": 1288
+    },
+    {
+     "text": "11 min (1.2 km)",
+     "left": 192,
+     "top": 1392,
+     "right": 520,
+     "bottom": 1441
+    },
+    {
+     "text": "lh 29 min 20.8 km- $13.66/km est.",
+     "left": 97,
+     "top": 1030,
+     "right": 960,
+     "bottom": 1076
+    },
+    {
+     "text": "Colonia Ejemplo - Calle In",
+     "left": 195,
+     "top": 1469,
+     "right": 816,
+     "bottom": 1515
+    },
+    {
+     "text": "lh 18 min (19.6 km)",
+     "left": 193,
+     "top": 1542,
+     "right": 628,
+     "bottom": 1585
+    },
+    {
+     "text": "Colonia Eje",
+     "left": 745,
+     "top": 409,
+     "right": 995,
+     "bottom": 476
+    },
+    {
+     "text": "Parque Imaginario - Colo",
+     "left": 134,
+     "top": 1810,
+     "right": 696,
+     "bottom": 1865
+    },
+    {
+     "text": "Me interesa",
+     "left": 396,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "Avenida Ficticia 9, Colonia Prueb",
+     "left": 196,
+     "top": 1617,
+     "right": 920,
+     "bottom": 1660
+    },
+    {
+     "text": "Calle Supuesta 77 - Colon",
+     "left": 341,
+     "top": 1672,
+     "right": 914,
+     "bottom": 1723
+    },
+    {
+     "text": "Colonia Ejempl",
+     "left": 452,
+     "top": 2150,
+     "right": 775,
+     "bottom": 2195
+    },
+    {
+     "text": "X",
+     "left": 891,
+     "top": 798,
+     "right": 933,
+     "bottom": 840
+    },
+    {
+     "text": "M",
+     "left": 1043,
+     "top": 977,
+     "right": 1069,
+     "bottom": 1010
+    }
+   ]
+  },
+  {
+   "capturedAtMs": 1794010200346,
+   "tMs": 8133,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_15": {
+    "fare": 284.08,
+    "pickup": [
+     null,
+     null
+    ],
+    "trip": [
+     null,
+     null
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "qq",
+     "left": 10,
+     "top": 1548,
+     "right": 51,
+     "bottom": 1585
+    },
+    {
+     "text": "3qq",
+     "left": 11,
+     "top": 1603,
+     "right": 50,
+     "bottom": 1644
+    },
+    {
+     "text": "Calle Invent",
+     "left": 106,
+     "top": 326,
+     "right": 431,
+     "bottom": 380
+    },
+    {
+     "text": "Privada",
+     "left": 180,
+     "top": 385,
+     "right": 364,
+     "bottom": 438
+    },
+    {
+     "text": "15",
+     "left": 103,
+     "top": 589,
+     "right": 133,
+     "bottom": 611
+    },
+    {
+     "text": "UberX",
+     "left": 196,
+     "top": 776,
+     "right": 328,
+     "bottom": 812
+    },
+    {
+     "text": "$284.08",
+     "left": 99,
+     "top": 874,
+     "right": 580,
+     "bottom": 984
+    },
+    {
+     "text": "Barrio F",
+     "left": 639,
+     "top": 106,
+     "right": 896,
+     "bottom": 188
+    },
+    {
+     "text": "Coloni",
+     "left": 629,
+     "top": 188,
+     "right": 861,
+     "bottom": 250
+    },
+    {
+     "text": "ldentidad verificada",
+     "left": 193,
+     "top": 1120,
+     "right": 644,
+     "bottom": 1168
+    },
+    {
+     "text": "4.74 (176)",
+     "left": 191,
+     "top": 1238,
+     "right": 404,
+     "bottom": 1288
+    },
+    {
+     "text": "11 min (1.2 km)",
+     "left": 192,
+     "top": 1392,
+     "right": 520,
+     "bottom": 1441
+    },
+    {
+     "text": "lh 29 min 20.8 km- $13.66/km est.",
+     "left": 97,
+     "top": 1030,
+     "right": 960,
+     "bottom": 1076
+    },
+    {
+     "text": "Colonia Ejemplo - Calle In",
+     "left": 195,
+     "top": 1469,
+     "right": 816,
+     "bottom": 1515
+    },
+    {
+     "text": "lh 18 min (19.6 km)",
+     "left": 193,
+     "top": 1542,
+     "right": 628,
+     "bottom": 1585
+    },
+    {
+     "text": "Colonia Eje",
+     "left": 745,
+     "top": 409,
+     "right": 995,
+     "bottom": 476
+    },
+    {
+     "text": "Parque Imaginario - Colo",
+     "left": 134,
+     "top": 1810,
+     "right": 696,
+     "bottom": 1865
+    },
+    {
+     "text": "Me interesa",
+     "left": 396,
+     "top": 1993,
+     "right": 686,
+     "bottom": 2038
+    },
+    {
+     "text": "Avenida Ficticia 9, Colonia Prueb",
+     "left": 196,
+     "top": 1617,
+     "right": 920,
+     "bottom": 1660
+    },
+    {
+     "text": "Colonia Ejemplo - Barrio Fict",
+     "left": 262,
+     "top": 1678,
+     "right": 912,
+     "bottom": 1722
+    },
+    {
+     "text": "X",
+     "left": 891,
+     "top": 798,
+     "right": 933,
+     "bottom": 840
+    },
+    {
+     "text": "M",
+     "left": 1043,
+     "top": 977,
+     "right": 1069,
+     "bottom": 1010
+    }
+   ]
+  },
+  {
+   "capturedAtMs": 1794010201245,
+   "tMs": 9032,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_15": {
+    "fare": 284.08,
+    "pickup": [
+     null,
+     null
+    ],
+    "trip": [
+     null,
+     null
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "qq",
+     "left": 10,
+     "top": 1548,
+     "right": 51,
+     "bottom": 1585
+    },
+    {
+     "text": "3qq",
+     "left": 11,
+     "top": 1603,
+     "right": 50,
+     "bottom": 1644
+    },
+    {
+     "text": "Parque Imagi",
+     "left": 108,
+     "top": 328,
+     "right": 434,
+     "bottom": 383
+    },
+    {
+     "text": "Privada",
+     "left": 180,
+     "top": 385,
+     "right": 364,
+     "bottom": 437
+    },
+    {
+     "text": "15",
+     "left": 103,
+     "top": 589,
+     "right": 133,
+     "bottom": 611
+    },
+    {
+     "text": "2 UberX",
+     "left": 125,
+     "top": 771,
+     "right": 329,
+     "bottom": 815
+    },
+    {
+     "text": "$284.08",
+     "left": 99,
+     "top": 874,
+     "right": 580,
+     "bottom": 984
+    },
+    {
+     "text": "Avenida F",
+     "left": 619,
+     "top": 106,
+     "right": 896,
+     "bottom": 190
+    },
+    {
+     "text": "Privad",
+     "left": 638,
+     "top": 189,
+     "right": 855,
+     "bottom": 254
+    },
+    {
+     "text": "ldentidad verificada",
+     "left": 193,
+     "top": 1120,
+     "right": 644,
+     "bottom": 1168
+    },
+    {
+     "text": "4.74 (176)",
+     "left": 191,
+     "top": 1238,
+     "right": 404,
+     "bottom": 1288
+    },
+    {
+     "text": "11 min (1.2 km)",
+     "left": 192,
+     "top": 1392,
+     "right": 520,
+     "bottom": 1441
+    },
+    {
+     "text": "lh 29 min 20.8 km- $13.66/km est.",
+     "left": 97,
+     "top": 1030,
+     "right": 960,
+     "bottom": 1076
+    },
+    {
+     "text": "Colonia Ejemplo - Calle In",
+     "left": 195,
+     "top": 1469,
+     "right": 816,
+     "bottom": 1515
+    },
+    {
+     "text": "lh 18 min (19.6 km)",
+     "left": 193,
+     "top": 1542,
+     "right": 628,
+     "bottom": 1585
+    },
+    {
+     "text": "Colonia Eje",
+     "left": 745,
+     "top": 409,
+     "right": 995,
+     "bottom": 476
+    },
+    {
+     "text": "Parque Imaginario - Colo",
+     "left": 134,
+     "top": 1810,
+     "right": 696,
+     "bottom": 1865
+    },
+    {
+     "text": "Me interesa",
+     "left": 395,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "Avenida Ficticia 9, Colonia Prueb",
+     "left": 196,
+     "top": 1617,
+     "right": 920,
+     "bottom": 1660
+    },
+    {
+     "text": "Calle Supuesta 77 - Colon",
+     "left": 341,
+     "top": 1672,
+     "right": 914,
+     "bottom": 1723
+    },
+    {
+     "text": "X",
+     "left": 891,
+     "top": 798,
+     "right": 933,
+     "bottom": 840
+    },
+    {
+     "text": "M",
+     "left": 1043,
+     "top": 977,
+     "right": 1069,
+     "bottom": 1010
+    }
+   ]
+  },
+  {
+   "capturedAtMs": 1794010202182,
+   "tMs": 9969,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_15": {
+    "fare": 284.08,
+    "pickup": [
+     null,
+     null
+    ],
+    "trip": [
+     null,
+     null
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "qq",
+     "left": 10,
+     "top": 1548,
+     "right": 51,
+     "bottom": 1585
+    },
+    {
+     "text": "3qq",
+     "left": 11,
+     "top": 1603,
+     "right": 50,
+     "bottom": 1644
+    },
+    {
+     "text": "Parque Imagi",
+     "left": 108,
+     "top": 328,
+     "right": 434,
+     "bottom": 383
+    },
+    {
+     "text": "Privada",
+     "left": 180,
+     "top": 385,
+     "right": 364,
+     "bottom": 438
+    },
+    {
+     "text": "15",
+     "left": 103,
+     "top": 589,
+     "right": 133,
+     "bottom": 611
+    },
+    {
+     "text": "2 UberX",
+     "left": 125,
+     "top": 771,
+     "right": 329,
+     "bottom": 815
+    },
+    {
+     "text": "Avenida F",
+     "left": 509,
+     "top": 107,
+     "right": 897,
+     "bottom": 196
+    },
+    {
+     "text": "Calle",
+     "left": 626,
+     "top": 193,
+     "right": 853,
+     "bottom": 254
+    },
+    {
+     "text": "$284.08",
+     "left": 99,
+     "top": 874,
+     "right": 580,
+     "bottom": 984
+    },
+    {
+     "text": "ldentidad verificada",
+     "left": 193,
+     "top": 1120,
+     "right": 644,
+     "bottom": 1168
+    },
+    {
+     "text": "4.74 (176)",
+     "left": 191,
+     "top": 1238,
+     "right": 404,
+     "bottom": 1288
+    },
+    {
+     "text": "11 min (1.2 km)",
+     "left": 192,
+     "top": 1392,
+     "right": 520,
+     "bottom": 1441
+    },
+    {
+     "text": "lh 29 min 20.8 km- $13.66/km est.",
+     "left": 97,
+     "top": 1030,
+     "right": 960,
+     "bottom": 1076
+    },
+    {
+     "text": "Colonia Ejemplo - Calle In",
+     "left": 195,
+     "top": 1469,
+     "right": 816,
+     "bottom": 1515
+    },
+    {
+     "text": "lh 18 min (19.6 km)",
+     "left": 193,
+     "top": 1542,
+     "right": 628,
+     "bottom": 1585
+    },
+    {
+     "text": "Colonia Eje",
+     "left": 745,
+     "top": 409,
+     "right": 995,
+     "bottom": 476
+    },
+    {
+     "text": "Parque Imaginario - Colo",
+     "left": 134,
+     "top": 1810,
+     "right": 696,
+     "bottom": 1865
+    },
+    {
+     "text": "Me interesa",
+     "left": 395,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "Avenida Ficticia 9, Colonia Prueb",
+     "left": 196,
+     "top": 1617,
+     "right": 920,
+     "bottom": 1660
+    },
+    {
+     "text": "Colonia Ejemplo - Barrio Fict",
+     "left": 262,
+     "top": 1678,
+     "right": 912,
+     "bottom": 1724
+    },
+    {
+     "text": "X",
+     "left": 891,
+     "top": 798,
+     "right": 933,
+     "bottom": 840
+    },
+    {
+     "text": "M",
+     "left": 1043,
+     "top": 977,
+     "right": 1069,
+     "bottom": 1010
+    }
+   ]
+  },
+  {
+   "capturedAtMs": 1794010203095,
+   "tMs": 10882,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_15": {
+    "fare": 284.08,
+    "pickup": [
+     null,
+     null
+    ],
+    "trip": [
+     null,
+     null
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "qq",
+     "left": 10,
+     "top": 1548,
+     "right": 51,
+     "bottom": 1585
+    },
+    {
+     "text": "3qq",
+     "left": 11,
+     "top": 1603,
+     "right": 50,
+     "bottom": 1644
+    },
+    {
+     "text": "Parque Imagi",
+     "left": 108,
+     "top": 328,
+     "right": 433,
+     "bottom": 382
+    },
+    {
+     "text": "Privada",
+     "left": 180,
+     "top": 385,
+     "right": 364,
+     "bottom": 437
+    },
+    {
+     "text": "15",
+     "left": 103,
+     "top": 589,
+     "right": 133,
+     "bottom": 611
+    },
+    {
+     "text": "2 UberX",
+     "left": 125,
+     "top": 771,
+     "right": 329,
+     "bottom": 815
+    },
+    {
+     "text": "$284.08",
+     "left": 99,
+     "top": 874,
+     "right": 580,
+     "bottom": 984
+    },
+    {
+     "text": "ldentidad verificada",
+     "left": 193,
+     "top": 1120,
+     "right": 644,
+     "bottom": 1168
+    },
+    {
+     "text": "4.74 (176)",
+     "left": 191,
+     "top": 1238,
+     "right": 404,
+     "bottom": 1288
+    },
+    {
+     "text": "Calle Su",
+     "left": 644,
+     "top": 105,
+     "right": 896,
+     "bottom": 190
+    },
+    {
+     "text": "Barrio",
+     "left": 683,
+     "top": 191,
+     "right": 862,
+     "bottom": 253
+    },
+    {
+     "text": "11 min (1.2 km)",
+     "left": 192,
+     "top": 1392,
+     "right": 520,
+     "bottom": 1441
+    },
+    {
+     "text": "lh 29 min 20.8 km- $13.66/km est.",
+     "left": 97,
+     "top": 1030,
+     "right": 960,
+     "bottom": 1076
+    },
+    {
+     "text": "lh 18 min (19.6 km)",
+     "left": 193,
+     "top": 1542,
+     "right": 628,
+     "bottom": 1585
+    },
+    {
+     "text": "Colonia Ejemplo - Calle In",
+     "left": 195,
+     "top": 1469,
+     "right": 816,
+     "bottom": 1515
+    },
+    {
+     "text": "Colonia Eje",
+     "left": 745,
+     "top": 409,
+     "right": 995,
+     "bottom": 476
+    },
+    {
+     "text": "Parque Imaginario - Colo",
+     "left": 134,
+     "top": 1810,
+     "right": 696,
+     "bottom": 1865
+    },
+    {
+     "text": "Me interesa",
+     "left": 395,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "Avenida Ficticia 9, Colonia Prueb",
+     "left": 196,
+     "top": 1617,
+     "right": 920,
+     "bottom": 1660
+    },
+    {
+     "text": "Calle Inventada 123 - Aven",
+     "left": 312,
+     "top": 1676,
+     "right": 914,
+     "bottom": 1724
+    },
+    {
+     "text": "X",
+     "left": 891,
+     "top": 798,
+     "right": 933,
+     "bottom": 840
+    },
+    {
+     "text": "M",
+     "left": 1043,
+     "top": 977,
+     "right": 1069,
+     "bottom": 1010
+    }
+   ]
+  }
+ ]
+}

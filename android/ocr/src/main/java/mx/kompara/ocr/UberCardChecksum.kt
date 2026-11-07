@@ -30,15 +30,22 @@ import kotlin.math.abs
  * established; letters become digits here and nowhere else (l, L, I, | -> 1; O, o -> 0). The
  * identities validate restricted textual candidates — a separatorless distance's literal and
  * one-decimal readings, a separatorless amount's fixed two decimals — and never generate money.
+ * A duration slot is decoded whole (0.2.16): `1 h 23` is 83 minutes, never its trailing 23; an
+ * anchored hour-only `1 h` is 60 but ambiguous (lost minutes read the same): it stands only through an
+ * evaluated minute identity and is never a recovery operand.
  * Total distance is one shared value across the route and money identities. A missing trip
  * dimension of an identified row may be recovered as TOTAL minus pickup when both operands were read
- * as printed (one reading, no repair) and the other route dimension's identity holds independently;
+ * as printed (one reading, no repair, not hour-only) and the other route dimension's identity holds independently;
  * nothing else is recovered.
  */
 internal object UberCardChecksum {
 
-    /** One reading of a slot in integer units; [repairs] 0 means read as printed. */
-    data class Candidate(val units: Long, val repairs: Int = 0)
+    /**
+     * One reading of a slot in integer units; [repairs] 0 means read as printed. [hourOnly]: an hour-only
+     * duration (`1 h`), ambiguous whatever its repairs — Uber prints exactly 60 minutes so, but `1 h 5 min`
+     * whose minutes OCR lost reads the same. It is no repair and not "as printed" either (round 3).
+     */
+    data class Candidate(val units: Long, val repairs: Int = 0, val hourOnly: Boolean = false)
 
     /** A slot's alternative readings (empty when unread) and the row it was read from. */
     data class Slot(val candidates: List<Candidate> = emptyList(), val bounds: OfferContentBounds? = null)
@@ -49,6 +56,8 @@ internal object UberCardChecksum {
 
     private const val NUMERIC = "0123456789lLI|Oo"
     private val minutesToken = Regex("""[0-9lLI|Oo]{1,4}""")
+    private val hourDuration = Regex("""([0-9lLI|Oo]{1,2})\s*[hH]\s*([0-9lLI|Oo]{1,2})""")
+    private val hourOnlyDuration = Regex("""([0-9lLI|Oo]{1,2})\s*[hH]""")
     private val distanceToken = Regex("""([0-9lLI|Oo]{1,4})(?:([.,])([0-9lLI|Oo]))?""")
     private val thousands = Regex("""(\d{1,3}(?:,\d{3})+)\.(\d{2})""")
     private val decimal = Regex("""(\d+)[.,](\d{2})""")
@@ -66,6 +75,45 @@ internal object UberCardChecksum {
         if (token == null || !minutesToken.matches(token)) return emptyList()
         val units = token.map(::digit).joinToString("").toLongOrNull() ?: return emptyList()
         return listOf(Candidate(units, confusable(token) or (if (unitRepaired) REPAIR_UNIT else 0)))
+    }
+
+    /** An `h`/`H` in a duration slot: the slot must then decode completely as [hours], never as minutes. */
+    fun hasHourMarker(token: String) = token.any { it == 'h' || it == 'H' }
+
+    /**
+     * A complete hour duration `H h M` (`1 h 23`, `5h4`, `4h 46`, `lh5`) as 60·H + M minutes, with
+     * 1 ≤ H ≤ 23 and 0 ≤ M ≤ 59 — the 23-hour ceiling is a conservative acceptance bound, not Uber's
+     * maximum. Converting hours to minutes is no repair; a confusable in either component is. Null for
+     * anything else (`1 h 60`, `xh 18`, `h18`, an hour without minutes): the token is never searched
+     * for a trailing minute number. Shared by the modern slots and the legacy labeled route.
+     */
+    fun hours(token: String): Candidate? {
+        val m = hourDuration.matchEntire(token) ?: return null
+        val (h, min) = m.destructured
+        val hours = h.map(::digit).joinToString("").toLong()
+        val minutes = min.map(::digit).joinToString("").toLong()
+        if (hours !in 1..23 || minutes !in 0..59) return null
+        return Candidate(60 * hours + minutes, confusable(h + min))
+    }
+
+    /**
+     * An hour-only duration `H h` (Uber prints exactly 60 minutes as `1 h`, read `lh`) as 60·H, 1 ≤ H ≤ 23,
+     * flagged [Candidate.hourOnly]; a confusable hour digit is a repair. Only structurally anchored parser
+     * slots call this — the TOTAL row start directly followed by its distance, or a whole route-row
+     * duration directly followed by `(X km)` — never a slot that has a minute unit. A `1 h` whose minutes
+     * OCR lost reads the same, so [solve] publishes it only through an evaluated minute identity.
+     */
+    fun hourOnly(token: String): Candidate? {
+        val h = hourOnlyDuration.matchEntire(token.trim())?.groupValues?.get(1) ?: return null
+        val hours = h.map(::digit).joinToString("").toLong()
+        if (hours !in 1..23) return null
+        return Candidate(60 * hours, confusable(h), hourOnly = true)
+    }
+
+    /** A whole duration slot: [hours] when it carries an hour marker, otherwise complete [minutes]. */
+    fun duration(token: String?, unitRepaired: Boolean = false): List<Candidate> {
+        if (token == null || !hasHourMarker(token)) return minutes(token, unitRepaired)
+        return listOfNotNull(hours(token)?.let { it.copy(repairs = it.repairs or (if (unitRepaired) REPAIR_UNIT else 0)) })
     }
 
     /**
@@ -128,13 +176,22 @@ internal object UberCardChecksum {
     }
 
     /**
-     * Solve the card's slots ([OfferValidationEvidence] order) jointly. [rowsIdentified]: exactly two
+     * Solve the card's [read] slots ([OfferValidationEvidence] order) jointly. [rowsIdentified]: exactly two
      * ordered route rows were found, so a missing trip dimension has a row to belong to.
      * [structuralConflict]: competing TOTAL rows in one card band.
      */
-    fun solve(slots: List<Slot>, rowsIdentified: Boolean, selectionCertain: Boolean, fareCandidates: Int,
+    fun solve(read: List<Slot>, rowsIdentified: Boolean, selectionCertain: Boolean, fareCandidates: Int,
         structuralConflict: Boolean = false): Result {
-        require(slots.size == 8)
+        require(read.size == 8)
+        // An hour-only minute reading is ambiguous (round 3): it stands only when the minute identity is
+        // evaluated — TOTAL, pickup and trip minutes all read — and is then checked by it (a failure is a
+        // contradiction); otherwise its slot is withheld as unread. Fare and distances are unaffected.
+        val minuteSlots = listOf(TOTAL_MINUTES, PICKUP_MINUTES, TRIP_MINUTES)
+        val minutesEvaluable = minuteSlots.all { read[it].candidates.size == 1 }
+        val slots = read.mapIndexed { i, slot ->
+            val withheld = i in minuteSlots && !minutesEvaluable && slot.candidates.any { it.hourOnly }
+            if (withheld) slot.copy(candidates = emptyList()) else slot
+        }
         fun single(i: Int) = slots[i].candidates.singleOrNull()
         val (f, r, tm) = listOf(single(FARE), single(RATE), single(TOTAL_MINUTES))
         val (pm, qm) = single(PICKUP_MINUTES) to single(TRIP_MINUTES)
@@ -173,12 +230,13 @@ internal object UberCardChecksum {
             PICKUP_KM, TRIP_KM -> distanceHolds
             else -> minutesHold
         }
-        fun asPrinted(i: Int) = values[i]?.repairs == 0
+        // An hour-only reading is never "as printed" (round 3): only its evaluated minute identity establishes it.
+        fun asPrinted(i: Int) = values[i]?.let { it.repairs == 0 && !it.hourOnly } == true
         fun established(i: Int) = values[i] != null && (asPrinted(i) || validated(i))
 
         // Restricted recovery: only an unread trip dimension of an identified row, from operands read
-        // as printed — one reading, no repair; never a decimal-repaired or money-selected total (round 2) —
-        // while the OTHER route dimension's identity holds independently.
+        // as printed — one reading, no repair; never a decimal-repaired or money-selected total (round 2),
+        // never an hour-only duration (round 3) — while the OTHER route dimension's identity holds independently.
         fun readAsPrinted(i: Int) = asPrinted(i) && slots[i].candidates.size == 1
         val recovered = BooleanArray(8)
         val operands = IntArray(8)

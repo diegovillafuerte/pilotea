@@ -1,0 +1,1078 @@
+{
+ "source": "Galaxy S25 (1080x2340), Kompara 0.2.15 debug recorder, 2026-11-06 18:09-18:12; numeric tokens, labels and bounds are verbatim device OCR; every address/place/name is invented (whitelist sanitizer)",
+ "capturedAt": "2026-11-06 18:11",
+ "frames": [
+  {
+   "capturedAtMs": 1794010301632,
+   "tMs": 0,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_15": {
+    "fare": 240.98,
+    "pickup": [
+     null,
+     null
+    ],
+    "trip": [
+     null,
+     null
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "134D",
+     "left": 6,
+     "top": 335,
+     "right": 76,
+     "bottom": 359
+    },
+    {
+     "text": "qqq",
+     "left": 19,
+     "top": 1246,
+     "right": 50,
+     "bottom": 1288
+    },
+    {
+     "text": "qq",
+     "left": 10,
+     "top": 1307,
+     "right": 43,
+     "bottom": 1339
+    },
+    {
+     "text": "Radar de solicitud de viaje 2",
+     "left": 205,
+     "top": 406,
+     "right": 858,
+     "bottom": 456
+    },
+    {
+     "text": "2 UberX",
+     "left": 124,
+     "top": 608,
+     "right": 330,
+     "bottom": 652
+    },
+    {
+     "text": "Calle S",
+     "left": 492,
+     "top": 151,
+     "right": 826,
+     "bottom": 256
+    },
+    {
+     "text": "Coloni",
+     "left": 539,
+     "top": 232,
+     "right": 782,
+     "bottom": 301
+    },
+    {
+     "text": "$240.98",
+     "left": 100,
+     "top": 712,
+     "right": 576,
+     "bottom": 821
+    },
+    {
+     "text": "O ldentidad verificada",
+     "left": 123,
+     "top": 959,
+     "right": 644,
+     "bottom": 1005
+    },
+    {
+     "text": "* 4.31 (145)",
+     "left": 123,
+     "top": 1080,
+     "right": 402,
+     "bottom": 1126
+    },
+    {
+     "text": "lh14 min •15.4 km• $15.65/km est.",
+     "left": 106,
+     "top": 868,
+     "right": 947,
+     "bottom": 917
+    },
+    {
+     "text": "4 min (0.7 km)",
+     "left": 219,
+     "top": 1231,
+     "right": 511,
+     "bottom": 1279
+    },
+    {
+     "text": "Colonia Imaginaria - Barrio",
+     "left": 191,
+     "top": 1310,
+     "right": 798,
+     "bottom": 1347
+    },
+    {
+     "text": "Privada",
+     "left": 192,
+     "top": 1373,
+     "right": 371,
+     "bottom": 1409
+    },
+    {
+     "text": "h lh 10 min (14.7 km)",
+     "left": 116,
+     "top": 1432,
+     "right": 630,
+     "bottom": 1484
+    },
+    {
+     "text": "Calle Inventada 123",
+     "left": 195,
+     "top": 1575,
+     "right": 729,
+     "bottom": 1619
+    },
+    {
+     "text": "Barrio Ficticio - Calle S",
+     "left": 195,
+     "top": 1637,
+     "right": 797,
+     "bottom": 1679
+    },
+    {
+     "text": "Colonia Imaginaria - Pr",
+     "left": 134,
+     "top": 1766,
+     "right": 696,
+     "bottom": 1825
+    },
+    {
+     "text": "Me interesa",
+     "left": 395,
+     "top": 1951,
+     "right": 685,
+     "bottom": 1992
+    },
+    {
+     "text": "X",
+     "left": 887,
+     "top": 632,
+     "right": 935,
+     "bottom": 680
+    },
+    {
+     "text": "Calzad",
+     "left": 976,
+     "top": 193,
+     "right": 1080,
+     "bottom": 236
+    }
+   ]
+  },
+  {
+   "capturedAtMs": 1794010302532,
+   "tMs": 900,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_15": {
+    "fare": 240.98,
+    "pickup": [
+     4,
+     0.7
+    ],
+    "trip": [
+     null,
+     14.7
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "mà de",
+     "left": 34,
+     "top": 351,
+     "right": 152,
+     "bottom": 405
+    },
+    {
+     "text": "qqq",
+     "left": 4,
+     "top": 789,
+     "right": 42,
+     "bottom": 834
+    },
+    {
+     "text": "qqq",
+     "left": 10,
+     "top": 847,
+     "right": 52,
+     "bottom": 888
+    },
+    {
+     "text": "QQ",
+     "left": 9,
+     "top": 1389,
+     "right": 45,
+     "bottom": 1414
+    },
+    {
+     "text": "qq",
+     "left": 11,
+     "top": 1692,
+     "right": 51,
+     "bottom": 1733
+    },
+    {
+     "text": "Radar de solicitud de viaje 2",
+     "left": 205,
+     "top": 404,
+     "right": 858,
+     "bottom": 455
+    },
+    {
+     "text": "2 UberX",
+     "left": 124,
+     "top": 608,
+     "right": 330,
+     "bottom": 654
+    },
+    {
+     "text": "$240.98",
+     "left": 100,
+     "top": 712,
+     "right": 576,
+     "bottom": 821
+    },
+    {
+     "text": "Calzad",
+     "left": 590,
+     "top": 110,
+     "right": 752,
+     "bottom": 164
+    },
+    {
+     "text": "Avenid",
+     "left": 567,
+     "top": 189,
+     "right": 719,
+     "bottom": 238
+    },
+    {
+     "text": "lh14 min•15.4 km$15.65/km est.",
+     "left": 97,
+     "top": 869,
+     "right": 947,
+     "bottom": 913
+    },
+    {
+     "text": "O ldentidad verificada",
+     "left": 165,
+     "top": 955,
+     "right": 645,
+     "bottom": 1003
+    },
+    {
+     "text": "* 4.31 (145)",
+     "left": 122,
+     "top": 1078,
+     "right": 400,
+     "bottom": 1127
+    },
+    {
+     "text": "4 min (0.7 km)",
+     "left": 219,
+     "top": 1231,
+     "right": 511,
+     "bottom": 1279
+    },
+    {
+     "text": "Colonia Imaginaria - Barrio",
+     "left": 191,
+     "top": 1310,
+     "right": 798,
+     "bottom": 1347
+    },
+    {
+     "text": "Privada",
+     "left": 192,
+     "top": 1373,
+     "right": 371,
+     "bottom": 1409
+    },
+    {
+     "text": "lh10 min (14.7 km)",
+     "left": 192,
+     "top": 1435,
+     "right": 629,
+     "bottom": 1482
+    },
+    {
+     "text": "Calle Inventada 123",
+     "left": 195,
+     "top": 1575,
+     "right": 729,
+     "bottom": 1619
+    },
+    {
+     "text": "Barrio Ficticio - Calle S",
+     "left": 195,
+     "top": 1637,
+     "right": 797,
+     "bottom": 1679
+    },
+    {
+     "text": "Colonia Imaginaria - Pr",
+     "left": 134,
+     "top": 1766,
+     "right": 696,
+     "bottom": 1825
+    },
+    {
+     "text": "Me interesa",
+     "left": 394,
+     "top": 1950,
+     "right": 685,
+     "bottom": 1991
+    },
+    {
+     "text": "95D",
+     "left": 344,
+     "top": 2172,
+     "right": 397,
+     "bottom": 2194
+    },
+    {
+     "text": "X",
+     "left": 888,
+     "top": 634,
+     "right": 932,
+     "bottom": 678
+    }
+   ]
+  },
+  {
+   "capturedAtMs": 1794010303448,
+   "tMs": 1816,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_15": {
+    "fare": 240.98,
+    "pickup": [
+     4,
+     0.7
+    ],
+    "trip": [
+     null,
+     14.7
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "mà de",
+     "left": 34,
+     "top": 351,
+     "right": 152,
+     "bottom": 405
+    },
+    {
+     "text": "qqq",
+     "left": 4,
+     "top": 789,
+     "right": 42,
+     "bottom": 834
+    },
+    {
+     "text": "qqq",
+     "left": 10,
+     "top": 847,
+     "right": 52,
+     "bottom": 888
+    },
+    {
+     "text": "QQ",
+     "left": 9,
+     "top": 1389,
+     "right": 45,
+     "bottom": 1414
+    },
+    {
+     "text": "qq",
+     "left": 11,
+     "top": 1692,
+     "right": 51,
+     "bottom": 1733
+    },
+    {
+     "text": "Radar de solicitud de viaje 2",
+     "left": 205,
+     "top": 404,
+     "right": 858,
+     "bottom": 455
+    },
+    {
+     "text": "2 UberX",
+     "left": 124,
+     "top": 608,
+     "right": 330,
+     "bottom": 654
+    },
+    {
+     "text": "$240.98",
+     "left": 100,
+     "top": 712,
+     "right": 576,
+     "bottom": 821
+    },
+    {
+     "text": "lh14 min•15.4 km$15.65/km est.",
+     "left": 97,
+     "top": 869,
+     "right": 947,
+     "bottom": 913
+    },
+    {
+     "text": "O ldentidad verificada",
+     "left": 165,
+     "top": 955,
+     "right": 645,
+     "bottom": 1003
+    },
+    {
+     "text": "* 4.31 (145)",
+     "left": 122,
+     "top": 1078,
+     "right": 400,
+     "bottom": 1127
+    },
+    {
+     "text": "làd de",
+     "left": 585,
+     "top": 116,
+     "right": 752,
+     "bottom": 163
+    },
+    {
+     "text": "qqqq",
+     "left": 624,
+     "top": 189,
+     "right": 727,
+     "bottom": 238
+    },
+    {
+     "text": "4 min (0.7 km)",
+     "left": 219,
+     "top": 1231,
+     "right": 511,
+     "bottom": 1279
+    },
+    {
+     "text": "Colonia Imaginaria - Barrio",
+     "left": 191,
+     "top": 1310,
+     "right": 798,
+     "bottom": 1347
+    },
+    {
+     "text": "Privada",
+     "left": 192,
+     "top": 1373,
+     "right": 371,
+     "bottom": 1409
+    },
+    {
+     "text": "lh10 min (14.7 km)",
+     "left": 192,
+     "top": 1435,
+     "right": 629,
+     "bottom": 1482
+    },
+    {
+     "text": "Calle Inventada 123",
+     "left": 195,
+     "top": 1575,
+     "right": 729,
+     "bottom": 1619
+    },
+    {
+     "text": "Barrio Ficticio - Calle S",
+     "left": 195,
+     "top": 1637,
+     "right": 797,
+     "bottom": 1679
+    },
+    {
+     "text": "Colonia Imaginaria - Pr",
+     "left": 134,
+     "top": 1766,
+     "right": 696,
+     "bottom": 1825
+    },
+    {
+     "text": "Me interesa",
+     "left": 394,
+     "top": 1950,
+     "right": 685,
+     "bottom": 1991
+    },
+    {
+     "text": "95D",
+     "left": 344,
+     "top": 2172,
+     "right": 397,
+     "bottom": 2194
+    },
+    {
+     "text": "X",
+     "left": 888,
+     "top": 634,
+     "right": 932,
+     "bottom": 678
+    }
+   ]
+  },
+  {
+   "capturedAtMs": 1794010304380,
+   "tMs": 2748,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_15": {
+    "fare": 240.98,
+    "pickup": [
+     4,
+     0.7
+    ],
+    "trip": [
+     null,
+     14.7
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "mà de",
+     "left": 34,
+     "top": 351,
+     "right": 152,
+     "bottom": 405
+    },
+    {
+     "text": "qqq",
+     "left": 4,
+     "top": 789,
+     "right": 42,
+     "bottom": 834
+    },
+    {
+     "text": "qqq",
+     "left": 10,
+     "top": 847,
+     "right": 52,
+     "bottom": 888
+    },
+    {
+     "text": "QQ",
+     "left": 9,
+     "top": 1389,
+     "right": 45,
+     "bottom": 1414
+    },
+    {
+     "text": "qq",
+     "left": 11,
+     "top": 1692,
+     "right": 51,
+     "bottom": 1733
+    },
+    {
+     "text": "Radar de solicitud de viaje 2",
+     "left": 205,
+     "top": 404,
+     "right": 857,
+     "bottom": 455
+    },
+    {
+     "text": "2 UberX",
+     "left": 124,
+     "top": 608,
+     "right": 330,
+     "bottom": 654
+    },
+    {
+     "text": "$240.98",
+     "left": 100,
+     "top": 712,
+     "right": 576,
+     "bottom": 821
+    },
+    {
+     "text": "Calle",
+     "left": 588,
+     "top": 120,
+     "right": 753,
+     "bottom": 168
+    },
+    {
+     "text": "Avenid",
+     "left": 567,
+     "top": 189,
+     "right": 719,
+     "bottom": 238
+    },
+    {
+     "text": "lh14 min•15.4 km$15.65/km est.",
+     "left": 97,
+     "top": 869,
+     "right": 947,
+     "bottom": 913
+    },
+    {
+     "text": "O ldentidad verificada",
+     "left": 165,
+     "top": 955,
+     "right": 645,
+     "bottom": 1003
+    },
+    {
+     "text": "* 4.31 (145)",
+     "left": 122,
+     "top": 1078,
+     "right": 400,
+     "bottom": 1127
+    },
+    {
+     "text": "4 min (0.7 km)",
+     "left": 219,
+     "top": 1231,
+     "right": 511,
+     "bottom": 1279
+    },
+    {
+     "text": "Colonia Imaginaria - Barrio",
+     "left": 191,
+     "top": 1310,
+     "right": 798,
+     "bottom": 1347
+    },
+    {
+     "text": "Privada",
+     "left": 192,
+     "top": 1373,
+     "right": 371,
+     "bottom": 1409
+    },
+    {
+     "text": "lh10 min (14.7 km)",
+     "left": 192,
+     "top": 1435,
+     "right": 629,
+     "bottom": 1482
+    },
+    {
+     "text": "Calle Inventada 123",
+     "left": 195,
+     "top": 1575,
+     "right": 729,
+     "bottom": 1619
+    },
+    {
+     "text": "Barrio Ficticio - Calle S",
+     "left": 195,
+     "top": 1637,
+     "right": 797,
+     "bottom": 1679
+    },
+    {
+     "text": "Colonia Ejemplo - Barrio",
+     "left": 134,
+     "top": 1767,
+     "right": 696,
+     "bottom": 1825
+    },
+    {
+     "text": "Me interesa",
+     "left": 393,
+     "top": 1947,
+     "right": 684,
+     "bottom": 1996
+    },
+    {
+     "text": "95D",
+     "left": 344,
+     "top": 2172,
+     "right": 397,
+     "bottom": 2194
+    },
+    {
+     "text": "X",
+     "left": 888,
+     "top": 634,
+     "right": 932,
+     "bottom": 678
+    }
+   ]
+  },
+  {
+   "capturedAtMs": 1794010305315,
+   "tMs": 3683,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_15": {
+    "fare": 240.98,
+    "pickup": [
+     4,
+     0.7
+    ],
+    "trip": [
+     null,
+     14.7
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "mà de",
+     "left": 34,
+     "top": 351,
+     "right": 152,
+     "bottom": 405
+    },
+    {
+     "text": "qqq",
+     "left": 4,
+     "top": 789,
+     "right": 42,
+     "bottom": 834
+    },
+    {
+     "text": "qqq",
+     "left": 10,
+     "top": 847,
+     "right": 52,
+     "bottom": 888
+    },
+    {
+     "text": "QQ",
+     "left": 9,
+     "top": 1389,
+     "right": 45,
+     "bottom": 1414
+    },
+    {
+     "text": "qq",
+     "left": 11,
+     "top": 1692,
+     "right": 51,
+     "bottom": 1733
+    },
+    {
+     "text": "Radar de solicitud de viaje (2",
+     "left": 205,
+     "top": 404,
+     "right": 857,
+     "bottom": 455
+    },
+    {
+     "text": "2 UberX",
+     "left": 124,
+     "top": 608,
+     "right": 330,
+     "bottom": 654
+    },
+    {
+     "text": "$240.98",
+     "left": 100,
+     "top": 712,
+     "right": 576,
+     "bottom": 821
+    },
+    {
+     "text": "Calle",
+     "left": 588,
+     "top": 120,
+     "right": 753,
+     "bottom": 168
+    },
+    {
+     "text": "Barrio",
+     "left": 566,
+     "top": 188,
+     "right": 719,
+     "bottom": 240
+    },
+    {
+     "text": "lh14 min•15.4 km$15.65/km est.",
+     "left": 97,
+     "top": 869,
+     "right": 947,
+     "bottom": 913
+    },
+    {
+     "text": "O ldentidad verificada",
+     "left": 165,
+     "top": 955,
+     "right": 645,
+     "bottom": 1003
+    },
+    {
+     "text": "* 4.31 (145)",
+     "left": 122,
+     "top": 1078,
+     "right": 400,
+     "bottom": 1127
+    },
+    {
+     "text": "4 min (0.7 km)",
+     "left": 219,
+     "top": 1231,
+     "right": 511,
+     "bottom": 1279
+    },
+    {
+     "text": "Colonia Imaginaria - Barrio",
+     "left": 191,
+     "top": 1310,
+     "right": 798,
+     "bottom": 1347
+    },
+    {
+     "text": "Privada",
+     "left": 192,
+     "top": 1373,
+     "right": 371,
+     "bottom": 1409
+    },
+    {
+     "text": "lh10 min (14.7 km)",
+     "left": 192,
+     "top": 1435,
+     "right": 629,
+     "bottom": 1482
+    },
+    {
+     "text": "Calle Inventada 123",
+     "left": 195,
+     "top": 1575,
+     "right": 729,
+     "bottom": 1619
+    },
+    {
+     "text": "Barrio Ficticio - Calle S",
+     "left": 195,
+     "top": 1637,
+     "right": 797,
+     "bottom": 1679
+    },
+    {
+     "text": "Colonia Ejemplo - Barrio",
+     "left": 134,
+     "top": 1767,
+     "right": 696,
+     "bottom": 1825
+    },
+    {
+     "text": "Me interesa",
+     "left": 393,
+     "top": 1949,
+     "right": 684,
+     "bottom": 1993
+    },
+    {
+     "text": "95D",
+     "left": 344,
+     "top": 2172,
+     "right": 397,
+     "bottom": 2194
+    },
+    {
+     "text": "X",
+     "left": 888,
+     "top": 634,
+     "right": 932,
+     "bottom": 678
+    }
+   ]
+  },
+  {
+   "capturedAtMs": 1794010306197,
+   "tMs": 4565,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_15": {
+    "fare": 240.98,
+    "pickup": [
+     4,
+     0.7
+    ],
+    "trip": [
+     null,
+     14.7
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "mà de",
+     "left": 34,
+     "top": 351,
+     "right": 152,
+     "bottom": 405
+    },
+    {
+     "text": "qqq",
+     "left": 4,
+     "top": 789,
+     "right": 42,
+     "bottom": 834
+    },
+    {
+     "text": "qqq",
+     "left": 10,
+     "top": 847,
+     "right": 52,
+     "bottom": 888
+    },
+    {
+     "text": "QQ",
+     "left": 9,
+     "top": 1389,
+     "right": 45,
+     "bottom": 1414
+    },
+    {
+     "text": "qq",
+     "left": 11,
+     "top": 1692,
+     "right": 51,
+     "bottom": 1733
+    },
+    {
+     "text": "Radar de solicitud de viaje 2",
+     "left": 205,
+     "top": 404,
+     "right": 857,
+     "bottom": 455
+    },
+    {
+     "text": "2 UberX",
+     "left": 124,
+     "top": 608,
+     "right": 330,
+     "bottom": 654
+    },
+    {
+     "text": "$240.98",
+     "left": 100,
+     "top": 712,
+     "right": 576,
+     "bottom": 821
+    },
+    {
+     "text": "Calzad",
+     "left": 590,
+     "top": 110,
+     "right": 752,
+     "bottom": 164
+    },
+    {
+     "text": "Avenid",
+     "left": 567,
+     "top": 189,
+     "right": 719,
+     "bottom": 238
+    },
+    {
+     "text": "lh14 min•15.4 km$15.65/km est.",
+     "left": 97,
+     "top": 869,
+     "right": 947,
+     "bottom": 913
+    },
+    {
+     "text": "O ldentidad verificada",
+     "left": 165,
+     "top": 955,
+     "right": 645,
+     "bottom": 1003
+    },
+    {
+     "text": "* 4.31 (145)",
+     "left": 122,
+     "top": 1078,
+     "right": 400,
+     "bottom": 1127
+    },
+    {
+     "text": "4 min (0.7 km)",
+     "left": 219,
+     "top": 1231,
+     "right": 511,
+     "bottom": 1279
+    },
+    {
+     "text": "Colonia Imaginaria - Barrio",
+     "left": 191,
+     "top": 1310,
+     "right": 798,
+     "bottom": 1347
+    },
+    {
+     "text": "Privada",
+     "left": 192,
+     "top": 1373,
+     "right": 371,
+     "bottom": 1409
+    },
+    {
+     "text": "lh10 min (14.7 km)",
+     "left": 192,
+     "top": 1435,
+     "right": 629,
+     "bottom": 1482
+    },
+    {
+     "text": "Calle Inventada 123",
+     "left": 195,
+     "top": 1575,
+     "right": 729,
+     "bottom": 1619
+    },
+    {
+     "text": "Barrio Ficticio - Calle S",
+     "left": 195,
+     "top": 1637,
+     "right": 797,
+     "bottom": 1679
+    },
+    {
+     "text": "Colonia Ejemplo - Barrio",
+     "left": 134,
+     "top": 1767,
+     "right": 696,
+     "bottom": 1825
+    },
+    {
+     "text": "Me interesa",
+     "left": 394,
+     "top": 1950,
+     "right": 685,
+     "bottom": 1994
+    },
+    {
+     "text": "95D",
+     "left": 344,
+     "top": 2172,
+     "right": 398,
+     "bottom": 2194
+    },
+    {
+     "text": "X",
+     "left": 888,
+     "top": 634,
+     "right": 932,
+     "bottom": 678
+    }
+   ]
+  }
+ ]
+}

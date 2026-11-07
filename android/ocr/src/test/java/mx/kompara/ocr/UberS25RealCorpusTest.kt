@@ -94,6 +94,32 @@ class UberS25RealCorpusTest {
         assertTrue(failures.joinToString("\n"), failures.isEmpty())
     }
 
+    /**
+     * Byte-for-byte guard of the 0.2.15 corpus: the complete parse serialization of every frame — the
+     * signature, every OfferCard field and bound, the instance evidence, the validation evidence
+     * (provenance, repairs, operands, identity checks and residuals, grade, routeValidated) and the
+     * legacy baseline card — equals the golden written by [UberS25ParseGolden] at f8aaab8, in original,
+     * reversed and ten shuffled block orders. The golden is never regenerated from newer code.
+     */
+    @Test fun `every real frame reproduces the f8aaab8 parse serialization byte for byte in every block order`() {
+        val golden = UberS25RealCorpus.text(UberS25ParseGolden.FILE).lines().filter { it.isNotEmpty() }
+        val frames = UberS25RealCorpus.groups.flatMap { it.frames }
+        assertEquals(190, golden.size)
+        assertEquals(frames.size, golden.size)
+        val failures = mutableListOf<String>()
+        frames.zip(golden).forEach { (f, want) ->
+            for ((name, order) in UberS25RealCorpus.orders(f.masked)) {
+                val got = UberS25ParseGolden.line(f.id, order)
+                if (got == want) continue
+                // Parser output only (numbers, bounds, enums): safe to show around the first difference.
+                val at = got.zip(want).indexOfFirst { (a, b) -> a != b }.let { if (it < 0) minOf(got.length, want.length) else it }
+                failures += "${f.id} $name at $at: got …${got.substring(maxOf(0, at - 80), minOf(got.length, at + 40))}… " +
+                    "want …${want.substring(maxOf(0, at - 80), minOf(want.length, at + 40))}…"
+            }
+        }
+        assertTrue(failures.size.toString() + " differences\n" + failures.joinToString("\n"), failures.isEmpty())
+    }
+
     @Test fun `the 0_2_14 read and miss sets stay recorded as separate baseline data`() {
         val failures = mutableListOf<String>()
         for (g in UberS25RealCorpus.groups) for (f in g.frames) {

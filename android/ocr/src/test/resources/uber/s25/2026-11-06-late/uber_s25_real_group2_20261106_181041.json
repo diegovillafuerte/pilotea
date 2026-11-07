@@ -1,0 +1,2254 @@
+{
+ "source": "Galaxy S25 (1080x2340), Kompara 0.2.15 debug recorder, 2026-11-06 18:09-18:12; numeric tokens, labels and bounds are verbatim device OCR; every address/place/name is invented (whitelist sanitizer)",
+ "capturedAt": "2026-11-06 18:10",
+ "frames": [
+  {
+   "capturedAtMs": 1794010241508,
+   "tMs": 0,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_15": {
+    "fare": 228.38,
+    "pickup": [
+     5,
+     0.9
+    ],
+    "trip": [
+     null,
+     13.7
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "Colonia",
+     "left": 11,
+     "top": 495,
+     "right": 146,
+     "bottom": 538
+    },
+    {
+     "text": "2 UberX",
+     "left": 124,
+     "top": 590,
+     "right": 323,
+     "bottom": 637
+    },
+    {
+     "text": "Avenida Fi",
+     "left": 401,
+     "top": 149,
+     "right": 835,
+     "bottom": 242
+    },
+    {
+     "text": "Avenid",
+     "left": 568,
+     "top": 240,
+     "right": 790,
+     "bottom": 302
+    },
+    {
+     "text": "$228.38",
+     "left": 100,
+     "top": 694,
+     "right": 562,
+     "bottom": 804
+    },
+    {
+     "text": "O ldentidad verificada",
+     "left": 123,
+     "top": 941,
+     "right": 644,
+     "bottom": 987
+    },
+    {
+     "text": "lh19 min 14.6 km• $15.64/km est.",
+     "left": 98,
+     "top": 850,
+     "right": 951,
+     "bottom": 899
+    },
+    {
+     "text": "★ 4.77 (891)",
+     "left": 122,
+     "top": 1058,
+     "right": 409,
+     "bottom": 1106
+    },
+    {
+     "text": "5 min (0.9 km)",
+     "left": 194,
+     "top": 1219,
+     "right": 512,
+     "bottom": 1264
+    },
+    {
+     "text": "Calle Supuesta 77 - Colonia Ejemp",
+     "left": 191,
+     "top": 1292,
+     "right": 967,
+     "bottom": 1336
+    },
+    {
+     "text": "Privada Supuesta 7 - Avenid",
+     "left": 196,
+     "top": 1348,
+     "right": 814,
+     "bottom": 1396
+    },
+    {
+     "text": "h lh14 min (13.7 km)",
+     "left": 115,
+     "top": 1415,
+     "right": 621,
+     "bottom": 1465
+    },
+    {
+     "text": "Calzada Inventada 300, Colonia",
+     "left": 195,
+     "top": 1559,
+     "right": 839,
+     "bottom": 1602
+    },
+    {
+     "text": "Privada Supuesta 7 - Parque Imag",
+     "left": 196,
+     "top": 1619,
+     "right": 888,
+     "bottom": 1662
+    },
+    {
+     "text": "Barrio",
+     "left": 191,
+     "top": 1678,
+     "right": 299,
+     "bottom": 1715
+    },
+    {
+     "text": "Parque Imaginario - Colo",
+     "left": 134,
+     "top": 1810,
+     "right": 696,
+     "bottom": 1865
+    },
+    {
+     "text": "X",
+     "left": 888,
+     "top": 616,
+     "right": 932,
+     "bottom": 660
+    },
+    {
+     "text": "Me interesa",
+     "left": 396,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "qq",
+     "left": 1028,
+     "top": 788,
+     "right": 1075,
+     "bottom": 820
+    },
+    {
+     "text": "la",
+     "left": 1038,
+     "top": 1278,
+     "right": 1071,
+     "bottom": 1312
+    }
+   ]
+  },
+  {
+   "capturedAtMs": 1794010242425,
+   "tMs": 917,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_15": {
+    "fare": 228.38,
+    "pickup": [
+     5,
+     0.9
+    ],
+    "trip": [
+     null,
+     13.7
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "Barrio Ficti",
+     "left": 15,
+     "top": 330,
+     "right": 305,
+     "bottom": 391
+    },
+    {
+     "text": "Colonia",
+     "left": 48,
+     "top": 385,
+     "right": 233,
+     "bottom": 442
+    },
+    {
+     "text": "Q",
+     "left": 21,
+     "top": 1423,
+     "right": 31,
+     "bottom": 1459
+    },
+    {
+     "text": "2 UberX",
+     "left": 124,
+     "top": 590,
+     "right": 323,
+     "bottom": 637
+    },
+    {
+     "text": "Colonia E",
+     "left": 506,
+     "top": 107,
+     "right": 780,
+     "bottom": 186
+    },
+    {
+     "text": "Coloni",
+     "left": 484,
+     "top": 187,
+     "right": 742,
+     "bottom": 269
+    },
+    {
+     "text": "$228.38",
+     "left": 100,
+     "top": 694,
+     "right": 562,
+     "bottom": 804
+    },
+    {
+     "text": "★ 4.77 (891)",
+     "left": 122,
+     "top": 1059,
+     "right": 409,
+     "bottom": 1106
+    },
+    {
+     "text": "Avenida F",
+     "left": 612,
+     "top": 419,
+     "right": 880,
+     "bottom": 474
+    },
+    {
+     "text": "lh19 min •14.6 km• $15.64/km est.",
+     "left": 98,
+     "top": 850,
+     "right": 950,
+     "bottom": 899
+    },
+    {
+     "text": "O ldentidad verificada",
+     "left": 127,
+     "top": 942,
+     "right": 646,
+     "bottom": 987
+    },
+    {
+     "text": "5 min (0.9 km)",
+     "left": 194,
+     "top": 1219,
+     "right": 512,
+     "bottom": 1264
+    },
+    {
+     "text": "Calle Supuesta 77 - Colonia Ejemp",
+     "left": 191,
+     "top": 1292,
+     "right": 967,
+     "bottom": 1336
+    },
+    {
+     "text": "Calle Inventada 123 - Calle",
+     "left": 196,
+     "top": 1354,
+     "right": 814,
+     "bottom": 1398
+    },
+    {
+     "text": "h lh14 min (13.7 km)",
+     "left": 115,
+     "top": 1415,
+     "right": 621,
+     "bottom": 1465
+    },
+    {
+     "text": "Calzada Inventada 300, Colonia",
+     "left": 195,
+     "top": 1559,
+     "right": 839,
+     "bottom": 1602
+    },
+    {
+     "text": "Privada Supuesta 7 - Parque Imag",
+     "left": 196,
+     "top": 1619,
+     "right": 888,
+     "bottom": 1661
+    },
+    {
+     "text": "Barrio",
+     "left": 191,
+     "top": 1678,
+     "right": 298,
+     "bottom": 1715
+    },
+    {
+     "text": "Parque Imaginario - Colo",
+     "left": 134,
+     "top": 1810,
+     "right": 696,
+     "bottom": 1865
+    },
+    {
+     "text": "X",
+     "left": 890,
+     "top": 618,
+     "right": 932,
+     "bottom": 660
+    },
+    {
+     "text": "Me interesa",
+     "left": 395,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "a",
+     "left": 1026,
+     "top": 1004,
+     "right": 1057,
+     "bottom": 1036
+    }
+   ]
+  },
+  {
+   "capturedAtMs": 1794010243309,
+   "tMs": 1801,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_15": {
+    "fare": 228.38,
+    "pickup": [
+     5,
+     0.9
+    ],
+    "trip": [
+     null,
+     13.7
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "Colonia Ejem",
+     "left": 13,
+     "top": 329,
+     "right": 304,
+     "bottom": 388
+    },
+    {
+     "text": "Colonia",
+     "left": 48,
+     "top": 385,
+     "right": 233,
+     "bottom": 442
+    },
+    {
+     "text": "Q",
+     "left": 21,
+     "top": 1423,
+     "right": 31,
+     "bottom": 1459
+    },
+    {
+     "text": "2 UberX",
+     "left": 124,
+     "top": 590,
+     "right": 323,
+     "bottom": 637
+    },
+    {
+     "text": "Colonia",
+     "left": 533,
+     "top": 106,
+     "right": 785,
+     "bottom": 194
+    },
+    {
+     "text": "Barrio",
+     "left": 486,
+     "top": 186,
+     "right": 742,
+     "bottom": 269
+    },
+    {
+     "text": "$228.38",
+     "left": 100,
+     "top": 694,
+     "right": 562,
+     "bottom": 804
+    },
+    {
+     "text": "★ 4.77 (891)",
+     "left": 122,
+     "top": 1059,
+     "right": 409,
+     "bottom": 1106
+    },
+    {
+     "text": "Privada Su",
+     "left": 638,
+     "top": 419,
+     "right": 881,
+     "bottom": 473
+    },
+    {
+     "text": "lh19 min •14.6 km• $15.64/km est.",
+     "left": 98,
+     "top": 850,
+     "right": 950,
+     "bottom": 899
+    },
+    {
+     "text": "O ldentidad verificada",
+     "left": 127,
+     "top": 942,
+     "right": 646,
+     "bottom": 987
+    },
+    {
+     "text": "5 min (0.9 km)",
+     "left": 194,
+     "top": 1219,
+     "right": 512,
+     "bottom": 1264
+    },
+    {
+     "text": "Calle Supuesta 77 - Colonia Ejemp",
+     "left": 191,
+     "top": 1292,
+     "right": 967,
+     "bottom": 1336
+    },
+    {
+     "text": "Calle Inventada 123 - Calle",
+     "left": 196,
+     "top": 1354,
+     "right": 814,
+     "bottom": 1398
+    },
+    {
+     "text": "h lh14 min (13.7 km)",
+     "left": 115,
+     "top": 1415,
+     "right": 621,
+     "bottom": 1465
+    },
+    {
+     "text": "X",
+     "left": 888,
+     "top": 616,
+     "right": 931,
+     "bottom": 660
+    },
+    {
+     "text": "Calzada Inventada 300, Colonia",
+     "left": 195,
+     "top": 1559,
+     "right": 839,
+     "bottom": 1602
+    },
+    {
+     "text": "Privada Supuesta 7 - Parque Imag",
+     "left": 196,
+     "top": 1619,
+     "right": 888,
+     "bottom": 1661
+    },
+    {
+     "text": "Barrio",
+     "left": 191,
+     "top": 1678,
+     "right": 298,
+     "bottom": 1715
+    },
+    {
+     "text": "Parque Imaginario - Colo",
+     "left": 134,
+     "top": 1810,
+     "right": 696,
+     "bottom": 1865
+    },
+    {
+     "text": "Me interesa",
+     "left": 395,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "a",
+     "left": 1026,
+     "top": 1004,
+     "right": 1057,
+     "bottom": 1036
+    }
+   ]
+  },
+  {
+   "capturedAtMs": 1794010244226,
+   "tMs": 2718,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_15": {
+    "fare": 228.38,
+    "pickup": [
+     5,
+     0.9
+    ],
+    "trip": [
+     null,
+     13.7
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "Colonia Ejem",
+     "left": 13,
+     "top": 329,
+     "right": 304,
+     "bottom": 388
+    },
+    {
+     "text": "Parque",
+     "left": 48,
+     "top": 384,
+     "right": 234,
+     "bottom": 442
+    },
+    {
+     "text": "Q",
+     "left": 21,
+     "top": 1423,
+     "right": 31,
+     "bottom": 1459
+    },
+    {
+     "text": "2 UberX",
+     "left": 124,
+     "top": 590,
+     "right": 323,
+     "bottom": 637
+    },
+    {
+     "text": "Avenida",
+     "left": 527,
+     "top": 108,
+     "right": 780,
+     "bottom": 194
+    },
+    {
+     "text": "Calzad",
+     "left": 483,
+     "top": 185,
+     "right": 743,
+     "bottom": 269
+    },
+    {
+     "text": "$228.38",
+     "left": 100,
+     "top": 694,
+     "right": 562,
+     "bottom": 804
+    },
+    {
+     "text": "★ 4.77 (891)",
+     "left": 122,
+     "top": 1059,
+     "right": 409,
+     "bottom": 1106
+    },
+    {
+     "text": "Privada Su",
+     "left": 638,
+     "top": 419,
+     "right": 881,
+     "bottom": 473
+    },
+    {
+     "text": "lh19 min •14.6 km• $15.64/km est.",
+     "left": 98,
+     "top": 850,
+     "right": 950,
+     "bottom": 899
+    },
+    {
+     "text": "O ldentidad verificada",
+     "left": 127,
+     "top": 942,
+     "right": 646,
+     "bottom": 987
+    },
+    {
+     "text": "5 min (0.9 km)",
+     "left": 194,
+     "top": 1219,
+     "right": 512,
+     "bottom": 1264
+    },
+    {
+     "text": "Calle Supuesta 77 - Colonia Ejemp",
+     "left": 191,
+     "top": 1292,
+     "right": 967,
+     "bottom": 1336
+    },
+    {
+     "text": "Calle Inventada 123 - Calle",
+     "left": 196,
+     "top": 1354,
+     "right": 814,
+     "bottom": 1398
+    },
+    {
+     "text": "h lh14 min (13.7 km)",
+     "left": 115,
+     "top": 1415,
+     "right": 621,
+     "bottom": 1465
+    },
+    {
+     "text": "Calzada Inventada 300, Colonia",
+     "left": 195,
+     "top": 1559,
+     "right": 839,
+     "bottom": 1602
+    },
+    {
+     "text": "Privada Supuesta 7 - Parque Imag",
+     "left": 196,
+     "top": 1619,
+     "right": 888,
+     "bottom": 1661
+    },
+    {
+     "text": "Barrio",
+     "left": 191,
+     "top": 1678,
+     "right": 298,
+     "bottom": 1715
+    },
+    {
+     "text": "Parque Imaginario - Colo",
+     "left": 134,
+     "top": 1810,
+     "right": 695,
+     "bottom": 1865
+    },
+    {
+     "text": "X",
+     "left": 893,
+     "top": 617,
+     "right": 933,
+     "bottom": 659
+    },
+    {
+     "text": "Me interesa",
+     "left": 395,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "a",
+     "left": 1026,
+     "top": 1004,
+     "right": 1057,
+     "bottom": 1036
+    }
+   ]
+  },
+  {
+   "capturedAtMs": 1794010245123,
+   "tMs": 3615,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_15": {
+    "fare": 228.38,
+    "pickup": [
+     5,
+     0.9
+    ],
+    "trip": [
+     null,
+     13.7
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "Colonia Ejem",
+     "left": 13,
+     "top": 329,
+     "right": 304,
+     "bottom": 388
+    },
+    {
+     "text": "Colonia",
+     "left": 48,
+     "top": 385,
+     "right": 233,
+     "bottom": 442
+    },
+    {
+     "text": "Q",
+     "left": 21,
+     "top": 1423,
+     "right": 31,
+     "bottom": 1459
+    },
+    {
+     "text": "2 UberX",
+     "left": 126,
+     "top": 591,
+     "right": 323,
+     "bottom": 638
+    },
+    {
+     "text": "Barrio F",
+     "left": 528,
+     "top": 107,
+     "right": 779,
+     "bottom": 196
+    },
+    {
+     "text": "Avenid",
+     "left": 484,
+     "top": 185,
+     "right": 743,
+     "bottom": 269
+    },
+    {
+     "text": "$228.38",
+     "left": 100,
+     "top": 694,
+     "right": 562,
+     "bottom": 804
+    },
+    {
+     "text": "★ 4.77 (891)",
+     "left": 122,
+     "top": 1059,
+     "right": 409,
+     "bottom": 1106
+    },
+    {
+     "text": "Calle Inve",
+     "left": 614,
+     "top": 418,
+     "right": 880,
+     "bottom": 473
+    },
+    {
+     "text": "lh19 min •14.6 km• $15.64/km est.",
+     "left": 98,
+     "top": 850,
+     "right": 950,
+     "bottom": 899
+    },
+    {
+     "text": "O ldentidad verificada",
+     "left": 127,
+     "top": 942,
+     "right": 646,
+     "bottom": 987
+    },
+    {
+     "text": "5 min (0.9 km)",
+     "left": 194,
+     "top": 1219,
+     "right": 512,
+     "bottom": 1264
+    },
+    {
+     "text": "Calle Supuesta 77 - Colonia Ejemp",
+     "left": 191,
+     "top": 1292,
+     "right": 967,
+     "bottom": 1336
+    },
+    {
+     "text": "Calle Inventada 123 - Calle",
+     "left": 196,
+     "top": 1354,
+     "right": 814,
+     "bottom": 1398
+    },
+    {
+     "text": "h lh14 min (13.7 km)",
+     "left": 115,
+     "top": 1415,
+     "right": 621,
+     "bottom": 1465
+    },
+    {
+     "text": "X",
+     "left": 888,
+     "top": 616,
+     "right": 931,
+     "bottom": 660
+    },
+    {
+     "text": "Calzada Inventada 300, Colonia",
+     "left": 195,
+     "top": 1559,
+     "right": 839,
+     "bottom": 1602
+    },
+    {
+     "text": "Privada Supuesta 7 - Parque Imag",
+     "left": 196,
+     "top": 1619,
+     "right": 888,
+     "bottom": 1661
+    },
+    {
+     "text": "Barrio",
+     "left": 191,
+     "top": 1678,
+     "right": 298,
+     "bottom": 1715
+    },
+    {
+     "text": "Parque Imaginario - Colo",
+     "left": 134,
+     "top": 1810,
+     "right": 696,
+     "bottom": 1865
+    },
+    {
+     "text": "Me interesa",
+     "left": 395,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "a",
+     "left": 1026,
+     "top": 1004,
+     "right": 1057,
+     "bottom": 1036
+    }
+   ]
+  },
+  {
+   "capturedAtMs": 1794010246039,
+   "tMs": 4531,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_15": {
+    "fare": 228.38,
+    "pickup": [
+     5,
+     0.9
+    ],
+    "trip": [
+     null,
+     13.7
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "Barrio Ficti",
+     "left": 15,
+     "top": 330,
+     "right": 305,
+     "bottom": 391
+    },
+    {
+     "text": "Colonia",
+     "left": 48,
+     "top": 385,
+     "right": 233,
+     "bottom": 442
+    },
+    {
+     "text": "Q",
+     "left": 21,
+     "top": 1423,
+     "right": 31,
+     "bottom": 1459
+    },
+    {
+     "text": "2 UberX",
+     "left": 124,
+     "top": 590,
+     "right": 323,
+     "bottom": 637
+    },
+    {
+     "text": "Privada",
+     "left": 520,
+     "top": 105,
+     "right": 786,
+     "bottom": 198
+    },
+    {
+     "text": "Avenid",
+     "left": 503,
+     "top": 187,
+     "right": 742,
+     "bottom": 268
+    },
+    {
+     "text": "$228.38",
+     "left": 100,
+     "top": 694,
+     "right": 562,
+     "bottom": 804
+    },
+    {
+     "text": "★ 4.77 (891)",
+     "left": 122,
+     "top": 1059,
+     "right": 409,
+     "bottom": 1106
+    },
+    {
+     "text": "Calle Inve",
+     "left": 639,
+     "top": 419,
+     "right": 881,
+     "bottom": 473
+    },
+    {
+     "text": "lh19 min •14.6 km• $15.64/km est.",
+     "left": 98,
+     "top": 850,
+     "right": 950,
+     "bottom": 899
+    },
+    {
+     "text": "O ldentidad verificada",
+     "left": 127,
+     "top": 942,
+     "right": 646,
+     "bottom": 987
+    },
+    {
+     "text": "5 min (0.9 km)",
+     "left": 194,
+     "top": 1219,
+     "right": 512,
+     "bottom": 1264
+    },
+    {
+     "text": "Calle Supuesta 77 - Colonia Ejemp",
+     "left": 191,
+     "top": 1292,
+     "right": 967,
+     "bottom": 1336
+    },
+    {
+     "text": "Calle Inventada 123 - Calle",
+     "left": 196,
+     "top": 1354,
+     "right": 814,
+     "bottom": 1398
+    },
+    {
+     "text": "h lh14 min (13.7 km)",
+     "left": 115,
+     "top": 1415,
+     "right": 621,
+     "bottom": 1465
+    },
+    {
+     "text": "X",
+     "left": 888,
+     "top": 616,
+     "right": 931,
+     "bottom": 660
+    },
+    {
+     "text": "Calzada Inventada 300, Colonia",
+     "left": 195,
+     "top": 1559,
+     "right": 839,
+     "bottom": 1602
+    },
+    {
+     "text": "Privada Supuesta 7 - Parque Imag",
+     "left": 196,
+     "top": 1619,
+     "right": 888,
+     "bottom": 1661
+    },
+    {
+     "text": "Barrio",
+     "left": 191,
+     "top": 1678,
+     "right": 298,
+     "bottom": 1715
+    },
+    {
+     "text": "Parque Imaginario - Colo",
+     "left": 134,
+     "top": 1810,
+     "right": 696,
+     "bottom": 1865
+    },
+    {
+     "text": "Me interesa",
+     "left": 396,
+     "top": 1993,
+     "right": 686,
+     "bottom": 2038
+    },
+    {
+     "text": "a",
+     "left": 1026,
+     "top": 1004,
+     "right": 1057,
+     "bottom": 1036
+    }
+   ]
+  },
+  {
+   "capturedAtMs": 1794010246924,
+   "tMs": 5416,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_15": {
+    "fare": 228.38,
+    "pickup": [
+     5,
+     0.9
+    ],
+    "trip": [
+     null,
+     13.7
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "Colonia Ejem",
+     "left": 13,
+     "top": 329,
+     "right": 304,
+     "bottom": 388
+    },
+    {
+     "text": "Colonia",
+     "left": 48,
+     "top": 385,
+     "right": 233,
+     "bottom": 442
+    },
+    {
+     "text": "Q",
+     "left": 21,
+     "top": 1423,
+     "right": 31,
+     "bottom": 1459
+    },
+    {
+     "text": "2 UberX",
+     "left": 126,
+     "top": 591,
+     "right": 323,
+     "bottom": 638
+    },
+    {
+     "text": "Calzada",
+     "left": 528,
+     "top": 108,
+     "right": 785,
+     "bottom": 195
+    },
+    {
+     "text": "Calzad",
+     "left": 484,
+     "top": 186,
+     "right": 742,
+     "bottom": 269
+    },
+    {
+     "text": "$228.38",
+     "left": 100,
+     "top": 694,
+     "right": 562,
+     "bottom": 804
+    },
+    {
+     "text": "★ 4.77 (891)",
+     "left": 122,
+     "top": 1059,
+     "right": 409,
+     "bottom": 1106
+    },
+    {
+     "text": "Privada Su",
+     "left": 638,
+     "top": 419,
+     "right": 881,
+     "bottom": 473
+    },
+    {
+     "text": "lh19 min •14.6 km• $15.64/km est.",
+     "left": 98,
+     "top": 850,
+     "right": 950,
+     "bottom": 899
+    },
+    {
+     "text": "O ldentidad verificada",
+     "left": 127,
+     "top": 942,
+     "right": 646,
+     "bottom": 987
+    },
+    {
+     "text": "5 min (0.9 km)",
+     "left": 194,
+     "top": 1219,
+     "right": 512,
+     "bottom": 1264
+    },
+    {
+     "text": "Calle Supuesta 77 - Colonia Ejemp",
+     "left": 191,
+     "top": 1292,
+     "right": 967,
+     "bottom": 1336
+    },
+    {
+     "text": "Calle Inventada 123 - Calle",
+     "left": 196,
+     "top": 1354,
+     "right": 814,
+     "bottom": 1398
+    },
+    {
+     "text": "h lh14 min (13.7 km)",
+     "left": 115,
+     "top": 1415,
+     "right": 621,
+     "bottom": 1465
+    },
+    {
+     "text": "X",
+     "left": 888,
+     "top": 616,
+     "right": 931,
+     "bottom": 660
+    },
+    {
+     "text": "Calzada Inventada 300, Colonia",
+     "left": 195,
+     "top": 1559,
+     "right": 839,
+     "bottom": 1602
+    },
+    {
+     "text": "Privada Supuesta 7 - Parque Imag",
+     "left": 196,
+     "top": 1619,
+     "right": 888,
+     "bottom": 1661
+    },
+    {
+     "text": "Barrio",
+     "left": 191,
+     "top": 1678,
+     "right": 299,
+     "bottom": 1715
+    },
+    {
+     "text": "Parque Imaginario - Colo",
+     "left": 134,
+     "top": 1810,
+     "right": 696,
+     "bottom": 1865
+    },
+    {
+     "text": "Me interesa",
+     "left": 396,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "a",
+     "left": 1026,
+     "top": 1004,
+     "right": 1057,
+     "bottom": 1036
+    }
+   ]
+  },
+  {
+   "capturedAtMs": 1794010247824,
+   "tMs": 6316,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_15": {
+    "fare": 228.38,
+    "pickup": [
+     5,
+     0.9
+    ],
+    "trip": [
+     null,
+     13.7
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "Colonia Ejem",
+     "left": 13,
+     "top": 329,
+     "right": 304,
+     "bottom": 388
+    },
+    {
+     "text": "Colonia",
+     "left": 48,
+     "top": 385,
+     "right": 233,
+     "bottom": 442
+    },
+    {
+     "text": "Q",
+     "left": 21,
+     "top": 1423,
+     "right": 31,
+     "bottom": 1459
+    },
+    {
+     "text": "2 UberX",
+     "left": 126,
+     "top": 591,
+     "right": 323,
+     "bottom": 638
+    },
+    {
+     "text": "Barrio F",
+     "left": 528,
+     "top": 107,
+     "right": 785,
+     "bottom": 194
+    },
+    {
+     "text": "Avenid",
+     "left": 484,
+     "top": 185,
+     "right": 743,
+     "bottom": 269
+    },
+    {
+     "text": "$228.38",
+     "left": 100,
+     "top": 694,
+     "right": 562,
+     "bottom": 804
+    },
+    {
+     "text": "★ 4.77 (891)",
+     "left": 122,
+     "top": 1059,
+     "right": 409,
+     "bottom": 1106
+    },
+    {
+     "text": "Privada Su",
+     "left": 638,
+     "top": 419,
+     "right": 881,
+     "bottom": 473
+    },
+    {
+     "text": "lh19 min •14.6 km• $15.64/km est.",
+     "left": 98,
+     "top": 850,
+     "right": 950,
+     "bottom": 899
+    },
+    {
+     "text": "O ldentidad verificada",
+     "left": 127,
+     "top": 942,
+     "right": 646,
+     "bottom": 987
+    },
+    {
+     "text": "5 min (0.9 km)",
+     "left": 194,
+     "top": 1219,
+     "right": 512,
+     "bottom": 1264
+    },
+    {
+     "text": "Calle Supuesta 77 - Colonia Ejemp",
+     "left": 191,
+     "top": 1292,
+     "right": 967,
+     "bottom": 1336
+    },
+    {
+     "text": "Calle Inventada 123 - Calle",
+     "left": 196,
+     "top": 1354,
+     "right": 814,
+     "bottom": 1398
+    },
+    {
+     "text": "h lh14 min (13.7 km)",
+     "left": 115,
+     "top": 1415,
+     "right": 621,
+     "bottom": 1465
+    },
+    {
+     "text": "X",
+     "left": 888,
+     "top": 616,
+     "right": 931,
+     "bottom": 660
+    },
+    {
+     "text": "Calzada Inventada 300, Colonia",
+     "left": 195,
+     "top": 1559,
+     "right": 839,
+     "bottom": 1602
+    },
+    {
+     "text": "Privada Supuesta 7 - Parque Imag",
+     "left": 196,
+     "top": 1619,
+     "right": 888,
+     "bottom": 1661
+    },
+    {
+     "text": "Barrio",
+     "left": 191,
+     "top": 1678,
+     "right": 299,
+     "bottom": 1715
+    },
+    {
+     "text": "Parque Imaginario - Colo",
+     "left": 134,
+     "top": 1810,
+     "right": 695,
+     "bottom": 1865
+    },
+    {
+     "text": "Me interesa",
+     "left": 396,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "a",
+     "left": 1026,
+     "top": 1004,
+     "right": 1057,
+     "bottom": 1036
+    }
+   ]
+  },
+  {
+   "capturedAtMs": 1794010248708,
+   "tMs": 7200,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_15": {
+    "fare": 228.38,
+    "pickup": [
+     5,
+     0.9
+    ],
+    "trip": [
+     null,
+     13.7
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "Barrio Ficti",
+     "left": 15,
+     "top": 330,
+     "right": 305,
+     "bottom": 391
+    },
+    {
+     "text": "Colonia",
+     "left": 48,
+     "top": 385,
+     "right": 233,
+     "bottom": 442
+    },
+    {
+     "text": "Q",
+     "left": 21,
+     "top": 1423,
+     "right": 31,
+     "bottom": 1459
+    },
+    {
+     "text": "2 UberX",
+     "left": 124,
+     "top": 590,
+     "right": 323,
+     "bottom": 637
+    },
+    {
+     "text": "Privada",
+     "left": 520,
+     "top": 105,
+     "right": 786,
+     "bottom": 198
+    },
+    {
+     "text": "Avenid",
+     "left": 503,
+     "top": 187,
+     "right": 742,
+     "bottom": 268
+    },
+    {
+     "text": "$228.38",
+     "left": 100,
+     "top": 694,
+     "right": 562,
+     "bottom": 804
+    },
+    {
+     "text": "★ 4.77 (891)",
+     "left": 122,
+     "top": 1059,
+     "right": 409,
+     "bottom": 1106
+    },
+    {
+     "text": "Calle Inve",
+     "left": 639,
+     "top": 419,
+     "right": 881,
+     "bottom": 473
+    },
+    {
+     "text": "lh19 min •14.6 km• $15.64/km est.",
+     "left": 98,
+     "top": 850,
+     "right": 950,
+     "bottom": 899
+    },
+    {
+     "text": "O ldentidad verificada",
+     "left": 127,
+     "top": 942,
+     "right": 646,
+     "bottom": 987
+    },
+    {
+     "text": "5 min (0.9 km)",
+     "left": 194,
+     "top": 1219,
+     "right": 512,
+     "bottom": 1264
+    },
+    {
+     "text": "Calle Supuesta 77 - Colonia Ejemp",
+     "left": 191,
+     "top": 1292,
+     "right": 967,
+     "bottom": 1336
+    },
+    {
+     "text": "Calle Inventada 123 - Calle",
+     "left": 196,
+     "top": 1354,
+     "right": 814,
+     "bottom": 1398
+    },
+    {
+     "text": "h lh14 min (13.7 km)",
+     "left": 115,
+     "top": 1415,
+     "right": 621,
+     "bottom": 1465
+    },
+    {
+     "text": "X",
+     "left": 888,
+     "top": 616,
+     "right": 931,
+     "bottom": 660
+    },
+    {
+     "text": "Calzada Inventada 300, Colonia",
+     "left": 195,
+     "top": 1559,
+     "right": 839,
+     "bottom": 1602
+    },
+    {
+     "text": "Privada Supuesta 7 - Parque Imag",
+     "left": 196,
+     "top": 1619,
+     "right": 888,
+     "bottom": 1661
+    },
+    {
+     "text": "Barrio",
+     "left": 191,
+     "top": 1678,
+     "right": 298,
+     "bottom": 1715
+    },
+    {
+     "text": "Parque Imaginario - Colo",
+     "left": 134,
+     "top": 1810,
+     "right": 695,
+     "bottom": 1865
+    },
+    {
+     "text": "Me interesa",
+     "left": 395,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "a",
+     "left": 1026,
+     "top": 1004,
+     "right": 1057,
+     "bottom": 1036
+    }
+   ]
+  },
+  {
+   "capturedAtMs": 1794010249659,
+   "tMs": 8151,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_15": {
+    "fare": 228.38,
+    "pickup": [
+     5,
+     0.9
+    ],
+    "trip": [
+     null,
+     13.7
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "Calle Supues",
+     "left": 13,
+     "top": 331,
+     "right": 304,
+     "bottom": 388
+    },
+    {
+     "text": "Colonia",
+     "left": 48,
+     "top": 385,
+     "right": 233,
+     "bottom": 442
+    },
+    {
+     "text": "Q",
+     "left": 21,
+     "top": 1423,
+     "right": 31,
+     "bottom": 1459
+    },
+    {
+     "text": "2 UberX",
+     "left": 124,
+     "top": 590,
+     "right": 323,
+     "bottom": 637
+    },
+    {
+     "text": "Barrio F",
+     "left": 528,
+     "top": 107,
+     "right": 785,
+     "bottom": 195
+    },
+    {
+     "text": "Calle",
+     "left": 483,
+     "top": 183,
+     "right": 743,
+     "bottom": 270
+    },
+    {
+     "text": "$228.38",
+     "left": 100,
+     "top": 694,
+     "right": 562,
+     "bottom": 804
+    },
+    {
+     "text": "★ 4.77 (891)",
+     "left": 122,
+     "top": 1059,
+     "right": 409,
+     "bottom": 1106
+    },
+    {
+     "text": "Calzada In",
+     "left": 614,
+     "top": 419,
+     "right": 881,
+     "bottom": 474
+    },
+    {
+     "text": "lh19 min •14.6 km• $15.64/km est.",
+     "left": 98,
+     "top": 850,
+     "right": 950,
+     "bottom": 899
+    },
+    {
+     "text": "O ldentidad verificada",
+     "left": 127,
+     "top": 942,
+     "right": 646,
+     "bottom": 987
+    },
+    {
+     "text": "5 min (0.9 km)",
+     "left": 194,
+     "top": 1219,
+     "right": 512,
+     "bottom": 1264
+    },
+    {
+     "text": "Calle Supuesta 77 - Colonia Ejemp",
+     "left": 191,
+     "top": 1292,
+     "right": 967,
+     "bottom": 1336
+    },
+    {
+     "text": "Calle Inventada 123 - Calle",
+     "left": 196,
+     "top": 1354,
+     "right": 814,
+     "bottom": 1398
+    },
+    {
+     "text": "h lh14 min (13.7 km)",
+     "left": 115,
+     "top": 1415,
+     "right": 621,
+     "bottom": 1465
+    },
+    {
+     "text": "X",
+     "left": 888,
+     "top": 616,
+     "right": 932,
+     "bottom": 660
+    },
+    {
+     "text": "Calzada Inventada 300, Colonia",
+     "left": 195,
+     "top": 1559,
+     "right": 839,
+     "bottom": 1602
+    },
+    {
+     "text": "Privada Supuesta 7 - Parque Imag",
+     "left": 196,
+     "top": 1619,
+     "right": 888,
+     "bottom": 1661
+    },
+    {
+     "text": "Barrio",
+     "left": 191,
+     "top": 1678,
+     "right": 298,
+     "bottom": 1715
+    },
+    {
+     "text": "Parque Imaginario - Colo",
+     "left": 134,
+     "top": 1810,
+     "right": 695,
+     "bottom": 1865
+    },
+    {
+     "text": "Me interesa",
+     "left": 396,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2038
+    },
+    {
+     "text": "a",
+     "left": 1026,
+     "top": 1004,
+     "right": 1057,
+     "bottom": 1036
+    }
+   ]
+  },
+  {
+   "capturedAtMs": 1794010250559,
+   "tMs": 9051,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_15": {
+    "fare": 228.38,
+    "pickup": [
+     5,
+     0.9
+    ],
+    "trip": [
+     null,
+     13.7
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "Colonia Ejem",
+     "left": 13,
+     "top": 329,
+     "right": 304,
+     "bottom": 388
+    },
+    {
+     "text": "Colonia",
+     "left": 48,
+     "top": 385,
+     "right": 233,
+     "bottom": 442
+    },
+    {
+     "text": "Q",
+     "left": 21,
+     "top": 1423,
+     "right": 31,
+     "bottom": 1459
+    },
+    {
+     "text": "2 UberX",
+     "left": 124,
+     "top": 590,
+     "right": 325,
+     "bottom": 637
+    },
+    {
+     "text": "Parque I",
+     "left": 529,
+     "top": 106,
+     "right": 783,
+     "bottom": 194
+    },
+    {
+     "text": "Barrio",
+     "left": 486,
+     "top": 186,
+     "right": 741,
+     "bottom": 269
+    },
+    {
+     "text": "$228.38",
+     "left": 100,
+     "top": 694,
+     "right": 562,
+     "bottom": 804
+    },
+    {
+     "text": "★ 4.77 (891)",
+     "left": 122,
+     "top": 1059,
+     "right": 409,
+     "bottom": 1106
+    },
+    {
+     "text": "Privada Su",
+     "left": 638,
+     "top": 419,
+     "right": 880,
+     "bottom": 472
+    },
+    {
+     "text": "lh19 min •14.6 km• $15.64/km est.",
+     "left": 98,
+     "top": 850,
+     "right": 950,
+     "bottom": 899
+    },
+    {
+     "text": "O ldentidad verificada",
+     "left": 127,
+     "top": 942,
+     "right": 646,
+     "bottom": 987
+    },
+    {
+     "text": "5 min (0.9 km)",
+     "left": 194,
+     "top": 1219,
+     "right": 512,
+     "bottom": 1264
+    },
+    {
+     "text": "Calle Supuesta 77 - Colonia Ejemp",
+     "left": 191,
+     "top": 1292,
+     "right": 967,
+     "bottom": 1336
+    },
+    {
+     "text": "Calle Inventada 123 - Calle",
+     "left": 196,
+     "top": 1354,
+     "right": 814,
+     "bottom": 1398
+    },
+    {
+     "text": "h lh14 min (13.7 km)",
+     "left": 115,
+     "top": 1415,
+     "right": 621,
+     "bottom": 1465
+    },
+    {
+     "text": "X",
+     "left": 888,
+     "top": 616,
+     "right": 931,
+     "bottom": 660
+    },
+    {
+     "text": "Calzada Inventada 300, Colonia",
+     "left": 195,
+     "top": 1559,
+     "right": 839,
+     "bottom": 1602
+    },
+    {
+     "text": "Privada Supuesta 7 - Parque Imag",
+     "left": 196,
+     "top": 1619,
+     "right": 888,
+     "bottom": 1661
+    },
+    {
+     "text": "Barrio",
+     "left": 191,
+     "top": 1678,
+     "right": 299,
+     "bottom": 1715
+    },
+    {
+     "text": "Parque Imaginario - Colo",
+     "left": 134,
+     "top": 1810,
+     "right": 695,
+     "bottom": 1865
+    },
+    {
+     "text": "Me interesa",
+     "left": 396,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "a",
+     "left": 1026,
+     "top": 1004,
+     "right": 1057,
+     "bottom": 1036
+    }
+   ]
+  },
+  {
+   "capturedAtMs": 1794010251475,
+   "tMs": 9967,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_15": {
+    "fare": 228.38,
+    "pickup": [
+     5,
+     0.9
+    ],
+    "trip": [
+     null,
+     13.7
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "Colonia Ejem",
+     "left": 13,
+     "top": 329,
+     "right": 304,
+     "bottom": 388
+    },
+    {
+     "text": "Colonia",
+     "left": 48,
+     "top": 386,
+     "right": 232,
+     "bottom": 443
+    },
+    {
+     "text": "Q",
+     "left": 21,
+     "top": 1423,
+     "right": 31,
+     "bottom": 1459
+    },
+    {
+     "text": "2 UberX",
+     "left": 124,
+     "top": 590,
+     "right": 323,
+     "bottom": 637
+    },
+    {
+     "text": "$228.38",
+     "left": 100,
+     "top": 694,
+     "right": 562,
+     "bottom": 804
+    },
+    {
+     "text": "Colonia",
+     "left": 570,
+     "top": 107,
+     "right": 785,
+     "bottom": 193
+    },
+    {
+     "text": "Coloni",
+     "left": 522,
+     "top": 194,
+     "right": 740,
+     "bottom": 268
+    },
+    {
+     "text": "★ 4.77 (891)",
+     "left": 122,
+     "top": 1059,
+     "right": 409,
+     "bottom": 1106
+    },
+    {
+     "text": "Calle Inve",
+     "left": 639,
+     "top": 419,
+     "right": 881,
+     "bottom": 473
+    },
+    {
+     "text": "lh19 min •14.6 km• $15.64/km est.",
+     "left": 98,
+     "top": 850,
+     "right": 950,
+     "bottom": 899
+    },
+    {
+     "text": "O ldentidad verificada",
+     "left": 127,
+     "top": 942,
+     "right": 646,
+     "bottom": 987
+    },
+    {
+     "text": "5 min (0.9 km)",
+     "left": 194,
+     "top": 1219,
+     "right": 512,
+     "bottom": 1264
+    },
+    {
+     "text": "Calle Supuesta 77 - Colonia Ejemp",
+     "left": 191,
+     "top": 1292,
+     "right": 967,
+     "bottom": 1336
+    },
+    {
+     "text": "Calle Inventada 123 - Calle",
+     "left": 196,
+     "top": 1354,
+     "right": 814,
+     "bottom": 1398
+    },
+    {
+     "text": "h lh14 min (13.7 km)",
+     "left": 115,
+     "top": 1415,
+     "right": 621,
+     "bottom": 1465
+    },
+    {
+     "text": "X",
+     "left": 888,
+     "top": 616,
+     "right": 931,
+     "bottom": 660
+    },
+    {
+     "text": "Calzada Inventada 300, Colonia",
+     "left": 195,
+     "top": 1559,
+     "right": 839,
+     "bottom": 1602
+    },
+    {
+     "text": "Privada Supuesta 7 - Parque Imag",
+     "left": 196,
+     "top": 1619,
+     "right": 888,
+     "bottom": 1661
+    },
+    {
+     "text": "Barrio",
+     "left": 191,
+     "top": 1678,
+     "right": 298,
+     "bottom": 1715
+    },
+    {
+     "text": "Parque Imaginario - Colo",
+     "left": 134,
+     "top": 1810,
+     "right": 695,
+     "bottom": 1865
+    },
+    {
+     "text": "Me interesa",
+     "left": 396,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "a",
+     "left": 1026,
+     "top": 1004,
+     "right": 1057,
+     "bottom": 1036
+    }
+   ]
+  },
+  {
+   "capturedAtMs": 1794010252394,
+   "tMs": 10886,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_15": {
+    "fare": 228.38,
+    "pickup": [
+     5,
+     0.9
+    ],
+    "trip": [
+     null,
+     13.7
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "Colonia Ejem",
+     "left": 13,
+     "top": 329,
+     "right": 304,
+     "bottom": 388
+    },
+    {
+     "text": "Colonia",
+     "left": 48,
+     "top": 385,
+     "right": 233,
+     "bottom": 442
+    },
+    {
+     "text": "Q",
+     "left": 21,
+     "top": 1423,
+     "right": 31,
+     "bottom": 1459
+    },
+    {
+     "text": "2 UberX",
+     "left": 124,
+     "top": 590,
+     "right": 323,
+     "bottom": 637
+    },
+    {
+     "text": "Calzada",
+     "left": 527,
+     "top": 107,
+     "right": 782,
+     "bottom": 196
+    },
+    {
+     "text": "Calzad",
+     "left": 483,
+     "top": 185,
+     "right": 743,
+     "bottom": 270
+    },
+    {
+     "text": "$228.38",
+     "left": 100,
+     "top": 694,
+     "right": 562,
+     "bottom": 804
+    },
+    {
+     "text": "★ 4.77 (891)",
+     "left": 122,
+     "top": 1059,
+     "right": 409,
+     "bottom": 1106
+    },
+    {
+     "text": "Privada S",
+     "left": 638,
+     "top": 419,
+     "right": 881,
+     "bottom": 473
+    },
+    {
+     "text": "lh19 min •14.6 km• $15.64/km est.",
+     "left": 98,
+     "top": 850,
+     "right": 950,
+     "bottom": 899
+    },
+    {
+     "text": "O ldentidad verificada",
+     "left": 127,
+     "top": 942,
+     "right": 646,
+     "bottom": 987
+    },
+    {
+     "text": "5 min (0.9 km)",
+     "left": 194,
+     "top": 1219,
+     "right": 512,
+     "bottom": 1264
+    },
+    {
+     "text": "Calle Supuesta 77 - Colonia Ejemp",
+     "left": 191,
+     "top": 1292,
+     "right": 967,
+     "bottom": 1336
+    },
+    {
+     "text": "Calle Inventada 123 - Calle",
+     "left": 196,
+     "top": 1354,
+     "right": 814,
+     "bottom": 1398
+    },
+    {
+     "text": "h lh14 min (13.7 km)",
+     "left": 115,
+     "top": 1415,
+     "right": 621,
+     "bottom": 1465
+    },
+    {
+     "text": "X",
+     "left": 888,
+     "top": 616,
+     "right": 931,
+     "bottom": 660
+    },
+    {
+     "text": "Calzada Inventada 300, Colonia",
+     "left": 195,
+     "top": 1559,
+     "right": 839,
+     "bottom": 1602
+    },
+    {
+     "text": "Privada Supuesta 7 - Parque Imag",
+     "left": 196,
+     "top": 1619,
+     "right": 888,
+     "bottom": 1661
+    },
+    {
+     "text": "Barrio",
+     "left": 191,
+     "top": 1678,
+     "right": 298,
+     "bottom": 1715
+    },
+    {
+     "text": "Parque Imaginario - Colo",
+     "left": 134,
+     "top": 1810,
+     "right": 695,
+     "bottom": 1865
+    },
+    {
+     "text": "Me interesa",
+     "left": 396,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "a",
+     "left": 1026,
+     "top": 1004,
+     "right": 1057,
+     "bottom": 1036
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,15 @@
+{
+ "source": "Ten sanitized June-2026 S25 Uber frames (legacy card: pickup 'A<N> min (<km>)', trip 'Viaje: <H> h <M> min (<km>)', no TOTAL row) from the 0.2.15 hour analysis; numeric tokens, labels and bounds verbatim device OCR, every address invented. Expected trip minutes/km are the literal values of the 0.2.16 parser spec (Codex Astra, 2026-11-06), never parser output.",
+ "frames": [
+  {"file": "ocr_1781566597358.json", "row": "Viaje:1 h 2 min (22.9 km)", "trip": [62, 22.9]},
+  {"file": "ocr_1781566617621.json", "row": "Viaje: 1 h 15 min (16.6 km)", "trip": [75, 16.6]},
+  {"file": "ocr_1781567037619.json", "row": "Viaje: 1 h 18 min (34.3 km)", "trip": [78, 34.3]},
+  {"file": "ocr_1781567102175.json", "row": "Viaje: 1 h l min (32.4 km)", "trip": [61, 32.4]},
+  {"file": "ocr_1781567112645.json", "row": "Viaje: l h 6 min (13.4 km)", "trip": [66, 13.4]},
+  {"file": "ocr_1781567122425.json", "row": "Viaje:1 h 6 min (13,4 km)", "trip": [66, 13.4]},
+  {"file": "ocr_1781567129509.json", "row": "Viaje:1 h 25 min (17.6 km)", "trip": [85, 17.6]},
+  {"file": "ocr_1781572838744.json", "row": "Viaje: l h 29 min (40.4 km)", "trip": [89, 40.4]},
+  {"file": "ocr_1781575449064.json", "row": "Viaje:1 h 9 min (21l km)", "trip": [69, 21.1]},
+  {"file": "ocr_1781575754391.json", "row": "Viaje: 1 h 17 min (40.9 km)", "trip": [77, 40.9]}
+ ]
+}

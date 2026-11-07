@@ -1,0 +1,1737 @@
+{
+ "source": "Galaxy S25 (1080x2340), Kompara 0.2.15 debug recorder, 2026-11-06 18:09-18:12; numeric tokens, labels and bounds are verbatim device OCR; every address/place/name is invented (whitelist sanitizer)",
+ "capturedAt": "2026-11-06 18:11",
+ "frames": [
+  {
+   "capturedAtMs": 1794010272035,
+   "tMs": 0,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_15": {
+    "fare": 78.08,
+    "pickup": [
+     7,
+     0.9
+    ],
+    "trip": [
+     22,
+     3.7
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "Colonia Eje",
+     "left": 160,
+     "top": 447,
+     "right": 439,
+     "bottom": 481
+    },
+    {
+     "text": "Parque Imagina",
+     "left": 254,
+     "top": 489,
+     "right": 634,
+     "bottom": 545
+    },
+    {
+     "text": "2 Uber Priority",
+     "left": 124,
+     "top": 734,
+     "right": 474,
+     "bottom": 784
+    },
+    {
+     "text": "$78.08",
+     "left": 102,
+     "top": 838,
+     "right": 495,
+     "bottom": 947
+    },
+    {
+     "text": "29 min • 4.6 km • $16.97/km est.",
+     "left": 97,
+     "top": 993,
+     "right": 845,
+     "bottom": 1039
+    },
+    {
+     "text": "O ldentidad verificada",
+     "left": 166,
+     "top": 1080,
+     "right": 645,
+     "bottom": 1128
+    },
+    {
+     "text": "★",
+     "left": 123,
+     "top": 1201,
+     "right": 203,
+     "bottom": 1249
+    },
+    {
+     "text": "4.88 (325)",
+     "left": 194,
+     "top": 1208,
+     "right": 414,
+     "bottom": 1253
+    },
+    {
+     "text": "7 min (0.9 km)",
+     "left": 194,
+     "top": 1486,
+     "right": 511,
+     "bottom": 1531
+    },
+    {
+     "text": "X",
+     "left": 891,
+     "top": 762,
+     "right": 933,
+     "bottom": 804
+    },
+    {
+     "text": "22 min (3.7 km)",
+     "left": 194,
+     "top": 1628,
+     "right": 534,
+     "bottom": 1672
+    },
+    {
+     "text": "Me interesa",
+     "left": 395,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "Colonia Ejemplo - Parque Imagi",
+     "left": 195,
+     "top": 1705,
+     "right": 887,
+     "bottom": 1748
+    },
+    {
+     "text": "Colonia Ejemplo - Barrio Fictici",
+     "left": 196,
+     "top": 1766,
+     "right": 931,
+     "bottom": 1811
+    },
+    {
+     "text": "Parque Imaginario",
+     "left": 196,
+     "top": 1827,
+     "right": 712,
+     "bottom": 1873
+    }
+   ]
+  },
+  {
+   "capturedAtMs": 1794010272953,
+   "tMs": 918,
+   "signature": true,
+   "chipRect": {
+    "left": 36,
+    "top": 376,
+    "right": 756,
+    "bottom": 616
+   },
+   "parsed_0_2_15": {
+    "fare": 78.08,
+    "pickup": [
+     7,
+     0.9
+    ],
+    "trip": [
+     22,
+     3.7
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "Parque Imagi",
+     "left": 380,
+     "top": 179,
+     "right": 709,
+     "bottom": 236
+    },
+    {
+     "text": "2 Uber Priority",
+     "left": 124,
+     "top": 734,
+     "right": 474,
+     "bottom": 784
+    },
+    {
+     "text": "$78.08",
+     "left": 99,
+     "top": 838,
+     "right": 495,
+     "bottom": 948
+    },
+    {
+     "text": "29 min • 4.6 km $16.97/km est.",
+     "left": 97,
+     "top": 991,
+     "right": 845,
+     "bottom": 1039
+    },
+    {
+     "text": "O ldentidad verificada",
+     "left": 166,
+     "top": 1080,
+     "right": 645,
+     "bottom": 1128
+    },
+    {
+     "text": "★ 4.88 (325)",
+     "left": 123,
+     "top": 1205,
+     "right": 406,
+     "bottom": 1249
+    },
+    {
+     "text": "7 min (0.9 km)",
+     "left": 194,
+     "top": 1486,
+     "right": 511,
+     "bottom": 1531
+    },
+    {
+     "text": "X",
+     "left": 896,
+     "top": 761,
+     "right": 933,
+     "bottom": 803
+    },
+    {
+     "text": "22 min (3.7 km)",
+     "left": 194,
+     "top": 1624,
+     "right": 533,
+     "bottom": 1675
+    },
+    {
+     "text": "Me interesa",
+     "left": 396,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "Colonia Ejemplo - Parque Imagi",
+     "left": 195,
+     "top": 1705,
+     "right": 887,
+     "bottom": 1748
+    },
+    {
+     "text": "Colonia Ejemplo - Barrio Fictici",
+     "left": 196,
+     "top": 1766,
+     "right": 931,
+     "bottom": 1811
+    },
+    {
+     "text": "Parque Imaginario",
+     "left": 196,
+     "top": 1827,
+     "right": 712,
+     "bottom": 1873
+    },
+    {
+     "text": "Qq",
+     "left": 1017,
+     "top": 325,
+     "right": 1075,
+     "bottom": 378
+    },
+    {
+     "text": "Qqq",
+     "left": 1027,
+     "top": 1206,
+     "right": 1077,
+     "bottom": 1240
+    }
+   ]
+  },
+  {
+   "capturedAtMs": 1794010273861,
+   "tMs": 1826,
+   "signature": true,
+   "chipRect": {
+    "left": 36,
+    "top": 278,
+    "right": 756,
+    "bottom": 614
+   },
+   "parsed_0_2_15": {
+    "fare": 78.08,
+    "pickup": [
+     7,
+     0.9
+    ],
+    "trip": [
+     22,
+     3.7
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "Calle Invent",
+     "left": 357,
+     "top": 173,
+     "right": 753,
+     "bottom": 238
+    },
+    {
+     "text": "2 Uber Priority",
+     "left": 124,
+     "top": 733,
+     "right": 474,
+     "bottom": 782
+    },
+    {
+     "text": "$78.08",
+     "left": 99,
+     "top": 838,
+     "right": 498,
+     "bottom": 947
+    },
+    {
+     "text": "29 min • 4.6 km $16.97/km est.",
+     "left": 97,
+     "top": 991,
+     "right": 845,
+     "bottom": 1039
+    },
+    {
+     "text": "O ldentidad verificada",
+     "left": 166,
+     "top": 1080,
+     "right": 645,
+     "bottom": 1128
+    },
+    {
+     "text": "* 4.88 (325)",
+     "left": 125,
+     "top": 1205,
+     "right": 406,
+     "bottom": 1249
+    },
+    {
+     "text": "7 min (0.9 km)",
+     "left": 193,
+     "top": 1484,
+     "right": 504,
+     "bottom": 1528
+    },
+    {
+     "text": "X",
+     "left": 891,
+     "top": 762,
+     "right": 933,
+     "bottom": 804
+    },
+    {
+     "text": "Me interesa",
+     "left": 396,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "h 22 min (3.7 km)",
+     "left": 116,
+     "top": 1623,
+     "right": 532,
+     "bottom": 1680
+    },
+    {
+     "text": "Colonia Ejemplo - Parque Imagi",
+     "left": 195,
+     "top": 1705,
+     "right": 887,
+     "bottom": 1748
+    },
+    {
+     "text": "Colonia Ejemplo - Barrio Fictici",
+     "left": 196,
+     "top": 1766,
+     "right": 930,
+     "bottom": 1811
+    },
+    {
+     "text": "Privada Supuesta 7",
+     "left": 194,
+     "top": 1821,
+     "right": 709,
+     "bottom": 1871
+    },
+    {
+     "text": "Qq",
+     "left": 1017,
+     "top": 322,
+     "right": 1077,
+     "bottom": 373
+    }
+   ]
+  },
+  {
+   "capturedAtMs": 1794010274719,
+   "tMs": 2684,
+   "signature": true,
+   "chipRect": {
+    "left": 36,
+    "top": 278,
+    "right": 756,
+    "bottom": 614
+   },
+   "parsed_0_2_15": {
+    "fare": 78.08,
+    "pickup": [
+     7,
+     0.9
+    ],
+    "trip": [
+     22,
+     3.7
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "Calle Supuest",
+     "left": 383,
+     "top": 174,
+     "right": 721,
+     "bottom": 234
+    },
+    {
+     "text": "2 Uber Priority",
+     "left": 124,
+     "top": 733,
+     "right": 474,
+     "bottom": 782
+    },
+    {
+     "text": "$78.08",
+     "left": 99,
+     "top": 838,
+     "right": 498,
+     "bottom": 947
+    },
+    {
+     "text": "29 min • 4.6 km $16.97/km est.",
+     "left": 97,
+     "top": 991,
+     "right": 845,
+     "bottom": 1039
+    },
+    {
+     "text": "O ldentidad verificada",
+     "left": 166,
+     "top": 1080,
+     "right": 645,
+     "bottom": 1128
+    },
+    {
+     "text": "* 4.88 (325)",
+     "left": 125,
+     "top": 1205,
+     "right": 406,
+     "bottom": 1249
+    },
+    {
+     "text": "7 min (0.9 km)",
+     "left": 193,
+     "top": 1484,
+     "right": 504,
+     "bottom": 1528
+    },
+    {
+     "text": "X",
+     "left": 896,
+     "top": 761,
+     "right": 933,
+     "bottom": 803
+    },
+    {
+     "text": "h 22 min (3.7 km)",
+     "left": 116,
+     "top": 1623,
+     "right": 532,
+     "bottom": 1680
+    },
+    {
+     "text": "Colonia Ejemplo - Parque Imagi",
+     "left": 195,
+     "top": 1705,
+     "right": 887,
+     "bottom": 1748
+    },
+    {
+     "text": "Colonia Ejemplo - Barrio Fictici",
+     "left": 196,
+     "top": 1766,
+     "right": 931,
+     "bottom": 1811
+    },
+    {
+     "text": "Parque Imaginario",
+     "left": 196,
+     "top": 1827,
+     "right": 711,
+     "bottom": 1873
+    },
+    {
+     "text": "Me interesa",
+     "left": 396,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "Qq",
+     "left": 1017,
+     "top": 322,
+     "right": 1077,
+     "bottom": 373
+    }
+   ]
+  },
+  {
+   "capturedAtMs": 1794010275577,
+   "tMs": 3542,
+   "signature": true,
+   "chipRect": {
+    "left": 36,
+    "top": 278,
+    "right": 756,
+    "bottom": 614
+   },
+   "parsed_0_2_15": {
+    "fare": 78.08,
+    "pickup": [
+     7,
+     0.9
+    ],
+    "trip": [
+     22,
+     3.7
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "Barrio Ficti",
+     "left": 359,
+     "top": 173,
+     "right": 753,
+     "bottom": 237
+    },
+    {
+     "text": "2 Uber Priority",
+     "left": 124,
+     "top": 733,
+     "right": 474,
+     "bottom": 782
+    },
+    {
+     "text": "$78.08",
+     "left": 99,
+     "top": 838,
+     "right": 498,
+     "bottom": 947
+    },
+    {
+     "text": "29 min • 4.6 km $16.97/km est.",
+     "left": 97,
+     "top": 991,
+     "right": 845,
+     "bottom": 1039
+    },
+    {
+     "text": "O ldentidad verificada",
+     "left": 166,
+     "top": 1080,
+     "right": 645,
+     "bottom": 1128
+    },
+    {
+     "text": "* 4.88 (325)",
+     "left": 125,
+     "top": 1205,
+     "right": 406,
+     "bottom": 1249
+    },
+    {
+     "text": "7 min (0.9 km)",
+     "left": 193,
+     "top": 1484,
+     "right": 504,
+     "bottom": 1528
+    },
+    {
+     "text": "X",
+     "left": 891,
+     "top": 762,
+     "right": 933,
+     "bottom": 804
+    },
+    {
+     "text": "Me interesa",
+     "left": 396,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "h 22 min (3.7 km)",
+     "left": 116,
+     "top": 1623,
+     "right": 532,
+     "bottom": 1680
+    },
+    {
+     "text": "Colonia Ejemplo - Parque Imagi",
+     "left": 195,
+     "top": 1705,
+     "right": 887,
+     "bottom": 1748
+    },
+    {
+     "text": "Privada Supuesta 7 - Calle Inven",
+     "left": 200,
+     "top": 1762,
+     "right": 931,
+     "bottom": 1815
+    },
+    {
+     "text": "Privada Supuesta 7",
+     "left": 194,
+     "top": 1821,
+     "right": 709,
+     "bottom": 1871
+    },
+    {
+     "text": "Qq",
+     "left": 1017,
+     "top": 322,
+     "right": 1077,
+     "bottom": 373
+    }
+   ]
+  },
+  {
+   "capturedAtMs": 1794010276453,
+   "tMs": 4418,
+   "signature": true,
+   "chipRect": {
+    "left": 36,
+    "top": 278,
+    "right": 756,
+    "bottom": 614
+   },
+   "parsed_0_2_15": {
+    "fare": 78.08,
+    "pickup": [
+     7,
+     0.9
+    ],
+    "trip": [
+     22,
+     3.7
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "Calle Supues",
+     "left": 382,
+     "top": 175,
+     "right": 721,
+     "bottom": 235
+    },
+    {
+     "text": "2 Uber Priority",
+     "left": 124,
+     "top": 733,
+     "right": 474,
+     "bottom": 782
+    },
+    {
+     "text": "$78.08",
+     "left": 99,
+     "top": 838,
+     "right": 498,
+     "bottom": 947
+    },
+    {
+     "text": "29 min • 4.6 km $16.97/km est.",
+     "left": 97,
+     "top": 991,
+     "right": 845,
+     "bottom": 1039
+    },
+    {
+     "text": "O ldentidad verificada",
+     "left": 166,
+     "top": 1080,
+     "right": 645,
+     "bottom": 1128
+    },
+    {
+     "text": "* 4.88 (325)",
+     "left": 125,
+     "top": 1205,
+     "right": 406,
+     "bottom": 1249
+    },
+    {
+     "text": "7 min (0.9 km)",
+     "left": 193,
+     "top": 1484,
+     "right": 504,
+     "bottom": 1528
+    },
+    {
+     "text": "X",
+     "left": 891,
+     "top": 762,
+     "right": 933,
+     "bottom": 804
+    },
+    {
+     "text": "h 22 min (3.7 km)",
+     "left": 116,
+     "top": 1623,
+     "right": 532,
+     "bottom": 1680
+    },
+    {
+     "text": "Me interesa",
+     "left": 396,
+     "top": 1993,
+     "right": 686,
+     "bottom": 2038
+    },
+    {
+     "text": "Colonia Ejemplo - Parque Imagi",
+     "left": 195,
+     "top": 1705,
+     "right": 887,
+     "bottom": 1748
+    },
+    {
+     "text": "Privada Supuesta 7 - Calle Inven",
+     "left": 200,
+     "top": 1762,
+     "right": 931,
+     "bottom": 1815
+    },
+    {
+     "text": "Privada Supuesta 7",
+     "left": 195,
+     "top": 1824,
+     "right": 710,
+     "bottom": 1872
+    },
+    {
+     "text": "Qq",
+     "left": 1017,
+     "top": 322,
+     "right": 1077,
+     "bottom": 373
+    }
+   ]
+  },
+  {
+   "capturedAtMs": 1794010277352,
+   "tMs": 5317,
+   "signature": true,
+   "chipRect": {
+    "left": 36,
+    "top": 278,
+    "right": 756,
+    "bottom": 614
+   },
+   "parsed_0_2_15": {
+    "fare": 78.08,
+    "pickup": [
+     7,
+     0.9
+    ],
+    "trip": [
+     22,
+     3.7
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "Calle Supuest",
+     "left": 383,
+     "top": 174,
+     "right": 721,
+     "bottom": 234
+    },
+    {
+     "text": "2 Uber Priority",
+     "left": 124,
+     "top": 733,
+     "right": 474,
+     "bottom": 782
+    },
+    {
+     "text": "$78.08",
+     "left": 99,
+     "top": 838,
+     "right": 498,
+     "bottom": 947
+    },
+    {
+     "text": "29 min • 4.6 km $16.97/km est.",
+     "left": 97,
+     "top": 991,
+     "right": 845,
+     "bottom": 1039
+    },
+    {
+     "text": "O ldentidad verificada",
+     "left": 166,
+     "top": 1080,
+     "right": 645,
+     "bottom": 1128
+    },
+    {
+     "text": "* 4.88 (325)",
+     "left": 125,
+     "top": 1205,
+     "right": 406,
+     "bottom": 1249
+    },
+    {
+     "text": "7 min (0.9 km)",
+     "left": 193,
+     "top": 1484,
+     "right": 504,
+     "bottom": 1528
+    },
+    {
+     "text": "X",
+     "left": 891,
+     "top": 762,
+     "right": 933,
+     "bottom": 804
+    },
+    {
+     "text": "h 22 min (3.7 km)",
+     "left": 116,
+     "top": 1623,
+     "right": 532,
+     "bottom": 1680
+    },
+    {
+     "text": "Me interesa",
+     "left": 396,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "Colonia Ejemplo - Parque Imagi",
+     "left": 195,
+     "top": 1705,
+     "right": 887,
+     "bottom": 1748
+    },
+    {
+     "text": "Privada Supuesta 7 - Calle Inven",
+     "left": 200,
+     "top": 1762,
+     "right": 931,
+     "bottom": 1815
+    },
+    {
+     "text": "Parque Imaginario",
+     "left": 196,
+     "top": 1827,
+     "right": 711,
+     "bottom": 1873
+    },
+    {
+     "text": "Qq",
+     "left": 1017,
+     "top": 322,
+     "right": 1077,
+     "bottom": 373
+    }
+   ]
+  },
+  {
+   "capturedAtMs": 1794010278236,
+   "tMs": 6201,
+   "signature": true,
+   "chipRect": {
+    "left": 36,
+    "top": 278,
+    "right": 756,
+    "bottom": 614
+   },
+   "parsed_0_2_15": {
+    "fare": 78.08,
+    "pickup": [
+     7,
+     0.9
+    ],
+    "trip": [
+     22,
+     3.7
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "Calle Invent",
+     "left": 358,
+     "top": 173,
+     "right": 753,
+     "bottom": 237
+    },
+    {
+     "text": "2 Uber Priority",
+     "left": 124,
+     "top": 733,
+     "right": 474,
+     "bottom": 782
+    },
+    {
+     "text": "$78.08",
+     "left": 99,
+     "top": 838,
+     "right": 498,
+     "bottom": 947
+    },
+    {
+     "text": "29 min • 4.6 km $16.97/km est.",
+     "left": 97,
+     "top": 991,
+     "right": 845,
+     "bottom": 1039
+    },
+    {
+     "text": "O ldentidad verificada",
+     "left": 166,
+     "top": 1080,
+     "right": 645,
+     "bottom": 1128
+    },
+    {
+     "text": "* 4.88 (325)",
+     "left": 125,
+     "top": 1205,
+     "right": 406,
+     "bottom": 1249
+    },
+    {
+     "text": "7 min (0.9 km)",
+     "left": 193,
+     "top": 1484,
+     "right": 504,
+     "bottom": 1528
+    },
+    {
+     "text": "X",
+     "left": 891,
+     "top": 762,
+     "right": 933,
+     "bottom": 804
+    },
+    {
+     "text": "Me interesa",
+     "left": 396,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "22 min (3.7 km)",
+     "left": 194,
+     "top": 1625,
+     "right": 533,
+     "bottom": 1675
+    },
+    {
+     "text": "Colonia Ejemplo - Parque Imagi",
+     "left": 195,
+     "top": 1705,
+     "right": 887,
+     "bottom": 1748
+    },
+    {
+     "text": "Privada Supuesta 7 - Calle Inven",
+     "left": 200,
+     "top": 1762,
+     "right": 931,
+     "bottom": 1815
+    },
+    {
+     "text": "Privada Supuesta 7",
+     "left": 195,
+     "top": 1824,
+     "right": 710,
+     "bottom": 1872
+    },
+    {
+     "text": "Qq",
+     "left": 1017,
+     "top": 322,
+     "right": 1077,
+     "bottom": 373
+    }
+   ]
+  },
+  {
+   "capturedAtMs": 1794010279152,
+   "tMs": 7117,
+   "signature": true,
+   "chipRect": {
+    "left": 36,
+    "top": 278,
+    "right": 756,
+    "bottom": 614
+   },
+   "parsed_0_2_15": {
+    "fare": 78.08,
+    "pickup": [
+     7,
+     0.9
+    ],
+    "trip": [
+     22,
+     3.7
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "Calle Invent",
+     "left": 357,
+     "top": 173,
+     "right": 753,
+     "bottom": 236
+    },
+    {
+     "text": "2 Uber Priority",
+     "left": 124,
+     "top": 733,
+     "right": 474,
+     "bottom": 782
+    },
+    {
+     "text": "$78.08",
+     "left": 99,
+     "top": 838,
+     "right": 498,
+     "bottom": 947
+    },
+    {
+     "text": "29 min • 4.6 km $16.97/km est.",
+     "left": 97,
+     "top": 991,
+     "right": 845,
+     "bottom": 1039
+    },
+    {
+     "text": "O ldentidad verificada",
+     "left": 166,
+     "top": 1080,
+     "right": 645,
+     "bottom": 1128
+    },
+    {
+     "text": "* 4.88 (325)",
+     "left": 125,
+     "top": 1205,
+     "right": 406,
+     "bottom": 1249
+    },
+    {
+     "text": "7 min (0.9 km)",
+     "left": 193,
+     "top": 1484,
+     "right": 504,
+     "bottom": 1528
+    },
+    {
+     "text": "22 min (3.7 km)",
+     "left": 194,
+     "top": 1625,
+     "right": 533,
+     "bottom": 1675
+    },
+    {
+     "text": "X",
+     "left": 891,
+     "top": 762,
+     "right": 933,
+     "bottom": 804
+    },
+    {
+     "text": "Me interesa",
+     "left": 396,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2038
+    },
+    {
+     "text": "Colonia Ejemplo - Parque Imagi",
+     "left": 195,
+     "top": 1705,
+     "right": 887,
+     "bottom": 1748
+    },
+    {
+     "text": "Privada Supuesta 7 - Calle Inven",
+     "left": 200,
+     "top": 1762,
+     "right": 931,
+     "bottom": 1815
+    },
+    {
+     "text": "Colonia Ejemplo - Co",
+     "left": 195,
+     "top": 1821,
+     "right": 710,
+     "bottom": 1869
+    },
+    {
+     "text": "Qq",
+     "left": 1017,
+     "top": 322,
+     "right": 1077,
+     "bottom": 373
+    }
+   ]
+  },
+  {
+   "capturedAtMs": 1794010280020,
+   "tMs": 7985,
+   "signature": true,
+   "chipRect": {
+    "left": 36,
+    "top": 278,
+    "right": 756,
+    "bottom": 614
+   },
+   "parsed_0_2_15": {
+    "fare": 78.08,
+    "pickup": [
+     7,
+     0.9
+    ],
+    "trip": [
+     22,
+     3.7
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "Calle Supuest",
+     "left": 382,
+     "top": 174,
+     "right": 721,
+     "bottom": 234
+    },
+    {
+     "text": "2 Uber Priority",
+     "left": 124,
+     "top": 733,
+     "right": 474,
+     "bottom": 782
+    },
+    {
+     "text": "$78.08",
+     "left": 99,
+     "top": 838,
+     "right": 498,
+     "bottom": 947
+    },
+    {
+     "text": "29 min • 4.6 km $16.97/km est.",
+     "left": 97,
+     "top": 991,
+     "right": 845,
+     "bottom": 1039
+    },
+    {
+     "text": "O ldentidad verificada",
+     "left": 166,
+     "top": 1080,
+     "right": 645,
+     "bottom": 1128
+    },
+    {
+     "text": "* 4.88 (325)",
+     "left": 125,
+     "top": 1205,
+     "right": 406,
+     "bottom": 1249
+    },
+    {
+     "text": "7 min (0.9 km)",
+     "left": 193,
+     "top": 1484,
+     "right": 504,
+     "bottom": 1528
+    },
+    {
+     "text": "X",
+     "left": 896,
+     "top": 761,
+     "right": 933,
+     "bottom": 803
+    },
+    {
+     "text": "h 22 min (3.7 km)",
+     "left": 116,
+     "top": 1623,
+     "right": 532,
+     "bottom": 1680
+    },
+    {
+     "text": "Me interesa",
+     "left": 396,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "Colonia Ejemplo - Parque Imagi",
+     "left": 195,
+     "top": 1705,
+     "right": 887,
+     "bottom": 1748
+    },
+    {
+     "text": "Privada Supuesta 7 - Calle Inven",
+     "left": 200,
+     "top": 1762,
+     "right": 931,
+     "bottom": 1815
+    },
+    {
+     "text": "Parque Imaginario",
+     "left": 196,
+     "top": 1827,
+     "right": 711,
+     "bottom": 1873
+    },
+    {
+     "text": "Qq",
+     "left": 1017,
+     "top": 322,
+     "right": 1077,
+     "bottom": 373
+    }
+   ]
+  },
+  {
+   "capturedAtMs": 1794010280901,
+   "tMs": 8866,
+   "signature": true,
+   "chipRect": {
+    "left": 36,
+    "top": 278,
+    "right": 756,
+    "bottom": 614
+   },
+   "parsed_0_2_15": {
+    "fare": 78.08,
+    "pickup": [
+     7,
+     0.9
+    ],
+    "trip": [
+     22,
+     3.7
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "Calle Invent",
+     "left": 358,
+     "top": 173,
+     "right": 753,
+     "bottom": 237
+    },
+    {
+     "text": "2 Uber Priority",
+     "left": 124,
+     "top": 733,
+     "right": 474,
+     "bottom": 782
+    },
+    {
+     "text": "$78.08",
+     "left": 99,
+     "top": 838,
+     "right": 498,
+     "bottom": 947
+    },
+    {
+     "text": "29 min • 4.6 km $16.97/km est.",
+     "left": 97,
+     "top": 991,
+     "right": 845,
+     "bottom": 1039
+    },
+    {
+     "text": "O ldentidad verificada",
+     "left": 166,
+     "top": 1080,
+     "right": 645,
+     "bottom": 1128
+    },
+    {
+     "text": "* 4.88 (325)",
+     "left": 125,
+     "top": 1205,
+     "right": 406,
+     "bottom": 1249
+    },
+    {
+     "text": "7 min (0.9 km)",
+     "left": 193,
+     "top": 1484,
+     "right": 504,
+     "bottom": 1528
+    },
+    {
+     "text": "X",
+     "left": 891,
+     "top": 762,
+     "right": 933,
+     "bottom": 804
+    },
+    {
+     "text": "h 22 min (3.7 km)",
+     "left": 116,
+     "top": 1623,
+     "right": 532,
+     "bottom": 1680
+    },
+    {
+     "text": "Me interesa",
+     "left": 395,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "Colonia Ejemplo - Parque Imagi",
+     "left": 195,
+     "top": 1705,
+     "right": 887,
+     "bottom": 1748
+    },
+    {
+     "text": "Calzada Inventada 300, Colonia E",
+     "left": 196,
+     "top": 1765,
+     "right": 931,
+     "bottom": 1811
+    },
+    {
+     "text": "Barrio Ficticio - Av",
+     "left": 195,
+     "top": 1825,
+     "right": 708,
+     "bottom": 1873
+    },
+    {
+     "text": "Qq",
+     "left": 1017,
+     "top": 322,
+     "right": 1077,
+     "bottom": 373
+    }
+   ]
+  },
+  {
+   "capturedAtMs": 1794010281802,
+   "tMs": 9767,
+   "signature": true,
+   "chipRect": {
+    "left": 36,
+    "top": 278,
+    "right": 756,
+    "bottom": 614
+   },
+   "parsed_0_2_15": {
+    "fare": 78.08,
+    "pickup": [
+     7,
+     0.9
+    ],
+    "trip": [
+     22,
+     3.7
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "Calle Invent",
+     "left": 357,
+     "top": 173,
+     "right": 753,
+     "bottom": 236
+    },
+    {
+     "text": "2 Uber Priority",
+     "left": 124,
+     "top": 733,
+     "right": 474,
+     "bottom": 782
+    },
+    {
+     "text": "$78.08",
+     "left": 99,
+     "top": 838,
+     "right": 498,
+     "bottom": 947
+    },
+    {
+     "text": "29 min • 4.6 km $16.97/km est.",
+     "left": 97,
+     "top": 991,
+     "right": 845,
+     "bottom": 1039
+    },
+    {
+     "text": "O ldentidad verificada",
+     "left": 166,
+     "top": 1080,
+     "right": 645,
+     "bottom": 1128
+    },
+    {
+     "text": "* 4.88 (325)",
+     "left": 125,
+     "top": 1205,
+     "right": 406,
+     "bottom": 1249
+    },
+    {
+     "text": "7 min (0.9 km)",
+     "left": 193,
+     "top": 1484,
+     "right": 504,
+     "bottom": 1528
+    },
+    {
+     "text": "X",
+     "left": 896,
+     "top": 761,
+     "right": 933,
+     "bottom": 803
+    },
+    {
+     "text": "h 22 min (3.7 km)",
+     "left": 116,
+     "top": 1623,
+     "right": 532,
+     "bottom": 1680
+    },
+    {
+     "text": "Colonia Ejemplo - Parque Imagi",
+     "left": 195,
+     "top": 1705,
+     "right": 887,
+     "bottom": 1748
+    },
+    {
+     "text": "Calzada Inventada 300, Colonia E",
+     "left": 196,
+     "top": 1765,
+     "right": 931,
+     "bottom": 1811
+    },
+    {
+     "text": "Privada Supuesta 7",
+     "left": 195,
+     "top": 1824,
+     "right": 708,
+     "bottom": 1872
+    },
+    {
+     "text": "Me interesa",
+     "left": 395,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "Qq",
+     "left": 1017,
+     "top": 322,
+     "right": 1077,
+     "bottom": 373
+    }
+   ]
+  },
+  {
+   "capturedAtMs": 1794010282702,
+   "tMs": 10667,
+   "signature": true,
+   "chipRect": {
+    "left": 36,
+    "top": 278,
+    "right": 756,
+    "bottom": 614
+   },
+   "parsed_0_2_15": {
+    "fare": 78.08,
+    "pickup": [
+     null,
+     null
+    ],
+    "trip": [
+     null,
+     null
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "Calle Supuest",
+     "left": 382,
+     "top": 174,
+     "right": 719,
+     "bottom": 235
+    },
+    {
+     "text": "2 Uber Priority",
+     "left": 124,
+     "top": 733,
+     "right": 474,
+     "bottom": 782
+    },
+    {
+     "text": "$78.08",
+     "left": 99,
+     "top": 838,
+     "right": 498,
+     "bottom": 947
+    },
+    {
+     "text": "29 min • 4.6 km $16.97/km est.",
+     "left": 97,
+     "top": 991,
+     "right": 845,
+     "bottom": 1039
+    },
+    {
+     "text": "O ldentidad verificada",
+     "left": 166,
+     "top": 1080,
+     "right": 645,
+     "bottom": 1128
+    },
+    {
+     "text": "* 4.88 (325)",
+     "left": 125,
+     "top": 1205,
+     "right": 406,
+     "bottom": 1249
+    },
+    {
+     "text": "7 min (0.9 km)",
+     "left": 193,
+     "top": 1484,
+     "right": 504,
+     "bottom": 1528
+    },
+    {
+     "text": "X",
+     "left": 891,
+     "top": 762,
+     "right": 933,
+     "bottom": 804
+    },
+    {
+     "text": "H 22 min (3.7 knm)",
+     "left": 114,
+     "top": 1620,
+     "right": 533,
+     "bottom": 1676
+    },
+    {
+     "text": "Me interesa",
+     "left": 396,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "Colonia Ejemplo - Parque Imagi",
+     "left": 195,
+     "top": 1705,
+     "right": 887,
+     "bottom": 1748
+    },
+    {
+     "text": "Calzada Inventada 300, Colonia E",
+     "left": 196,
+     "top": 1765,
+     "right": 931,
+     "bottom": 1811
+    },
+    {
+     "text": "Barrio Ficticio",
+     "left": 272,
+     "top": 1822,
+     "right": 707,
+     "bottom": 1872
+    },
+    {
+     "text": "Qq",
+     "left": 1017,
+     "top": 322,
+     "right": 1077,
+     "bottom": 373
+    }
+   ]
+  },
+  {
+   "capturedAtMs": 1794010283602,
+   "tMs": 11567,
+   "signature": true,
+   "chipRect": {
+    "left": 36,
+    "top": 278,
+    "right": 756,
+    "bottom": 614
+   },
+   "parsed_0_2_15": {
+    "fare": 78.08,
+    "pickup": [
+     7,
+     0.9
+    ],
+    "trip": [
+     22,
+     3.7
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "Calle Invent",
+     "left": 357,
+     "top": 173,
+     "right": 751,
+     "bottom": 236
+    },
+    {
+     "text": "2 Uber Priority",
+     "left": 124,
+     "top": 733,
+     "right": 474,
+     "bottom": 782
+    },
+    {
+     "text": "$78.08",
+     "left": 99,
+     "top": 838,
+     "right": 498,
+     "bottom": 947
+    },
+    {
+     "text": "29 min • 4.6 km $16.97/km est.",
+     "left": 97,
+     "top": 991,
+     "right": 845,
+     "bottom": 1039
+    },
+    {
+     "text": "O ldentidad verificada",
+     "left": 166,
+     "top": 1080,
+     "right": 645,
+     "bottom": 1128
+    },
+    {
+     "text": "* 4.88 (325)",
+     "left": 125,
+     "top": 1205,
+     "right": 406,
+     "bottom": 1249
+    },
+    {
+     "text": "7 min (0.9 km)",
+     "left": 193,
+     "top": 1484,
+     "right": 504,
+     "bottom": 1528
+    },
+    {
+     "text": "X",
+     "left": 891,
+     "top": 762,
+     "right": 933,
+     "bottom": 804
+    },
+    {
+     "text": "h 22 min (3.7 km)",
+     "left": 116,
+     "top": 1623,
+     "right": 532,
+     "bottom": 1680
+    },
+    {
+     "text": "Me interesa",
+     "left": 396,
+     "top": 1992,
+     "right": 686,
+     "bottom": 2037
+    },
+    {
+     "text": "Colonia Ejemplo - Parque Imagi",
+     "left": 195,
+     "top": 1705,
+     "right": 887,
+     "bottom": 1748
+    },
+    {
+     "text": "Calzada Inventada 300, Colonia E",
+     "left": 196,
+     "top": 1765,
+     "right": 931,
+     "bottom": 1811
+    },
+    {
+     "text": "Privada Supuesta 7",
+     "left": 195,
+     "top": 1824,
+     "right": 708,
+     "bottom": 1872
+    },
+    {
+     "text": "Qq",
+     "left": 1017,
+     "top": 322,
+     "right": 1077,
+     "bottom": 373
+    }
+   ]
+  }
+ ]
+}

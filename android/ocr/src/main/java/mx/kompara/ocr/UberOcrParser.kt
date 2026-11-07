@@ -32,6 +32,13 @@ import kotlin.math.abs
  *   S-as-dollar recovery is deliberately disabled. The pipeline masks our chip before parsing.
  * - **Pickup / trip**: the legacy pickup plus `Viaje:` pair, or two standalone `N min (X.X km)`
  *   lines in reading order on the current Uber card. The summary above them is not a route leg.
+ * - **Durations (0.2.16)**: a duration slot is identified whole and decoded once — `1 h 18 min`, read
+ *   by ML Kit as `lh 18`, `4h46`, `lh5`, is 60·H + M minutes on both paths; a failed hour stays unread
+ *   and never falls back to its trailing minute number. On the current card an hour-only `1 h` (read
+ *   `lh78 km`) is 60 where it is structurally anchored — the TOTAL row start directly before its
+ *   distance, or a whole route-row duration directly before `(X km)` — but ambiguous (lost minutes read
+ *   the same): only an evaluated minute identity publishes it, and it is never a recovery operand; the
+ *   legacy path keeps hour-only unread (it has no checksum).
  * - **Variant/surge**: keyword presence ("Reserva", "paradas", "Tarifa dinámica", "Exclusivo",
  *   "Radar de solicitud de viaje").
  *
@@ -60,15 +67,22 @@ class UberOcrParser internal constructor(
         """/\s*km\b|\bkm\s+est\b|\best\.|\bincluido\b|\bpara\s+inicio\b|\btu\s+(?:meta|m[ií]nimo)\b|\bantes\b|\b(?:precio|tarifa)\s+original\b""",
         RegexOption.IGNORE_CASE,
     )
+    // A whole hour duration "1 h 18" (0.2.16): structural alternatives match it before a bare minute
+    // count, so no suffix of it ("18 min") is ever the match. Only [UberCardChecksum.hours] decodes it.
+    private val hourDurationPattern = """[0-9lLI|Oo]{1,2}\s*[hH]\s*[0-9lLI|Oo]{1,2}"""
     // A distance/time leg: "N min (X.X km)". Minute and distance chars allow the O/0, l/1, I/1 OCR
     // confusions; cleaned in [cleanNumber].
     private val legRegex =
-        Regex("""([0-9OlI]+)\s*min\s*\(\s*([0-9OlI][0-9OlI.,]*)\s*km""", RegexOption.IGNORE_CASE)
-    // The legacy trip leg, distinguished from the pickup leg by its "Viaje:" label.
-    private val tripLegRegex =
-        Regex("""Viaje\s*:?\s*([0-9OlI]+)\s*min\s*\(\s*([0-9OlI][0-9OlI.,]*)\s*km""", RegexOption.IGNORE_CASE)
+        Regex("""((?:$hourDurationPattern)|[0-9OlI]+)\s*min\s*\(\s*([0-9OlI][0-9OlI.,]*)\s*km""", RegexOption.IGNORE_CASE)
+    // The legacy trip leg, distinguished from the pickup leg by its "Viaje:" label; the first group is
+    // the whole duration right after the label.
+    private val tripLegRegex = Regex("""Viaje\s*:?\s*((?:$hourDurationPattern)|[0-9OlI]+)\s*min\s*\(\s*([0-9OlI][0-9OlI.,]*)\s*km""",
+        RegexOption.IGNORE_CASE)
     private val unlabeledLegRegex =
-        Regex("""(?:[0-9OlI]+|—|-)\s*min\s*\(\s*[0-9OlI][0-9OlI.,]*\s*km\s*\)""", RegexOption.IGNORE_CASE)
+        Regex("""(?:$hourDurationPattern|[0-9OlI]+|—|-)\s*min\s*\(\s*[0-9OlI][0-9OlI.,]*\s*km\s*\)""", RegexOption.IGNORE_CASE)
+    private val viajeLabel = Regex("""Viaje\s*:?\s*""", RegexOption.IGNORE_CASE)
+    private val minuteUnit = Regex("""min\b""", RegexOption.IGNORE_CASE)
+    private val whitespace = Regex("""\s+""")
 
     private val distanceRegex = Regex("""([0-9OlI][0-9OlI.,]*)\s*km\b""", RegexOption.IGNORE_CASE)
     private val minutesRegex = Regex("""([0-9OlI]+)\s*min\b""", RegexOption.IGNORE_CASE)
@@ -80,12 +94,27 @@ class UberOcrParser internal constructor(
     private val radarPillRegex = Regex("""Radar de solicitud""", RegexOption.IGNORE_CASE)
     // TOTAL row "27 min • 12.6 km • $8.87/km est.": minutes -> km -> currency rate per km, in order,
     // through missing bullets, glued tokens and a dash before the currency (a separator, never a sign).
+    // Anchored at the row start (0.2.16): the whole duration slot ("lh 23", "5h4") is captured first and
+    // decoded second, so a failed hour never exposes its minutes ("lh 23 min" is never TOTAL 23). The
+    // only leading text allowed is the observed `cid ` (old corpus G6[0]).
     private val totalRegex =
-        Regex("""(?<!\S)(\S{1,4}?)\s*(?i:min)[\s•·.\-]*(\S{1,7}?)\s*(?i:km)[\s•·.\-]*\$\s*(\S{1,8}?)\s*/\s*(?i:km)""")
-    // A unit-anchored route row, after the observed short route-icon prefixes; `nmin`/`knm` are the
-    // observed unit misreads, recognized only in these unit positions.
+        Regex("""^\s*(?:cid\s+)?([^()\r\n]{1,24}?)\s*(?i:min)[\s•·.\-]*(\S{1,7}?)\s*(?i:km)[\s•·.\-]*\$\s*(\S{1,8}?)\s*/\s*(?i:km)""")
+    // An hour-only TOTAL "1 h • 7.8 km • $15.58/km est." (Uber prints exactly 60 minutes so; ML Kit reads
+    // `lh78 km`, `lh•78 km-`). Tried only when the minute envelope fails: the hour token must open the
+    // row (after the same `cid ` allowance) and be followed, through separators only, directly by the
+    // distance token, `km` and the rate — a glued token splits only as hour + distance.
+    private val hourOnlyTotalRegex =
+        Regex("""^\s*(?:cid\s+)?([0-9lLI|Oo]{1,2}\s*[hH])[\s•·.\-]*(\S{1,7}?)\s*(?i:km)[\s•·.\-]*\$\s*(\S{1,8}?)\s*/\s*(?i:km)""")
+    // A unit-anchored whole route row; `nmin`/`knm`/`kmn` are the observed unit misreads, recognized
+    // only in these unit positions. The duration capture keeps any icon prefix: see [routeIconPrefix].
     private val routeRowRegex =
-        Regex("""(?:(?:e |ad )?h |d |n )?(\S{1,4}?)\s*((?i:n?min))\s*\(\s*(\S{1,6}?)\s*((?i:knm|km))\s*\)""")
+        Regex("""([^()\r\n]{1,24}?)\s*((?i:n?min))\s*\(\s*(\S{1,6}?)\s*((?i:knm|kmn|km))\s*\)""")
+    // A whole route row without a minute unit, tried only when [routeRowRegex] fails: after at most one
+    // icon prefix its entire duration must be an hour-only token (`1 h (12.3 km)`), else it is no row.
+    private val hourOnlyRouteRowRegex = Regex("""([^()\r\n]{1,24}?)\s*\(\s*(\S{1,6}?)\s*((?i:knm|kmn|km))\s*\)""")
+    // The observed route-icon prefixes, space-separated: at most one is removed, then the entire rest
+    // is the duration (`h lh5` -> `lh5`; `lh 18` keeps its l, the hour digit; glued `h6` stays unread).
+    private val routeIconPrefix = Regex("""^(?:(?:e |ad )?h |d |n |t |H )""")
     private val moneyToken = """([0-9lLI|Oo][0-9lLI|Oo.,]*)"""
     private val modernMoneyRegex = Regex("""(?:(?i:MX[N$])\s*\$?|\$)\s*$moneyToken(?:\s+(?i:MXN))?|$moneyToken\s+(?i:MXN)""")
     /** Deterministic for any input order, identical rectangles included. */
@@ -178,11 +207,10 @@ class UberOcrParser internal constructor(
         val below = ordered.filter { it !== heading && it.bounds.top >= heading.bounds.bottom }
         val boundary = below.firstOrNull { product(it) || OfferActionLabel.from(it.text) != null }?.bounds?.top
         fun inBand(b: OcrBlock) = boundary == null || b.bounds.bottom <= boundary
-        val totals = below.filter { inBand(it) && totalRegex.containsMatchIn(it.text) }
-        val total = totals.firstOrNull() ?: return null
-        val totalMatch = requireNotNull(totalRegex.find(total.text))
+        val totals = below.filter(::inBand).mapNotNull { b -> totalRow(b.text)?.let { b to it } }
+        val (total, totalRow) = totals.firstOrNull() ?: return null
         val routeRows = below.filter { inBand(it) && it.bounds.top >= total.bounds.bottom }
-            .mapNotNull { b -> routeRowRegex.matchEntire(b.text.trim())?.let { b to it } }
+            .mapNotNull { b -> routeRow(b.text.trim())?.let { b to it } }
         val legs = routeRows.takeIf { it.size == 2 && it[0].first.bounds.bottom <= it[1].first.bounds.top }
 
         // The headline: a unique money token between this heading and this TOTAL, in its column, at
@@ -216,24 +244,60 @@ class UberOcrParser internal constructor(
             OcrBounds(b.minOf { it.left }, b.minOf { it.top }, b.maxOf { it.right }, b.maxOf { it.bottom })
         }
         fun bounds(b: OcrBounds) = OfferContentBounds(b.left, b.top, b.right, b.bottom)
-        fun leg(index: Int, group: Int) = legs?.get(index)?.second?.groupValues?.get(group)
-        fun unit(index: Int, group: Int, repaired: String) = leg(index, group)?.equals(repaired, ignoreCase = true) == true
+        fun row(index: Int) = legs?.get(index)?.second
         val pickupRow = legs?.get(0)?.first?.bounds?.let(::bounds)
         val tripRow = legs?.get(1)?.first?.bounds?.let(::bounds)
         val totalBounds = bounds(total.bounds)
         val slots = listOf(
             UberCardChecksum.Slot(headline?.let { headlineMoney(it.block.text) }.orEmpty(), headline?.block?.bounds?.let(::bounds)),
-            UberCardChecksum.Slot(UberCardChecksum.money(totalMatch.groupValues[3]), totalBounds),
-            UberCardChecksum.Slot(UberCardChecksum.minutes(totalMatch.groupValues[1]), totalBounds),
-            UberCardChecksum.Slot(UberCardChecksum.distance(totalMatch.groupValues[2]), totalBounds),
-            UberCardChecksum.Slot(UberCardChecksum.minutes(leg(0, 1), unit(0, 2, "nmin")), pickupRow),
-            UberCardChecksum.Slot(UberCardChecksum.distance(leg(0, 3), unit(0, 4, "knm")), pickupRow),
-            UberCardChecksum.Slot(UberCardChecksum.minutes(leg(1, 1), unit(1, 2, "nmin")), tripRow),
-            UberCardChecksum.Slot(UberCardChecksum.distance(leg(1, 3), unit(1, 4, "knm")), tripRow),
+            UberCardChecksum.Slot(UberCardChecksum.money(totalRow.rate), totalBounds),
+            UberCardChecksum.Slot(totalRow.minutes, totalBounds),
+            UberCardChecksum.Slot(UberCardChecksum.distance(totalRow.distance), totalBounds),
+            UberCardChecksum.Slot(row(0)?.minutes.orEmpty(), pickupRow),
+            UberCardChecksum.Slot(row(0)?.km.orEmpty(), pickupRow),
+            UberCardChecksum.Slot(row(1)?.minutes.orEmpty(), tripRow),
+            UberCardChecksum.Slot(row(1)?.km.orEmpty(), tripRow),
         )
         return ModernCard(protectedFare, routeRows.map { it.first.bounds },
             UberCardChecksum.solve(slots, rowsIdentified = legs != null, selectionCertain = selectionCertain,
                 fareCandidates = fareCandidates, structuralConflict = totals.size > 1))
+    }
+
+    /** A recognized TOTAL row: its decoded duration and its loose distance and rate tokens. */
+    private class TotalRow(val minutes: List<UberCardChecksum.Candidate>, val distance: String, val rate: String)
+
+    /**
+     * The minute envelope first (an unread duration still makes it a TOTAL row); only without one, the
+     * hour-only `1 h` row — and only when its hour decodes and the token after it reads as a distance:
+     * an hour followed by an unreadable or unknown token is no TOTAL (`lh5 • 7.8 km` lost its minute
+     * unit; it never becomes 60 with the 5 swallowed).
+     */
+    private fun totalRow(text: String): TotalRow? {
+        totalRegex.find(text)?.let { m -> return TotalRow(UberCardChecksum.duration(m.groupValues[1]), m.groupValues[2], m.groupValues[3]) }
+        val m = hourOnlyTotalRegex.find(text) ?: return null
+        val hours = UberCardChecksum.hourOnly(m.groupValues[1]) ?: return null
+        if (UberCardChecksum.distance(m.groupValues[2]).isEmpty()) return null
+        return TotalRow(listOf(hours), m.groupValues[2], m.groupValues[3])
+    }
+
+    /** A recognized route row's decoded duration and distance. */
+    private class RouteRow(val minutes: List<UberCardChecksum.Candidate>, val km: List<UberCardChecksum.Candidate>)
+
+    /**
+     * A whole route row. Removing an allowed icon repairs nothing; the whole remaining duration is
+     * decoded once. Without a minute unit the row exists only as an hour-only duration directly followed
+     * by a readable `(X km)`.
+     */
+    private fun routeRow(text: String): RouteRow? {
+        fun km(token: String, unit: String) = UberCardChecksum.distance(token, unit.equals("knm", true) || unit.equals("kmn", true))
+        routeRowRegex.matchEntire(text)?.let { m ->
+            val (duration, minuteUnit, distance, unit) = m.destructured
+            return RouteRow(UberCardChecksum.duration(routeIconPrefix.replaceFirst(duration, ""), minuteUnit.equals("nmin", true)),
+                km(distance, unit))
+        }
+        val m = hourOnlyRouteRowRegex.matchEntire(text) ?: return null
+        val hours = UberCardChecksum.hourOnly(routeIconPrefix.replaceFirst(m.groupValues[1], "")) ?: return null
+        return km(m.groupValues[2], m.groupValues[3]).takeIf { it.isNotEmpty() }?.let { RouteRow(listOf(hours), it) }
     }
 
     /** The headline's money readings: null when the block is not currency-anchored (a competing price). */
@@ -476,10 +540,32 @@ class UberOcrParser internal constructor(
     }
 
     private fun partialLeg(block: OcrBlock): Leg? {
-        val minutes = minutesRegex.find(block.text)?.groupValues?.get(1)?.let(::cleanMinutes)
+        val minutes = legacyMinutes(block.text)
         val km = distanceRegex.find(block.text)?.groupValues?.get(1)
             ?.let { recoverDroppedDistanceDecimal(cleanNumber(it)).toDoubleOrNull() }
         return if (minutes == null && km == null) null else Leg(minutes, km, block.bounds)
+    }
+
+    /**
+     * The legacy leg's minutes. The duration span is the text immediately before the minute unit: after
+     * a `Viaje` label, everything from the label to the unit (the label anchors the slot, so `xh 18`
+     * there is unread); without one, only the trailing whitespace-separated tokens made of duration
+     * characters, so an unrelated `$243/h` earlier in the block is outside it. An hour marker in the span
+     * requires a complete hour duration ("Viaje: 1 h 18 min" is 78), and a span that fails stays unread —
+     * never searched for its trailing minutes, and a leading `h` is no icon to strip here. Spans without
+     * an hour marker keep the existing first-minutes rule.
+     */
+    private fun legacyMinutes(text: String): Double? {
+        val label = viajeLabel.find(text)
+        val start = label?.range?.let { it.last + 1 } ?: 0
+        val span = minuteUnit.find(text, start)?.let { unit ->
+            val region = text.substring(start, unit.range.first).trim()
+            if (label != null) region
+            else region.split(whitespace).takeLastWhile { token -> token.isNotEmpty() && token.all { it in DURATION_CHARS } }
+                .joinToString(" ")
+        }
+        if (span != null && UberCardChecksum.hasHourMarker(span)) return cleanMinutes(span)
+        return minutesRegex.find(text)?.groupValues?.get(1)?.let(::cleanMinutes)
     }
 
     private fun toLeg(m: MatchResult, bounds: OcrBounds?): Leg? {
@@ -511,8 +597,11 @@ class UberOcrParser internal constructor(
      * fits every observed frame: substitute, then keep only the first two digits — ride-hail ETAs and
      * durations are ≤ 2 digits, so a third digit is always the appended-glyph artifact. (Trade-off:
      * a rare 100-min+ trip reads low, which only makes a long trip look *better*, never worse.)
+     * A token with an hour marker ("1 h l", "4h46") is a whole duration (0.2.16): strict 60·H + M via
+     * [UberCardChecksum.hours], never the first two digits ("1 h 61" is unread, not 16 or 61).
      */
     private fun cleanMinutes(raw: String): Double? {
+        if (UberCardChecksum.hasHourMarker(raw)) return UberCardChecksum.hours(raw.trim())?.units?.toDouble()
         val digits = raw.uppercase()
             .replace('O', '0')
             .replace('I', '1')
@@ -533,5 +622,7 @@ class UberOcrParser internal constructor(
 
     companion object {
         const val UBER_PACKAGE = "com.ubercab.driver"
+        /** What a legacy duration token is made of: digits, their OCR confusables and the hour marker. */
+        private const val DURATION_CHARS = "0123456789lLI|OohH"
     }
 }

@@ -1,0 +1,262 @@
+{
+ "source": "Galaxy S25 (1080x2340), Kompara 0.2.15 debug recorder, 2026-11-06 17:42-17:46; numeric tokens, labels and bounds are verbatim device OCR; every address/place/name is invented (whitelist sanitizer)",
+ "capturedAt": "2026-11-06 17:44",
+ "frames": [
+  {
+   "capturedAtMs": 1794008650977,
+   "tMs": 0,
+   "signature": true,
+   "chipRect": null,
+   "parsed_0_2_15": {
+    "fare": 148.16,
+    "pickup": [
+     5,
+     0.8
+    ],
+    "trip": [
+     36,
+     11.3
+    ],
+    "action": "ME INTERESA"
+   },
+   "blocks": [
+    {
+     "text": "Parque Imagi",
+     "left": 458,
+     "top": 101,
+     "right": 793,
+     "bottom": 147
+    },
+    {
+     "text": "Radar de solicitud de viaje",
+     "left": 205,
+     "top": 495,
+     "right": 791,
+     "bottom": 534
+    },
+    {
+     "text": "2 Uber Priority",
+     "left": 161,
+     "top": 687,
+     "right": 476,
+     "bottom": 743
+    },
+    {
+     "text": "Calle Supuesta 77",
+     "left": 492,
+     "top": 342,
+     "right": 863,
+     "bottom": 393
+    },
+    {
+     "text": "$148.16",
+     "left": 102,
+     "top": 797,
+     "right": 558,
+     "bottom": 907
+    },
+    {
+     "text": "4l min 12.1 km $12.24/km est.",
+     "left": 97,
+     "top": 951,
+     "right": 864,
+     "bottom": 1001
+    },
+    {
+     "text": "* 5.00 (7)",
+     "left": 122,
+     "top": 1157,
+     "right": 360,
+     "bottom": 1212
+    },
+    {
+     "text": "ldentidad verificada",
+     "left": 196,
+     "top": 1047,
+     "right": 646,
+     "bottom": 1084
+    },
+    {
+     "text": "+$18.61 incluido para inicio de",
+     "left": 194,
+     "top": 1318,
+     "right": 935,
+     "bottom": 1373
+    },
+    {
+     "text": "5 min (0.8 km)",
+     "left": 194,
+     "top": 1439,
+     "right": 511,
+     "bottom": 1489
+    },
+    {
+     "text": "X",
+     "left": 888,
+     "top": 718,
+     "right": 932,
+     "bottom": 762
+    },
+    {
+     "text": "Privada Supuesta 7 - Colonia Ima",
+     "left": 193,
+     "top": 1518,
+     "right": 937,
+     "bottom": 1555
+    },
+    {
+     "text": "36 min (11.3 km)",
+     "left": 193,
+     "top": 1587,
+     "right": 554,
+     "bottom": 1630
+    },
+    {
+     "text": "Calle Supuesta 77 - Colonia Ejempl",
+     "left": 195,
+     "top": 1654,
+     "right": 962,
+     "bottom": 1704
+    },
+    {
+     "text": "Colonia Ejemplo - Calle Inventada",
+     "left": 196,
+     "top": 1723,
+     "right": 965,
+     "bottom": 1767
+    },
+    {
+     "text": "Barrio Ficticio - Cal",
+     "left": 194,
+     "top": 1784,
+     "right": 703,
+     "bottom": 1821
+    },
+    {
+     "text": "Me interesa",
+     "left": 395,
+     "top": 1950,
+     "right": 685,
+     "bottom": 1994
+    }
+   ]
+  },
+  {
+   "capturedAtMs": 1794008651894,
+   "tMs": 917,
+   "signature": false,
+   "chipRect": {
+    "left": 36,
+    "top": 195,
+    "right": 756,
+    "bottom": 435
+   },
+   "parsed_0_2_15": {
+    "fare": null,
+    "pickup": null,
+    "trip": null,
+    "action": null
+   },
+   "blocks": [
+    {
+     "text": "A",
+     "left": 70,
+     "top": 1192,
+     "right": 132,
+     "bottom": 1234
+    },
+    {
+     "text": "+$10",
+     "left": 133,
+     "top": 717,
+     "right": 232,
+     "bottom": 758
+    },
+    {
+     "text": "0A",
+     "left": 437,
+     "top": 129,
+     "right": 563,
+     "bottom": 193
+    },
+    {
+     "text": "Calle Supuesta 77",
+     "left": 138,
+     "top": 1184,
+     "right": 592,
+     "bottom": 1273
+    },
+    {
+     "text": "q q",
+     "left": 149,
+     "top": 1548,
+     "right": 856,
+     "bottom": 1596
+    },
+    {
+     "text": "Radar de solicitud de viaje",
+     "left": 205,
+     "top": 1557,
+     "right": 791,
+     "bottom": 1602
+    },
+    {
+     "text": "Parque Imaginar",
+     "left": 296,
+     "top": 1782,
+     "right": 786,
+     "bottom": 1832
+    },
+    {
+     "text": "Calzada I",
+     "left": 191,
+     "top": 1966,
+     "right": 398,
+     "bottom": 2003
+    },
+    {
+     "text": "Calzada I",
+     "left": 196,
+     "top": 2029,
+     "right": 389,
+     "bottom": 2065
+    },
+    {
+     "text": "1% & 12% O",
+     "left": 194,
+     "top": 2104,
+     "right": 487,
+     "bottom": 2146
+    },
+    {
+     "text": "Calzad",
+     "left": 784,
+     "top": 356,
+     "right": 891,
+     "bottom": 426
+    },
+    {
+     "text": "+$4",
+     "left": 1000,
+     "top": 1099,
+     "right": 1069,
+     "bottom": 1139
+    },
+    {
+     "text": "qqq",
+     "left": 1006,
+     "top": 1400,
+     "right": 1072,
+     "bottom": 1433
+    },
+    {
+     "text": "Colonia Imagi",
+     "left": 691,
+     "top": 2024,
+     "right": 1029,
+     "bottom": 2085
+    }
+   ]
+  }
+ ]
+}
