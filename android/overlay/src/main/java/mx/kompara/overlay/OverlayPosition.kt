@@ -44,7 +44,8 @@ sealed interface OverlayPlacement {
  * Frame-derived card bounds, with external dp margins that never scale with the font.
  * Preferred: v3's foot slots under the card ceiling, then higher slots; fail-open: main's top
  * dock, which may cover soft chrome but never the fare, legs, close or accept. "No cupo" (C11)
- * only when even the docked compact plate would touch one of those.
+ * only when even the docked compact plate would touch one of those. 0.2.17: a host decline control
+ * (DiDi's pill or round ✕) is a protected control in every tier, and the dock moves below it.
  */
 object OverlayPositioning {
     /**
@@ -72,7 +73,8 @@ object OverlayPositioning {
 
     /**
      * [saved] is the current safe position (or the driver's slot); [savedDocked] keeps a docked
-     * chip docked, so within one offer the chip never moves down. [dock] skips the foot/higher
+     * chip docked, so within one offer the chip never moves down, except once when a host decline
+     * control is first recognized under it (0.2.17: it then moves below it). [dock] skips the foot/higher
      * tiers when this instance's upper boundary is unobserved. [dockFallback] false keeps the
      * stopped-reader tab's original contract (hidden rather than docked).
      */
@@ -152,17 +154,25 @@ object OverlayPositioning {
             OverlayPosition(maxOf(v.bounds.left + v.dp(12), v.safeBounds.left), y))
     }
 
-    /** Main's top-right default, then left: below top chrome and any control in the top corners. */
+    /**
+     * Main's top-right default, then left: below top chrome and any control in the top corners.
+     * 0.2.17: a host decline control (live or latched) pushes a slot it overlaps down below it,
+     * wherever it starts (DiDi's pill starts below the dock line). Only decline controls above the
+     * fare/legs may push, so the dock never jumps below the fare; pushing for any control drove the
+     * right slot mid-card in the replay. Valid slots are tried top-most first (ties: right, then left).
+     */
     private fun dockSlots(size: ChipSize, g: HostGeometry, v: OverlayViewport): List<OverlayPosition> {
         val gap = v.dp(16)
         val top = maxOf(v.safeBounds.top, g.topChrome.bottom) + gap
-        val corners = g.protectedControls.filter { it.top < top }.sortedBy { it.bottom }
+        val criticalTop = dockCritical(g).minOfOrNull { it.top } ?: g.offerCard.top
+        val corners = (g.protectedControls.filter { it.top < top } +
+            g.declineControls.filter { it.bottom <= criticalTop }).distinct().sortedBy { it.bottom }
         return footSlots(size, g, v).map { slot ->
             var y = top
             for (control in corners) if (OverlayPosition(slot.x, y).bounds(size).overlaps(control.expanded(gap)))
                 y = maxOf(y, control.bottom + gap)
             OverlayPosition(slot.x, y)
-        }.filter { valid(it, size, g, v, docked = true) }
+        }.filter { valid(it, size, g, v, docked = true) }.sortedBy { it.y }
     }
 
     private fun candidates(size: ChipSize, g: HostGeometry, v: OverlayViewport,
@@ -182,15 +192,29 @@ object OverlayPositioning {
     fun edgeFor(p: OverlayPosition, v: OverlayViewport, size: ChipSize) =
         if (p.x + size.width / 2 < v.bounds.left + v.bounds.width / 2) SnapEdge.LEFT else SnapEdge.RIGHT
 
-    /** Reject an unsafe drag rather than teleporting across an exclusion. */
+    /**
+     * 0.2.17 (user decision 2026-11-07, "only in a clear slot"): the chip takes touches (drag) only
+     * in a strict tier and only where it covers no protected control and no soft host chrome, live
+     * or latched (unexpanded rects). Docked, or over any host control, its window is
+     * FLAG_NOT_TOUCHABLE so taps reach Uber/DiDi.
+     */
+    fun touchable(p: OverlayPlacement.Displayed, g: HostGeometry): Boolean = !p.docked &&
+        (g.protectedControls + g.softObstacles).none { p.position.bounds(p.size).overlaps(it) }
+
+    /** A strict, valid slot over no host chrome: the only place a drag may move to or end in. */
+    fun clearSlot(p: OverlayPosition, size: ChipSize, g: HostGeometry, v: OverlayViewport, overMarker: Boolean = false): Boolean =
+        valid(p, size, g, v, overMarker) && (g.protectedControls + g.softObstacles).none { p.bounds(size).overlaps(it) }
+
+    /** Reject an unsafe drag rather than teleporting across an exclusion; a docked chip never drags. */
     fun drag(current: OverlayPlacement.Displayed, desired: OverlayPosition, g: HostGeometry, v: OverlayViewport): OverlayPosition =
-        desired.takeIf { valid(it, current.size, g, v, current.overMarker, current.docked) } ?: current.position
+        desired.takeIf { !current.docked && clearSlot(it, current.size, g, v, current.overMarker) } ?: current.position
 
     fun snapToEdge(current: OverlayPlacement.Displayed, g: HostGeometry, v: OverlayViewport): OverlayPosition {
+        if (current.docked) return current.position
         val foot = footSlots(current.size, g, v)
         val x = if (edgeFor(current.position, v, current.size) == SnapEdge.RIGHT) foot[0].x else foot[1].x
         return OverlayPosition(x, current.position.y).takeIf {
-            valid(it, current.size, g, v, current.overMarker, current.docked)
+            clearSlot(it, current.size, g, v, current.overMarker)
         } ?: current.position
     }
 }
@@ -207,6 +231,16 @@ object OverlayPositioning {
  * ever observed for this instance (every real DiDi card), or with only legs visible, the chip
  * docks. A previously seen header/close that vanished under our own mask raises the ceiling to
  * its displaced position, or docks when the displacement is unknown. Nothing here detaches.
+ *
+ * 0.2.17 latches, exclusions only (the 0.2.13 lesson: never wait for an anchor): every host decline
+ * control seen above the card this offer (DiDi's "✕ Rechazo permitido" pill or round ✕; our own
+ * chip hides the pill after the first frame) stays a protected/decline control, and every soft
+ * obstacle seen this offer (Uber's floating Radar pill) stays a soft obstacle, each as a plain union
+ * merged with fresh observations of the same control. A missing label (under our chip, an OCR
+ * dropout) or a soft-hidden frame is not a reset: a pill that dropped out whenever a smaller plate
+ * stopped masking it let FULL grow over it on alternate frames (round 2, raw replay). Neither latch
+ * shifts with the routes, lowers the ceiling, pins a reference or docks; both end only in [reset]
+ * (new session, Hidden, parse ceiling) or on a host or display change, never on a C11 detach.
  */
 internal class PlacementEvidence {
     private var ceiling: Int? = null
@@ -215,17 +249,30 @@ internal class PlacementEvidence {
     private var lastFareRoutes: List<HostRect> = emptyList()
     private var reference: List<HostRect> = emptyList()
     private var referenceRoutes: List<HostRect> = emptyList()
+    private var declines: List<HostRect> = emptyList()
+    private var softSeen: List<HostRect> = emptyList()
+    /** Host and display the evidence belongs to: rects from another host or display are meaningless. */
+    private var scope: Triple<String, HostRect, HostOrientation>? = null
 
-    /** [geometry] carries the ceiling as its card top; [dock] asks for the top dock tier. */
-    data class Decision(val geometry: HostGeometry, val dock: Boolean, val ceiling: Int)
+    /**
+     * [geometry] carries the ceiling as its card top and the latched decline/soft controls; [dock]
+     * asks for the top dock tier; [latched] counts the latched decline rects (TEMP DIAG).
+     */
+    data class Decision(val geometry: HostGeometry, val dock: Boolean, val ceiling: Int, val latched: Int = 0)
 
     fun observe(next: HostGeometry, viewport: OverlayViewport): Decision {
+        val frameScope = Triple(next.packageName, next.displayBounds, next.orientation)
+        if (scope != frameScope) { reset(); scope = frameScope }
+        // Host chrome above this frame's derived card only: Uber's in-card ✕ is not latched.
+        next.declineControls.filter { it.bottom <= next.offerCard.top }.forEach { declines = union(declines, it) }
+        next.softObstacles.forEach { softSeen = union(softSeen, it) }
         val evidence = next.ocrEvidence
         if (next.source == HostGeometrySource.HOST_LAYOUT || evidence == null) {
             val top = minOf(ceiling ?: next.offerCard.top, next.offerCard.top)
             ceiling = top
             upperSeen = true
-            return Decision(next.copy(offerCard = next.offerCard.copy(top = top)), dock = false, ceiling = top)
+            return Decision(latched(next.copy(offerCard = next.offerCard.copy(top = top))),
+                dock = false, ceiling = top, latched = declines.size)
         }
         val gap = viewport.dp(16)
         val tolerance = viewport.dp(8)
@@ -257,8 +304,27 @@ internal class PlacementEvidence {
         ceiling = top
         if (next.fareBounds != null) { lastFare = next.fareBounds; lastFareRoutes = routes }
         if (!lost && upper.isNotEmpty()) { reference = upper; referenceRoutes = routes }
-        return Decision(next.copy(offerCard = next.offerCard.copy(top = top), fareBounds = fare), dock, top)
+        return Decision(latched(next.copy(offerCard = next.offerCard.copy(top = top), fareBounds = fare)),
+            dock, top, declines.size)
     }
+
+    /** Plain union with every latched rect it overlaps: the latch stays a superset of each frame's rect. */
+    private fun union(latch: List<HostRect>, rect: HostRect): List<HostRect> {
+        var merged = rect
+        var rest = latch
+        while (true) {
+            val (hit, miss) = rest.partition { it.overlaps(merged) }
+            if (hit.isEmpty()) break
+            merged = hit.fold(merged) { a, b -> HostRect(minOf(a.left, b.left), minOf(a.top, b.top),
+                maxOf(a.right, b.right), maxOf(a.bottom, b.bottom)) }
+            rest = miss
+        }
+        return rest + merged
+    }
+
+    /** Every decision carries both latches (the soft latch already holds this frame's soft obstacles). */
+    private fun latched(g: HostGeometry) = g.copy(protectedControls = (g.protectedControls + declines).distinct(),
+        declineControls = (g.declineControls + declines).distinct(), softObstacles = softSeen)
 
     private fun rigidShift(before: List<HostRect>, after: List<HostRect>, tolerance: Int): Pair<Int, Int>? {
         if (before.isEmpty() || before.size != after.size) return null
@@ -276,7 +342,8 @@ internal class PlacementEvidence {
 
     fun reset() {
         ceiling = null; upperSeen = false; lastFare = null; lastFareRoutes = emptyList()
-        reference = emptyList(); referenceRoutes = emptyList()
+        reference = emptyList(); referenceRoutes = emptyList(); declines = emptyList(); softSeen = emptyList()
+        scope = null
     }
 
     companion object {

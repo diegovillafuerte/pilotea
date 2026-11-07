@@ -166,6 +166,42 @@ class OfferCardSelectorTest {
         }
     }
 
+    // 0.2.17, S25 Pon Tu Precio $68.60 (2026-11-06 1794009689245): bounds verbatim, addresses invented.
+    private val s25 = HostRect(0, 0, 1080, 2340)
+    private val ptp = listOf(block("X Rechazo permitido", 480, 163, 993, 213), block("Pon Tu Precio", 105, 641, 425, 682),
+        block("\$68.60", 83, 774, 511, 886), block("1 punto", 101, 936, 247, 991),
+        block("Tarjeta bancaria verificada", 149, 1180, 767, 1226), block("O 10 min (1.2 km)", 118, 1339, 504, 1394),
+        block("Avenida Ficticia 9, Colonia Prueba", 165, 1406, 974, 1462), block("39 min (7.2 km)", 151, 1550, 524, 1602),
+        block("Aceptar \$68.60", 348, 1822, 722, 1876), block("\$73.60 \$76.60 \$79.60", 99, 1996, 796, 2045))
+
+    @Test fun `DiDi pill under our chip mask reaches geometry from the unmasked blocks`() {
+        val chip = mx.kompara.data.service.ScreenRect(36, 204, 756, 540)
+        val masked = ChipMask.maskOwnChip(ptp, chip)
+        assertTrue("ChipMask hides the pill", masked.none { it.text.contains("Rechazo") })
+        val chipText = listOf(block("\$5.33/km neto", 78, 240, 500, 300))
+        val card = selectOfferCard(uber, didi, masked, 1_000, displayBounds = s25, density = 3f, chipRect = chip,
+            foregroundPackage = DidiOcrParser.DIDI_PACKAGE, unmaskedBlocks = ptp + chipText)!!
+        assertEquals(68.60, card.fare!!, 0.001)
+        val g = card.hostGeometry!!
+        assertEquals(listOf(HostRect(480, 163, 993, 213)), g.declineControls)
+        assertTrue(HostRect(480, 163, 993, 213) in g.protectedControls)
+        assertEquals(listOf(HostRect(105, 641, 425, 682)), g.ocrEvidence!!.upperAnchors)
+        assertTrue("The price row is protected", HostRect(99, 1996, 796, 2045) in g.protectedControls)
+    }
+
+    @Test fun `a metres pickup row is a route anchor like a kilometre one`() {
+        val masRapido = listOf(block("X", 957, 163, 997, 200), block("Más Rápido", 104, 836, 371, 888),
+            block("\$152.36", 84, 973, 541, 1085), block("1 punto", 97, 1135, 249, 1188),
+            block("6 min (688 m)", 152, 1694, 495, 1746), block("Calle Supuesta 77 - Colonia Ejemplo", 171, 1818, 998, 1876),
+            block("54 min (13.1 km)", 165, 1902, 536, 1956))
+        val card = selectOfferCard(uber, didi, masRapido, 1_000, displayBounds = s25, density = 3f,
+            foregroundPackage = DidiOcrParser.DIDI_PACKAGE)!!
+        assertEquals(0.688, card.pickupDistanceKm!!, 0.0001)
+        assertEquals(listOf(HostRect(152, 1694, 495, 1746), HostRect(165, 1902, 536, 1956)),
+            card.hostGeometry!!.ocrEvidence!!.routeAnchors)
+        assertEquals(listOf(HostRect(957, 163, 997, 200)), card.hostGeometry!!.ocrEvidence!!.upperAnchors)
+    }
+
     private fun boundedEvidence() = HostWindowEvidence(UberOcrParser.UBER_PACKAGE, 900,
         boundedGeometry.displayBounds, 1f, boundedGeometry.topChrome, emptyList(), boundedGeometry.offerCard)
 

@@ -120,10 +120,13 @@ class RealOfferBurstReplayTest {
             val nodes = controls.takeIf { it.isNotEmpty() }?.let {
                 HostWindowEvidence(host, captured, display, 3f, statusBar, emptyList(), protectedControls = it, windowId = 1)
             }
+            // Production ownership (HostWindowOwnership.fromWindows): our chip's accessibility window is
+            // above the host, so OCR blocks crossing it are not owned; it is no placement obstacle.
             pipeline.process(raw, chip?.let { ScreenRect(it.left, it.top, it.right, it.bottom) }, null,
                 capturedAtMs = captured, displayBounds = display, density = 3f, accessibility = nodes,
                 foregroundPackage = host,
-                windowOwnership = HostWindowOwnership(host, captured, display, 1, display, systemWindows))
+                windowOwnership = HostWindowOwnership(host, captured, display, 1, display,
+                    (systemWindows + listOfNotNull(chip)).distinct(), placementExcludedBounds = systemWindows))
             var published: OfferEvent.Parsed? = null
             var state = "none"
             for (event in events.drop(before)) when (event) {
@@ -416,6 +419,72 @@ class RealOfferBurstReplayTest {
                     f != null && f.top == visible.top && f.bottom == visible.bottom && f.left == visible.left)
             }
         }
+    }
+
+    // 0.2.17: DiDi's decline control above the card (S25 2026-11-06 frames, invented addresses).
+    private fun declineCovered(lane: Lane, body: HostRect) = lane.frames.filter { it.visible && it.rect?.overlaps(body) == true }
+        .map { "${it.label} chip ${it.rect} covers the decline control $body" }
+
+    @Test fun `a Pon Tu Precio chip never covers the decline pill`() {
+        val lane = replay(DIDI) { repeat(5) { frame("ptp f$it", "ptp", RealGeometryFixtures.didiPtpS25(), it * 850L) } }
+        assertContract(lane, mapOf("ptp" to 68.60), mapOf("ptp" to 7.2))
+        val failures = declineCovered(lane, RealGeometryFixtures.pillBody) +
+            lane.frames.filter { it.rect != HostRect(36, 305, 756, 545) }.map { "${it.label} at ${it.rect}" }
+        assertTrue(failures.joinToString("\n", postfix = "\n${trace(lane)}"), failures.isEmpty())
+    }
+
+    @Test fun `a tall Pon Tu Precio card shows a compact chip below the pill on every frame`() {
+        for ((name, blocks, fare, trip) in listOf(Quad("tall", RealGeometryFixtures.didiPtpTallS25(), 41.58, 2.1),
+            Quad("tall2", RealGeometryFixtures.didiPtpTall2S25(), 34.42, 2.7))) {
+            val rect = if (name == "tall") HostRect(36, 260, 756, 500) else HostRect(36, 261, 756, 501)
+            val lane = replay(DIDI) { repeat(5) { frame("$name f$it", name, blocks, it * 850L) } }
+            assertContract(lane, mapOf(name to fare), mapOf(name to trip))
+            val failures = declineCovered(lane, RealGeometryFixtures.pillBody) +
+                lane.frames.filter { it.rect != rect || !it.visible }.map { "${it.label} at ${it.rect} visible=${it.visible} ${it.state}" }
+            assertTrue(failures.joinToString("\n", postfix = "\n${trace(lane)}"), failures.isEmpty())
+        }
+    }
+
+    @Test fun `a Mas Rapido chip keeps the top-left dock beside the round X`() {
+        val lane = replay(DIDI) { repeat(5) { frame("mr f$it", "mr", RealGeometryFixtures.didiMasRapidoS25(), it * 850L) } }
+        assertContract(lane, mapOf("mr" to 152.36), mapOf("mr" to 13.1))
+        val failures = declineCovered(lane, RealGeometryFixtures.closeBody) +
+            lane.frames.filter { it.rect != HostRect(36, 139, 756, 475) }.map { "${it.label} at ${it.rect}" } +
+            lane.frames.filter { it.rect?.overlaps(HostRect(152, 1694, 495, 1746).expanded(48)) == true }.map { "${it.label} on the metres pickup" }
+        assertTrue(failures.joinToString("\n", postfix = "\n${trace(lane)}"), failures.isEmpty())
+    }
+
+    @Test fun `a pill read only on the first frame keeps the chip below it for the whole offer`() {
+        val noPill = RealGeometryFixtures.didiPtpS25().filterNot { it.text.contains("Rechazo") }
+        val lane = replay(DIDI) {
+            frame("ptp f0", "ptp", RealGeometryFixtures.didiPtpS25(), 0)
+            for (i in 1..4) frame("ptp f$i", "ptp", noPill, i * 850L)
+        }
+        assertContract(lane, mapOf("ptp" to 68.60), mapOf("ptp" to 7.2))
+        val failures = declineCovered(lane, RealGeometryFixtures.pillBody) +
+            lane.frames.filter { it.rect != HostRect(36, 305, 756, 545) }.map { "${it.label} at ${it.rect}" }
+        assertTrue(failures.joinToString("\n", postfix = "\n${trace(lane)}"), failures.isEmpty())
+    }
+
+    // Round 2: on the device our chip WINDOW is excluded from ownership, so the pill block crossing its
+    // top edge is never owned; it is recognised from the blocks before that exclusion (decline rect only).
+    @Test fun `a pill missed on the first frame is read from the unmasked blocks on the second`() {
+        val noPill = RealGeometryFixtures.didiPtpS25().filterNot { it.text.contains("Rechazo") }
+        val pillText = RealGeometryFixtures.didiPtpS25().single { it.text.contains("Rechazo") }.bounds
+            .let { HostRect(it.left, it.top, it.right, it.bottom) }
+        val lane = replay(DIDI) {
+            frame("ptp f0", "ptp", noPill, 0)
+            for (i in 1..4) frame("ptp f$i", "ptp", RealGeometryFixtures.didiPtpS25(), i * 850L)
+        }
+        assertContract(lane, mapOf("ptp" to 68.60), mapOf("ptp" to 7.2))
+        val first = lane.frames.first()
+        assertTrue(trace(lane), first.rect == HostRect(36, 209, 756, 545))
+        assertTrue("Frame 1's chip window crosses the pill text's lower edge, so frame 2 owns no pill block",
+            first.rect!!.overlaps(pillText) && !first.rect!!.contains(pillText))
+        assertTrue("Frame 2 moves the chip below the pill: ${trace(lane)}", lane.frames[1].rect!!.top >= pillText.bottom + 48)
+        val failures = declineCovered(lane, RealGeometryFixtures.pillBody).filterNot { it.startsWith("ptp f0 ") } +
+            lane.frames.drop(1).filter { it.rect != HostRect(36, 305, 756, 545) }.map { "${it.label} at ${it.rect}" }
+        assertTrue(failures.joinToString("\n", postfix = "\n${trace(lane)}"), failures.isEmpty())
     }
 
     @Test fun `back-to-back DiDi offers through the trip list never lend the previous fare`() {

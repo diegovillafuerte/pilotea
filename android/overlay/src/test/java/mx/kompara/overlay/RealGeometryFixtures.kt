@@ -106,6 +106,56 @@ internal object RealGeometryFixtures {
         b("$200.85", 83, 973, 543, 1085), b("5min (862m)", 139, 1692, 441, 1745),
         b("59min (11.3km)", 156, 1902, 514, 1960), b("Aceptar $200.85", 200, 2040, 880, 2130))
 
+    /**
+     * 0.2.17, 2026-11-06 S25 DiDi first frames (frames-sanitized-late; bounds and card vocabulary
+     * verbatim, addresses invented). DiDi's decline control sits ABOVE the card: the pill
+     * "X Rechazo permitido" on Pon Tu Precio cards, a round X on the others.
+     */
+    val pillBody = HostRect(420, 110, 1050, 250)
+    val closeBody = HostRect(905, 110, 1050, 255)
+
+    /** Pon Tu Precio $68.60 (1794009689245): card top 593, three counter-offer prices in ONE block. */
+    fun didiPtpS25() = listOf(
+        b("X Rechazo permitido", 480, 163, 993, 213), b("Privada Sup", 2, 336, 266, 377), b("QQqQ", 60, 390, 119, 423),
+        b("Pon Tu Precio", 105, 641, 425, 682), b("$68.60", 83, 774, 511, 886), b("1 punto", 101, 936, 247, 991),
+        b("t 4.88 232 viajes", 80, 1093, 535, 1147), b("Tarjeta bancaria verificada", 149, 1180, 767, 1226),
+        b("A", 7, 1307, 28, 1340), b("O 10 min (1.2 km)", 118, 1339, 504, 1394),
+        b("Avenida Ficticia 9, Colonia Prueba", 165, 1406, 974, 1462), b("Calle Inventada", 153, 1471, 570, 1513),
+        b("39 min (7.2 km)", 151, 1550, 524, 1602), b("Colonia Imaginaria - Calle Supuest", 153, 1619, 910, 1665),
+        b("Privada Supuesta 7 - Colonia E", 174, 1676, 918, 1735), b("Aceptar $68.60", 348, 1822, 722, 1876),
+        b("QQ", 2, 1975, 36, 2013), b("$73.60 $76.60 $79.60", 99, 1996, 796, 2045), b("qQQ", 240, 2136, 270, 2187))
+
+    /** Tall Pon Tu Precio $41.58 (1794010032773): card top 423, fare top 618 ("Más alto que Express"). */
+    fun didiPtpTallS25() = listOf(
+        b("X Rechazo permitido", 479, 156, 993, 212), b("Calle S", 24, 256, 195, 289), b("QQQ", 11, 303, 80, 335),
+        b("Pon Tu Precio", 104, 471, 420, 529), b("$41.58", 12, 618, 472, 730), b("1 punto", 96, 780, 247, 834),
+        b("* Más alto que Express", 81, 936, 658, 984), b("Avenida Ficticia 45", 14, 1089, 542, 1144),
+        b("Tarjeta bancaria verificada", 149, 1180, 767, 1226), b("8 min (1.2 km)", 176, 1337, 483, 1394),
+        b("Avenida Ficticia 9, Colonia P", 151, 1409, 858, 1456), b("Avenida Ficticia 9, Colonia Prueba", 152, 1464, 977, 1521),
+        b("14 min (2.1 km)", 150, 1547, 502, 1601), b("Calzada Inventada 300, Colonia", 154, 1614, 933, 1671),
+        b("Colonia Ejemplo - Privada Supues", 152, 1681, 946, 1729), b("Aceptar $41.58", 357, 1823, 717, 1882),
+        b("$42.58 $43.58 $45.58", 98, 1996, 795, 2045), b("Privad", 826, 2136, 955, 2160), b("Barrio Fict", 107, 2146, 389, 2183))
+
+    /** Second tall Pon Tu Precio $34.42 (1794010056028): card top 437; its price row reads "E$35.42 ...". */
+    fun didiPtpTall2S25() = listOf(
+        b("X Rechazo permitido", 480, 163, 994, 213), b("QQQ", 11, 255, 70, 290), b("Colonia Imag", 628, 265, 936, 298),
+        b("M", 465, 278, 500, 317), b("Pon Tu Precio", 105, 485, 425, 526), b("$34.42", 84, 618, 493, 730),
+        b("1 punto", 99, 780, 247, 832), b("Colonia Ejemplo - Colo", 81, 934, 633, 987), b("* 4.85 331 viajes", 80, 1091, 526, 1148),
+        b("Calle Inventada 123 - Avenida", 120, 1174, 768, 1224), b("7 min (1.1 km)", 151, 1337, 469, 1394),
+        b("Parque Imaginario - Privada S", 153, 1409, 871, 1461), b("Avenida Ficticia 45 - Colonia Imagi", 152, 1471, 978, 1521),
+        b("QQ", 3, 1497, 31, 1535), b("13 min (2.7 km)", 150, 1547, 509, 1604), b("Barrio Ficticio - Calz", 153, 1617, 691, 1669),
+        b("Calle Supuesta 77 - Colonia Ejempl", 153, 1681, 972, 1731), b("Aceptar $34.42", 353, 1821, 717, 1879),
+        b("E$35.42 $36.42 $37.42", 0, 1991, 792, 2051), b("Calle Inventada", 229, 2158, 635, 2191))
+
+    /** Más Rápido $152.36 (1794009751842): round X above the card, a metres pickup, no Aceptar on screen. */
+    fun didiMasRapidoS25() = listOf(
+        b("X", 957, 163, 997, 200), b("Más Rápido", 104, 836, 371, 888), b("$152.36", 84, 973, 541, 1085),
+        b("1 punto", 97, 1135, 249, 1188), b("9 $30.46 de tarifa Más Rápido", 77, 1287, 830, 1335),
+        b("t 4.42 43 viajes", 81, 1449, 506, 1498), b("Tarjeta bancaria verificada", 150, 1532, 768, 1580),
+        b("6 min (688 m)", 152, 1694, 495, 1746), b("Avenida Ficticia 9, Colonia P", 154, 1763, 950, 1809),
+        b("Calle Supuesta 77 - Colonia Ejemplo", 171, 1818, 998, 1876), b("54 min (13.1 km)", 165, 1902, 536, 1956),
+        b("Privada Supuesta 7 - Colo", 150, 1971, 783, 2021), b("Colonia Imaginaria - Privada Supuesta", 151, 2032, 988, 2084))
+
     /** A second, different DiDi offer on the same layout. */
     fun didiNext() = retext(didi(), "$132.59" to "$61.20", "6min (1.2km)" to "3min (0.6km)",
         "39min (17.3km)" to "14min (5.1km)")

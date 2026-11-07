@@ -14,10 +14,20 @@ data class HostTextBounds(val text: String, val bounds: HostRect, val viewId: St
 object HostGeometryDeriver {
     const val CARD_TEXT_PADDING_DP = 16
     private const val HEADING_DISTANCE_DP = 96
+    /** Android's minimum touch target: the least a lone close glyph's button covers. */
+    private const val TOUCH_TARGET_DP = 48
     private val fare = Regex("""(?:MX[N$]|\$)\s*\$?\s*([0-9][0-9.,]*)""", RegexOption.IGNORE_CASE)
     private val leg = Regex("""(?:\d[\d.,]*\s*(?:km|min|m)\b|\bviaje\s*:)""", RegexOption.IGNORE_CASE)
     private val close = Regex("""^(?:x|×|✕|✖|cerrar|close)$""", RegexOption.IGNORE_CASE)
-    private val reject = Regex("""\brechazar\b""", RegexOption.IGNORE_CASE)
+    // 0.2.17: a decline control is an in-card "Rechazar" button, DiDi's "✕ Rechazo permitido" pill
+    // above the card, or that pill's lone "permitido" half when our chip hides the rest (S25,
+    // 2026-11-06), plus the whole-block close glyph. Never an upper anchor: the pill above the
+    // card must not pull the card ceiling up to it.
+    private val decline = Regex("""\brechaz(?:ar|o)\b""", RegexOption.IGNORE_CASE)
+    private val declineFragment = Regex("""^permitido$""", RegexOption.IGNORE_CASE)
+    // DiDi's counter-offer price buttons: ML Kit can read the whole row as ONE block
+    // ("$42.58 $43.58 $45.58", "E$35.42 $36.42 $37.42"). A protected control, never a headline fare.
+    private val moneyToken = Regex("""(?:MX[N$]|\$)\s*\$?\s*[0-9]""", RegexOption.IGNORE_CASE)
     private val heading = Regex("""\b(?:uber\w*|didi|exclusivo|reserva|programado|radar de solicitud|pon tu precio)\b""", RegexOption.IGNORE_CASE)
     // The floating "Radar de solicitud de viaje N" pill is host chrome above the sheet (it also
     // shows on the idle home as "... 0"). It remains an upper anchor and a soft obstacle, never
@@ -42,6 +52,7 @@ object HostGeometryDeriver {
         navigation: Boolean = false,
         recognizedOffer: Boolean = false,
         fareBounds: HostRect? = null,
+        unmaskedText: List<HostTextBounds> = emptyList(),
     ): HostGeometry? {
         if (packageName !in HostGeometryAdapter.SUPPORTED_HOSTS || !displayBounds.valid ||
             !density.isFinite() || density <= 0f) return null
@@ -104,11 +115,28 @@ object HostGeometryDeriver {
         }.maxOfOrNull { it.bounds.bottom }
         val top = HostRect(displayBounds.left, displayBounds.top, displayBounds.right,
             maxOf(measuredChrome?.bottom ?: displayBounds.top + 1, chromeBottom ?: displayBounds.top + 1))
+        // Our own chip never renders the decline words, so blocks our chip's window and ChipMask
+        // removed ([unmaskedText]) may still identify the pill beneath the chip. Only the pill words: a lone
+        // glyph under our chip could be our own rendering.
+        val unmaskedDeclines = unmaskedText.filter { displayBounds.contains(it.bounds) && declinePill(it.text) }
+            .map { it.bounds }
+        // A lone close glyph above the card is a round button larger than its glyph: protect at least
+        // its 48 dp touch target (S25 DiDi: glyph (957,163)-(997,200), circle ≈ (905,110)-(1050,255)).
+        val target = (TOUCH_TARGET_DP * density).roundToInt()
+        fun control(b: HostTextBounds) = if (close.matches(b.text.trim()) && b.bounds.bottom <= card.top &&
+            b.bounds.width < target && b.bounds.height < target) b.bounds.let {
+            val cx = (it.left + it.right) / 2
+            val cy = (it.top + it.bottom) / 2
+            HostRect(minOf(it.left, cx - target / 2), minOf(it.top, cy - target / 2),
+                maxOf(it.right, cx + target / 2), maxOf(it.bottom, cy + target / 2))
+        } else b.bounds
+        val declines = (boxes.filter { declinePill(it.text) || close.matches(it.text.trim()) }.map(::control) +
+            unmaskedDeclines).mapNotNull { it.intersection(displayBounds) }.distinct()
         val controls = (protectedControls + boxes.filter {
-            OfferActionLabel.from(it.text) != null || reject.containsMatchIn(it.text) || close.matches(it.text.trim())
-        }.map { it.bounds })
+            OfferActionLabel.from(it.text) != null || priceRow(it.text) || declinePill(it.text) || close.matches(it.text.trim())
+        }.map { it.bounds } + declines)
             .mapNotNull { it.intersection(displayBounds) }.distinct()
-        val routes = boxes.filter { leg.containsMatchIn(it.text) && fareValue(it.text) == null }
+        val routes = boxes.filter { leg.containsMatchIn(it.text) && fareValue(it.text) == null && !priceRow(it.text) }
             .map { it.bounds }.sortedBy { it.top }
         val upperLimit = routes.firstOrNull()?.top ?: accepts.minOfOrNull { it.bounds.top }
         val upper = boxes.filter { upperLimit != null && it.bounds.bottom <= upperLimit &&
@@ -126,8 +154,12 @@ object HostGeometryDeriver {
             displayBounds, orientation(displayBounds), top, card, controls,
             clipMarkers(markers, displayBounds), navigation, source,
             ocrEvidence = HostOcrGeometryEvidence(null, upper, routes, independentlyMeasuredCard = measuredCard == card),
-            fareBounds = fareBounds?.takeIf(displayBounds::contains), softObstacles = pills)
+            fareBounds = fareBounds?.takeIf(displayBounds::contains), softObstacles = pills, declineControls = declines)
     }
+
+    private fun declinePill(text: String) = decline.containsMatchIn(text) || declineFragment.matches(text.trim())
+
+    private fun priceRow(text: String) = moneyToken.findAll(text).count() >= 2
 
     /** A fresh host viewport can place the stopped tab without a stale or imaginary offer. */
     fun idleHost(
@@ -155,7 +187,8 @@ object HostGeometryDeriver {
     }
 
     private fun fareValue(text: String): Double? {
-        if (text.trimStart().startsWith("+") || text.contains("/km", true) || text.contains("/h", true)) return null
+        if (text.trimStart().startsWith("+") || text.contains("/km", true) || text.contains("/h", true) ||
+            priceRow(text)) return null
         val amount = fare.find(text)?.groupValues?.get(1) ?: return null
         val normalized = if ('.' in amount) amount.replace(",", "") else amount.replace(',', '.')
         return normalized.toDoubleOrNull()?.takeIf { it > 0.0 }

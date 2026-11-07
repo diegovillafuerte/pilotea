@@ -225,6 +225,87 @@ class HostGeometryDeriverTest {
         assertEquals(HostRect(0,0,393,1),g.topChrome)
     }
 
+    // 0.2.17: DiDi's decline control sits above the card (S25, 2026-11-06). Bounds verbatim.
+    private val s25 = HostRect(0, 0, 1080, 2340)
+    private fun t(text: String, l: Int, t: Int, r: Int, b: Int) = HostTextBounds(text, HostRect(l, t, r, b))
+    private val didiSystem = listOf(HostRect(0, 0, 1080, 91), HostRect(1038, 418, 1080, 760), HostRect(0, 2196, 1080, 2340))
+    private fun tallPtp(pill: HostTextBounds? = t("X Rechazo permitido", 479, 156, 993, 212)) = listOfNotNull(pill,
+        t("Pon Tu Precio", 104, 471, 420, 529), t("$41.58", 12, 618, 472, 730), t("1 punto", 96, 780, 247, 834),
+        t("* Más alto que Express", 81, 936, 658, 984), t("8 min (1.2 km)", 176, 1337, 483, 1394),
+        t("14 min (2.1 km)", 150, 1547, 502, 1601), t("Aceptar $41.58", 357, 1823, 717, 1882),
+        t("$42.58 $43.58 $45.58", 98, 1996, 795, 2045))
+    private fun didi(text: List<HostTextBounds>, content: OfferContentBounds?, unmasked: List<HostTextBounds> = emptyList()) =
+        requireNotNull(HostGeometryDeriver.offer("com.didiglobal.driver", 1000, s25, 3f, text,
+            HostGeometrySource.OCR_TEXT_BOUNDS, content, protectedControls = didiSystem, recognizedOffer = true,
+            fareBounds = HostRect(12, 618, 472, 730), unmaskedText = unmasked))
+    private val tallContent = OfferContentBounds(150, 1337, 717, 1882)
+
+    @Test fun `DiDi Rechazo permitido pill above the card is a protected decline control, never an upper anchor`() {
+        val g = didi(tallPtp(), tallContent)
+        assertEquals("The pill never pulls the card top up", 423, g.offerCard.top)
+        assertEquals(listOf(HostRect(479, 156, 993, 212)), g.declineControls)
+        assertTrue(HostRect(479, 156, 993, 212) in g.protectedControls)
+        assertEquals(listOf(HostRect(104, 471, 420, 529)), g.ocrEvidence!!.upperAnchors)
+        assertTrue(g.softObstacles.isEmpty())
+    }
+
+    @Test fun `a lone permitido block is still the decline control, a sentence containing it is not`() {
+        val g = didi(tallPtp(t("permitido", 769, 158, 989, 208)) + t("No permitido en esta zona", 100, 1250, 700, 1300), tallContent)
+        assertEquals(listOf(HostRect(769, 158, 989, 208)), g.declineControls)
+        assertFalse(HostRect(100, 1250, 700, 1300) in g.protectedControls)
+        val rechazar = didi(tallPtp(null) + t("Rechazar", 100, 1900, 400, 1950), tallContent)
+        assertEquals("The in-card button keeps its protection", listOf(HostRect(100, 1900, 400, 1950)), rechazar.declineControls)
+    }
+
+    @Test fun `DiDi round close glyph protects its 48 dp button and keeps its upper-anchor role`() {
+        val g = didi(listOf(t("X", 957, 163, 997, 200), t("Más Rápido", 104, 836, 371, 888), t("$152.36", 84, 973, 541, 1085),
+            t("6 min (688 m)", 152, 1694, 495, 1746), t("54 min (13.1 km)", 165, 1902, 536, 1956)),
+            OfferContentBounds(84, 973, 541, 1956))
+        assertEquals(925, g.offerCard.top)
+        // The visible circle is ≈ (905,110)-(1050,255); its glyph alone is (957,163)-(997,200).
+        assertEquals(listOf(HostRect(905, 109, 1049, 253)), g.declineControls)
+        assertTrue(HostRect(905, 109, 1049, 253) in g.protectedControls)
+        assertTrue(HostRect(957, 163, 997, 200) in g.protectedControls)
+        assertEquals("The ceiling still comes from the glyph", listOf(HostRect(957, 163, 997, 200)), g.ocrEvidence!!.upperAnchors)
+    }
+
+    @Test fun `decline words under our own chip come from the unmasked text, the close glyph only from the masked`() {
+        val chipText = listOf(t("\$5.33/km neto", 78, 240, 500, 300), t("Meta \$8", 78, 320, 300, 360))
+        val g = didi(tallPtp(null), tallContent, unmasked = listOf(t("X Rechazo permitido", 480, 163, 993, 213),
+            t("X", 957, 163, 997, 200)) + chipText)
+        assertEquals("Our chip's text adds nothing", listOf(HostRect(480, 163, 993, 213)), g.declineControls)
+        assertTrue(HostRect(480, 163, 993, 213) in g.protectedControls)
+        assertFalse(HostRect(957, 163, 997, 200) in g.protectedControls)
+        assertEquals(423, g.offerCard.top)
+    }
+
+    @Test fun `counter-offer price rows are protected controls and never a headline fare`() {
+        for ((row, top) in listOf(t("$42.58 $43.58 $45.58", 98, 1996, 795, 2045) to 423,
+            t("E$35.42 $36.42 $37.42", 0, 1991, 792, 2051) to 423)) {
+            val g = didi(tallPtp().filterNot { it.text.startsWith("$4") && it.text.contains(' ') } + row, tallContent)
+            assertTrue(row.bounds in g.protectedControls)
+            assertEquals(top, g.offerCard.top)
+        }
+        // A frame whose fare and legs are unread: the price row is no headline, the heading bounds the card.
+        val unread = requireNotNull(HostGeometryDeriver.offer("com.didiglobal.driver", 1000, s25, 3f,
+            listOf(t("Pon Tu Precio", 104, 471, 420, 529), t("$42.58 $43.58 $45.58", 98, 1996, 795, 2045)),
+            HostGeometrySource.OCR_TEXT_BOUNDS, recognizedOffer = true))
+        assertEquals(423, unread.offerCard.top)
+        assertTrue(HostRect(98, 1996, 795, 2045) in unread.protectedControls)
+        assertFalse(HostRect(12, 618, 472, 730) in didi(tallPtp(), tallContent).protectedControls)
+    }
+
+    @Test fun `the Uber Radar pill stays soft chrome and the in-card X is a live decline control`() {
+        val g = requireNotNull(HostGeometryDeriver.offer(host, 1000, s25, 3f, listOf(
+            t("Radar de solicitud de viaje", 205, 428, 862, 480), t("Uber Priority", 192, 634, 474, 680),
+            t("X", 891, 659, 933, 701), t("$119.89", 102, 737, 549, 847), t("9 min (1.4 km)", 193, 1383, 506, 1427),
+            t("44 min (6.4 km)", 194, 1588, 543, 1633), t("Aceptar", 394, 1951, 685, 1994)),
+            HostGeometrySource.OCR_TEXT_BOUNDS, OfferContentBounds(102, 737, 549, 1633), recognizedOffer = true))
+        assertEquals(listOf(HostRect(205, 428, 862, 480)), g.softObstacles)
+        assertEquals(listOf(HostRect(891, 659, 933, 701)), g.declineControls)
+        assertFalse(HostRect(205, 428, 862, 480) in g.protectedControls)
+    }
+
     @Test fun `idle host has explicit source and display foot rather than stale offer bounds`() {
         val control = HostRect(0,760,393,820)
         val g = requireNotNull(HostGeometryDeriver.idleHost(host,2000,display,chrome,listOf(control)))

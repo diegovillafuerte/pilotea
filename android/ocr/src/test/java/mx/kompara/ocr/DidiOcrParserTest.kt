@@ -213,6 +213,22 @@ class DidiOcrParserTest {
         assertNull(card.tripDistanceKm)
     }
 
+    // 0.2.17 guard (parser unchanged): the counter-offer price row, one OCR block holding all three
+    // prices below Aceptar (S25 2026-11-06, bounds verbatim), is never the fare or its drawn bounds.
+    @Test
+    fun `counter-offer price rows never become the fare or its bounds`() {
+        for ((row, fare) in listOf(block("\$42.58 \$43.58 \$45.58", 98, 1996, 795, 2045) to 41.58,
+            block("E\$35.42 \$36.42 \$37.42", 0, 1991, 792, 2051) to 34.42)) {
+            val card = parser.parse(listOf(block("X Rechazo permitido", 479, 156, 993, 212),
+                block("Pon Tu Precio", 104, 471, 420, 529), block("\$%.2f".format(java.util.Locale.US, fare), 12, 618, 472, 730),
+                block("8 min (1.2 km)", 176, 1337, 483, 1394), block("14 min (2.1 km)", 150, 1547, 502, 1601),
+                block("Aceptar \$%.2f".format(java.util.Locale.US, fare), 357, 1823, 717, 1882), row))!!
+            assertEquals(fare, card.fare!!, 0.001)
+            assertEquals(mx.kompara.parsers.model.OfferContentBounds(12, 618, 472, 730), card.fareBounds)
+            assertEquals(2.1, card.tripDistanceKm!!, 0.001)
+        }
+    }
+
     private fun block(text: String, l: Int, t: Int, r: Int, b: Int) =
         OcrBlock(text, OcrBounds(l, t, r, b))
 }

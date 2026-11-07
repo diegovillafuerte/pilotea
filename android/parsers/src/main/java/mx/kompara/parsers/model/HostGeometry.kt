@@ -66,6 +66,12 @@ data class HostGeometry(
     val fareBounds: HostRect? = null,
     /** Host chrome that may be tappable (Trip Radar pill): foot/higher slots avoid it, the dock may cover it. */
     val softObstacles: List<HostRect> = emptyList(),
+    /**
+     * 0.2.17: the host's decline/close controls (DiDi's "✕ Rechazo permitido" pill or round ✕ above
+     * the card, Uber's ✕). Always also in [protectedControls]. The overlay latches those above the
+     * card for the whole offer and docks below them; they are never an upper anchor or card boundary.
+     */
+    val declineControls: List<HostRect> = emptyList(),
 )
 
 /**

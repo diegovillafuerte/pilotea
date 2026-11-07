@@ -520,6 +520,76 @@ class OverlayControllerPlacementTest {
         } finally { controller.stop(); Dispatchers.resetMain() }
     }
 
+    // 0.2.17 round 2: both per-offer latches (decline controls above the card, soft host chrome) end
+    // only at the offer boundary the controller owns — Reading (new session), Hidden, PARSE_CEILING.
+    private val latchDecline = HostRect(480, 163, 993, 213)
+    private val latchSoft = HostRect(202, 423, 873, 495)
+
+    /** Seeds the controller's own evidence with both latches and proves they hold on a clean frame. */
+    private fun latched(controller: OverlayController, v: OverlayViewport): Pair<PlacementEvidence, HostGeometry> {
+        val clean = geometry.copy(displayBounds = v.bounds, capturedAtMs = System.currentTimeMillis())
+        val evidence = field("placementEvidence").get(controller) as PlacementEvidence
+        evidence.observe(clean.copy(protectedControls = listOf(latchDecline), declineControls = listOf(latchDecline),
+            softObstacles = listOf(latchSoft)), v)
+        val held = evidence.observe(clean, v)
+        assertEquals(1, held.latched)
+        assertTrue(latchDecline in held.geometry.declineControls && latchDecline in held.geometry.protectedControls)
+        assertEquals(listOf(latchSoft), held.geometry.softObstacles)
+        return evidence to clean
+    }
+
+    private fun assertReleased(evidence: PlacementEvidence, clean: HostGeometry, v: OverlayViewport, path: String) {
+        val after = evidence.observe(clean, v)
+        assertEquals("$path releases the decline latch", 0, after.latched)
+        assertFalse(latchDecline in after.geometry.protectedControls)
+        assertTrue(after.geometry.declineControls.isEmpty())
+        assertTrue("$path releases the soft latch", after.geometry.softObstacles.isEmpty())
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test fun `a new session's Reading releases both latches`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val controller = controller()
+        try {
+            val v = method("readViewport", WindowInsets::class.java).invoke(controller, null) as OverlayViewport
+            val (evidence, clean) = latched(controller, v)
+            val next = OfferEvent.Parsed(clean.packageName, clean.capturedAtMs,
+                OfferCard(platform = clean.packageName, fare = 79.45, sessionId = "next", hostGeometry = clean))
+            render(controller, backgroundScope, OverlayVisibility.Reading("next", next))
+            assertReleased(evidence, clean, v, "Reading")
+        } finally { controller.stop(); Dispatchers.resetMain() }
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test fun `Hidden releases both latches`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val controller = prepared()
+        try {
+            revealed(controller)
+            val (evidence, clean) = latched(controller, viewport)
+            render(controller, backgroundScope, OverlayVisibility.Hidden)
+            assertNull(field("composeView").get(controller))
+            assertReleased(evidence, clean, viewport, "Hidden")
+        } finally { controller.stop(); Dispatchers.resetMain() }
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test fun `the parse ceiling releases both latches`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val controller = prepared()
+        try {
+            revealed(controller)
+            val (evidence, clean) = latched(controller, viewport)
+            heartbeat().invoke(controller, backgroundScope, true, true)
+            advance(14_000)
+            assertNotNull("Before the ceiling the window and latches stay", field("composeView").get(controller))
+            assertEquals(1, evidence.observe(clean, viewport).latched)
+            advance(1_010)
+            assertNull("15 s without a parse detaches", field("composeView").get(controller))
+            assertReleased(evidence, clean, viewport, "PARSE_CEILING")
+        } finally { controller.stop(); Dispatchers.resetMain() }
+    }
+
     private fun heartbeat() = method("heartbeat", CoroutineScope::class.java,
         Boolean::class.javaPrimitiveType!!, Boolean::class.javaPrimitiveType!!)
 
@@ -731,6 +801,50 @@ class OverlayControllerPlacementTest {
             view.viewTreeObserver.dispatchOnPreDraw()
             assertEquals(1, ScreenLocation.reads)
             assertEquals(1f, view.alpha)
+        } finally { controller.stop() }
+    }
+
+    // 0.2.17 (user decision 2026-11-07, "only in a clear slot"): a docked chip, or one over any host
+    // control or soft chrome, passes taps through to Uber/DiDi; only a clear strict slot is draggable.
+    @Test fun `a docked plate reveals pass-through and only a clear strict plate is draggable`() {
+        val controller = prepared()
+        val docked = OverlayPlacement.Displayed(OverlayPosition(36, 168), ChipSize(720, 336), PlateFormat.FULL,
+            rule = PlacementRule.DOCK)
+        val radar = geometry.copy(softObstacles = listOf(HostRect(202, 423, 873, 495)))
+        try {
+            state(controller, "geometry", radar)
+            state(controller, "savedPosition", docked.position)
+            ScreenLocation.position = docked.position
+            method("attach").invoke(controller)
+            val view = field("composeView").get(controller) as ComposeView
+            val params = field("layoutParams").get(controller) as WindowManager.LayoutParams
+            view.layout(0, 0, 720, 336)
+            method("applyPlacement", OverlayPlacement::class.java).invoke(controller, docked)
+            view.viewTreeObserver.dispatchOnPreDraw()
+            assertEquals("Revealed over the Radar pill", 1f, view.alpha)
+            assertTrue("Docked: taps reach the host", params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE != 0)
+            view.viewTreeObserver.dispatchOnPreDraw()
+            assertTrue(params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE != 0)
+            // The same footprint as a clear strict placement: draggable, no hide.
+            state(controller, "geometry", geometry)
+            method("applyPlacement", OverlayPlacement::class.java).invoke(controller, docked.copy(rule = PlacementRule.FOOT))
+            view.viewTreeObserver.dispatchOnPreDraw()
+            assertEquals(1f, view.alpha)
+            assertEquals(0, params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE)
+            // Docked again (e.g. a later frame of the same offer): pass-through without a hide.
+            view.layout(0, 0, 720, 336) // the flag update's WindowManager traversal
+            method("applyPlacement", OverlayPlacement::class.java).invoke(controller, docked)
+            view.viewTreeObserver.dispatchOnPreDraw()
+            assertEquals(1f, view.alpha)
+            assertTrue(params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE != 0)
+            // A hide always forces pass-through, whatever the tier.
+            view.layout(0, 0, 720, 336)
+            method("applyPlacement", OverlayPlacement::class.java).invoke(controller, docked.copy(rule = PlacementRule.FOOT))
+            view.viewTreeObserver.dispatchOnPreDraw()
+            assertEquals(0, params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE)
+            method("hideUntilSettled", String::class.java, String::class.java).invoke(controller, "SIGNATURE_ABSENT", "")
+            assertEquals(0f, view.alpha)
+            assertTrue(params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE != 0)
         } finally { controller.stop() }
     }
 

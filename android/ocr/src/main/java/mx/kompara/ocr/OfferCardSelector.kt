@@ -27,6 +27,7 @@ internal fun selectOfferCard(
     chipRect: ScreenRect? = null,
     foregroundPackage: String? = mx.kompara.data.service.ScreenReaderState.freshForegroundHost(
         android.os.SystemClock.elapsedRealtime(), 1_500),
+    unmaskedBlocks: List<OcrBlock> = blocks,
 ): OfferCard? {
     // Validate independently observed card edges before fare selection, so a large map label
     // outside the card cannot become payment. Derived OCR geometry remains the fallback below.
@@ -54,7 +55,10 @@ internal fun selectOfferCard(
             observedCardBounds = nodes?.observedCardBounds,
             protectedControls = nodes?.protectedControls.orEmpty(), markers = nodes?.markers.orEmpty(),
             navigation = nodes?.navigation ?: false, recognizedOffer = true,
-            fareBounds = card.fareBounds?.let { HostRect(it.left, it.top, it.right, it.bottom) })
+            fareBounds = card.fareBounds?.let { HostRect(it.left, it.top, it.right, it.bottom) },
+            // 0.2.17: blocks beneath our own overlay (before its window exclusion and ChipMask),
+            // read only for the host's decline-pill words.
+            unmaskedText = unmaskedBlocks.map { HostTextBounds(it.text, it.hostRect()) })
     }
     val observed = geometryAdapter.adapt(card.platform, capturedAtMs, observation)
     val geometry = observed ?: derived
@@ -62,7 +66,7 @@ internal fun selectOfferCard(
     // minutes (knm, nmin, dlZ): placement protects every row the parser read the route from.
     val modernRows = listOfNotNull(card.validation?.pickupKm?.bounds, card.validation?.tripKm?.bounds)
         .map { HostRect(it.left, it.top, it.right, it.bottom) }
-    val routes = (blocks.filter { uberRoute.containsMatchIn(it.text) }.map { it.hostRect() } + modernRows)
+    val routes = (blocks.filter { routeAnchor.containsMatchIn(it.text) }.map { it.hostRect() } + modernRows)
         .distinct().sortedBy { it.top }
     val firstRoute = routes.firstOrNull()?.top
     // Payment can remain perfectly stable while a slide-in heading/close is still missing.
@@ -88,6 +92,8 @@ private val offerUpperAnchor = Regex("""\b(?:Uber\w*|Didi|Exclusivo|Reserva|Prog
 private val upperControl = Regex("""(?:x|×|✕|✖|cerrar|close)""", RegexOption.IGNORE_CASE)
 private val uberHeading = Regex("""\bUber\w*|Radar de solicitud""", RegexOption.IGNORE_CASE)
 private val uberRoute = Regex("""(?:[0-9OlI]+|—|-)\s*min\s*\(\s*[0-9OlI][0-9OlI.,]*\s*km""", RegexOption.IGNORE_CASE)
+/** 0.2.17: route evidence also accepts a metres leg (DiDi's pickup "6 min (688 m)", S25 2026-11-06). */
+private val routeAnchor = Regex("""(?:[0-9OlI]+|—|-)\s*min\s*\(\s*[0-9OlI][0-9OlI.,]*\s*(?:km|m\b)""", RegexOption.IGNORE_CASE)
 
 /**
  * Node polling can still describe the preceding short card when OCR sees the new taller one.

@@ -114,6 +114,48 @@ class HostWindowOwnershipReplayTest {
         }
     }
 
+    // 0.2.17 round 2: S25 Pon Tu Precio $68.60 (1794009689245, bounds verbatim, addresses invented) with
+    // our FOOT chip window at y 204 crossing the pill text's lower edge, as on the device: ownership
+    // drops the pill block, yet its words still mark a decline rectangle. A block wholly inside our chip
+    // (our own pixels) and one crossing a foreign window never do.
+    @Test fun `decline words under our own chip window still mark the decline control, never others' windows`() = runBlocking {
+        val didi = DidiOcrParser.DIDI_PACKAGE
+        val chip = HostRect(36, 204, 756, 540)
+        val bubble = HostRect(900, 1000, 1080, 1100)
+        val scope = HostWindowOwnership.fromWindows(didi, 1_000, display, 1, listOf(
+            VisibleHostWindow(1, didi, display, 1, true),
+            VisibleHostWindow(2, "mx.kompara", chip, 4, false, accessibilityOverlay = true),
+            VisibleHostWindow(3, "com.example.bubble", bubble, 5, false),
+        ), ownOverlayPackage = "mx.kompara")!!
+        val pill = block("X Rechazo permitido", 480, 163, 993, 213)
+        val frame = listOf(pill, block("Pon Tu Precio", 105, 641, 425, 682), block("$68.60", 83, 774, 511, 886),
+            block("1 punto", 101, 936, 247, 991), block("Tarjeta bancaria verificada", 149, 1180, 767, 1226),
+            block("O 10 min (1.2 km)", 118, 1339, 504, 1394), block("Avenida Ficticia 9, Colonia Prueba", 165, 1406, 974, 1462),
+            block("39 min (7.2 km)", 151, 1550, 524, 1602), block("Aceptar $68.60", 348, 1822, 722, 1876),
+            block("$73.60 $76.60 $79.60", 99, 1996, 796, 2045),
+            block("permitido", 100, 300, 400, 350),           // wholly inside our chip
+            block("Rechazo", 920, 1020, 1060, 1060))           // crosses a foreign window
+        assertFalse("The device's ownership never owns the pill block", scope.owns(HostRect(480, 163, 993, 213)))
+        val offers = mutableListOf<OfferEvent.Parsed>()
+        val collector = launch(Dispatchers.Unconfined) { OfferEventBus.events.collect { if (it is OfferEvent.Parsed) offers += it } }
+        try {
+            OfferFramePipeline(recordFixtures = false).process(frame, ScreenRect(chip.left, chip.top, chip.right, chip.bottom),
+                null, capturedAtMs = 1_000, displayBounds = display, density = 3f, foregroundPackage = didi, windowOwnership = scope)
+            yield()
+            val card = offers.single().card
+            assertEquals(68.60, card.fare!!, 0.001)
+            val g = card.hostGeometry!!
+            assertEquals(listOf(HostRect(480, 163, 993, 213)), g.declineControls)
+            assertTrue(HostRect(480, 163, 993, 213) in g.protectedControls)
+            assertFalse("Never an upper anchor or route", HostRect(480, 163, 993, 213) in
+                g.ocrEvidence!!.upperAnchors + g.ocrEvidence!!.routeAnchors)
+            assertFalse(HostRect(100, 300, 400, 350) in g.protectedControls)
+            assertFalse(HostRect(920, 1020, 1060, 1060) in g.protectedControls)
+            assertTrue("The foreign window stays a placement obstacle", bubble in g.protectedControls)
+            assertFalse("Our chip window still never repels its own placement", chip in g.protectedControls)
+        } finally { collector.cancelAndJoin() }
+    }
+
     private fun assertNoOffer(scope: HostWindowOwnership?) = runBlocking {
         val offers = mutableListOf<OfferEvent.Parsed>()
         val ledger = mutableListOf<LifecycleSignal.OfferSeen>()

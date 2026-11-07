@@ -85,6 +85,8 @@ class OverlayController @Inject constructor(
     private var softHidden = false
     /** TEMP DIAG: the last on-screen rect verified by getLocationOnScreen at reveal. */
     private var revealedRect: HostRect? = null
+    /** TEMP DIAG: decline rects latched for the current offer (count only). */
+    private var latchedDeclines = 0
     private var event: OfferEvent.Parsed? = null
     private var evaluated = false
     private var chipState by mutableStateOf<ReglaModel?>(null)
@@ -246,6 +248,7 @@ class OverlayController @Inject constructor(
         val current = placement
         val evidence = placementEvidence.observe(rawGeometry!!, v)
         val g = evidence.geometry
+        latchedDeclines = evidence.latched
         val currentIsSafe = current != null && !(evidence.dock && !current.docked) &&
             OverlayPositioning.valid(current.position, current.size, g, v, current.overMarker, current.docked)
         if (current != null && !currentIsSafe)
@@ -265,7 +268,9 @@ class OverlayController @Inject constructor(
             "routes=${rawGeometry.ocrEvidence?.routeAnchors?.map { it.diag() }} controls=${rawGeometry.protectedControls.map { it.diag() }} " +
             "soft=${rawGeometry.softObstacles.map { it.diag() }} mask=${rawGeometry.ocrEvidence?.overlayMask?.diag()} " +
             "ceiling=${evidence.ceiling} dock=${evidence.dock} current=${current?.position?.bounds(current.size)?.diag()} " +
-            "currentIsSafe=$currentIsSafe saved=$savedPosition savedDocked=$savedDocked")
+            "currentIsSafe=$currentIsSafe saved=$savedPosition savedDocked=$savedDocked " +
+            "decline=${rawGeometry.declineControls.diagList()} latched=${evidence.latched} " +
+            "touch=${current?.let { currentIsSafe && OverlayPositioning.touchable(it, g) }}")
         attach()
     }
 
@@ -470,11 +475,18 @@ class OverlayController @Inject constructor(
         }
         // A soft-hidden chip stays settled but invisible until the next parsed frame.
         if (softHidden) return
-        if (debugDiag && view.alpha != 1f) Log.d(TAG, "TEMP DIAG window reveal rect=${actual.bounds(shown.size).diag()}")
+        // 0.2.17 (user decision 2026-11-07, "only in a clear slot"): draggable only in a strict tier
+        // over no host control or soft chrome; docked or over host chrome, taps pass through.
+        val touchable = OverlayPositioning.touchable(shown, g)
+        if (debugDiag && view.alpha != 1f) Log.d(TAG, "TEMP DIAG window reveal rect=${actual.bounds(shown.size).diag()} " +
+            "touch=$touchable decline=${g.declineControls.diagList()} latched=$latchedDeclines")
         revealedRect = actual.bounds(shown.size)
         view.alpha = 1f
-        if (params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE != 0) {
-            params.flags = params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+        val untouchable = params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE != 0
+        if (untouchable == touchable) {
+            params.flags = if (touchable) params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+                else params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+            if (debugDiag) Log.d(TAG, "TEMP DIAG window touch=$touchable rect=${revealedRect?.diag()}")
             runCatching { windowManager.updateViewLayout(view, params) }.onFailure {
                 diagnostic("WINDOW_UPDATE_FAILED", it.javaClass.simpleName); detach(); return
             }
@@ -542,6 +554,8 @@ class OverlayController @Inject constructor(
         val g = geometry ?: return
         val v = viewport ?: return
         val resolved = OverlayPositioning.snapToEdge(current, g, v)
+        // Only a drag that ends in a valid clear slot becomes the driver's saved slot.
+        if (current.docked || !OverlayPositioning.clearSlot(resolved, current.size, g, v, current.overMarker)) return
         val key = OverlayPositionKey(g.packageName, v.orientation)
         savedPositions[key] = resolved; savedPosition = resolved
         applyPlacement(current.copy(position = resolved))
@@ -713,6 +727,8 @@ class OverlayController @Inject constructor(
         it.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0 } == true
 
     private fun HostRect.diag() = "$left,$top,$right,$bottom"
+    /** Count and rects only, e.g. `1:[479,156,993,212]`. */
+    private fun List<HostRect>.diagList() = "$size:${map { it.diag() }}"
 
     /** Fixed reason keys keep changing frame coordinates from defeating the log limit. */
     private fun diagnostic(reason: String, details: String = "") {

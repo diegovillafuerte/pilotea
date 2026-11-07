@@ -139,10 +139,13 @@ class OfferFramePipeline(
             it.capturedAtMs == capturedAtMs && it.isIdleHost && it.packageName == hostPackage &&
                 (displayBounds == null || it.displayBounds == displayBounds)
         } == true
+        // Our own chip window is excluded from ownership, so a decline pill crossing its edge is not in
+        // ownedBlocks: its words are read from the blocks beneath our own overlay, as decline rects only.
         val parsed = if (ownUi || observedAbsent) null else selectOfferCard(uberParser, didiParser,
             blocks, capturedAtMs, offerObservation, displayBounds = displayBounds, density = density,
             accessibility = ownedAccessibility, appearance = appearance, chipRect = chipRect,
-            foregroundPackage = hostPackage)?.let {
+            foregroundPackage = hostPackage,
+            unmaskedBlocks = beneathOwnOverlay(rawBlocks, requireNotNull(windowOwnership), chipRect))?.let {
                 it.copy(hostGeometry = it.hostGeometry?.withinOwnership(requireNotNull(windowOwnership)))
             }
         parsed?.let {
