@@ -23,6 +23,11 @@ sealed interface OfferEvent {
         override val packageName: String,
         override val timestampMs: Long,
         val card: OfferCard,
+        /**
+         * This frame may belong to another offer than [card]'s session: a replacement is pending or
+         * the frame contradicts the held offer. It says nothing about what lies under our plate.
+         */
+        val identityUnresolved: Boolean = false,
     ) : OfferEvent
 
     /**

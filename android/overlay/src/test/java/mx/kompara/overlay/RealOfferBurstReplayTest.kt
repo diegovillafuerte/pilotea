@@ -35,6 +35,7 @@ import mx.kompara.overlay.RealGeometryFixtures.display
 import mx.kompara.overlay.RealGeometryFixtures.statusBar
 import mx.kompara.overlay.RealGeometryFixtures.systemWindows
 import mx.kompara.parsers.model.HostOrientation
+import mx.kompara.parsers.model.HostGeometry
 import mx.kompara.parsers.model.HostRect
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -165,9 +166,15 @@ class RealOfferBurstReplayTest {
             val g = decision.geometry
             val current = shown
             if (current != null && !(decision.dock && !current.docked) &&
-                OverlayPositioning.valid(current.position, current.size, g, viewport, current.overMarker, current.docked))
+                OverlayPositioning.valid(current.position, current.size, g, viewport, current.overMarker, current.docked, kept = true))
                 return "${prefix}displayed:keep"
-            return when (val p = OverlayPositioning.place(g, host, viewport, g.capturedAtMs, full, compact, null, decision.dock)) {
+            fun placed(geometry: HostGeometry) = OverlayPositioning.place(geometry, host, viewport, geometry.capturedAtMs, full, compact, null, decision.dock)
+            // OverlayController.applyPlacement: the reservation never costs a chip.
+            val first = placed(g)
+            val relaxed = if (first is OverlayPlacement.Suppressed) evidence.withoutReservation() else null
+            val retried = relaxed?.let(::placed)
+            if (retried is OverlayPlacement.Displayed) evidence.commitWaiver()
+            return when (val p = retried ?: first) {
                 is OverlayPlacement.Displayed -> { shown = p; "${prefix}displayed:${p.rule}:${p.format}" }
                 else -> { shown = null; "${prefix}detached:$p ceiling=${decision.ceiling}" }
             }
@@ -436,7 +443,7 @@ class RealOfferBurstReplayTest {
     @Test fun `a tall Pon Tu Precio card shows a compact chip below the pill on every frame`() {
         for ((name, blocks, fare, trip) in listOf(Quad("tall", RealGeometryFixtures.didiPtpTallS25(), 41.58, 2.1),
             Quad("tall2", RealGeometryFixtures.didiPtpTall2S25(), 34.42, 2.7))) {
-            val rect = if (name == "tall") HostRect(36, 260, 756, 500) else HostRect(36, 261, 756, 501)
+            val rect = HostRect(36, 262, 756, 502)
             val lane = replay(DIDI) { repeat(5) { frame("$name f$it", name, blocks, it * 850L) } }
             assertContract(lane, mapOf(name to fare), mapOf(name to trip))
             val failures = declineCovered(lane, RealGeometryFixtures.pillBody) +
@@ -445,11 +452,11 @@ class RealOfferBurstReplayTest {
         }
     }
 
-    @Test fun `a Mas Rapido chip keeps the top-left dock beside the round X`() {
+    @Test fun `a Mas Rapido chip docks below the reserved decline area, beside the round X`() {
         val lane = replay(DIDI) { repeat(5) { frame("mr f$it", "mr", RealGeometryFixtures.didiMasRapidoS25(), it * 850L) } }
         assertContract(lane, mapOf("mr" to 152.36), mapOf("mr" to 13.1))
         val failures = declineCovered(lane, RealGeometryFixtures.closeBody) +
-            lane.frames.filter { it.rect != HostRect(36, 139, 756, 475) }.map { "${it.label} at ${it.rect}" } +
+            lane.frames.filter { it.rect != HostRect(36, 262, 756, 598) }.map { "${it.label} at ${it.rect}" } +
             lane.frames.filter { it.rect?.overlaps(HostRect(152, 1694, 495, 1746).expanded(48)) == true }.map { "${it.label} on the metres pickup" }
         assertTrue(failures.joinToString("\n", postfix = "\n${trace(lane)}"), failures.isEmpty())
     }
@@ -466,32 +473,40 @@ class RealOfferBurstReplayTest {
         assertTrue(failures.joinToString("\n", postfix = "\n${trace(lane)}"), failures.isEmpty())
     }
 
-    // Round 2: on the device our chip WINDOW is excluded from ownership, so the pill block crossing its
-    // top edge is never owned; it is recognised from the blocks before that exclusion (decline rect only).
-    @Test fun `a pill missed on the first frame is read from the unmasked blocks on the second`() {
+    // 0.2.18: with the pill unread on the first capture the calibrated reservation already keeps the chip
+    // off it, so the FOOT/FULL that 0.2.17 placed across the pill's lower edge can no longer happen.
+    @Test fun `a pill missed on the first frame never lets the chip over it, first frame included`() {
         val noPill = RealGeometryFixtures.didiPtpS25().filterNot { it.text.contains("Rechazo") }
-        val pillText = RealGeometryFixtures.didiPtpS25().single { it.text.contains("Rechazo") }.bounds
-            .let { HostRect(it.left, it.top, it.right, it.bottom) }
         val lane = replay(DIDI) {
             frame("ptp f0", "ptp", noPill, 0)
             for (i in 1..4) frame("ptp f$i", "ptp", RealGeometryFixtures.didiPtpS25(), i * 850L)
         }
         assertContract(lane, mapOf("ptp" to 68.60), mapOf("ptp" to 7.2))
-        val first = lane.frames.first()
-        assertTrue(trace(lane), first.rect == HostRect(36, 209, 756, 545))
-        assertTrue("Frame 1's chip window crosses the pill text's lower edge, so frame 2 owns no pill block",
-            first.rect!!.overlaps(pillText) && !first.rect!!.contains(pillText))
-        assertTrue("Frame 2 moves the chip below the pill: ${trace(lane)}", lane.frames[1].rect!!.top >= pillText.bottom + 48)
-        val failures = declineCovered(lane, RealGeometryFixtures.pillBody).filterNot { it.startsWith("ptp f0 ") } +
-            lane.frames.drop(1).filter { it.rect != HostRect(36, 305, 756, 545) }.map { "${it.label} at ${it.rect}" }
+        val failures = declineCovered(lane, RealGeometryFixtures.pillBody) +
+            lane.frames.filter { it.rect != HostRect(36, 305, 756, 545) }.map { "${it.label} at ${it.rect}" }
         assertTrue(failures.joinToString("\n", postfix = "\n${trace(lane)}"), failures.isEmpty())
+    }
+
+    @Test fun `a DiDi offer whose decline control OCR never reads stays below the reserved area`() {
+        val strip = { blocks: List<OcrBlock> -> blocks.filterNot { it.text.contains("Rechazo") || it.text.trim() == "X" } }
+        for ((name, blocks, rect) in listOf(Triple("ptp", RealGeometryFixtures.didiPtpS25(), HostRect(36, 305, 756, 545)),
+            Triple("tall", RealGeometryFixtures.didiPtpTallS25(), HostRect(36, 262, 756, 502)),
+            Triple("mr", RealGeometryFixtures.didiMasRapidoS25(), HostRect(36, 262, 756, 598)))) {
+            val lane = replay(DIDI) { repeat(5) { frame("$name f$it", name, strip(blocks), it * 850L) } }
+            val failures = declineCovered(lane, RealGeometryFixtures.pillBody).filter { name != "mr" } +
+                declineCovered(lane, RealGeometryFixtures.closeBody) +
+                lane.frames.filter { it.rect != rect || !it.visible }.map { "${it.label} at ${it.rect} visible=${it.visible}" }
+            assertTrue(failures.joinToString("\n", postfix = "\n${trace(lane)}"), failures.isEmpty())
+        }
     }
 
     @Test fun `back-to-back DiDi offers through the trip list never lend the previous fare`() {
         val lane = replay(DIDI) {
             var t = 0L
             repeat(3) { frame("a f$it", "a", RealGeometryFixtures.didi(), t); t += 850 }
-            repeat(2) { frame("list f$it", "list", RealGeometryFixtures.didiList(), t); t += 850 }
+            // Invented list geometry, moved below 0.2.18's dock (mask to y 606): a row under our own plate
+            // is masked from OCR whatever the screen (TD-062); this test is about lending the previous fare.
+            repeat(2) { frame("list f$it", "list", RealGeometryFixtures.shift(RealGeometryFixtures.didiList(), 120), t); t += 850 }
             repeat(4) { frame("b f$it", "b", RealGeometryFixtures.didiNext(), t); t += 850 }
         }
         assertContract(lane, mapOf("a" to 132.59, "list" to 74.10, "b" to 61.20),

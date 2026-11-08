@@ -16,7 +16,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -94,6 +96,7 @@ class OverlayControllerPlacementTest {
     private val geometry = HostGeometry("com.ubercab.driver", "fake-live-frame", System.currentTimeMillis(),
         viewport.bounds, viewport.orientation, HostRect(0, 0, 1080, 120), HostRect(48, 627, 1032, 2140),
         emptyList(), emptyList())
+    private val didi = geometry.copy(packageName = "com.didiglobal.driver")
     private val placement = OverlayPlacement.Displayed(OverlayPosition(324, 243), ChipSize(720, 336), PlateFormat.FULL)
     private val reading = VerdictChipState.reading(PlatformThreshold.DEFAULT, PreferredMetric.IPK)
     private val rated = VerdictChipState(reading.copy(band = ReglaBand.Rated(ReglaPosition.ABOVE, BigDecimal("12"))), "15")
@@ -160,6 +163,7 @@ class OverlayControllerPlacementTest {
         val controller = controller()
         try {
             ShadowLog.clear()
+            field("foregroundHost").set(controller, geometry.packageName)
             val v = method("readViewport", WindowInsets::class.java).invoke(controller, null) as OverlayViewport
             val shown = OverlayPlacement.Displayed(OverlayPosition(12, 300), ChipSize(240, 112), PlateFormat.FULL)
             val view = ComposeView(context).apply { alpha = 1f }
@@ -377,6 +381,7 @@ class OverlayControllerPlacementTest {
         val scope = CoroutineScope(SupervisorJob() + StandardTestDispatcher(testScheduler))
         val controller = controller()
         try {
+            field("foregroundHost").set(controller, geometry.packageName)
             val v = method("readViewport", WindowInsets::class.java).invoke(controller, null) as OverlayViewport
             val g = geometry.copy(displayBounds = v.bounds, offerCard = HostRect(0, 600, v.bounds.right, 800),
                 topChrome = HostRect(0, 0, v.bounds.right, 100))
@@ -590,6 +595,22 @@ class OverlayControllerPlacementTest {
         } finally { controller.stop(); Dispatchers.resetMain() }
     }
 
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test fun `the parse ceiling releases both latches after a C11 detach too`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val controller = prepared()
+        try {
+            revealed(controller)
+            val (evidence, clean) = latched(controller, viewport)
+            method("detach", String::class.java).invoke(controller, "PLACEMENT_Suppressed")
+            assertNull("C11 took the window", field("composeView").get(controller))
+            assertEquals("A C11 detach does not clear the latches", 1, evidence.observe(clean, viewport).latched)
+            heartbeat().invoke(controller, backgroundScope, true, true)
+            advance(15_010)
+            assertReleased(evidence, clean, viewport, "PARSE_CEILING while detached")
+        } finally { controller.stop(); Dispatchers.resetMain() }
+    }
+
     private fun heartbeat() = method("heartbeat", CoroutineScope::class.java,
         Boolean::class.javaPrimitiveType!!, Boolean::class.javaPrimitiveType!!)
 
@@ -664,17 +685,22 @@ class OverlayControllerPlacementTest {
         } finally { controller.stop(); Dispatchers.resetMain() }
     }
 
-    /** The real event path: start() with a controlled bus and a real ledger behind the evaluation. */
-    private suspend fun kotlinx.coroutines.test.TestScope.started(controller: OverlayController): MutableSharedFlow<OfferEvent> {
-        val events = MutableSharedFlow<OfferEvent>(extraBufferCapacity = 64)
-        controller.start(backgroundScope, events, context, flowOf(null))
-        testScheduler.runCurrent()
+    private fun liveOffer(controller: OverlayController, host: String, at: Long): OfferEvent.Parsed {
         val v = method("readViewport", WindowInsets::class.java).invoke(controller, null) as OverlayViewport
-        val live = geometry.copy(displayBounds = v.bounds, capturedAtMs = System.currentTimeMillis())
-        events.emit(OfferEvent.Parsed(live.packageName, live.capturedAtMs, OfferCard(platform = live.packageName,
+        val live = geometry.copy(packageName = host, displayBounds = v.bounds, capturedAtMs = at)
+        return OfferEvent.Parsed(live.packageName, live.capturedAtMs, OfferCard(platform = live.packageName,
             fare = 79.45, pickupDistanceKm = 0.2, pickupEtaMin = 1.0, tripDistanceKm = 2.4, tripDurationMin = 24.0,
             paymentBasis = "DRIVER_PAYMENT", captureSource = "OCR", sessionId = "live", sessionStartedAt = live.capturedAtMs,
-            hostGeometry = live)))
+            hostGeometry = live))
+    }
+
+    /** The real event path: start() with a controlled bus and a real ledger behind the evaluation. */
+    private suspend fun kotlinx.coroutines.test.TestScope.started(controller: OverlayController,
+        foreground: Flow<String?> = flowOf(null), host: String = geometry.packageName): MutableSharedFlow<OfferEvent> {
+        val events = MutableSharedFlow<OfferEvent>(extraBufferCapacity = 64)
+        controller.start(backgroundScope, events, context, foreground)
+        testScheduler.runCurrent()
+        events.emit(liveOffer(controller, host, System.currentTimeMillis()))
         testScheduler.runCurrent()
         assertNotNull("The Parsed attached the chip", field("composeView").get(controller))
         assertEquals(false, field("softHidden").get(controller))
@@ -734,7 +760,8 @@ class OverlayControllerPlacementTest {
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     @Test fun `a parse landing inside the soft-hide iteration never delays the next soft hide`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val controller = prepared()
+        val controller = prepared(didi) // a touchable chip: its soft hide updates the window
+        evidence(controller).observe(didi, viewport)
         val heartbeat = heartbeat()
         var inside: (() -> Unit)? = null
         val real = context.getSystemService(WindowManager::class.java)
@@ -780,7 +807,8 @@ class OverlayControllerPlacementTest {
             view.viewTreeObserver.dispatchOnPreDraw()
             assertEquals("Screen verification must happen on first pre-draw", 1, ScreenLocation.reads)
             assertEquals(1f, view.alpha)
-            assertEquals(0, params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE)
+            assertTrue("Uber: taps pass through from the first reveal",
+                params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE != 0)
         } finally { controller.stop() }
     }
 
@@ -801,17 +829,21 @@ class OverlayControllerPlacementTest {
             view.viewTreeObserver.dispatchOnPreDraw()
             assertEquals(1, ScreenLocation.reads)
             assertEquals(1f, view.alpha)
+            assertTrue("Uber: a saved slot is pass-through too",
+                params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE != 0)
         } finally { controller.stop() }
     }
 
     // 0.2.17 (user decision 2026-11-07, "only in a clear slot"): a docked chip, or one over any host
-    // control or soft chrome, passes taps through to Uber/DiDi; only a clear strict slot is draggable.
+    // control or soft chrome, passes taps through to DiDi; only a clear strict slot is draggable.
+    // 0.2.18: DiDi only, and only once the footprint was seen clear this session.
     @Test fun `a docked plate reveals pass-through and only a clear strict plate is draggable`() {
-        val controller = prepared()
+        val controller = prepared(didi)
         val docked = OverlayPlacement.Displayed(OverlayPosition(36, 168), ChipSize(720, 336), PlateFormat.FULL,
             rule = PlacementRule.DOCK)
-        val radar = geometry.copy(softObstacles = listOf(HostRect(202, 423, 873, 495)))
+        val radar = didi.copy(softObstacles = listOf(HostRect(202, 423, 873, 495)))
         try {
+            evidence(controller).observe(didi, viewport) // a frame with no plate of ours on screen
             state(controller, "geometry", radar)
             state(controller, "savedPosition", docked.position)
             ScreenLocation.position = docked.position
@@ -826,7 +858,7 @@ class OverlayControllerPlacementTest {
             view.viewTreeObserver.dispatchOnPreDraw()
             assertTrue(params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE != 0)
             // The same footprint as a clear strict placement: draggable, no hide.
-            state(controller, "geometry", geometry)
+            state(controller, "geometry", didi)
             method("applyPlacement", OverlayPlacement::class.java).invoke(controller, docked.copy(rule = PlacementRule.FOOT))
             view.viewTreeObserver.dispatchOnPreDraw()
             assertEquals(1f, view.alpha)
@@ -846,6 +878,468 @@ class OverlayControllerPlacementTest {
             assertEquals(0f, view.alpha)
             assertTrue(params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE != 0)
         } finally { controller.stop() }
+    }
+
+    // 0.2.18 (user decision 2026-11-08): Uber's chip never takes touches; DiDi's only once seen clear.
+    private fun evidence(controller: OverlayController) = field("placementEvidence").get(controller) as PlacementEvidence
+    private val notTouchable = WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+
+    @Test fun `an Uber chip in a clear strict slot stays pass-through`() {
+        val controller = prepared()
+        try {
+            evidence(controller).observe(geometry, viewport)
+            method("attach").invoke(controller)
+            val view = field("composeView").get(controller) as ComposeView
+            val params = field("layoutParams").get(controller) as WindowManager.LayoutParams
+            view.layout(0, 0, 720, 336)
+            for (rule in PlacementRule.entries) {
+                method("applyPlacement", OverlayPlacement::class.java).invoke(controller, placement.copy(rule = rule))
+                view.viewTreeObserver.dispatchOnPreDraw()
+                assertTrue("$rule", params.flags and notTouchable != 0)
+            }
+        } finally { controller.stop() }
+    }
+
+    private fun didiFrame(v: OverlayViewport, mask: HostRect?) = didi.copy(displayBounds = v.bounds,
+        capturedAtMs = System.currentTimeMillis(), offerCard = HostRect(0, 627, v.bounds.right, v.bounds.bottom),
+        source = HostGeometrySource.OCR_TEXT_BOUNDS, fareBounds = HostRect(83, 900, 511, 1012),
+        ocrEvidence = HostOcrGeometryEvidence(mask, listOf(HostRect(105, 681, 425, 722)),
+            listOf(HostRect(118, 1339, 504, 1394), HostRect(151, 1550, 524, 1602)), false))
+    private fun parsed(g: HostGeometry, session: String) = OfferEvent.Parsed(g.packageName, g.capturedAtMs,
+        OfferCard(platform = g.packageName, fare = 68.60, sessionId = session, hostGeometry = g))
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Config(qualifiers = "w360dp-h780dp-xxhdpi")
+    @Test fun `a back-to-back swap in the same window stays pass-through under the old plate`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val controller = prepared(didi)
+        try {
+            val v = method("readViewport", WindowInsets::class.java).invoke(controller, null) as OverlayViewport
+            val first = didiFrame(v, mask = null)
+            state(controller, "geometry", first); state(controller, "viewport", v)
+            field("event").set(controller, parsed(first, "a"))
+            evidence(controller).observe(first, v)
+            method("attach").invoke(controller)
+            val view = field("composeView").get(controller) as ComposeView
+            val params = field("layoutParams").get(controller) as WindowManager.LayoutParams
+            view.layout(0, 0, 720, 336)
+            method("applyPlacement", OverlayPlacement::class.java).invoke(controller, placement)
+            view.viewTreeObserver.dispatchOnPreDraw()
+            assertEquals(1f, view.alpha)
+            assertEquals("First offer: no plate on its first frame, draggable", 0, params.flags and notTouchable)
+
+            // SoftHidden -> Reading with the window persisting: the new frame was captured under the old plate.
+            render(controller, backgroundScope, OverlayVisibility.SoftHidden)
+            assertTrue(params.flags and notTouchable != 0)
+            val mask = placement.position.bounds(placement.size).expanded(8)
+            val swap = parsed(didiFrame(v, mask), "b")
+            render(controller, backgroundScope, OverlayVisibility.Reading("b", swap))
+            assertSame("The window persists", view, field("composeView").get(controller))
+            view.layout(0, 0, 720, 336)
+            view.viewTreeObserver.dispatchOnPreDraw()
+            assertEquals("Revealed in place", 1f, view.alpha)
+            assertTrue("Never seen clear this session: pass-through", params.flags and notTouchable != 0)
+            render(controller, backgroundScope, OverlayVisibility.Showing(rated, "b", swap))
+            view.layout(0, 0, 720, 336)
+            view.viewTreeObserver.dispatchOnPreDraw()
+            assertTrue("For the whole offer", params.flags and notTouchable != 0)
+        } finally { controller.stop(); Dispatchers.resetMain() }
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Config(qualifiers = "w360dp-h780dp-xxhdpi")
+    @Test fun `Reading on a touchable window goes pass-through at once`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val controller = prepared(didi)
+        try {
+            val v = method("readViewport", WindowInsets::class.java).invoke(controller, null) as OverlayViewport
+            val first = didiFrame(v, mask = null)
+            state(controller, "geometry", first); state(controller, "viewport", v)
+            field("event").set(controller, parsed(first, "a"))
+            evidence(controller).observe(first, v)
+            method("attach").invoke(controller)
+            val view = field("composeView").get(controller) as ComposeView
+            val params = field("layoutParams").get(controller) as WindowManager.LayoutParams
+            view.layout(0, 0, 720, 336)
+            method("applyPlacement", OverlayPlacement::class.java).invoke(controller, placement)
+            view.viewTreeObserver.dispatchOnPreDraw()
+            assertEquals(0, params.flags and notTouchable)
+            // A corroborated replacement may emit Reading directly, with no soft hide before it.
+            val mask = placement.position.bounds(placement.size).expanded(8)
+            render(controller, backgroundScope, OverlayVisibility.Reading("b", parsed(didiFrame(v, mask), "b")))
+            assertTrue("Before any pre-draw", params.flags and notTouchable != 0)
+        } finally { controller.stop(); Dispatchers.resetMain() }
+    }
+
+    @Test fun `a drag onto a footprint never seen clear stays where it is`() {
+        val controller = prepared(didi)
+        val onDrag = method("onDrag", Float::class.javaPrimitiveType!!, Float::class.javaPrimitiveType!!)
+        val saved = { (field("savedPosition\$delegate").get(controller) as MutableState<*>).value }
+        fun frame(mask: HostRect) = didi.copy(ocrEvidence = HostOcrGeometryEvidence(mask, emptyList(), emptyList(), false))
+        try {
+            field("placement").set(controller, placement.copy(rule = PlacementRule.FOOT))
+            // Our plate was above the target on the only frame of this session.
+            evidence(controller).observe(frame(HostRect(36, 0, 756, 200)), viewport)
+            assertTrue(evidence(controller).seenClear(placement.position.bounds(placement.size)))
+            onDrag.invoke(controller, 0f, -73f)
+            assertEquals("(324,170) overlaps that plate: unseen, so rejected", placement.position, saved())
+            evidence(controller).observe(frame(HostRect(36, 900, 756, 1200)), viewport)
+            onDrag.invoke(controller, 0f, -73f)
+            assertEquals("Seen clear on a later frame", OverlayPosition(324, 170), saved())
+        } finally { controller.stop() }
+    }
+
+    // 0.2.18: OCR boxes jitter 1-3 px and the latch only grows; a placed dock slot survives that.
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Config(qualifiers = "w360dp-h780dp-xxhdpi")
+    @Test fun `a jittering decline rect keeps a docked chip with no hide and a real growth moves it`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val controller = prepared(didi)
+        try {
+            val v = method("readViewport", WindowInsets::class.java).invoke(controller, null) as OverlayViewport
+            fun frame(bottom: Int) = didi.copy(displayBounds = v.bounds, capturedAtMs = System.currentTimeMillis(),
+                offerCard = HostRect(0, 423, v.bounds.right, v.bounds.bottom), source = HostGeometrySource.OCR_TEXT_BOUNDS,
+                protectedControls = listOf(HostRect(479, 156, 993, bottom)), declineControls = listOf(HostRect(479, 156, 993, bottom)),
+                fareBounds = HostRect(12, 618, 472, 730), ocrEvidence = HostOcrGeometryEvidence(null, listOf(HostRect(104, 471, 420, 529)),
+                    listOf(HostRect(176, 1337, 483, 1394), HostRect(150, 1547, 502, 1601)), false))
+            val docked = OverlayPlacement.Displayed(OverlayPosition(36, 260), ChipSize(720, 240), PlateFormat.COMPACT, rule = PlacementRule.DOCK)
+            val view = ComposeView(context).apply { alpha = 1f }
+            field("composeView").set(controller, view)
+            field("placement").set(controller, docked)
+            field("layoutParams").set(controller, WindowManager.LayoutParams().apply { x = 36; y = 260 })
+            state(controller, "geometry", frame(212)); state(controller, "viewport", v)
+            render(controller, backgroundScope, OverlayVisibility.Showing(rated, "tall", parsed(frame(212), "tall")))
+            assertEquals(1f, view.alpha)
+            render(controller, backgroundScope, OverlayVisibility.Showing(rated, "tall", parsed(frame(215), "tall")))
+            assertEquals("212 -> 215: no hide", 1f, view.alpha)
+            assertSame(docked, field("placement").get(controller))
+            assertEquals(true, (field("savedDocked\$delegate").get(controller) as MutableState<*>).value)
+            render(controller, backgroundScope, OverlayVisibility.Showing(rated, "tall", parsed(frame(251), "tall")))
+            assertEquals("A 13 dp growth hides and re-places", 0f, view.alpha)
+            assertEquals(false, (field("savedDocked\$delegate").get(controller) as MutableState<*>).value)
+        } finally { controller.stop(); Dispatchers.resetMain() }
+    }
+
+    private val fareRead = didi.copy(fareBounds = HostRect(84, 540, 541, 652))
+    private val reservedHere = HostRect(477, 63, 996, 123) // no system insets in this viewport
+    private val noSlot = OverlayPlacement.Suppressed("NO_SAFE_SPACE")
+    private fun applied(controller: OverlayController, decision: OverlayPlacement) =
+        method("applyPlacement", OverlayPlacement::class.java).invoke(controller, decision)
+
+    @Test fun `a C11 only the reservation causes re-places without it and waives it only once that placed`() {
+        val controller = prepared(fareRead)
+        val current = { (field("geometry\$delegate").get(controller) as MutableState<*>).value as HostGeometry }
+        try {
+            val decision = evidence(controller).observe(fareRead, viewport)
+            assertTrue(reservedHere in decision.geometry.protectedControls)
+            state(controller, "geometry", decision.geometry)
+            method("attach").invoke(controller)
+            applied(controller, noSlot)
+            assertNotNull("Placement runs again on the observed controls alone", field("composeView").get(controller))
+            assertFalse(reservedHere in current().protectedControls || reservedHere in current().declineControls)
+            assertFalse("Nothing is waived before that placement succeeds", evidence(controller).waived)
+            (field("composeView").get(controller) as ComposeView).layout(0, 0, 720, 336)
+            applied(controller, placement)
+            assertTrue("Displayed without it: waived for this offer", evidence(controller).waived)
+        } finally { controller.stop() }
+    }
+
+    @Test fun `a C11 the reservation did not cause detaches and keeps the reservation`() {
+        val controller = prepared(fareRead)
+        try {
+            state(controller, "geometry", evidence(controller).observe(fareRead, viewport).geometry)
+            method("attach").invoke(controller)
+            applied(controller, noSlot)
+            assertNotNull(field("composeView").get(controller))
+            applied(controller, noSlot)
+            assertNull("Nothing fits even without it: C11", field("composeView").get(controller))
+            assertFalse(evidence(controller).waived)
+            assertTrue("The next frame keeps its first-frame protection",
+                reservedHere in evidence(controller).observe(fareRead, viewport).geometry.protectedControls)
+        } finally { controller.stop() }
+    }
+
+    @Test fun `a waived DiDi offer is never touchable`() {
+        val controller = prepared(fareRead)
+        try {
+            state(controller, "geometry", evidence(controller).observe(fareRead, viewport).geometry)
+            method("attach").invoke(controller)
+            val view = field("composeView").get(controller) as ComposeView
+            val params = field("layoutParams").get(controller) as WindowManager.LayoutParams
+            applied(controller, noSlot)
+            view.layout(0, 0, 720, 336)
+            applied(controller, placement)
+            view.viewTreeObserver.dispatchOnPreDraw()
+            assertEquals("Shown over the reserved area's slot", 1f, view.alpha)
+            assertTrue("Its plate may sit where a decline control was never read", params.flags and notTouchable != 0)
+        } finally { controller.stop() }
+    }
+
+    // Codex, REALISTIC: normal DiDi FOOT/COMPACT (36,305)-(756,545), then Uber's tall Radar layout puts
+    // its pill at (204,281)-(878,333) under the chip between captures; only the next capture revoked it.
+    private suspend fun kotlinx.coroutines.test.TestScope.touchableDidi(controller: OverlayController,
+        foreground: Flow<String?>): Triple<ComposeView, WindowManager.LayoutParams, MutableSharedFlow<OfferEvent>> {
+        val events = started(controller, foreground, didi.packageName)
+        val view = field("composeView").get(controller) as ComposeView
+        val params = field("layoutParams").get(controller) as WindowManager.LayoutParams
+        ScreenLocation.position = placement.position
+        view.layout(0, 0, 720, 336)
+        applied(controller, placement)
+        view.viewTreeObserver.dispatchOnPreDraw()
+        assertEquals(1f, view.alpha)
+        assertEquals("A touchable DiDi chip to start from", 0, params.flags and notTouchable)
+        return Triple(view, params, events)
+    }
+
+    private fun preDraw(view: ComposeView) {
+        view.layout(0, 0, view.width, view.height) // WindowManager's traversal after a flag update
+        view.viewTreeObserver.dispatchOnPreDraw()
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Config(qualifiers = "w360dp-h780dp-xxhdpi")
+    @Test fun `switching to Uber revokes touch at once, with no capture in between`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val controller = controller(BoundaryOfferDao(), BoundaryCostProfileDao())
+        val foreground = MutableStateFlow<String?>(didi.packageName)
+        try {
+            val (view, params, events) = touchableDidi(controller, foreground)
+            foreground.value = geometry.packageName
+            testScheduler.runCurrent()
+            assertTrue("Before the next capture", params.flags and notTouchable != 0)
+            assertEquals("Only touch is revoked: the plate stays until the frames say otherwise", 1f, view.alpha)
+            preDraw(view)
+            assertTrue("A pre-draw on the old DiDi geometry does not restore it", params.flags and notTouchable != 0)
+            events.emit(liveOffer(controller, didi.packageName, System.currentTimeMillis() + 5))
+            testScheduler.runCurrent()
+            preDraw(view)
+            assertTrue("Touch needs DiDi in the foreground, not only a DiDi frame", params.flags and notTouchable != 0)
+        } finally { controller.stop(); Dispatchers.resetMain() }
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Config(qualifiers = "w360dp-h780dp-xxhdpi")
+    @Test fun `a foreground package that is neither host revokes touch too`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val controller = controller(BoundaryOfferDao(), BoundaryCostProfileDao())
+        val foreground = MutableStateFlow<String?>(didi.packageName)
+        try {
+            val (view, params) = touchableDidi(controller, foreground)
+            foreground.value = null
+            testScheduler.runCurrent()
+            assertTrue(params.flags and notTouchable != 0)
+            preDraw(view)
+            assertTrue(params.flags and notTouchable != 0)
+        } finally { controller.stop(); Dispatchers.resetMain() }
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Config(qualifiers = "w360dp-h780dp-xxhdpi")
+    @Test fun `back on DiDi the chip stays pass-through until a fresh valid DiDi frame`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val controller = controller(BoundaryOfferDao(), BoundaryCostProfileDao())
+        val foreground = MutableStateFlow<String?>(didi.packageName)
+        try {
+            val (view, params, events) = touchableDidi(controller, foreground)
+            foreground.value = geometry.packageName
+            testScheduler.runCurrent()
+            foreground.value = didi.packageName
+            testScheduler.runCurrent()
+            assertTrue(params.flags and notTouchable != 0)
+            preDraw(view)
+            assertTrue("The foreground alone does not vouch for the plate", params.flags and notTouchable != 0)
+            events.emit(liveOffer(controller, didi.packageName, System.currentTimeMillis() - 1_000))
+            testScheduler.runCurrent()
+            preDraw(view)
+            assertTrue("A frame captured before the switch is not fresh", params.flags and notTouchable != 0)
+            events.emit(liveOffer(controller, didi.packageName, System.currentTimeMillis() + 5))
+            testScheduler.runCurrent()
+            preDraw(view)
+            assertEquals("A fresh DiDi frame that satisfies every rule", 0, params.flags and notTouchable)
+        } finally { controller.stop(); Dispatchers.resetMain() }
+    }
+
+    @Test fun `a drag in progress stops when the foreground leaves DiDi`() {
+        val controller = prepared(didi)
+        val onDrag = method("onDrag", Float::class.javaPrimitiveType!!, Float::class.javaPrimitiveType!!)
+        try {
+            evidence(controller).observe(didi, viewport)
+            field("placement").set(controller, placement.copy(rule = PlacementRule.FOOT))
+            method("onForegroundChanged", String::class.java).invoke(controller, geometry.packageName)
+            onDrag.invoke(controller, 0f, -73f)
+            assertEquals(placement.position, (field("savedPosition\$delegate").get(controller) as MutableState<*>).value)
+        } finally { controller.stop() }
+    }
+
+    // Claude, judge REALISTIC (June: 29 of 84 DiDi transitions under 4.5 s): another trip leg publishes
+    // under the OLD session with identityUnresolved, so no Reading, no reset, no forcePassThrough.
+    private fun revealedClearDidi(controller: OverlayController, v: OverlayViewport): Pair<ComposeView, WindowManager.LayoutParams> {
+        val first = didiFrame(v, mask = null)
+        state(controller, "geometry", first); state(controller, "viewport", v)
+        field("event").set(controller, parsed(first, "a"))
+        evidence(controller).observe(first, v)
+        method("attach").invoke(controller)
+        val view = field("composeView").get(controller) as ComposeView
+        val params = field("layoutParams").get(controller) as WindowManager.LayoutParams
+        view.layout(0, 0, 720, 336)
+        applied(controller, placement)
+        view.viewTreeObserver.dispatchOnPreDraw()
+        assertEquals(1f, view.alpha)
+        assertEquals("Seen clear: draggable", 0, params.flags and notTouchable)
+        return view to params
+    }
+    private val ownMask = placement.position.bounds(placement.size).expanded(8)
+    private fun pending(v: OverlayViewport) = parsed(didiFrame(v, ownMask), "a").copy(identityUnresolved = true)
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Config(qualifiers = "w360dp-h780dp-xxhdpi")
+    @Test fun `a pending replacement after a soft hide keeps the chip pass-through`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val controller = prepared(didi)
+        try {
+            val v = method("readViewport", WindowInsets::class.java).invoke(controller, null) as OverlayViewport
+            val (view, params) = revealedClearDidi(controller, v)
+            render(controller, backgroundScope, OverlayVisibility.SoftHidden)
+            render(controller, backgroundScope, OverlayVisibility.Showing(rated, "a", pending(v)))
+            preDraw(view)
+            assertEquals("Revealed on the pending frame", 1f, view.alpha)
+            assertTrue("It may be another offer: FLAG_NOT_TOUCHABLE stays", params.flags and notTouchable != 0)
+        } finally { controller.stop(); Dispatchers.resetMain() }
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Config(qualifiers = "w360dp-h780dp-xxhdpi")
+    @Test fun `with no gap frame a pending replacement sets the flag, and its confirmation needs its own clear frame`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val controller = prepared(didi)
+        try {
+            val v = method("readViewport", WindowInsets::class.java).invoke(controller, null) as OverlayViewport
+            val (view, params) = revealedClearDidi(controller, v)
+            render(controller, backgroundScope, OverlayVisibility.Showing(rated, "a", pending(v)))
+            assertTrue("Set at once, before any pre-draw", params.flags and notTouchable != 0)
+            preDraw(view)
+            assertTrue(params.flags and notTouchable != 0)
+            val confirmed = parsed(didiFrame(v, ownMask), "b")
+            render(controller, backgroundScope, OverlayVisibility.Reading("b", confirmed))
+            render(controller, backgroundScope, OverlayVisibility.Showing(rated, "b", confirmed))
+            preDraw(view)
+            assertTrue("Confirmed, but captured under our plate", params.flags and notTouchable != 0)
+            render(controller, backgroundScope, OverlayVisibility.Showing(rated, "b", parsed(didiFrame(v, HostRect(28, 900, 764, 1200)), "b")))
+            preDraw(view)
+            assertEquals("Its own frame with our plate elsewhere", 0, params.flags and notTouchable)
+        } finally { controller.stop(); Dispatchers.resetMain() }
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Config(qualifiers = "w360dp-h780dp-xxhdpi")
+    @Test fun `a pending frame with no plate on it does not count as seen clear for the session`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val controller = prepared(didi)
+        try {
+            val v = method("readViewport", WindowInsets::class.java).invoke(controller, null) as OverlayViewport
+            val unsettled = parsed(didiFrame(v, mask = null), "a").copy(identityUnresolved = true)
+            render(controller, backgroundScope, OverlayVisibility.Showing(rated, "a", unsettled))
+            assertFalse(evidence(controller).seenClear(placement.position.bounds(placement.size)))
+            render(controller, backgroundScope, OverlayVisibility.Showing(rated, "a", parsed(didiFrame(v, ownMask), "a")))
+            assertFalse("Only the settled frame counts, and it was under our plate",
+                evidence(controller).seenClear(placement.position.bounds(placement.size)))
+        } finally { controller.stop(); Dispatchers.resetMain() }
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Config(qualifiers = "w360dp-h780dp-xxhdpi")
+    @Test fun `a frame reading another trip leg is published unresolved under the old session`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        fun box(text: String, left: Int, top: Int, right: Int, bottom: Int) = OcrBlock(text, OcrBounds(left, top, right, bottom))
+        val offer = listOf(box("Uber Priority", 96, 653, 502, 746), box("Exclusivo", 530, 653, 785, 746),
+            box("X", 837, 650, 983, 793), box("MXN79.45", 96, 770, 499, 897), box("A 1 min (0.2 km)", 190, 1420, 510, 1477),
+            box("Viaje: 24 min (2.4 km)", 190, 1625, 741, 1682), box("Aceptar", 442, 1989, 640, 2046))
+        val other = offer.map { if (it.text.startsWith("Viaje")) it.copy(text = "Viaje: 31 min (6.3 km)") else it }
+        val pipeline = OfferFramePipeline()
+        val parsed = mutableListOf<OfferEvent.Parsed>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            OfferEventBus.events.collect { if (it is OfferEvent.Parsed) parsed += it }
+        }
+        try {
+            fun frame(blocks: List<OcrBlock>) {
+                pipeline.processOwnedFrame(blocks, null, null, displayBounds = viewport.bounds, density = viewport.density,
+                    foregroundPackage = "com.ubercab.driver")
+                testScheduler.runCurrent()
+            }
+            frame(offer)
+            assertFalse(parsed.single().identityUnresolved)
+            frame(other)
+            assertTrue("Another trip leg, not yet confirmed", parsed.last().identityUnresolved)
+            assertEquals(parsed.first().card.sessionId, parsed.last().card.sessionId)
+            frame(other)
+            assertFalse("Confirmed: a new session", parsed.last().identityUnresolved)
+            assertNotEquals(parsed.first().card.sessionId, parsed.last().card.sessionId)
+        } finally { Dispatchers.resetMain() }
+    }
+
+    // Proof gaps: the pre-draw keep, and the onDragEnd seen-clear guard.
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Config(qualifiers = "w360dp-h780dp-xxhdpi")
+    @Test fun `a jittering pill passes the pre-draw re-verification of an attached window`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val controller = prepared(didi)
+        val docked = OverlayPlacement.Displayed(OverlayPosition(36, 260), ChipSize(720, 240), PlateFormat.COMPACT, rule = PlacementRule.DOCK)
+        try {
+            ShadowLog.clear()
+            val v = method("readViewport", WindowInsets::class.java).invoke(controller, null) as OverlayViewport
+            fun frame(bottom: Int) = didi.copy(displayBounds = v.bounds, capturedAtMs = System.currentTimeMillis(),
+                offerCard = HostRect(0, 423, v.bounds.right, v.bounds.bottom), source = HostGeometrySource.OCR_TEXT_BOUNDS,
+                protectedControls = listOf(HostRect(479, 156, 993, bottom)), declineControls = listOf(HostRect(479, 156, 993, bottom)),
+                fareBounds = HostRect(12, 618, 472, 730), ocrEvidence = HostOcrGeometryEvidence(null, listOf(HostRect(104, 471, 420, 529)),
+                    listOf(HostRect(176, 1337, 483, 1394), HostRect(150, 1547, 502, 1601)), false))
+            state(controller, "geometry", frame(212)); state(controller, "viewport", v)
+            state(controller, "savedPosition", docked.position)
+            ScreenLocation.position = docked.position
+            method("attach").invoke(controller)
+            val view = field("composeView").get(controller) as ComposeView
+            view.layout(0, 0, 720, 240)
+            applied(controller, docked)
+            view.viewTreeObserver.dispatchOnPreDraw()
+            assertEquals(1f, view.alpha)
+            render(controller, backgroundScope, OverlayVisibility.Showing(rated, "tall", parsed(frame(215), "tall")))
+            assertEquals(1f, view.alpha)
+            view.viewTreeObserver.dispatchOnPreDraw()
+            assertEquals("215: the pre-draw keeps it too", 1f, view.alpha)
+            assertFalse(ShadowLog.getLogsForTag("OverlayController").any { "SUPPRESSED_OCCLUSION" in it.msg })
+        } finally { controller.stop(); Dispatchers.resetMain() }
+    }
+
+    @Test fun `a drag ending on a footprint never seen clear is not saved`() {
+        val controller = prepared(didi)
+        val onDragEnd = method("onDragEnd")
+        @Suppress("UNCHECKED_CAST")
+        val saved = field("savedPositions").get(controller) as MutableMap<OverlayPositionKey, OverlayPosition?>
+        val key = OverlayPositionKey(didi.packageName, viewport.orientation)
+        val foot = placement.copy(rule = PlacementRule.FOOT)
+        fun frame(mask: HostRect) = didi.copy(ocrEvidence = HostOcrGeometryEvidence(mask, emptyList(), emptyList(), false))
+        try {
+            field("placement").set(controller, foot)
+            evidence(controller).observe(frame(ownMask), viewport)
+            onDragEnd.invoke(controller)
+            assertNull("Only our own plate was ever over it", saved[key])
+            evidence(controller).observe(frame(HostRect(36, 900, 756, 1200)), viewport)
+            onDragEnd.invoke(controller)
+            assertEquals("Seen clear on a later frame", foot.position, saved[key])
+        } finally { controller.stop() }
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Config(qualifiers = "w360dp-h780dp-xxhdpi")
+    @Test fun `the show line prints the effective decline controls, reservation included`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val controller = prepared(didi)
+        context.applicationInfo.flags = context.applicationInfo.flags or android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE
+        try {
+            ShadowLog.clear()
+            render(controller, backgroundScope, OverlayVisibility.Showing(rated, "a", parsed(didi, "a")))
+            val line = ShadowLog.getLogsForTag("OverlayController").single { "TEMP DIAG show" in it.msg }.msg
+            assertTrue(line, "decline=1:[477,63,996,123]" in line)
+        } finally { controller.stop(); Dispatchers.resetMain() }
     }
 
     @Test fun `a pending layout never reads the provisional screen position`() {
@@ -896,11 +1390,12 @@ class OverlayControllerPlacementTest {
             (field("dockRequested\$delegate").get(controller) as MutableState<*>).value as Boolean,
             (field("savedDocked\$delegate").get(controller) as MutableState<*>).value as Boolean) as OverlayPlacement.Displayed
 
-    private fun prepared() = controller().also {
+    private fun prepared(g: HostGeometry = geometry) = controller().also {
         ScreenLocation.reads = 0; ScreenLocation.position = placement.position
-        state(it, "geometry", geometry); state(it, "viewport", viewport); state(it, "chipState", reading)
-        field("event").set(it, OfferEvent.Parsed(geometry.packageName, geometry.capturedAtMs,
-            OfferCard(platform = geometry.packageName, hostGeometry = geometry)))
+        state(it, "geometry", g); state(it, "viewport", viewport); state(it, "chipState", reading)
+        field("foregroundHost").set(it, g.packageName); field("touchVouched").set(it, true)
+        field("event").set(it, OfferEvent.Parsed(g.packageName, g.capturedAtMs,
+            OfferCard(platform = g.packageName, hostGeometry = g)))
     }
 
     private fun controller(offers: OfferDao = dao(), costs: CostProfileDao = dao()): OverlayController {
@@ -913,7 +1408,7 @@ class OverlayControllerPlacementTest {
             override fun load() = ReaderMemory()
             override fun save(memory: ReaderMemory) = Unit
         }, Clock.systemUTC()).apply {
-            supportedApps(setOf(geometry.packageName)); bound(); captureRunning(true)
+            supportedApps(setOf(geometry.packageName, didi.packageName)); bound(); captureRunning(true)
         }
         return OverlayController(OfferRecorder(offers, CostProfileRepository(costs), settings, NetProfitEngine()),
             settings, OverlayPrefs(store), PresentationRecorder(dao<OfferPresentationDao>()), readiness).also {
@@ -936,6 +1431,8 @@ class OverlayControllerPlacementTest {
         when (method.name) {
             "observe" -> flowOf(null)
             "observeVersions" -> flowOf(emptyList<mx.kompara.data.db.entity.CostVersionEntity>())
+            "forSession" -> null // OfferPresentationDao, on the real event path
+            "record" -> Unit
             else -> error("Unexpected DAO call: ${method.name}")
         }
     } as T

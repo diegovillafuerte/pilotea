@@ -62,7 +62,7 @@ For each received offer, before it expires, note: fare, pickup ("a X min (Y km/m
 | C8 | Surge/multiplier marker on card (e.g. "1.5x") | Parse still succeeds; fare is the final amount | |
 | C9 | Offer expires / card disappears | Chip hides within ~3–4 s (6 unparseable frames @ 500 ms); no zombie chip over the map | |
 | C10 | Chip stability while card visible | No flicker/blink during the offer's lifetime | |
-| C11 | Drag the chip to the other edge mid-offer | Drags smoothly, snaps to edge; next offer appears at the saved position | |
+| C11 | Drag the chip to the other edge mid-offer on a normal Pon Tu Precio card (FOOT slot) | Drags smoothly, snaps to edge; next offer appears at the saved position. Docked, or on a back-to-back offer still under the old plate, the chip is not draggable: taps pass through to DiDi | |
 | C12 | Long-press chip → quick sheet → raise "Verde desde" above the last offer's $/km | Next comparable offer grades lower (verde→amarillo); sheet never leaves DiDi | |
 | C13 | Chip never covers DiDi's Aceptar button (bottom safe zone) | Accept tap always lands on DiDi, never on the chip | |
 | C14 | An accepted trip + an ignored offer | Later: Inicio "Hoy" shows the offer funnel (vistas/aceptadas/rechazadas) and the day's numbers | |

@@ -1,5 +1,6 @@
 package mx.kompara.overlay
 
+import mx.kompara.data.service.ReaderReadinessReducer
 import mx.kompara.parsers.model.HostGeometry
 import mx.kompara.parsers.model.HostGeometrySource
 import mx.kompara.parsers.model.HostOrientation
@@ -55,6 +56,11 @@ object OverlayPositioning {
      */
     const val MAX_GEOMETRY_AGE_MS = 2_500L
 
+    /** The only host whose chip may take touches (0.2.18, user decision: never on Uber). */
+    private const val DRAGGABLE_HOST = ReaderReadinessReducer.DIDI
+    /** OCR boxes jitter 1-3 px and the decline latch only grows: a placed dock slot tolerates this much. */
+    private const val KEPT_DECLINE_JITTER_DP = 4
+
     /** Refresh capture age/source without briefly hiding an unchanged, already settled window. */
     fun sameLayout(previous: HostGeometry?, next: HostGeometry): Boolean =
         previous?.copy(capturedAtMs = next.capturedAtMs, layoutId = next.layoutId, source = next.source,
@@ -85,7 +91,7 @@ object OverlayPositioning {
         g!!
         val sizes = listOf(PlateFormat.FULL to full, PlateFormat.COMPACT to compact)
         for ((format, size) in sizes) {
-            if (saved != null && valid(saved, size, g, viewport, docked = savedDocked))
+            if (saved != null && valid(saved, size, g, viewport, docked = savedDocked, kept = savedDocked))
                 return OverlayPlacement.Displayed(saved, size, format,
                     rule = if (savedDocked) PlacementRule.DOCK else PlacementRule.FOOT)
             if (!dock) candidates(size, g, viewport, includeMarkers = true).firstOrNull()?.let { (position, rule) ->
@@ -113,10 +119,11 @@ object OverlayPositioning {
 
     /**
      * Strict tiers stay under the card ceiling and clear of controls, soft chrome and markers.
-     * A [docked] plate only has to clear system/host controls and the fare and legs.
+     * A [docked] plate only has to clear system/host controls and the fare and legs. [kept] marks a
+     * docked slot already placed for this offer: it keeps it through OCR jitter of a decline rect.
      */
     fun valid(p: OverlayPosition, size: ChipSize, g: HostGeometry, v: OverlayViewport,
-        ignoreMarkers: Boolean = false, docked: Boolean = false): Boolean {
+        ignoreMarkers: Boolean = false, docked: Boolean = false, kept: Boolean = false): Boolean {
         if (size.width <= 0 || size.height <= 0) return false
         val rect = p.bounds(size)
         val gap = v.dp(16)
@@ -125,7 +132,8 @@ object OverlayPositioning {
             rect.right > minOf(safe.right, v.bounds.right - v.dp(12)) ||
             rect.top < maxOf(safe.top, g.topChrome.bottom) + gap ||
             rect.bottom > safe.bottom - gap) return false
-        if (g.protectedControls.any { rect.overlaps(it.expanded(gap)) }) return false
+        val declineGap = if (docked && kept) gap - v.dp(KEPT_DECLINE_JITTER_DP) else gap
+        if (g.protectedControls.any { rect.overlaps(it.expanded(if (it in g.declineControls) declineGap else gap)) }) return false
         if (docked) return dockCritical(g).none { rect.overlaps(it.expanded(gap)) }
         if (rect.bottom > minOf(safe.bottom, g.offerCard.top) - gap) return false
         if (g.softObstacles.any { rect.overlaps(it.expanded(gap)) }) return false
@@ -156,8 +164,8 @@ object OverlayPositioning {
 
     /**
      * Main's top-right default, then left: below top chrome and any control in the top corners.
-     * 0.2.17: a host decline control (live or latched) pushes a slot it overlaps down below it,
-     * wherever it starts (DiDi's pill starts below the dock line). Only decline controls above the
+     * 0.2.17: a host decline control (live, latched or DiDi's reserved area) pushes a slot it overlaps
+     * down below it, wherever it starts (DiDi's pill starts below the dock line). Only decline controls above the
      * fare/legs may push, so the dock never jumps below the fare; pushing for any control drove the
      * right slot mid-card in the replay. Valid slots are tried top-most first (ties: right, then left).
      */
@@ -196,14 +204,19 @@ object OverlayPositioning {
      * 0.2.17 (user decision 2026-11-07, "only in a clear slot"): the chip takes touches (drag) only
      * in a strict tier and only where it covers no protected control and no soft host chrome, live
      * or latched (unexpanded rects). Docked, or over any host control, its window is
-     * FLAG_NOT_TOUCHABLE so taps reach Uber/DiDi.
+     * FLAG_NOT_TOUCHABLE so taps reach DiDi. 0.2.18: never on Uber (user decision 2026-11-08: its
+     * Radar pill can appear under the normal slot before the next capture), and on DiDi only once
+     * [seenClear] (see [PlacementEvidence.seenClear]) says a host control there could have been seen.
+     * The controller adds what only it knows: the current foreground and the frame's offer identity.
      */
-    fun touchable(p: OverlayPlacement.Displayed, g: HostGeometry): Boolean = !p.docked &&
-        (g.protectedControls + g.softObstacles).none { p.position.bounds(p.size).overlaps(it) }
+    fun touchable(p: OverlayPlacement.Displayed, g: HostGeometry, seenClear: Boolean): Boolean =
+        g.packageName == DRAGGABLE_HOST && seenClear && !p.docked &&
+            (g.protectedControls + g.softObstacles).none { p.position.bounds(p.size).overlaps(it) }
 
-    /** A strict, valid slot over no host chrome: the only place a drag may move to or end in. */
+    /** On DiDi, a strict, valid slot over no host chrome: the only place a drag may move to or end in. */
     fun clearSlot(p: OverlayPosition, size: ChipSize, g: HostGeometry, v: OverlayViewport, overMarker: Boolean = false): Boolean =
-        valid(p, size, g, v, overMarker) && (g.protectedControls + g.softObstacles).none { p.bounds(size).overlaps(it) }
+        g.packageName == DRAGGABLE_HOST && valid(p, size, g, v, overMarker) &&
+            (g.protectedControls + g.softObstacles).none { p.bounds(size).overlaps(it) }
 
     /** Reject an unsafe drag rather than teleporting across an exclusion; a docked chip never drags. */
     fun drag(current: OverlayPlacement.Displayed, desired: OverlayPosition, g: HostGeometry, v: OverlayViewport): OverlayPosition =
@@ -241,6 +254,11 @@ object OverlayPositioning {
  * stopped masking it let FULL grow over it on alternate frames (round 2, raw replay). Neither latch
  * shifts with the routes, lowers the ceiling, pins a reference or docks; both end only in [reset]
  * (new session, Hidden, parse ceiling) or on a host or display change, never on a C11 detach.
+ *
+ * 0.2.18: on a DiDi offer in portrait every Decision also carries the calibrated [declineReservation],
+ * so the decline control is kept clear on the first frame, before or without any OCR of it. It is
+ * an exclusion too: not latched, never an anchor or ceiling input, and it can never cost a chip
+ * ([withoutReservation]). [seenClear] tracks what this session's frames could see under our own plate.
  */
 internal class PlacementEvidence {
     private var ceiling: Int? = null
@@ -251,6 +269,13 @@ internal class PlacementEvidence {
     private var referenceRoutes: List<HostRect> = emptyList()
     private var declines: List<HostRect> = emptyList()
     private var softSeen: List<HostRect> = emptyList()
+    private var reservationWaived = false
+    /** The latest frame's geometry without the reservation, while that frame may try to do without it. */
+    private var unreserved: HostGeometry? = null
+    private var waiverTrial = false
+    /** This session's own-chip rects at capture; a frame with none saw the whole screen. */
+    private var ownChipRects: List<HostRect> = emptyList()
+    private var frameWithoutChip = false
     /** Host and display the evidence belongs to: rects from another host or display are meaningless. */
     private var scope: Triple<String, HostRect, HostOrientation>? = null
 
@@ -260,9 +285,14 @@ internal class PlacementEvidence {
      */
     data class Decision(val geometry: HostGeometry, val dock: Boolean, val ceiling: Int, val latched: Int = 0)
 
-    fun observe(next: HostGeometry, viewport: OverlayViewport): Decision {
+    fun observe(next: HostGeometry, viewport: OverlayViewport, identityUnresolved: Boolean = false): Decision {
         val frameScope = Triple(next.packageName, next.displayBounds, next.orientation)
         if (scope != frameScope) { reset(); scope = frameScope }
+        val ownChip = next.ocrEvidence?.overlayMask
+        // A frame that may be another offer says nothing about what lies under this offer's plate.
+        if (!identityUnresolved) {
+            if (ownChip == null) frameWithoutChip = true else if (ownChip !in ownChipRects) ownChipRects = ownChipRects + ownChip
+        }
         // Host chrome above this frame's derived card only: Uber's in-card ✕ is not latched.
         next.declineControls.filter { it.bottom <= next.offerCard.top }.forEach { declines = union(declines, it) }
         next.softObstacles.forEach { softSeen = union(softSeen, it) }
@@ -271,7 +301,7 @@ internal class PlacementEvidence {
             val top = minOf(ceiling ?: next.offerCard.top, next.offerCard.top)
             ceiling = top
             upperSeen = true
-            return Decision(latched(next.copy(offerCard = next.offerCard.copy(top = top))),
+            return Decision(latched(next.copy(offerCard = next.offerCard.copy(top = top)), viewport, fareRead = next.fareBounds != null),
                 dock = false, ceiling = top, latched = declines.size)
         }
         val gap = viewport.dp(16)
@@ -304,8 +334,8 @@ internal class PlacementEvidence {
         ceiling = top
         if (next.fareBounds != null) { lastFare = next.fareBounds; lastFareRoutes = routes }
         if (!lost && upper.isNotEmpty()) { reference = upper; referenceRoutes = routes }
-        return Decision(latched(next.copy(offerCard = next.offerCard.copy(top = top), fareBounds = fare)),
-            dock, top, declines.size)
+        return Decision(latched(next.copy(offerCard = next.offerCard.copy(top = top), fareBounds = fare), viewport,
+            fareRead = next.fareBounds != null), dock, top, declines.size)
     }
 
     /** Plain union with every latched rect it overlaps: the latch stays a superset of each frame's rect. */
@@ -322,9 +352,58 @@ internal class PlacementEvidence {
         return rest + merged
     }
 
-    /** Every decision carries both latches (the soft latch already holds this frame's soft obstacles). */
-    private fun latched(g: HostGeometry) = g.copy(protectedControls = (g.protectedControls + declines).distinct(),
-        declineControls = (g.declineControls + declines).distinct(), softObstacles = softSeen)
+    /**
+     * Every decision carries both latches (the soft latch already holds this frame's soft obstacles)
+     * and the reservation, which stays a separate source: what the frame observed or latched is
+     * [unreserved] whatever its value, so dropping the reservation can never drop one of those.
+     */
+    private fun latched(g: HostGeometry, viewport: OverlayViewport, fareRead: Boolean): HostGeometry {
+        val observed = g.copy(protectedControls = (g.protectedControls + declines).distinct(),
+            declineControls = (g.declineControls + declines).distinct(), softObstacles = softSeen)
+        val area = declineReservation(g, viewport)?.takeUnless { reservationWaived }
+        unreserved = observed.takeIf { area != null && fareRead }
+        waiverTrial = false
+        return if (area == null) observed else observed.copy(protectedControls = (observed.protectedControls + area).distinct(),
+            declineControls = (observed.declineControls + area).distinct())
+    }
+
+    /**
+     * DiDi's decline area above the card, from the viewport (S25 at density 3, safe top 91: the union
+     * of the pill's OCR over the 6 recorded offers is (479,156)-(994,214), which gives (477,154)-(996,214);
+     * its 16 dp keep-out (429,106)-(1044,262) spans the visible pill body's height). Round-✕ cards get it
+     * too: the form is unknown before OCR. Off-calibration displays (landscape) rely on OCR alone.
+     */
+    private fun declineReservation(g: HostGeometry, v: OverlayViewport): HostRect? {
+        if (g.packageName != ReaderReadinessReducer.DIDI || v.orientation != HostOrientation.PORTRAIT) return null
+        val right = v.bounds.right
+        val top = v.safeBounds.top
+        return HostRect(right - v.dp(201), top + v.dp(21), right - v.dp(28), top + v.dp(41)).intersection(g.displayBounds)
+    }
+
+    /**
+     * The reservation never costs a chip: when nothing fits with it on a frame whose fare this frame
+     * read (a fare rebuilt from an earlier frame is no such evidence, and an unread fare is transient),
+     * placement runs once more on this frame's observed and latched controls. Returns that geometry,
+     * or null when there is nothing to try. It is waived, for the rest of the offer, only if the trial
+     * places a chip ([commitWaiver]); a C11 it did not cause keeps it, and C11 keeps its contract.
+     */
+    fun withoutReservation(): HostGeometry? = unreserved?.also { unreserved = null; waiverTrial = true }
+
+    /** The trial placed a chip: only the reservation stood in the way. */
+    fun commitWaiver() {
+        if (waiverTrial) reservationWaived = true
+        waiverTrial = false
+    }
+
+    /** This offer's plate may sit where a decline control was never read: it takes no touches. */
+    val waived: Boolean get() = reservationWaived
+
+    /**
+     * Whether some frame of this session was captured with none of our own plate over [footprint],
+     * so a host control under it could have been read. A window that persisted into this session
+     * (back-to-back offers) hides what is beneath it from every frame until the chip moves.
+     */
+    fun seenClear(footprint: HostRect): Boolean = frameWithoutChip || ownChipRects.any { !it.overlaps(footprint) }
 
     private fun rigidShift(before: List<HostRect>, after: List<HostRect>, tolerance: Int): Pair<Int, Int>? {
         if (before.isEmpty() || before.size != after.size) return null
@@ -343,6 +422,8 @@ internal class PlacementEvidence {
     fun reset() {
         ceiling = null; upperSeen = false; lastFare = null; lastFareRoutes = emptyList()
         reference = emptyList(); referenceRoutes = emptyList(); declines = emptyList(); softSeen = emptyList()
+        reservationWaived = false; unreserved = null; waiverTrial = false
+        ownChipRects = emptyList(); frameWithoutChip = false
         scope = null
     }
 

@@ -320,7 +320,8 @@ class OfferFramePipeline(
             // chip for at most one OCR frame (~300 ms). Downstream distinctUntilChanged collapses
             // identical verdicts, so steady re-assertion causes no re-render churn.
             OfferEventBus.tryEmit(
-                OfferEvent.Parsed(shownCard.platform, capturedAtMs, shownCard),
+                OfferEvent.Parsed(shownCard.platform, capturedAtMs, shownCard,
+                    identityUnresolved = decision?.identityUnresolved == true || contradicts),
             )
             diagnostics.publishedOffer()
             lastOfferPackage = shownCard.platform

@@ -186,14 +186,15 @@ class OverlayPositioningTest {
         assertTrue(place(tall,saved) is OverlayPlacement.Suppressed)
     }
     @Test fun `drag rejects card chrome protected controls markers and offscreen proposals`() {
-        val g=geometry(markers=listOf(marker(MapMarkerKind.DRIVER,180.0,200.0,220.0,240.0)))
-        val current=shown(g)
+        val onUber=geometry(markers=listOf(marker(MapMarkerKind.DRIVER,180.0,200.0,220.0,240.0)))
+        val current=shown(onUber)
+        val g=onUber.copy(packageName="com.didiglobal.driver") // 0.2.18: only DiDi's chip drags
         for(p in listOf(OverlayPosition(-1,300),OverlayPosition(24,0),OverlayPosition(24,1300),OverlayPosition(24,400)))
             assertEquals(current.position,OverlayPositioning.drag(current,p,g,viewport))
         assertEquals(OverlayPosition(24,650),OverlayPositioning.drag(current,OverlayPosition(24,650),g,viewport))
     }
     @Test fun `snap uses nearer edge only when that edge remains safe`() {
-        val g=geometry(markers=listOf(marker(MapMarkerKind.DESTINATION,380.0,480.0,390.0,500.0)))
+        val g=geometry(markers=listOf(marker(MapMarkerKind.DESTINATION,380.0,480.0,390.0,500.0))).copy(packageName="com.didiglobal.driver")
         val p=OverlayPlacement.Displayed(OverlayPosition(240,834),full,PlateFormat.FULL)
         assertTrue(OverlayPositioning.valid(p.position,full,g,viewport))
         assertEquals(p.position,OverlayPositioning.snapToEdge(p,g,viewport))

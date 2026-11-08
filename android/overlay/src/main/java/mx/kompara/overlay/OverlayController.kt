@@ -104,6 +104,14 @@ class OverlayController @Inject constructor(
     private var configurationCallbacks: ComponentCallbacks? = null
     private var generation = 0
     private val diagnostics = OverlayDiagnosticThrottle()
+    /** The service's foreground host, null outside a host visit; Main only. */
+    private var foregroundHost: String? = null
+    private var foregroundChangedAtMs = 0L
+    /**
+     * Whether the frame in [geometry] may vouch for touches: captured during this foreground visit of
+     * its own host, and of a settled offer identity. Only a fresh frame sets it; every switch clears it.
+     */
+    private var touchVouched = false
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     override fun start(scope: CoroutineScope, events: Flow<OfferEvent>, overlayContext: Context,
@@ -162,6 +170,10 @@ class OverlayController @Inject constructor(
                 else flowOf(OverlayVisibility.Hidden)
             }.onEach { render(overlayScope, it) }.launchIn(overlayScope)
         }
+        // Between captures only this can revoke touch: another host's controls may already lie under the plate.
+        overlayScope.launch(Dispatchers.Main.immediate) {
+            foregroundOcrOwnedApp.distinctUntilChanged().collect(::onForegroundChanged)
+        }
         val tabGate = ReaderStoppedTabGate()
         overlayScope.launch {
             combine(readiness.state, foregroundOcrOwnedApp, HostGeometryEvidence.state) { reader, host, evidence ->
@@ -198,6 +210,8 @@ class OverlayController @Inject constructor(
                 // evidence (ceiling, anchors) starts over.
                 evaluated = false; softHidden = false
                 placementEvidence.reset()
+                // This offer's frames are captured under the old plate: not touchable until seen clear.
+                forcePassThrough()
                 chipState = VerdictChipState.reading(thresholdSnapshot(), settingsSnapshot?.preferredMetric ?: PreferredMetric.DEFAULT)
                 chipVisible = true
                 show(visibility.event)
@@ -226,11 +240,22 @@ class OverlayController @Inject constructor(
         }
     }
 
+    private fun onForegroundChanged(host: String?) {
+        foregroundHost = host
+        foregroundChangedAtMs = System.currentTimeMillis()
+        touchVouched = false
+        forcePassThrough()
+    }
+
     private fun show(next: OfferEvent.Parsed) {
         if (!readiness.canRead(next.packageName) || !readiness.state.value.captureRunning) {
             diagnostic("READINESS", readinessDetails()); detach(); return
         }
         event = next
+        // Set the flag, not merely refrain from clearing it: the window may be touchable right now.
+        touchVouched = !next.identityUnresolved && next.packageName == foregroundHost &&
+            next.timestampMs >= foregroundChangedAtMs
+        if (!touchVouched) forcePassThrough()
         val v = readViewport()
         val rawGeometry = next.card.hostGeometry
         // Age never detaches a live chip; presence and the no-frame watchdog bound it.
@@ -246,11 +271,11 @@ class OverlayController @Inject constructor(
         // Keep it visible until measurement proves a move/resize is required. The ceiling only
         // rises within an offer, so a safe chip never moves down; an unsafe one moves up.
         val current = placement
-        val evidence = placementEvidence.observe(rawGeometry!!, v)
+        val evidence = placementEvidence.observe(rawGeometry!!, v, next.identityUnresolved)
         val g = evidence.geometry
         latchedDeclines = evidence.latched
         val currentIsSafe = current != null && !(evidence.dock && !current.docked) &&
-            OverlayPositioning.valid(current.position, current.size, g, v, current.overMarker, current.docked)
+            OverlayPositioning.valid(current.position, current.size, g, v, current.overMarker, current.docked, kept = true)
         if (current != null && !currentIsSafe)
             hideUntilSettled()
         geometry = g; viewport = v
@@ -269,8 +294,8 @@ class OverlayController @Inject constructor(
             "soft=${rawGeometry.softObstacles.map { it.diag() }} mask=${rawGeometry.ocrEvidence?.overlayMask?.diag()} " +
             "ceiling=${evidence.ceiling} dock=${evidence.dock} current=${current?.position?.bounds(current.size)?.diag()} " +
             "currentIsSafe=$currentIsSafe saved=$savedPosition savedDocked=$savedDocked " +
-            "decline=${rawGeometry.declineControls.diagList()} latched=${evidence.latched} " +
-            "touch=${current?.let { currentIsSafe && OverlayPositioning.touchable(it, g) }}")
+            "decline=${g.declineControls.diagList()} latched=${evidence.latched} " +
+            "touch=${current?.let { currentIsSafe && touchable(it, g) }}")
         attach()
     }
 
@@ -296,8 +321,9 @@ class OverlayController @Inject constructor(
                 if (at >= ceilingAt) {
                     if (composeView != null) {
                         diagnostic("PARSE_CEILING")
-                        detach("PARSE_CEILING"); placementEvidence.reset()
+                        detach("PARSE_CEILING")
                     }
+                    placementEvidence.reset() // also after a C11 detach: a later Showing starts over
                     // As on confirmed absence: nothing stale is left for a configuration change to
                     // re-show; the next Parsed repopulates it.
                     event = null; chipVisible = false; chipState = null; softHidden = false
@@ -398,6 +424,9 @@ class OverlayController @Inject constructor(
             is OverlayPlacement.Unsupported -> "rule=UNSUPPORTED cause=${decision.cause}"
         })
         if (decision !is OverlayPlacement.Displayed) {
+            // Only if the next measurement places without the reservation is it waived.
+            val trial = if (decision is OverlayPlacement.Suppressed) placementEvidence.withoutReservation() else null
+            if (trial != null) { geometry = trial; return }
             record(decision); detach("PLACEMENT_${decision.javaClass.simpleName}"); return
         }
         val g = geometry ?: run { diagnostic("UNVALIDATED_GEOMETRY"); return }
@@ -413,6 +442,7 @@ class OverlayController @Inject constructor(
         }
         val view = composeView ?: return
         val params = layoutParams ?: return
+        placementEvidence.commitWaiver()
         val target = windowPosition(decision.position, decision.size, params, v)
         placement = decision
         if (params.x != target.x || params.y != target.y) {
@@ -470,14 +500,16 @@ class OverlayController @Inject constructor(
             }
             return
         }
-        if (!OverlayPositioning.valid(actual, shown.size, g, v, shown.overMarker, shown.docked)) {
+        if (!OverlayPositioning.valid(actual, shown.size, g, v, shown.overMarker, shown.docked, kept = true)) {
             hideUntilSettled("SUPPRESSED_OCCLUSION", geometryDetails(g, v)); return
         }
         // A soft-hidden chip stays settled but invisible until the next parsed frame.
         if (softHidden) return
         // 0.2.17 (user decision 2026-11-07, "only in a clear slot"): draggable only in a strict tier
         // over no host control or soft chrome; docked or over host chrome, taps pass through.
-        val touchable = OverlayPositioning.touchable(shown, g)
+        // 0.2.18: never on Uber; on DiDi only on a fresh frame of the current foreground with a settled
+        // offer identity, once this footprint was seen without our plate, and never on a waived offer.
+        val touchable = touchable(shown, g)
         if (debugDiag && view.alpha != 1f) Log.d(TAG, "TEMP DIAG window reveal rect=${actual.bounds(shown.size).diag()} " +
             "touch=$touchable decline=${g.declineControls.diagList()} latched=$latchedDeclines")
         revealedRect = actual.bounds(shown.size)
@@ -495,6 +527,12 @@ class OverlayController @Inject constructor(
         ScreenReaderState.setOverlayChipRect(ScreenRect(rect.left, rect.top, rect.right, rect.bottom))
         record(shown)
     }
+
+    private fun touchable(shown: OverlayPlacement.Displayed, g: HostGeometry) =
+        OverlayPositioning.touchable(shown, g, mayTakeTouches(shown.position.bounds(shown.size)))
+
+    private fun mayTakeTouches(footprint: HostRect) =
+        touchVouched && !placementEvidence.waived && placementEvidence.seenClear(footprint)
 
     private var lastRecord: Triple<String, OverlayPlacement, Boolean>? = null
     private fun record(decision: OverlayPlacement) {
@@ -517,6 +555,12 @@ class OverlayController @Inject constructor(
         if (event != null) diagnostic(reason, details)
         if (debugDiag && composeView?.alpha == 1f) Log.d(TAG, "TEMP DIAG window hide reason=$reason rect=${revealedRect?.diag()}")
         composeView?.alpha = 0f
+        forcePassThrough()
+        // Keep the last visible footprint masked until the window settles or detaches. The
+        // compositor may still contain those pixels while the transparent update is in flight.
+    }
+
+    private fun forcePassThrough() {
         val params = layoutParams
         val view = composeView
         if (params != null && view != null && params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE == 0) {
@@ -525,8 +569,6 @@ class OverlayController @Inject constructor(
                 diagnostic("WINDOW_UPDATE_FAILED", it.javaClass.simpleName)
             }
         }
-        // Keep the last visible footprint masked until the window settles or detaches. The
-        // compositor may still contain those pixels while the transparent update is in flight.
     }
 
     private fun detach(reason: String = "") {
@@ -544,7 +586,9 @@ class OverlayController @Inject constructor(
         val g = geometry ?: return
         val v = viewport ?: return
         val proposed = OverlayPosition(current.position.x + dx.toInt(), current.position.y + dy.toInt())
+        // A footprint never seen clear would turn the window pass-through under the driver's finger.
         val resolved = OverlayPositioning.drag(current, proposed, g, v)
+            .takeIf { mayTakeTouches(it.bounds(current.size)) } ?: current.position
         savedPosition = resolved // holds through remeasure, persisted only on release
         applyPlacement(current.copy(position = resolved))
     }
@@ -555,7 +599,8 @@ class OverlayController @Inject constructor(
         val v = viewport ?: return
         val resolved = OverlayPositioning.snapToEdge(current, g, v)
         // Only a drag that ends in a valid clear slot becomes the driver's saved slot.
-        if (current.docked || !OverlayPositioning.clearSlot(resolved, current.size, g, v, current.overMarker)) return
+        if (current.docked || !OverlayPositioning.clearSlot(resolved, current.size, g, v, current.overMarker) ||
+            !mayTakeTouches(resolved.bounds(current.size))) return
         val key = OverlayPositionKey(g.packageName, v.orientation)
         savedPositions[key] = resolved; savedPosition = resolved
         applyPlacement(current.copy(position = resolved))
@@ -708,7 +753,7 @@ class OverlayController @Inject constructor(
         event = null; chipState = null; chipVisible = false; geometry = null; viewport = null
         evaluated = false; lastRecord = null; savedPositions.clear(); savedPosition = null
         savedDocked = false; dockRequested = false
-        placementEvidence.reset()
+        placementEvidence.reset(); foregroundHost = null; touchVouched = false
         serviceScope = null; overlayContext = null
     }
 
