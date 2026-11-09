@@ -3,6 +3,7 @@ package mx.kompara.ocr
 import mx.kompara.parsers.model.OfferCard
 import mx.kompara.parsers.model.OfferContentBounds
 import java.util.Locale
+import kotlin.math.abs
 
 /**
  * Parses a DiDi Conductor (MX) offer card from OCR text blocks. DiDi renders its UI on a Flutter
@@ -144,15 +145,18 @@ class DidiOcrParser {
             ?.bounds?.let { OfferContentBounds(it.left, it.top, it.right, it.bottom) }
     }
 
-    private data class Leg(val min: Double?, val km: Double, val bounds: OcrBounds)
+    /** [minToken], [startsBlock] and [printedKm] (before decimal recovery) are the row as read, for [plausibleMinutes]. */
+    private data class Leg(val min: Double?, val km: Double, val bounds: OcrBounds, val minToken: String,
+        val startsBlock: Boolean, val printedKm: Double)
 
-    private fun extractLegs(blocks: List<OcrBlock>): List<Leg> =
-        blocks
+    private fun extractLegs(blocks: List<OcrBlock>): List<Leg> {
+        val legs = blocks
             .mapNotNull { b ->
                 legRegex.find(b.text)?.let { m ->
                     val min = m.groupValues[1].toDoubleOrNull()
                     val normalized = m.groupValues[2].replace(",", ".")
-                    val km = if (m.groupValues[3].equals("m", ignoreCase = true)) {
+                    val meters = m.groupValues[3].equals("m", ignoreCase = true)
+                    val km = if (meters) {
                         // Meters are a genuine integer ("862m" → 0.862 km) — never a dropped decimal.
                         normalized.toDoubleOrNull()?.let { it / 1000.0 }
                     } else {
@@ -160,10 +164,51 @@ class DidiOcrParser {
                         // so a separator-less leg can't read 10× high (DiDi mirror of the Uber fix).
                         recoverDroppedDistanceDecimal(normalized).toDoubleOrNull()
                     }
-                    if (km == null) null else Leg(min, km, b.bounds)
+                    if (km == null) null else
+                        Leg(min, km, b.bounds, m.groupValues[1], b.text.take(m.range.first).isBlank(),
+                            normalized.toDouble() / if (meters) 1000.0 else 1.0)
                 }
             }
             .sortedBy { it.bounds.top }
+        return legs.map { it.copy(min = plausibleMinutes(it, legs, blocks)) }
+    }
+
+    /**
+     * On a dimmed card OCR can merge the round row icon into the row as a leading digit (0.2.19:
+     * "925 min (7.4 km)" for 25), and DiDi prints no total to check a leg against. Low speed alone is
+     * not corruption (a real "2 min (50 m)" is 1.5 km/h): only a leg of at least [QUESTIONED_MIN]
+     * minutes implying under [MIN_LEG_KMH] is questioned. An icon-glued row whose minutes begin its
+     * block drops that digit when the rest is plausible; any other questioned row's minutes stay
+     * unread and its distance stands. An icon already read apart ("9 94 min") is not in the token.
+     * Speed uses the distance as printed: a row that lost its decimal ("243min (14km)") is ambiguous
+     * and cannot prove its minutes wrong.
+     */
+    private fun plausibleMinutes(leg: Leg, legs: List<Leg>, blocks: List<OcrBlock>): Double? {
+        val min = leg.min ?: return null
+        if (min < QUESTIONED_MIN || kmPerHour(leg.printedKm, min) >= MIN_LEG_KMH) return min
+        if (!leg.startsBlock || !isIconGlued(leg, legs, blocks)) return null
+        return leg.minToken.drop(1).toDouble().takeIf { it >= 1.0 && kmPerHour(leg.printedKm, it) in MIN_LEG_KMH..MAX_LEG_KMH }
+    }
+
+    private fun kmPerHour(km: Double, min: Double) = km / (min / 60.0)
+
+    /**
+     * The row starts at least half its own height left of the text column: the nearest non-leg text
+     * directly below it (its address line, within two row heights), else the other leg's left edge.
+     */
+    private fun isIconGlued(leg: Leg, legs: List<Leg>, blocks: List<OcrBlock>): Boolean {
+        val row = leg.bounds
+        val height = row.bottom - row.top
+        val addressLine = blocks.filter {
+            it.text.isNotBlank() && !legRegex.containsMatchIn(it.text) &&
+                it.bounds.top in row.bottom..row.bottom + 2 * height &&
+                it.bounds.left < row.right && it.bounds.right > row.left
+        }.minByOrNull { it.bounds.top }
+        val column = addressLine?.bounds?.left
+            ?: legs.filter { it !== leg }.minByOrNull { abs(it.bounds.top - row.top) }?.bounds?.left
+            ?: return false
+        return column - row.left >= height / 2.0
+    }
 
     /** Union the fare + leg block bounds into the offer-content rect the overlay keeps the chip off. */
     private fun unionBounds(vararg parts: OcrBounds?): OfferContentBounds? {
@@ -179,5 +224,8 @@ class DidiOcrParser {
 
     companion object {
         const val DIDI_PACKAGE = "com.didiglobal.driver"
+        private const val QUESTIONED_MIN = 60.0
+        private const val MIN_LEG_KMH = 2.0
+        private const val MAX_LEG_KMH = 110.0
     }
 }

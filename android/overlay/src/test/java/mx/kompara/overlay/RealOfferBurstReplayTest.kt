@@ -409,6 +409,62 @@ class RealOfferBurstReplayTest {
         assertContract(lane, mapOf("pr" to 79.45), mapOf("pr" to 2.4))
     }
 
+    /**
+     * 0.2.19, the expired $81.90 DiDi card (S25, 2026-11-08 14:02:50): the row icons read as a leading 9
+     * (94 and 925 minutes on both frames) and the ledger booked 1,019 minutes. The net per km never
+     * depended on the minutes and stays the same.
+     */
+    @Test fun `an expired DiDi card whose row icons read as a 9 books 29 minutes with the same net per km`() {
+        val frames = listOf("ocr_1794168170556.json", "ocr_1794168171357.json").map(RealS25Corpus::didiIconFrame)
+        val lane = replay(DIDI) {
+            frames.forEachIndexed { i, f -> frame("e f$i", "e", f.blocks, i * 801L, recordedChip = f.chip, closedLoop = false) }
+        }
+        val row = lane.offers.all().single()
+        val booked = listOf(row.fareMxn, row.pickupMin, row.pickupKm, row.tripMin, row.tripKm, row.durationMin)
+        val evaluation = requireNotNull(row.evaluation)
+        assertTrue("row books $booked, net per km ${evaluation.perKm}, per hour ${evaluation.perHour}\n${trace(lane)}",
+            booked == listOf(81.90, 4.0, 0.555, 25.0, 7.4, 29.0))
+        // The value 0.2.18 booked for this card (zero running costs in this harness).
+        assertTrue("net per km ${evaluation.perKm}", evaluation.perKm == "10.29541169076052796983029541169076")
+        assertTrue("net per hour ${evaluation.perHour}", evaluation.perHour!!.toDouble() in 169.44..169.46)
+        lane.frames.forEach {
+            val shown = listOf(it.shownFare, it.shownPickupMin, it.shownTripMin)
+            assertTrue("${it.label} displays $shown\n${trace(lane)}", shown == listOf(81.90, 4.0, 25.0))
+        }
+    }
+
+    /** 0.2.19 round 2: a slow pickup under an hour is not evidence of corruption; its minutes carry the identity. */
+    @Test fun `a genuine 50 metre DiDi pickup opens the session, shows the chip and books one row`() {
+        val blocks = RealGeometryFixtures.retext(RealGeometryFixtures.didi(), "6min (1.2km)" to "2 min (50 m)", "39min (17.3km)" to "25 min (7.4 km)")
+        val lane = replay(DIDI) {
+            listOf(0L, 850L, 1_700L).forEachIndexed { i, at -> frame("s f$i", "s", blocks, at) }
+        }
+        assertTrue(trace(lane), lane.frames.first().published && lane.frames.first().sessionId != null && lane.frames.all { it.visible })
+        val row = lane.offers.all().single()
+        val booked = listOf(row.pickupMin, row.pickupKm, row.tripMin, row.tripKm, row.durationMin)
+        assertTrue("row books $booked\n${trace(lane)}", booked == listOf(2.0, 0.05, 25.0, 7.4, 27.0))
+    }
+
+    /** 0.2.19 round 2: the icon already read apart (`9 12 min`) leaves nothing to strip from the 12. */
+    @Test fun `a DiDi pickup with its icon read separately stays stable and books its own minutes`() {
+        val blocks = RealGeometryFixtures.didi().map {
+            when (it.text) {
+                "6min (1.2km)" -> b("9 12 min (300 m)", 97, 1692, 490, 1748)
+                "39min (17.3km)" -> b("25 min (7.4 km)", 156, 1902, 514, 1960)
+                "Calle Ficticia 10, Colonia Ejemplo," -> it.copy(bounds = it.bounds.copy(left = 152))
+                else -> it
+            }
+        }
+        val lane = replay(DIDI) {
+            listOf(0L, 850L).forEachIndexed { i, at -> frame("i f$i", "i", blocks, at) }
+        }
+        val row = lane.offers.all().single()
+        val booked = listOf(row.pickupMin, row.pickupKm, row.tripMin, row.tripKm, row.durationMin)
+        assertTrue("row books $booked\n${trace(lane)}", booked == listOf(12.0, 0.3, 25.0, 7.4, 37.0))
+        assertTrue(trace(lane), lane.frames.all { it.visible && it.pickupMin in setOf(null, 12.0) && it.shownPickupMin in setOf(null, 12.0) })
+        assertTrue(trace(lane), lane.frames.last().shownPickupMin == 12.0)
+    }
+
     @Test fun `DiDi Aceptar cards dock clear of the visible fare legs and button`() {
         for ((name, blocks, fare, trip) in listOf(
             Quad("bid", RealGeometryFixtures.didiBid(), 89.12, 10.2),

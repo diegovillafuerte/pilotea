@@ -37,16 +37,16 @@ class FixtureAddressPrivacyTest {
                 if (top > first && top < button && numberOnly.matches(t) && '$' !in t) failures += "$where[$i]"
             }
         }
-        // Every recorded card frame of the four real corpora and the three 2026-10 fixtures is scanned.
-        assertEquals("card frames scanned", 367, cards)
+        // Every recorded card frame of the four real corpora, the three 2026-10 fixtures and the five DiDi icon frames is scanned; a recorder frame's raw list counts too, its redacted entries skipped.
+        assertEquals("card frames scanned", 374, cards)
         assertTrue(failures.size.toString() + " number-only address blocks:\n" + failures.joinToString("\n"), failures.isEmpty())
     }
 
     /** Every list of OCR blocks (objects with `text` and `top`) in a fixture, as (text, top) with its JSON path. */
     private fun blockLists(e: JsonElement, path: String): List<Pair<String, List<Pair<String, Int>>>> = when (e) {
         is JsonArray -> {
-            val own = e.takeIf { a -> a.isNotEmpty() && a.all { it is JsonObject && "text" in it && "top" in it } }?.let { a ->
-                listOf(path to a.map { (it as JsonObject).let { o -> o.getValue("text").jsonPrimitive.content to o.getValue("top").jsonPrimitive.int } })
+            val own = e.filterIsInstance<JsonObject>().filter { "text" in it && "top" in it }.takeIf { it.isNotEmpty() }?.let { a ->
+                listOf(path to a.map { o -> o.getValue("text").jsonPrimitive.content to o.getValue("top").jsonPrimitive.int })
             }.orEmpty()
             own + e.flatMapIndexed { i, x -> blockLists(x, "$path[$i]") }
         }

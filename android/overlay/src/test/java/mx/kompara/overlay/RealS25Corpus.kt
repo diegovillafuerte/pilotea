@@ -63,5 +63,16 @@ internal object RealS25Corpus {
         }
     }
 
+    data class RecordedFrame(val blocks: List<OcrBlock>, val chip: HostRect?)
+
+    /** A recorder-format frame of `didi/icon-glue/`: its host-readable OCR blocks and recorded chip mask. */
+    fun didiIconFrame(name: String): RecordedFrame = JSONObject(text("/didi/icon-glue/", name)).let { o ->
+        val raw = o.getJSONArray("raw")
+        val blocks = List(raw.length()) { raw.getJSONObject(it) }.filter { it.has("text") }.map { x ->
+            OcrBlock(x.getString("text"), OcrBounds(x.getInt("left"), x.getInt("top"), x.getInt("right"), x.getInt("bottom")))
+        }
+        RecordedFrame(blocks, o.optJSONObject("chipRect")?.let { HostRect(it.getInt("left"), it.getInt("top"), it.getInt("right"), it.getInt("bottom")) })
+    }
+
     private fun text(dir: String, name: String) = requireNotNull(javaClass.getResource(dir + name)) { "missing $name" }.readText()
 }

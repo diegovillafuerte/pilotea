@@ -1,0 +1,318 @@
+{
+ "capturedAtMs": 1794168170556,
+ "host": "com.didiglobal.driver",
+ "chipRect": null,
+ "ownership": {
+  "windowBounds": {
+   "left": 0,
+   "top": 0,
+   "right": 1080,
+   "bottom": 2340
+  },
+  "excludedBounds": [
+   {
+    "left": 0,
+    "top": 0,
+    "right": 1080,
+    "bottom": 91
+   },
+   {
+    "left": 1038,
+    "top": 418,
+    "right": 1080,
+    "bottom": 760
+   },
+   {
+    "left": 0,
+    "top": 2196,
+    "right": 1080,
+    "bottom": 2340
+   }
+  ],
+  "placementExcludedBounds": [
+   {
+    "left": 0,
+    "top": 0,
+    "right": 1080,
+    "bottom": 91
+   },
+   {
+    "left": 1038,
+    "top": 418,
+    "right": 1080,
+    "bottom": 760
+   },
+   {
+    "left": 0,
+    "top": 2196,
+    "right": 1080,
+    "bottom": 2340
+   }
+  ]
+ },
+ "raw": [
+  {
+   "left": 72,
+   "top": 37,
+   "right": 205,
+   "bottom": 73,
+   "package": "non-host",
+   "redacted": true
+  },
+  {
+   "left": 84,
+   "top": 972,
+   "right": 481,
+   "bottom": 1086,
+   "text": "$81.90"
+  },
+  {
+   "left": 79,
+   "top": 1134,
+   "right": 248,
+   "bottom": 1186,
+   "text": "1punto"
+  },
+  {
+   "left": 399,
+   "top": 421,
+   "right": 605,
+   "bottom": 469,
+   "text": "Avenida"
+  },
+  {
+   "left": 153,
+   "top": 1443,
+   "right": 577,
+   "bottom": 1503,
+   "text": "Colonia Imag"
+  },
+  {
+   "left": 172,
+   "top": 1520,
+   "right": 276,
+   "bottom": 1569,
+   "text": "Calzad"
+  },
+  {
+   "left": 83,
+   "top": 1287,
+   "right": 864,
+   "bottom": 1338,
+   "text": "9 $3.94 de tarifa base dinarmica"
+  },
+  {
+   "left": 580,
+   "top": -11,
+   "right": 659,
+   "bottom": 124,
+   "package": "non-host",
+   "redacted": true
+  },
+  {
+   "left": 97,
+   "top": 1691,
+   "right": 486,
+   "bottom": 1748,
+   "text": "94min (555 m)"
+  },
+  {
+   "left": 207,
+   "top": 1553,
+   "right": 889,
+   "bottom": 1611,
+   "text": "La solicitud de viaje venció"
+  },
+  {
+   "left": 830,
+   "top": 35,
+   "right": 1021,
+   "bottom": 71,
+   "package": "non-host",
+   "redacted": true
+  },
+  {
+   "left": 93,
+   "top": 1903,
+   "right": 526,
+   "bottom": 1956,
+   "text": "925 min (7.4 km)"
+  },
+  {
+   "left": 151,
+   "top": 1762,
+   "right": 783,
+   "bottom": 1811,
+   "text": "Privada Supuesta 7 - Calz"
+  },
+  {
+   "left": 152,
+   "top": 1818,
+   "right": 956,
+   "bottom": 1876,
+   "text": "Calzada Inventada 300, Colonia"
+  },
+  {
+   "left": 965,
+   "top": 1,
+   "right": 1074,
+   "bottom": 49,
+   "package": "non-host",
+   "redacted": true
+  },
+  {
+   "left": 156,
+   "top": 1972,
+   "right": 940,
+   "bottom": 2020,
+   "text": "Calle Inventada 123 - Calle Inve"
+  },
+  {
+   "left": 152,
+   "top": 2035,
+   "right": 901,
+   "bottom": 2083,
+   "text": "Colonia Ejemplo - Privada Su"
+  },
+  {
+   "left": 957,
+   "top": 162,
+   "right": 997,
+   "bottom": 202,
+   "text": "X"
+  }
+ ],
+ "owned": [
+  {
+   "left": 84,
+   "top": 972,
+   "right": 481,
+   "bottom": 1086,
+   "text": "$81.90"
+  },
+  {
+   "left": 79,
+   "top": 1134,
+   "right": 248,
+   "bottom": 1186,
+   "text": "1punto"
+  },
+  {
+   "left": 399,
+   "top": 421,
+   "right": 605,
+   "bottom": 469,
+   "text": "Avenida"
+  },
+  {
+   "left": 153,
+   "top": 1443,
+   "right": 577,
+   "bottom": 1503,
+   "text": "Colonia Imag"
+  },
+  {
+   "left": 172,
+   "top": 1520,
+   "right": 276,
+   "bottom": 1569,
+   "text": "Calzad"
+  },
+  {
+   "left": 83,
+   "top": 1287,
+   "right": 864,
+   "bottom": 1338,
+   "text": "9 $3.94 de tarifa base dinarmica"
+  },
+  {
+   "left": 97,
+   "top": 1691,
+   "right": 486,
+   "bottom": 1748,
+   "text": "94min (555 m)"
+  },
+  {
+   "left": 207,
+   "top": 1553,
+   "right": 889,
+   "bottom": 1611,
+   "text": "La solicitud de viaje venció"
+  },
+  {
+   "left": 93,
+   "top": 1903,
+   "right": 526,
+   "bottom": 1956,
+   "text": "925 min (7.4 km)"
+  },
+  {
+   "left": 151,
+   "top": 1762,
+   "right": 783,
+   "bottom": 1811,
+   "text": "Privada Supuesta 7 - Calz"
+  },
+  {
+   "left": 152,
+   "top": 1818,
+   "right": 956,
+   "bottom": 1876,
+   "text": "Calzada Inventada 300, Colonia"
+  },
+  {
+   "left": 156,
+   "top": 1972,
+   "right": 940,
+   "bottom": 2020,
+   "text": "Calle Inventada 123 - Calle Inve"
+  },
+  {
+   "left": 152,
+   "top": 2035,
+   "right": 901,
+   "bottom": 2083,
+   "text": "Colonia Ejemplo - Privada Su"
+  },
+  {
+   "left": 957,
+   "top": 162,
+   "right": 997,
+   "bottom": 202,
+   "text": "X"
+  }
+ ],
+ "parsed": {
+  "fare": 81.9,
+  "fareBounds": {
+   "left": 84,
+   "top": 972,
+   "right": 481,
+   "bottom": 1086
+  },
+  "pickup": [
+   94,
+   0.555
+  ],
+  "trip": [
+   925,
+   7.4
+  ],
+  "contentBounds": {
+   "left": 84,
+   "top": 972,
+   "right": 526,
+   "bottom": 1956
+  },
+  "variant": null,
+  "action": null
+ },
+ "signature": true,
+ "decision": {
+  "confidence": "CONFIDENT",
+  "identityUnresolved": false,
+  "replaced": false,
+  "rejection": null
+ },
+ "shownFare": 81.9
+}
