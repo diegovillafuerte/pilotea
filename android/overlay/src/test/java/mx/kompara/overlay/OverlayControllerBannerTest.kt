@@ -2,6 +2,7 @@ package mx.kompara.overlay
 
 import android.content.Context
 import android.os.Looper
+import androidx.compose.runtime.MutableState
 import androidx.compose.ui.platform.ComposeView
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
@@ -29,7 +30,13 @@ import mx.kompara.metrics.NetProfitEngine
 import mx.kompara.metrics.OfferRecorder
 import mx.kompara.capture.HostGeometryEvidence
 import mx.kompara.capture.HostWindowEvidence
+import mx.kompara.overlay.RealGeometryFixtures.UBER
+import mx.kompara.overlay.RealGeometryFixtures.display
+import mx.kompara.overlay.RealGeometryFixtures.navigationBar
+import mx.kompara.overlay.RealGeometryFixtures.statusBar
 import mx.kompara.parsers.model.HostGeometry
+import mx.kompara.parsers.model.HostGeometrySource
+import mx.kompara.parsers.model.HostOrientation
 import mx.kompara.parsers.model.HostRect
 import org.junit.Assert.*
 import org.junit.Test
@@ -39,6 +46,8 @@ import org.robolectric.Shadows.shadowOf
 import org.robolectric.shadows.ShadowLog
 import org.robolectric.annotation.Config
 import java.lang.reflect.Proxy
+
+private const val S25 = "w360dp-h780dp-xxhdpi"
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
@@ -106,6 +115,28 @@ class OverlayControllerBannerTest {
         }
     }
 
+    @Test @Config(qualifiers = S25)
+    fun `after a stall the stopped tab attaches above the last offer's card`() {
+        val g = tabGeometryAfterStall(offerAgeMs = 10_700)
+        assertNotNull("The reader-down tab must reach the screen", g)
+        assertFalse(g!!.isIdleHost)
+        assertEquals(stalledOffer.offerCard, g.offerCard)
+        assertShownAt(OverlayPosition(324, 315), g)
+    }
+
+    @Test @Config(qualifiers = S25)
+    fun `past the parse ceiling the stopped tab uses the idle geometry`() {
+        val g = tabGeometryAfterStall(offerAgeMs = 15_001)!!
+        assertTrue(g.isIdleHost)
+        assertShownAt(OverlayPosition(324, 1932), g)
+    }
+
+    @Test @Config(qualifiers = S25)
+    fun `a stale idle observation attaches no tab`() {
+        for (age in listOf(1_001L, 2_501L))
+            assertNull("Idle observation aged $age ms", tabGeometryAfterStall(offerAgeMs = 10_700, idleAgeMs = age))
+    }
+
     @Test fun `switching host removes its old tab before new geometry admission`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val store = object : DataStore<Preferences> {
@@ -143,6 +174,48 @@ class OverlayControllerBannerTest {
         assertNull(field("bannerOwner").get(controller))
         assertEquals(Lifecycle.State.DESTROYED, oldOwner.lifecycle.currentState)
         HostGeometryEvidence.publish(null)
+    }
+
+    // S25 numbers of StoppedTabAfterStallTest.
+    private val s25Viewport = OverlayViewport(display, 3f, HostOrientation.PORTRAIT, OverlayInsets(0, 91, 0, 144))
+    private val tabSize = ChipSize(720, 216)
+    private val chrome = HostRect(0, 0, 1080, 1)
+    private val controls = listOf(statusBar, navigationBar)
+    private val stalledOffer = HostGeometry(UBER, "derived-ocr_text_bounds", 0, display, HostOrientation.PORTRAIT, chrome,
+        HostRect(0, 579, 1080, 2340), controls, emptyList(), source = HostGeometrySource.OCR_TEXT_BOUNDS)
+
+    private fun assertShownAt(position: OverlayPosition, g: HostGeometry) = assertEquals(StoppedTabWindowDecision.Show,
+        stoppedTabWindowDecision(g, UBER, s25Viewport, tabSize, position, position, layoutPending = false))
+
+    /** Runs the real attachBanner; returns the attached tab's geometry, or null when no tab attached. */
+    @Suppress("UNCHECKED_CAST")
+    private fun tabGeometryAfterStall(offerAgeMs: Long, idleAgeMs: Long = 0): HostGeometry? {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val store = object : DataStore<Preferences> {
+            override val data = flowOf(emptyPreferences())
+            override suspend fun updateData(transform: suspend (Preferences) -> Preferences) = error("No writes")
+        }
+        val settings = SettingsRepository(store)
+        val controller = OverlayController(OfferRecorder(dao<OfferDao>(), CostProfileRepository(dao<CostProfileDao>()), settings, NetProfitEngine()),
+            settings, OverlayPrefs(store), PresentationRecorder(dao<OfferPresentationDao>()), ReaderReadinessRepository(context))
+        fun field(name: String) = OverlayController::class.java.getDeclaredField(name).apply { isAccessible = true }
+        field("overlayContext").set(controller, context)
+        val rect = context.getSystemService(android.view.WindowManager::class.java).currentWindowMetrics.bounds
+        assertEquals(display, HostRect(rect.left, rect.top, rect.right, rect.bottom))
+        val now = System.currentTimeMillis()
+        (field("geometry\$delegate").get(controller) as MutableState<HostGeometry?>).value =
+            stalledOffer.copy(capturedAtMs = now - offerAgeMs)
+        HostGeometryEvidence.publish(HostWindowEvidence(UBER, now - idleAgeMs, display, 3f, chrome, emptyList(),
+            protectedControls = controls))
+        try {
+            OverlayController::class.java.getDeclaredMethod("attachBanner", String::class.java)
+                .apply { isAccessible = true }.invoke(controller, UBER)
+            assertEquals(field("bannerGeometry").get(controller) != null, field("bannerView").get(controller) != null)
+            return field("bannerGeometry").get(controller) as HostGeometry?
+        } finally {
+            controller.stop()
+            HostGeometryEvidence.publish(null)
+        }
     }
 
     /** This window-only test fails if a hand-off starts doing capture, accounting or persistence. */

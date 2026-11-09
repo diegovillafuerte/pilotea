@@ -35,6 +35,7 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.mlkit.text.recognition)
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
     // The real-corpus golden pins the complete OfferCard parse as the model's own JSON.
     testImplementation(libs.kotlinx.serialization.json)
     testImplementation(libs.robolectric)

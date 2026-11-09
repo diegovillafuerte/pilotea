@@ -18,6 +18,7 @@ import mx.kompara.capture.lifecycle.LifecycleSignal
 import mx.kompara.capture.lifecycle.OcrLifecycleBus
 import mx.kompara.capture.lifecycle.RollupTrigger
 import mx.kompara.capture.lifecycle.TripLifecycleTracker
+import mx.kompara.data.accounting.RunningCostInputs
 import mx.kompara.data.service.ScreenReaderState
 import mx.kompara.data.service.ScreenRect
 import mx.kompara.data.settings.CostProfileRepository
@@ -44,6 +45,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowSystemClock
 import java.time.Duration
+import kotlin.math.abs
 
 /**
  * The real pipeline (parser -> outlier guard -> session -> payment) feeding the overlay placement
@@ -79,7 +81,8 @@ class RealOfferBurstReplayTest {
         val shownPickupMin: Double? = null, val shownTripMin: Double? = null,
         val pickupMin: Double? = null, val tripMin: Double? = null, val shownSession: String? = null)
 
-    private inner class Lane(val host: String, val full: ChipSize = this.full, val compact: ChipSize = this.compact) {
+    private inner class Lane(val host: String, val full: ChipSize = this.full, val compact: ChipSize = this.compact,
+        costs: BoundaryCostProfileDao = BoundaryCostProfileDao()) {
         val pipeline = OfferFramePipeline()
         val frames = mutableListOf<Frame>()
         val events = mutableListOf<OfferEvent>()
@@ -90,7 +93,7 @@ class RealOfferBurstReplayTest {
             override val data = flowOf(emptyPreferences())
             override suspend fun updateData(transform: suspend (Preferences) -> Preferences) = error("No settings writes")
         }
-        private val recorder = OfferRecorder(offers, CostProfileRepository(BoundaryCostProfileDao()),
+        private val recorder = OfferRecorder(offers, CostProfileRepository(costs),
             SettingsRepository(store), NetProfitEngine())
         private val tracker = TripLifecycleTracker(offers, BoundaryTripDao(offers), BoundaryShiftDao(), recorder, RollupTrigger {})
         private val evidence = PlacementEvidence()
@@ -186,8 +189,8 @@ class RealOfferBurstReplayTest {
         b("tu meta \$10.00", r.left + 42, r.top + 203, r.left + 315, r.top + 247))
 
     private fun replay(host: String, full: ChipSize = this.full, compact: ChipSize = this.compact,
-        body: Lane.() -> Unit): Lane = runBlocking {
-        val lane = Lane(host, full, compact)
+        costs: BoundaryCostProfileDao = BoundaryCostProfileDao(), body: Lane.() -> Unit): Lane = runBlocking {
+        val lane = Lane(host, full, compact, costs)
         val job = launch(Dispatchers.Unconfined) { OfferEventBus.events.collect { lane.events += it } }
         val lifecycle = launch(Dispatchers.Unconfined) { OcrLifecycleBus.signals.collect { lane.signals += it } }
         yield()
@@ -463,6 +466,41 @@ class RealOfferBurstReplayTest {
         assertTrue("row books $booked\n${trace(lane)}", booked == listOf(12.0, 0.3, 25.0, 7.4, 37.0))
         assertTrue(trace(lane), lane.frames.all { it.visible && it.pickupMin in setOf(null, 12.0) && it.shownPickupMin in setOf(null, 12.0) })
         assertTrue(trace(lane), lane.frames.last().shownPickupMin == 12.0)
+    }
+
+    /**
+     * 0.2.20, the June $180.79 and $75.13 cards: DiDi's whole kilometres read as printed, so a long cheap
+     * ride is no longer a tenfold false green. Invented addresses, and the app's typical running cost
+     * (2.84 per km), as on the device.
+     */
+    @Test fun `a whole-km DiDi trip is right from its first frame and books its real distance`() {
+        assertWholeKmOffer(180.79, "5 min (1.2 km)", "59 min (30 km)", 1.2, 30.0, 31.2, 5.7946, 2.95)
+    }
+
+    @Test fun `a whole-km DiDi trip behind a metres pickup books its real distance`() {
+        assertWholeKmOffer(75.13, "4 min (749 m)", "25 min (16 km)", 0.749, 16.0, 16.749, 4.4856, 1.64)
+    }
+
+    private fun assertWholeKmOffer(fare: Double, pickupRow: String, tripRow: String, pickupKm: Double, tripKm: Double,
+        totalKm: Double, grossPerKm: Double, netPerKm: Double) {
+        val blocks = RealGeometryFixtures.retext(RealGeometryFixtures.didi(), "\$132.59" to "\$$fare",
+            "6min (1.2km)" to pickupRow, "39min (17.3km)" to tripRow)
+        val lane = replay(DIDI, costs = BoundaryCostProfileDao(RunningCostInputs.TYPICAL)) {
+            listOf(0L, 850L, 1_700L).forEachIndexed { i, at -> frame("w f$i", "w", blocks, at) }
+        }
+        lane.frames.first().let {
+            assertTrue("the first frame paints this offer\n${trace(lane)}", it.published && it.visible &&
+                it.shownFare == fare && it.shownPickup == pickupKm && it.shownTrip == tripKm)
+        }
+        assertContract(lane, mapOf("w" to fare), mapOf("w" to tripKm))
+        val row = lane.offers.all().single()
+        val booked = requireNotNull(row.distanceKm)
+        val evaluation = requireNotNull(row.evaluation)
+        val net = requireNotNull(evaluation.perKm).toDouble()
+        assertTrue("row books $booked km\n${trace(lane)}", abs(booked - totalKm) < 0.0001)
+        assertTrue("gross per km ${fare / booked}", abs(fare / booked - grossPerKm) < 0.0001)
+        assertTrue("net per km $net", abs(net - netPerKm) < 0.01)
+        assertTrue("verdict ${row.verdict}", row.verdict == "RED")
     }
 
     @Test fun `DiDi Aceptar cards dock clear of the visible fare legs and button`() {

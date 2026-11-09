@@ -1020,6 +1020,38 @@ class OverlayControllerPlacementTest {
         } finally { controller.stop(); Dispatchers.resetMain() }
     }
 
+    // 0.2.20: one noisy OCR frame no longer raises the held ceiling (0.2.19 sid 5722, chip y 342 to 331).
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Config(qualifiers = "w360dp-h780dp-xxhdpi")
+    @Test fun `one noisy fare frame leaves a strict chip visible in place and a real rise moves it`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val controller = prepared(geometry)
+        try {
+            val v = method("readViewport", WindowInsets::class.java).invoke(controller, null) as OverlayViewport
+            fun frame(fareTop: Int, fareBottom: Int, up: Int = 0) = geometry.copy(displayBounds = v.bounds, capturedAtMs = System.currentTimeMillis(),
+                topChrome = HostRect(0, 0, 1080, 91), offerCard = HostRect(0, 749 - up, v.bounds.right, v.bounds.bottom), source = HostGeometrySource.OCR_TEXT_BOUNDS,
+                fareBounds = HostRect(102, fareTop - up, 489, fareBottom - up), ocrEvidence = HostOcrGeometryEvidence(null, listOf(HostRect(124, 797 - up, 327, 844 - up)),
+                    listOf(HostRect(193, 1425 - up, 509, 1469 - up), HostRect(194, 1565 - up, 533, 1616 - up)), false))
+            val chip = OverlayPlacement.Displayed(OverlayPosition(36, 342), ChipSize(720, 336), PlateFormat.FULL)
+            val view = ComposeView(context).apply { alpha = 1f }
+            field("composeView").set(controller, view)
+            field("placement").set(controller, chip)
+            field("layoutParams").set(controller, WindowManager.LayoutParams().apply { x = 36; y = 342 })
+            state(controller, "geometry", frame(902, 1012)); state(controller, "viewport", v)
+            render(controller, backgroundScope, OverlayVisibility.Showing(rated, "s", parsed(frame(902, 1012), "s")))
+            assertEquals(1f, view.alpha)
+            val noisy = parsed(frame(897, 1011), "s")
+            render(controller, backgroundScope, OverlayVisibility.Showing(rated, "s", noisy))
+            assertEquals("One noisy frame: no hide", 1f, view.alpha)
+            assertEquals("The controller vouches for the same slot", chip.position, (field("savedPosition\$delegate").get(controller) as MutableState<*>).value)
+            assertEquals("Compose measures the same plate", chip, measuredPlacement(controller, noisy, v))
+            val rise = parsed(frame(902, 1012, up = 41), "s")
+            render(controller, backgroundScope, OverlayVisibility.Showing(rated, "s", rise))
+            assertEquals("A real 41 px rise hides on that frame", 0f, view.alpha)
+            assertEquals("And re-places under the new ceiling, 685 - 48 - 336", 301, measuredPlacement(controller, rise, v).position.y)
+        } finally { controller.stop(); Dispatchers.resetMain() }
+    }
+
     private val fareRead = didi.copy(fareBounds = HostRect(84, 540, 541, 652))
     private val reservedHere = HostRect(477, 63, 996, 123) // no system insets in this viewport
     private val noSlot = OverlayPlacement.Suppressed("NO_SAFE_SPACE")

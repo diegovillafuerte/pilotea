@@ -15,8 +15,15 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import mx.kompara.overlay.RealGeometryFixtures.DIDI
+import mx.kompara.overlay.RealGeometryFixtures.UBER
+import mx.kompara.overlay.RealGeometryFixtures.display
+import mx.kompara.overlay.RealGeometryFixtures.navigationBar
+import mx.kompara.overlay.RealGeometryFixtures.statusBar
 import mx.kompara.ui.theme.KomparaTheme
 import mx.kompara.parsers.model.HostGeometry
+import mx.kompara.parsers.model.HostGeometryDeriver
+import mx.kompara.parsers.model.HostGeometrySource
 import mx.kompara.parsers.model.HostOrientation
 import mx.kompara.parsers.model.HostRect
 import org.junit.Assert.*
@@ -64,7 +71,7 @@ class StoppedTabWindowPlacementTest {
     private val size = ChipSize(240, 72)
     private val foot = OverlayPosition(141, 457)
 
-    @Test fun `opaque idle nodes keep the last OCR card exclusion for only the admitted visit`() {
+    @Test fun `opaque idle nodes keep the last OCR card exclusion for the admitted visit and the parse ceiling`() {
         val idle = geometry.copy(offerCard = HostRect(0, 851, 393, 852), protectedControls = emptyList(), isIdleHost = true)
         val admitted = stoppedTabGeometry(idle, geometry, null, "uber", viewport, 1_500)!!
         assertEquals(geometry.offerCard, admitted.offerCard)
@@ -72,7 +79,8 @@ class StoppedTabWindowPlacementTest {
             size, foot, foot, layoutPending = false))
         val later = idle.copy(capturedAtMs = 4_000)
         assertEquals(geometry.offerCard, stoppedTabGeometry(later, geometry, admitted, "uber", viewport, 4_000)!!.offerCard)
-        assertTrue(stoppedTabGeometry(later, geometry, null, "uber", viewport, 4_000)!!.isIdleHost)
+        val pastCeiling = idle.copy(capturedAtMs = 16_001)
+        assertTrue(stoppedTabGeometry(pastCeiling, geometry, null, "uber", viewport, 16_001)!!.isIdleHost)
         assertNull(stoppedTabGeometry(null, geometry, admitted, "uber", viewport, 4_000))
         assertNull(stoppedTabGeometry(later, geometry, admitted, "didi", viewport, 4_000))
     }
@@ -114,6 +122,53 @@ class StoppedTabWindowPlacementTest {
             "uber" to viewport.copy(bounds = HostRect(0, 0, 852, 393), orientation = HostOrientation.LANDSCAPE),
         )) assertEquals(StoppedTabWindowDecision.Hide, stoppedTabWindowDecision(geometry, host, current,
             size, foot, foot, layoutPending = false))
+    }
+}
+
+/**
+ * After a stall the last offer's geometry is at least 10 s old while its card can still be on screen,
+ * so the five-second tab keeps that exclusion until the parse ceiling. S25, density 3.
+ */
+class StoppedTabAfterStallTest {
+    private val viewport = OverlayViewport(display, 3f, HostOrientation.PORTRAIT, OverlayInsets(0, 91, 0, 144))
+    private val tab = ChipSize(720, 216)
+    private val chrome = HostRect(0, 0, 1080, 1)
+    private val controls = listOf(statusBar, navigationBar)
+    private val offerAt = 100_000L
+    private val offer = HostGeometry(UBER, "derived-ocr_text_bounds", offerAt, display, HostOrientation.PORTRAIT, chrome,
+        HostRect(0, 579, 1080, 2340), controls, emptyList(), source = HostGeometrySource.OCR_TEXT_BOUNDS)
+    private val aboveCard = HostRect(324, 315, 1044, 531)
+    private val overCard = HostRect(324, 1932, 1044, 2148)
+
+    private fun tabAt(ageMs: Long, last: HostGeometry = offer, host: String = UBER): HostRect {
+        val now = offerAt + ageMs
+        val idle = HostGeometryDeriver.idleHost(host, now, display, chrome, controls)!!
+        val g = stoppedTabGeometry(idle, last, null, host, viewport, now)!!
+        val placed = OverlayPositioning.place(g, host, viewport, g.capturedAtMs, tab, tab, dockFallback = false)
+        return (placed as OverlayPlacement.Displayed).position.bounds(tab)
+    }
+
+    @Test fun `at the geometry age limit the tab sits above the card`() = assertEquals(aboveCard, tabAt(2_500))
+
+    @Test fun `aged past the geometry limit the tab still sits above the card`() {
+        for (age in listOf(2_501L, 10_700L, 15_000L)) assertEquals("Aged $age ms", aboveCard, tabAt(age))
+    }
+
+    @Test fun `past the parse ceiling the exclusion is gone`() = assertEquals(overCard, tabAt(15_001))
+
+    @Test fun `a last offer stamped after now gives no exclusion`() = assertEquals(overCard, tabAt(-1))
+
+    @Test fun `a different host drops the exclusion at any age`() {
+        for (age in listOf(1_000L, 10_700L)) assertEquals("Aged $age ms", overCard, tabAt(age, host = DIDI))
+    }
+
+    @Test fun `a different display drops the exclusion at any age`() {
+        val otherDisplay = offer.copy(displayBounds = HostRect(0, 0, 1080, 2400))
+        val otherOrientation = offer.copy(orientation = HostOrientation.LANDSCAPE)
+        for (age in listOf(1_000L, 10_700L)) {
+            assertEquals("Aged $age ms", overCard, tabAt(age, last = otherDisplay))
+            assertEquals("Aged $age ms", overCard, tabAt(age, last = otherOrientation))
+        }
     }
 }
 

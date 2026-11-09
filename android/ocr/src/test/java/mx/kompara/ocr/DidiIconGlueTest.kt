@@ -75,18 +75,18 @@ class DidiIconGlueTest {
             assertEquals("$text at $left", 125.0, card(leg(text, left), address(152)).pickupEtaMin!!, 0.001)
     }
 
-    /** A June $139.39 card, 24 frames: `13km` lost its decimal, reads 1.3 km as before, and its 55 minutes stand. */
-    @Test fun `a leg under an hour is never questioned even when its distance lost the decimal`() {
+    /** A June $139.39 card, 24 frames: `13km` is DiDi's whole kilometres, reads 13 km (0.2.20), and its 55 minutes stand. */
+    @Test fun `a leg under an hour is never questioned when its distance has no decimal`() {
         val read = card(leg("55min (13km)", 140), address(138))
         assertEquals(55.0, read.pickupEtaMin!!, 0.001)
-        assertEquals(1.3, read.pickupDistanceKm!!, 0.001)
+        assertEquals(13.0, read.pickupDistanceKm!!, 0.001)
     }
 
-    /** A real June row: at its recovered 1.4 km it would be questioned, at the printed 14 km it is not. */
-    @Test fun `a long leg that lost its decimal is judged at its printed distance`() {
+    /** A real June row: at 1.4 km it would be questioned, at the printed 14 km it is not, and it reads 14 (0.2.20). */
+    @Test fun `a long leg with no decimal is judged at its printed distance`() {
         val read = card(leg("243min (14km)", 156), address(152))
         assertEquals(243.0, read.pickupEtaMin!!, 0.001)
-        assertEquals(1.4, read.pickupDistanceKm!!, 0.001)
+        assertEquals(14.0, read.pickupDistanceKm!!, 0.001)
     }
 
     @Test fun `a questioned leg at the text column has unread minutes and keeps its distance`() {

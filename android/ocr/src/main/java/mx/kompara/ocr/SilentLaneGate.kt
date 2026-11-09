@@ -8,15 +8,16 @@ internal enum class LaneAction {
     /** Nothing to read right now (no host foreground, or screen off) — poll again shortly. */
     IDLE,
 
-    /** takeScreenshot has hard-failed too many times on this device — hand off to the fallback lane. */
+    /** Too many consecutive capture attempts have failed — hand off to the fallback lane. */
     DISABLE,
 }
 
 /**
  * The pure decision at the heart of the silent-screenshot lane (B-091), split out so the gating is
  * unit-tested without Android. Given whether a target host app is currently foreground, whether the
- * screen is interactive, and how many consecutive HARD takeScreenshot failures we've seen, it decides
- * whether to capture, idle, or disable the lane (falling back to MediaProjection).
+ * screen is interactive, and how many consecutive HARD capture failures we've seen (a screenshot error
+ * or lost callback, an OCR failure or timeout), it decides whether to capture, idle, or disable the
+ * lane (falling back to MediaProjection).
  *
  * Rate-limit failures ([android.accessibilityservice.AccessibilityService.ERROR_TAKE_SCREENSHOT_INTERVAL_TIME_SHORT])
  * are NOT hard failures — the caller just backs off and does not increment the counter — so a busy

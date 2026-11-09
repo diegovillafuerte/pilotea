@@ -657,7 +657,8 @@ class OverlayController @Inject constructor(
             detachBanner()
         }
         val g = fresh ?: return
-        if (OverlayPositioning.geometryProblem(g, host, v, System.currentTimeMillis()) != null) return
+        // No age check: stoppedTabGeometry bounded every source's age, and stoppedTabWindowDecision places by g.capturedAtMs.
+        if (OverlayPositioning.geometryProblem(g, host, v, System.currentTimeMillis(), checkAge = false) != null) return
 
         val owner = OverlayLifecycleOwner().apply { onCreate() }
         bannerOwner = owner

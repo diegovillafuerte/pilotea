@@ -3,6 +3,7 @@ package mx.kompara.ocr
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -49,3 +50,12 @@ internal suspend fun <T> awaitScreenshotResult(
         completion.complete(failureResult(error))
     }
 }
+
+/** A platform callback may never arrive: the wait ends as [timedOut]; a late result is discarded. */
+internal suspend fun <T : Any> awaitScreenshotResultWithin(
+    timeoutMs: Long,
+    timedOut: T,
+    discard: (T) -> Unit,
+    failureResult: (RuntimeException) -> T,
+    request: (ScreenshotCompletion<T>) -> Unit,
+): T = withTimeoutOrNull(timeoutMs) { awaitScreenshotResult(discard, failureResult, request) } ?: timedOut

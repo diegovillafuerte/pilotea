@@ -14,7 +14,9 @@ internal fun stoppedTabGeometry(observed: HostGeometry?, lastOffer: HostGeometry
     // that visit, but revalidate host/display/insets and merge newly observed controls/markers.
     val card = admitted?.takeIf { !it.isIdleHost &&
         OverlayPositioning.geometryProblem(it, host, viewport, it.capturedAtMs) == null }
-        ?: lastOffer?.takeIf { !it.isIdleHost && OverlayPositioning.geometryProblem(it, host, viewport, nowMs) == null }
+        // After a stall this geometry is at least 10 s old, and its card can stay up until the parse ceiling.
+        ?: lastOffer?.takeIf { !it.isIdleHost && nowMs - it.capturedAtMs in 0..OverlayController.PARSE_CEILING_MS &&
+            OverlayPositioning.geometryProblem(it, host, viewport, nowMs, checkAge = false) == null }
         ?: return observed
     return card.copy(topChrome = observed.topChrome.copy(bottom = maxOf(observed.topChrome.bottom, card.topChrome.bottom)),
         protectedControls = (card.protectedControls + observed.protectedControls).distinct(),

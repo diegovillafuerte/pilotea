@@ -83,6 +83,7 @@ class OcrCaptureService : Service() {
         onUndeliveredElement = { it.bitmap.recycle() },
     )
     private var consumerStarted = false
+    private var ocrTimeouts = 0
     // Session/permit checks and pipeline publication share the arbiter's monitor with both lanes.
     // Slow recognition remains outside the monitor; an obsolete completion cannot publish.
 
@@ -307,6 +308,13 @@ class OcrCaptureService : Service() {
             frame.bitmap.recycle() // ML Kit finished (with an error) — safe to free.
             return
         }
+        if (blocks == null) {
+            // ML Kit's task cannot be cancelled and may still read this frame: never recycle it here.
+            ownership.withOwner(frame.permit) { pipeline.captureBlocked("OCR_TIMEOUT") }
+            if (++ocrTimeouts >= MAX_OCR_TIMEOUTS) stopAfterFailure("MediaProjection OCR", IllegalStateException())
+            return
+        }
+        ocrTimeouts = 0
         // Retain only coarse luminance evidence from this frame; no bitmap crosses the pipeline.
         val appearance = try {
             HostAppearanceSamples.capture(frame.bitmap, frame.capturedAtMs, frame.chipRect)
@@ -441,6 +449,7 @@ class OcrCaptureService : Service() {
         // 300 ms bounds the offer→verdict latency (plus ML Kit time); ~3 fps full-screen OCR is
         // fine on the target devices and only runs while the driver has the reader on.
         private const val THROTTLE_MS = 300L
+        private const val MAX_OCR_TIMEOUTS = 5
         const val ACTION_STOP = "mx.kompara.action.STOP_SCREEN_READER"
         const val EXTRA_RESULT_CODE = "result_code"
         const val EXTRA_DATA = "data"

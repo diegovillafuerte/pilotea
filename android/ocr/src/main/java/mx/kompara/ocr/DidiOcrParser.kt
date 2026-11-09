@@ -145,7 +145,7 @@ class DidiOcrParser {
             ?.bounds?.let { OfferContentBounds(it.left, it.top, it.right, it.bottom) }
     }
 
-    /** [minToken], [startsBlock] and [printedKm] (before decimal recovery) are the row as read, for [plausibleMinutes]. */
+    /** [minToken], [startsBlock] and [printedKm] (before decimal recovery) are the row as read, for [plausibleMinutes] and [extractLegs]. */
     private data class Leg(val min: Double?, val km: Double, val bounds: OcrBounds, val minToken: String,
         val startsBlock: Boolean, val printedKm: Double)
 
@@ -160,8 +160,8 @@ class DidiOcrParser {
                         // Meters are a genuine integer ("862m" → 0.862 km) — never a dropped decimal.
                         normalized.toDoubleOrNull()?.let { it / 1000.0 }
                     } else {
-                        // Km always render with one decimal; reinsert a point OCR dropped ("130"→13.0)
-                        // so a separator-less leg can't read 10× high (DiDi mirror of the Uber fix).
+                        // Only a candidate: DiDi prints some km whole ("30 km") and OCR can drop a point
+                        // ("50" for 5.0). extractLegs keeps this value or printedKm once it knows the minutes.
                         recoverDroppedDistanceDecimal(normalized).toDoubleOrNull()
                     }
                     if (km == null) null else
@@ -170,7 +170,11 @@ class DidiOcrParser {
                 }
             }
             .sortedBy { it.bounds.top }
-        return legs.map { it.copy(min = plausibleMinutes(it, legs, blocks)) }
+        // More km than minutes is over 60 km/h: OCR dropped the point. Unread minutes prove nothing.
+        return legs.map { leg ->
+            val min = plausibleMinutes(leg, legs, blocks)
+            leg.copy(min = min, km = if (min != null && leg.printedKm > min) leg.km else leg.printedKm)
+        }
     }
 
     /**
@@ -180,7 +184,7 @@ class DidiOcrParser {
      * minutes implying under [MIN_LEG_KMH] is questioned. An icon-glued row whose minutes begin its
      * block drops that digit when the rest is plausible; any other questioned row's minutes stay
      * unread and its distance stands. An icon already read apart ("9 94 min") is not in the token.
-     * Speed uses the distance as printed: a row that lost its decimal ("243min (14km)") is ambiguous
+     * Speed uses the distance as printed: a row with no separator ("243min (14km)") is ambiguous
      * and cannot prove its minutes wrong.
      */
     private fun plausibleMinutes(leg: Leg, legs: List<Leg>, blocks: List<OcrBlock>): Double? {

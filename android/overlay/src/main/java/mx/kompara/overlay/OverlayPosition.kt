@@ -238,12 +238,15 @@ object OverlayPositioning {
  * suppressed the first frame of every real offer and livelocked the chip on back-to-back cards.
  *
  * The card ceiling is the lowest of: the derived envelope top; the VISIBLE fare top minus a
- * clearance that scales with its glyph height (S25: border 176 px above a 109 px fare); the first
- * leg minus the gap; every card header/close anchor minus the gap. Within one offer it only moves
- * up. An unread fare uses the last fare rect moved by the routes' rigid shift. With no upper anchor
- * ever observed for this instance (every real DiDi card), or with only legs visible, the chip
- * docks. A previously seen header/close that vanished under our own mask raises the ceiling to
- * its displaced position, or docks when the displacement is unknown. Nothing here detaches.
+ * clearance that scales with the offer's smallest fare height read so far (S25: border 176 px above
+ * a 109 px fare; DiDi's countdown wipe inflates a single frame's box); the first leg minus the gap;
+ * every card header/close anchor minus the gap. Within one offer it never moves down, and a frame
+ * moves it up only with a limit more than [CEILING_JITTER_DP] above the held ceiling; that frame
+ * then latches its limit. Smaller rises are OCR jitter and leave the held value, so they cannot
+ * creep. An unread fare uses the last fare rect moved by the routes' rigid shift. With no upper
+ * anchor ever observed for this instance (every real DiDi card), or with only legs visible, the
+ * chip docks. A previously seen header/close that vanished under our own mask raises the ceiling
+ * to its displaced position, or docks when the displacement is unknown. Nothing here detaches.
  *
  * 0.2.17 latches, exclusions only (the 0.2.13 lesson: never wait for an anchor): every host decline
  * control seen above the card this offer (DiDi's "✕ Rechazo permitido" pill or round ✕; our own
@@ -263,6 +266,7 @@ object OverlayPositioning {
 internal class PlacementEvidence {
     private var ceiling: Int? = null
     private var upperSeen = false
+    private var smallestFareHeight = Int.MAX_VALUE
     private var lastFare: HostRect? = null
     private var lastFareRoutes: List<HostRect> = emptyList()
     private var reference: List<HostRect> = emptyList()
@@ -315,7 +319,8 @@ internal class PlacementEvidence {
         val fare = next.fareBounds ?: lastFare?.let { old ->
             rigidShift(lastFareRoutes, routes, tolerance)?.let { (dx, dy) -> old.moved(dx, dy) }
         }
-        fare?.let { limits += it.top - maxOf(gap, (it.height * HEADER_CLEARANCE_FARE_HEIGHTS).roundToInt()) }
+        if (!identityUnresolved) next.fareBounds?.let { smallestFareHeight = minOf(smallestFareHeight, it.height) }
+        fare?.let { limits += it.top - maxOf(gap, ((if (identityUnresolved) it.height else minOf(smallestFareHeight, it.height)) * HEADER_CLEARANCE_FARE_HEIGHTS).roundToInt()) }
         routes.minOfOrNull { it.top }?.let { limits += it - gap }
         upper.forEach { limits += it.top - gap }
         var lost = false
@@ -330,7 +335,10 @@ internal class PlacementEvidence {
         }
         if (upper.isNotEmpty() || evidence.independentlyMeasuredCard) upperSeen = true
         if (!upperSeen || fare == null && upper.isEmpty() && !evidence.independentlyMeasuredCard) dock = true
-        val top = maxOf(next.displayBounds.top, minOf(ceiling ?: Int.MAX_VALUE, limits.min()))
+        val held = ceiling
+        val frameLimit = limits.min()
+        val top = maxOf(next.displayBounds.top,
+            if (held != null && held - frameLimit <= viewport.dp(CEILING_JITTER_DP)) held else frameLimit)
         ceiling = top
         if (next.fareBounds != null) { lastFare = next.fareBounds; lastFareRoutes = routes }
         if (!lost && upper.isNotEmpty()) { reference = upper; referenceRoutes = routes }
@@ -420,7 +428,7 @@ internal class PlacementEvidence {
     private fun HostRect.moved(dx: Int, dy: Int) = HostRect(left + dx, top + dy, right + dx, bottom + dy)
 
     fun reset() {
-        ceiling = null; upperSeen = false; lastFare = null; lastFareRoutes = emptyList()
+        ceiling = null; upperSeen = false; smallestFareHeight = Int.MAX_VALUE; lastFare = null; lastFareRoutes = emptyList()
         reference = emptyList(); referenceRoutes = emptyList(); declines = emptyList(); softSeen = emptyList()
         reservationWaived = false; unreserved = null; waiverTrial = false
         ownChipRects = emptyList(); frameWithoutChip = false
@@ -430,5 +438,7 @@ internal class PlacementEvidence {
     companion object {
         /** Live S25 cards: border 176 px and badge 128 px above a 109 px fare top, ~1.6 fare heights. */
         const val HEADER_CLEARANCE_FARE_HEIGHTS = 1.6
+        /** OCR jitter in the card limits (0.2.19 S25: 1-5 px, the fare top 10 under DiDi's wipe). */
+        const val CEILING_JITTER_DP = 4
     }
 }

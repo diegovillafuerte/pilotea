@@ -3,11 +3,13 @@ package mx.kompara.ocr
 /**
  * Recover a decimal point that OCR dropped from a ride-hail *distance* reading.
  *
- * Uber Driver and DiDi Conductor both render trip/pickup distances with EXACTLY one decimal place
- * ("0.4 km", "1.0 km", "13.0 km", "45.6 km") — never a separator-less integer. So a km distance token
- * that survives OCR with no decimal separator and two or more digits ("130", "10", "04") is always a
- * dropped-decimal misread, and the point belongs immediately before the final digit:
+ * Uber Driver renders trip/pickup distances with EXACTLY one decimal place ("0.4 km", "1.0 km",
+ * "13.0 km", "45.6 km") — never a separator-less integer. So on Uber a km distance token that survives
+ * OCR with no decimal separator and two or more digits ("130", "10", "04") is always a dropped-decimal
+ * misread, and the point belongs immediately before the final digit:
  *   "130" → "13.0",  "10" → "1.0",  "04" → "0.4",  "456" → "45.6".
+ * DiDi Conductor makes no such promise: it prints some distances whole ("30 km"), so [DidiOcrParser]
+ * treats this result as a candidate and keeps it only when the printed km exceed the row's minutes.
  * Left uncorrected this is a 10× error: a 13.0 km trip read as 130 km makes net $/km look ~10× too low
  * and paints a great ride RED — live capture 2026-06-15, fixture `ocr_1781569264865.json`
  * ("Viaje: 51 min (130 km)" + "A5 min (L0 km)" for a real 13.0 km / 1.0 km Uber offer).

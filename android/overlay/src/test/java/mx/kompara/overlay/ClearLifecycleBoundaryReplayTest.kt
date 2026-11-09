@@ -636,12 +636,13 @@ internal class BoundaryShiftDao : ShiftDao {
             .sortedBy { it.startedAt }
 }
 
-internal class BoundaryCostProfileDao : CostProfileDao {
-    // These tests isolate thresholds/lifecycle from running costs: explicitly configured zero.
+internal class BoundaryCostProfileDao(
+    // These tests isolate thresholds/lifecycle from running costs: explicitly configured zero by default.
+    inputs: mx.kompara.data.accounting.RunningCostInputs = mx.kompara.data.accounting.RunningCostInputs(
+        mx.kompara.data.accounting.RunningCostMode.DIRECT, directPerKm = java.math.BigDecimal.ZERO),
+) : CostProfileDao {
     private val costVersions = mutableListOf(mx.kompara.data.db.entity.CostVersionEntity.from(
-        mx.kompara.data.accounting.RunningCostVersion(1, 0, 0,
-            mx.kompara.data.accounting.RunningCostInputs(mx.kompara.data.accounting.RunningCostMode.DIRECT,
-                directPerKm = java.math.BigDecimal.ZERO), mx.kompara.data.accounting.CostConfirmation.CONFIRMED, 0)))
+        mx.kompara.data.accounting.RunningCostVersion(1, 0, 0, inputs, mx.kompara.data.accounting.CostConfirmation.CONFIRMED, 0)))
     override suspend fun insertVersion(version: mx.kompara.data.db.entity.CostVersionEntity): Long {
         costVersions += version.copy(id = costVersions.size + 1L)
         return costVersions.size.toLong()
