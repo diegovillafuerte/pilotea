@@ -52,9 +52,12 @@ internal object V4Contract {
     /** Sections drawn as app screens; each of their baselines comes in day and night. */
     val screens = setOf("P", "L", "K", "M", "J")
 
-    /** v3's retired words, the kit's (check.py `RETIRED`), and the coverage claims M must never make. */
+    /** v3's retired words and the kit's (check.py `RETIRED`). */
     val retired = Regex("(?i)(?:\\b(?:no conviene|conviene|regular|tu rojo|te quedan|te quedaron|ganancia neta|de verdad|umbral|" +
-        "lector funcionando|sin el coche|con el coche|cuadrar|premium|lo del coche|en pausa|cubierto|ya te toca)\\b|\\baprox)")
+        "lector funcionando|sin el coche|con el coche|cuadrar|premium|lo del coche|en pausa)\\b|\\baprox)")
+
+    /** The coverage claims the IMSS frames must never make; check.py asserts them on M alone (L4's car is "cubierto el martes"). */
+    val coverage = Regex("(?i)\\b(?:cubierto|ya te toca)\\b")
 
     /** Asserts frame [id]'s contract strings are on screen and no retired word is. */
     fun assertFrame(compose: ComposeTestRule, id: String) {
@@ -63,6 +66,7 @@ internal object V4Contract {
         output.writeText(text)
         val missing = strings.getValue(id).filterNot { FrameContract.normalize(it) in text }
         assertTrue("$id missing $missing; rendered text: $output", missing.isEmpty())
-        assertTrue("$id has retired wording: ${retired.find(text)?.value}", !retired.containsMatchIn(text))
+        val claim = retired.find(text) ?: coverage.find(text)?.takeIf { section(id) == "M" }
+        assertTrue("$id has retired wording: ${claim?.value}", claim == null)
     }
 }

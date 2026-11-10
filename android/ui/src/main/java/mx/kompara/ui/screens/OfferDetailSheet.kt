@@ -13,11 +13,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
-import mx.kompara.ui.R
 import mx.kompara.ui.components.*
 import mx.kompara.ui.stats.OfferDetailModel
 import mx.kompara.ui.theme.KomparaTheme
@@ -26,8 +24,8 @@ import mx.kompara.ui.theme.KomparaType
 /** No raw screen text, passenger, coordinates, screenshot or device identifiers enter a report. */
 fun offerReadingReport(model: OfferDetailModel, dayIso: String): String = buildString {
     append("Kompara · Avisar que se leyó mal\n$dayIso · ${model.title}\n${model.why}")
-    model.amount?.let { append("\n${model.label}: $it sin el coche") }
-    model.timeRate?.let { append("\n$it") }
+    model.amount?.let { append("\n${model.label} $it") }
+    model.other?.let { append("\n${it.label}: ${it.value}") }
 }
 
 /** Opens a draft only; without a configured recipient, the driver chooses one in the other app. */
@@ -41,16 +39,16 @@ internal fun openReadingReport(context: Context, report: String): Boolean {
     }
 }
 
+/** One offer (v4 L7). Cancelling asks first; a report shows its exact text before sharing (0.2.20's behaviour). */
 @Composable
-fun OfferDetailSheet(model: OfferDetailModel, dayIso: String, onDismiss: () -> Unit,
-    onCalculation: () -> Unit, onLimits: () -> Unit, onCancel: () -> Unit,
+fun OfferDetailSheet(model: OfferDetailModel, dayIso: String, onDismiss: () -> Unit, onCancel: () -> Unit,
     message: (@Composable () -> Unit)? = null, reportAvailable: Boolean = PrivacyLinks.support != null) {
     var confirmCancel by rememberSaveable(model.offerId) { mutableStateOf(false) }
     var consent by rememberSaveable(model.offerId) { mutableStateOf(false) }
     var reportError by rememberSaveable(model.offerId) { mutableStateOf(false) }
     val context = LocalContext.current
     SheetScaffold(model.title, onDismiss, heading = { OfferDetailHeading(model) }) {
-        OfferDetailContent(model, onCalculation, onLimits, { consent = true }, { confirmCancel = true }, message, reportAvailable)
+        OfferDetailContent(model, { consent = true }, { confirmCancel = true }, message, reportAvailable)
         if (reportError) Text("No pudimos abrir una app para compartir. Inténtalo otra vez.", style = KomparaType.body)
     }
     if (confirmCancel) AlertDialog(onDismissRequest = { confirmCancel = false },
@@ -71,78 +69,57 @@ fun OfferDetailSheet(model: OfferDetailModel, dayIso: String, onDismiss: () -> U
     }
 }
 
+/** "▲ 14:32 · Uber · en curso" (`.sheet h5`). */
 @Composable
 fun OfferDetailHeading(model: OfferDetailModel) {
-    Row(Modifier.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        OfferMark(model.mark)
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        if (model.mark != OfferMarkState.UNKNOWN) VerdictShape(model.mark, width = 15.dp, height = 14.dp)
         Text(model.title, style = KomparaType.title)
     }
 }
 
-/** Equal padding on all three ledger rows absorbs slack; content grows/scrolls with wrapped text. */
 @Composable
-fun OfferDetailContent(model: OfferDetailModel, onCalculation: () -> Unit, onLimits: () -> Unit,
-    onReport: () -> Unit, onCancel: () -> Unit, message: (@Composable () -> Unit)? = null, reportAvailable: Boolean = true) {
-    Spacer(Modifier.height(12.dp))
-    model.label?.let { Text(it, style = KomparaType.body, color = KomparaTheme.colors.inkSecondary) }
-    model.amount?.let { amount ->
-        Text(buildAnnotatedString {
-            withStyle(KomparaType.number.toSpanStyle()) { append(amount) }
-            withStyle(KomparaType.carSuffix.copy(color = KomparaTheme.colors.inkSecondary).toSpanStyle()) { append(" sin el coche") }
-        }, Modifier.padding(top = 8.dp, bottom = 8.dp), style = KomparaType.number)
-    }
-    Text(moneyInProse(model.why), style = KomparaType.body)
-    model.timeRate?.let { Text(it, style = KomparaType.small, color = KomparaTheme.colors.inkSecondary) }
-    model.suppression?.let { Text(it, style = KomparaType.small, color = KomparaTheme.colors.inkSecondary) }
-    if (model.typical) Text("Con costos típicos", style = KomparaType.small, color = KomparaTheme.colors.inkSecondary)
-    Spacer(Modifier.height(8.dp))
+fun OfferDetailContent(model: OfferDetailModel, onReport: () -> Unit, onCancel: () -> Unit,
+    message: (@Composable () -> Unit)? = null, reportAvailable: Boolean = true) {
+    val c = KomparaTheme.colors
+    if (model.amount != null) Text(buildAnnotatedString {
+        withStyle(GananciasType.heroLabel.toSpanStyle().copy(color = c.inkSecondary)) { append("${model.label}  ") }
+        append(model.amount)
+    }, Modifier.padding(top = 6.dp), style = GananciasType.sheetFigure, softWrap = false)
+    Text(buildAnnotatedString {
+        val rate = model.rate
+        if (rate != null) {
+            withStyle(KomparaType.bodyStrong.toSpanStyle().copy(color = c.ink, fontSize = GananciasType.status.fontSize)) { append(rate) }
+            append(model.why.removePrefix(rate))
+        } else append(model.why)
+    }, Modifier.padding(top = 6.dp, bottom = 10.dp), style = GananciasType.status, color = c.inkSecondary)
+    model.suppression?.let { Text(it, Modifier.padding(bottom = 10.dp), style = KomparaType.small, color = c.inkSecondary) }
     // Snackbar is in a dedicated gap above the rows, never on top of a reading or action.
     message?.invoke()
-    val padding = if (model.suppression == null) 18.1.dp else 15.1.dp
-    listOf(model.fare, model.running).forEach { row ->
+    listOfNotNull(model.fare, model.running, model.other).forEach { LedgerLine(it) }
+    val links = listOfNotNull(("Quitar de mi día" to onCancel).takeIf { model.cancellableTripId != null },
+        ("Avisar que se leyó mal" to onReport).takeIf { reportAvailable })
+    if (links.isNotEmpty()) {
         Rule()
-        Row(Modifier.fillMaxWidth().padding(vertical = padding), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Column(Modifier.weight(1f)) {
-                Text(row.label, style = KomparaType.body)
-                row.detail?.let { Text(it, style = KomparaType.small, color = KomparaTheme.colors.inkSecondary) }
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+            links.forEach { (text, action) ->
+                Text(text, Modifier.heightIn(min = 48.dp).clickable(onClick = action).wrapContentHeight(Alignment.CenterVertically),
+                    style = GananciasType.status, color = c.inkSecondary)
             }
-            Text(row.value, style = KomparaType.rate)
         }
     }
-    Rule()
-    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(onClick = onCalculation).padding(vertical = padding)
-        .testTag("offer-day-ledger"), verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) {
-            Text(moneyInProse(model.dayLine), style = KomparaType.body)
-            Text(model.carLine, style = KomparaType.small, color = KomparaTheme.colors.inkSecondary)
-        }
-        DrawnIcon(R.drawable.v3_chev)
-    }
-    Rule()
-    OfferAction("Cambiar tu meta y tu mínimo", onLimits, chevron = true)
-    if (reportAvailable) OfferAction("Avisar que se leyó mal", onReport)
-    if (model.cancellableTripId != null) OfferAction("¿Se canceló? Quitar de mi día", onCancel, quiet = true)
 }
 
+/** One `.led` row: label and its small arithmetic on the left, the amount on the right. */
 @Composable
-private fun OfferAction(text: String, onClick: () -> Unit, chevron: Boolean = false, quiet: Boolean = false) {
-    Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(onClick = onClick).padding(vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically) {
-        Text(text, Modifier.weight(1f), style = KomparaType.body,
-            color = if (quiet) KomparaTheme.colors.inkSecondary else KomparaTheme.colors.ink)
-        if (chevron) DrawnIcon(R.drawable.v3_chev)
+internal fun LedgerLine(row: CalculationRow, first: Boolean = false) {
+    if (row.total) Rule(total = true) else if (!first) Rule()
+    Row(Modifier.fillMaxWidth().padding(vertical = 13.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        Column(Modifier.weight(1f).alignByBaseline()) {
+            Text(row.label, style = if (row.total) KomparaType.bodyStrong else KomparaType.body)
+            row.detail?.let { Text(it, Modifier.padding(top = 2.dp), style = GananciasType.ledgerDetail, color = KomparaTheme.colors.inkSecondary) }
+        }
+        Text(row.value, Modifier.alignByBaseline(), style = if (row.total) GananciasType.ledgerTotal else GananciasType.ledgerValue,
+            softWrap = false)
     }
-    Rule()
-}
-
-/** Keep financial runs on the shared money face without making the explanation heavier. */
-private fun moneyInProse(text: String) = buildAnnotatedString {
-    var end = 0
-    Regex("[−]?\\$[0-9,.]+(?:/km|/h)?").findAll(text).forEach { match ->
-        append(text.substring(end, match.range.first))
-        withStyle(KomparaType.rate.toSpanStyle()) { append(mx.kompara.ui.format.Formatters.unbroken(match.value)) }
-        end = match.range.last + 1
-    }
-    append(text.substring(end))
 }

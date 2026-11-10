@@ -48,25 +48,15 @@ Software View PNGs do not certify Android's hardware shadow, mounted legibility,
 The existing S1 component baselines stay unchanged. Physical permission return, notification prompts, host launch, TalkBack and process death still require the authorized-device gate (TD-049/S21).
 
 
-## S8 — Tu día and its sheets
+## v4 — Ganancias (L1–L8; replaces S8 Tu día and S9 Ganancias Semana)
 
-`DayScreenTest` renders the production list, detail and ledger contents using `DayFixture`, which reads the checked-in raw fixture and runs the shared accounting calculator. Twenty `day_*.png` baselines cover D1/D1a/D1b/N3, D2–D2e, D3/D3a, live and gray detail, 1.3× and 320dp/2×. Sheet screenshots host the actual sheet contents in a deterministic native View; interaction tests exercise `ModalBottomSheet`, its accessible dismiss action, consent, navigation and restoration. Native system Back/IME/window placement still requires authorized hardware (TD-049/S21).
-
-```sh
-./gradlew :ui:testDebugUnitTest --tests '*DayScreenTest' -Pv3.recordScreenshots=true --console=plain
-```
-
-The large-text test also scrolls a 420dp viewport to its last action, with a save snackbar in a reserved slot, and verifies the 24dp content bottom inset. Physical status bars and keyboards are not HTML replicas. All prior baseline files remain unchanged.
-
-## S9 — Ganancias Semana
-
-`WeekScreenTest` renders the production week presentation and sheet contents with `WeekFixture` and the native header/navigation. Eighteen `week_*.png` baselines cover E1/E1b–E1f/E2/E6/E7/E7b/E8/N4, 1.3× and 320dp/2×. It checks all sheet/bar doors, restored sheet identity, dated day navigation, future-step disabling, offline totals and the large-text scroll-to-total/bottom inset. Sheet edges follow measured bar/row boundaries; narrow viewports scroll their content. The E2 preview is dated 2 Nov and uses the truthful `Ver Premium` entry until S17 can support promotional trials.
+`GananciasScreenTest` renders each frame in the real shell from `GananciasFixture` (the pinned v4 fixture's 19 Oct timeline, its second-app offer and weeks, through the production calculators). Thirty-two `v4/ganancias_L*` baselines: every frame in day and night at 393dp, at 1.3× and at 320dp/2×. Each case asserts the kit's frame contract and that no text is clipped. The offer sheet (L7) and Cómo se calculó (L8) are drawn in the window over the shell; interaction tests exercise the real `ModalBottomSheet`, report consent and the cancel confirmation.
 
 ```sh
-./gradlew :ui:testDebugUnitTest --tests '*WeekScreenTest' -Pv3.recordScreenshots=true --console=plain
+./gradlew :ui:testDebugUnitTest --tests '*GananciasScreenTest' -Pv4.recordScreenshots=true --console=plain
 ```
 
-For manual debug inspection, `V3ComponentActivity` accepts `--es weekFrame E1f` (and the other S9 IDs) plus the existing `--ez dark true`; it never seeds production storage. S1 component baselines remain separate and unchanged. Actual native window/Back/TalkBack/process-death checks remain TD-049/S21.
+For manual debug inspection, `V3ComponentActivity` accepts `--es gananciasFrame L4` (L1–L8, `empty`, `short`) plus `--ez dark true`; it never seeds production storage.
 
 ## S10 — Ganancias Mes and factual IMSS (retired)
 

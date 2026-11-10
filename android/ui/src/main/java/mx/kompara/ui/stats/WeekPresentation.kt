@@ -2,13 +2,12 @@ package mx.kompara.ui.stats
 
 import mx.kompara.data.accounting.*
 import mx.kompara.metrics.WeekMoneySnapshot
-import mx.kompara.ui.components.BarValue
-import mx.kompara.ui.components.CalculationRow
 import mx.kompara.ui.format.Formatters
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.time.format.TextStyle
 import java.time.temporal.ChronoUnit
 import java.util.Locale
 
@@ -43,64 +42,54 @@ fun statementDifferences(money: PeriodMoney, statements: List<IncomeRecord>): Li
         StatementDifference(app, captured.fold(BigDecimal.ZERO) { sum, it -> sum + it.record.payment!! }, statement.payment!!)
     }
 
-data class WeekPresentation(val snapshot: WeekMoneySnapshot, val premium: Boolean = false) {
-    val money get() = snapshot.money
-    val start get() = money.window.start
-    val today get() = money.window.asOf.atZone(money.window.zone).toLocalDate()
-    val open get() = start == today.monday()
-    val label get() = if (open) "Llevas esta semana · aprox." else "Te quedaron esa semana · aprox."
-    val hasData get() = snapshot.hasOffers || money.contributions.isNotEmpty() || money.paymentOnly.isNotEmpty() || money.carConfigured
-    val amount get() = money.periodResult?.takeIf { money.contributions.isNotEmpty() || money.carConfigured }?.let(Formatters::formatMxnWhole)
-    val breakdownAvailable get() = money.byApp.values.any { it.ratePerKm != null } || snapshot.days.any { it?.contributions?.isNotEmpty() == true }
-    val locked get() = !premium && breakdownAvailable && !HistoryWeeks.isFree(start, today)
-    val quietLine get() = if (money.periodResult == null) "${money.tripCount()},\nfaltan datos para calcular lo que te quedó" else money.tripCount() + (if (money.inProgress > 0) " (${money.inProgress} en curso)" else "") +
-        ",\n${money.basis()}"
-    val days get() = snapshot.days
-    val bars get() = days.mapIndexed { i, day -> BarValue(listOf("lun", "mar", "mié", "jue", "vie", "sáb", "dom")[i],
-        day?.periodResult?.toDouble(), day?.periodResult?.let(Formatters::formatMxnWhole) ?: "—") }
-    val roundingNote: String? get() {
-        val children = days.filterNotNull()
-        val exactChildren = children.fold(BigDecimal.ZERO) { sum, day -> sum + (day.periodResult ?: return null) }
-        // Different source coverage is not rounding (e.g. an undated statement with no day allocation).
-        if (money.periodResult == null || exactChildren.subtract(money.periodResult).abs() > BigDecimal("0.000000000001")) return null
-        val residual = money.roundingResidual(children) ?: return null
-        if (children.isEmpty() || residual.signum() == 0) return null
-        val sum = children.fold(BigDecimal.ZERO) { total, day -> total + (day.periodResult ?: return null).setScale(0, RoundingMode.HALF_UP) }
-        return "Redondeado una vez · los días suman ${Formatters.formatMxnWhole(sum)}"
-    }
-    val apps get() = money.byApp.entries.sortedWith(compareByDescending<Map.Entry<String, AppContribution>> { it.value.ratePerKm }.thenBy { it.key })
-    val finding: String? get() {
-        val rates = apps.filter { it.value.ratePerKm != null }
-        if (rates.size != 2) return null
-        val delta = rates[0].value.ratePerKm!!.subtract(rates[1].value.ratePerKm!!)
-        if (delta.setScale(2, RoundingMode.HALF_UP).signum() == 0) return "Las dos apps te dejaron lo mismo por km"
-        return "${appName(rates[0].key)} te dejó ${Formatters.formatMxn(delta)} más por km"
-    }
-    val differences get() = statementDifferences(snapshot.capturedMoney ?: money, snapshot.statements.filter { statement ->
-        statement.id in snapshot.selectedStatements || snapshot.statements.none { it.app == statement.app && it.id in snapshot.selectedStatements }
-    })
-    val dailyCarLine: String? get() = money.carCharges.lastOrNull()?.let { "Cada día se restan ${Formatters.formatMxnWhole(it.amount)} del coche" }
-    fun dayLabel(index: Int): String {
-        val date = start.plusDays(index.toLong())
-        val day = days[index] ?: return date.format(DateTimeFormatter.ofPattern("EEEE d", weekSpanish)).replaceFirstChar { it.titlecase(weekSpanish) }
-        return date.format(DateTimeFormatter.ofPattern("EEEE d", weekSpanish)).replaceFirstChar { it.titlecase(weekSpanish) } +
-            if (day.trips > 0) " · ${day.trips} viajes" else ""
-    }
-    fun dayNote(index: Int): String? = days[index]?.let {
-        if (it.trips == 0) if (it.carConfigured) "Sin viajes; lo del coche corre igual" else "Sin viajes" else null
-    }
+/** One bar of the week (L4, L5): its height relative to the best day; a day without trips is a hairline. Only the best carries its amount. */
+data class WeekBar(val date: LocalDate, val letter: String, val fraction: Float, val best: Boolean, val value: String?, val elapsed: Boolean) {
+    val label: String? get() = value?.takeIf { best }
 }
 
-fun weekCalculation(week: WeekPresentation): DayCalculation {
-    val money = week.money
-    val base = dayCalculation(money)
-    val rows = base.rows.mapIndexed { index, row -> when {
-        index == 0 -> row.copy(detail = money.byApp.entries.sortedBy { if (it.key == "UBER") "0" else it.key }
-            .joinToString(" · ") { "${appName(it.key)} ${it.value.payment?.let(Formatters::formatMxnWhole) ?: "—"}" })
-        row.label == "Lo del coche" -> row.copy(detail = if (money.carCharges.map { it.versionId }.distinct().size == 1)
-            "${Formatters.formatMxnWhole(money.carCharges.first().amount.multiply(BigDecimal(7)))} por semana" else "Según el costo vigente de cada día")
-        row.total -> row.copy(label = week.label)
-        else -> row
-    } }
-    return base.copy(title = "Cómo se calculó · semana", rows = rows)
+/** The car as one bar under the week (plan 4.5): [hatched] is the car's share of the bar. */
+data class WeekCar(val hatched: Float, val covered: Boolean, val label: String, val amount: String, val restLabel: String, val rest: String)
+
+/** Semana (v4 L4, L5): Monday to Sunday, what the trips kept, seven bars and the week's car bill. */
+data class WeekPresentation(val snapshot: WeekMoneySnapshot) {
+    val money get() = snapshot.money
+    val start: LocalDate get() = money.window.start
+    val today: LocalDate get() = money.window.asOf.atZone(money.window.zone).toLocalDate()
+    val open get() = start == today.monday()
+    val title get() = weekRange(start, today) + if (open) " · en curso" else ""
+    val label get() = if (open) "Esta semana llevas" else "Ganaste"
+    val amount: String? get() = money.tripContribution?.let(Formatters::formatMxnWhole)
+    val calculable get() = money.trips > 0
+    val quietLine get() = when {
+        money.trips == 0 -> "Todavía no hay viajes esta semana"
+        amount == null -> "${tripsLabel(money.trips)}\nFaltan datos para calcular lo que ${if (open) "llevas" else "ganaste"}"
+        else -> "${tripsLabel(money.trips)} · ya restamos ${if (money.electric()) "energía" else "gasolina"} y desgaste"
+    }
+    val bars: List<WeekBar> get() {
+        val values = snapshot.car.days.map { it?.coerceAtLeast(BigDecimal.ZERO) }
+        val best = values.filterNotNull().maxOrNull()?.takeIf { it.signum() > 0 }
+        val bestIndex = best?.let { values.indexOf(it) }
+        return values.mapIndexed { i, value ->
+            val date = start.plusDays(i.toLong())
+            WeekBar(date, listOf("L", "M", "M", "J", "V", "S", "D")[i],
+                if (value == null || best == null) 0f else value.divide(best, 6, RoundingMode.HALF_UP).toFloat(),
+                i == bestIndex, snapshot.car.days[i]?.let(Formatters::formatMxnWhole), date <= today)
+        }
+    }
+    val car: WeekCar? get() {
+        val car = snapshot.car
+        val bill = car.bill ?: return null
+        val covered = car.coveredOn
+        fun share(part: BigDecimal, whole: BigDecimal) =
+            if (whole.signum() <= 0) 0f else part.divide(whole, 6, RoundingMode.HALF_UP).toFloat().coerceIn(0f, 1f)
+        return if (covered != null) WeekCar(share(bill, car.earned), true,
+            "El coche, cubierto el ${covered.getDisplayName(TextStyle.FULL, weekSpanish)}", Formatters.formatMxnWhole(bill),
+            "Tuyo", Formatters.formatMxnWhole(car.yours!!))
+        else WeekCar(share(car.earned, bill), false, "El coche",
+            "${Formatters.formatMxnWhole(car.earned)} de ${Formatters.formatMxnWhole(bill)}",
+            if (open) "Te faltan" else "Te faltaron", Formatters.formatMxnWhole(car.missing!!))
+    }
+    val calculation get() = periodCalculation(money, "semana", label)
+    /** Read by the dormant premium eligibility (plan §3, after launch). */
+    val breakdownAvailable get() = money.byApp.values.any { it.ratePerKm != null } || snapshot.days.any { it?.contributions?.isNotEmpty() == true }
 }

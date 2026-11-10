@@ -50,14 +50,15 @@ import mx.kompara.ui.screens.AjustesScreen
 import mx.kompara.ui.screens.CompararScreen
 import mx.kompara.ui.screens.CostProfileScreen
 import mx.kompara.ui.screens.DayDetailScreen
+import mx.kompara.ui.screens.GananciasScreen
 import mx.kompara.ui.screens.HelpScreen
 import mx.kompara.ui.screens.ImssScreen
 import mx.kompara.ui.screens.LectorScreen
 import mx.kompara.ui.screens.ThresholdsScreen
-import mx.kompara.ui.screens.WeekSummaryScreen
+import mx.kompara.ui.screens.WeekScreen
 import mx.kompara.ui.share.ShareCardScreen
 import mx.kompara.ui.stats.DayDetailViewModel
-import mx.kompara.ui.stats.WeekSummaryViewModel
+import mx.kompara.ui.stats.GananciasViewModel
 import mx.kompara.ui.theme.KomparaTheme
 
 /**
@@ -217,12 +218,13 @@ private fun NavController.navigateToPaywall(surface: GateSurface) {
 /** Registers the screen for every top-level destination. WP-D, WP-E and WP-F replace these screens. */
 private fun NavGraphBuilder.tabScreens(navController: NavController) {
     composable(KomparaDestination.GANANCIAS.route) {
-        WeekSummaryScreen(
-            onImportReview = { navController.navigate("import-review/$it") },
+        GananciasScreen(
+            onSemaforo = { navController.navigate(KomparaDestination.SEMAFORO.route) },
             onDay = { navController.navigate(KomparaDestination.dayRoute(it.toString())) },
-            onMonth = { navController.selectRoot(KomparaDestination.IMSS, KomparaDestination.GANANCIAS) },
-            onUpgrade = { navController.navigateToPaywall(GateSurface.HISTORY) },
-            onImport = { navController.navigate(KomparaDestination.IMPORT_ROUTE) },
+            onLimits = { navController.navigate(KomparaDestination.THRESHOLDS_ROUTE) },
+            onCosts = { navController.navigate(KomparaDestination.COST_PROFILE_ROUTE) },
+            onRecovery = { navController.navigate(KomparaDestination.RECOVERY_ROUTE) },
+            onBattery = { navController.navigate(KomparaDestination.BATTERY_ROUTE) },
         )
     }
     composable(KomparaDestination.COMPARAR.route) { CompararScreen() }
@@ -309,29 +311,19 @@ private fun NavGraphBuilder.statsScreens(navController: NavController, snackbar:
     importDestination(navController)
     // B-056 referral / "Invita y gana" flow.
     referralDestination(navController)
-    // Day detail with no arg → today.
-    composable(KomparaDestination.DAY_DETAIL_ROUTE) { DayDetailScreen(onBack = { navController.popBackStack() }, onLimits = { navController.navigate("thresholds") }) }
+    // A day (L6); with no arg, today.
+    composable(KomparaDestination.DAY_DETAIL_ROUTE) { DayDetailScreen(onBack = { navController.popBackStack() }) }
     composable(
         route = "${KomparaDestination.DAY_DETAIL_ROUTE}/{${DayDetailViewModel.ARG_DAY}}?offerId={offerId}&ledger={ledger}",
         arguments = listOf(navArgument(DayDetailViewModel.ARG_DAY) { type = NavType.StringType },
             navArgument("offerId") { type = NavType.LongType; defaultValue = -1L },
             navArgument("ledger") { type = NavType.BoolType; defaultValue = false }),
-    ) { DayDetailScreen(onBack = { navController.popBackStack() }, onLimits = { navController.navigate("thresholds") }) }
+    ) { DayDetailScreen(onBack = { navController.popBackStack() }) }
+    // "Tu semana está lista" opens its week (NoticeNavigation).
     composable(
-        route = "${KomparaDestination.WEEK_SUMMARY_ROUTE}/{${WeekSummaryViewModel.ARG_WEEK_START}}",
-        arguments = listOf(
-            navArgument(WeekSummaryViewModel.ARG_WEEK_START) { type = NavType.StringType },
-        ),
-    ) {
-        WeekSummaryScreen(
-            onImportReview = { navController.navigate("import-review/$it") },
-            onDay = { navController.navigate(KomparaDestination.dayRoute(it.toString())) },
-            onMonth = { navController.selectRoot(KomparaDestination.IMSS, KomparaDestination.GANANCIAS) },
-            onUpgrade = { navController.navigateToPaywall(GateSurface.HISTORY) },
-            // PR-E: a premium-but-unverified driver's benchmark gate here routes to import-to-verify.
-            onImport = { navController.navigate(KomparaDestination.IMPORT_ROUTE) },
-        )
-    }
+        route = "${KomparaDestination.WEEK_SUMMARY_ROUTE}/{${GananciasViewModel.ARG_WEEK_START}}",
+        arguments = listOf(navArgument(GananciasViewModel.ARG_WEEK_START) { type = NavType.StringType }),
+    ) { WeekScreen(onDay = { navController.navigate(KomparaDestination.dayRoute(it.toString())) }) }
     // One share task retains the opener's period and comparison context. S19 migrates notification payloads.
     composable("${KomparaDestination.SHARE_CARD_ROUTE}?weekStart={weekStart}&month={month}&app={app}&city={city}&metric={metric}",
         arguments = listOf(navArgument("weekStart") { type = NavType.StringType; defaultValue = "" },
