@@ -202,3 +202,40 @@ the flags-only touch update it makes afterwards requests layout, and a DiDi drag
 (Codex review; a 900 ms drag replay was taken down at 555 ms before this). Also in WP-AA: the notification ask is now recorded from the dialog's answer,
 not before it, and a configuration change while the dialog is up does not ask twice. So it is at most
 once per answered dialog: a process lost before the answer asks again.
+
+**WP-AB (2026-11-10): the traversal that reveals a window draws the final chip.** The 571 px first measure
+is the "Leyendo oferta" plate. Reading attached the window with `VerdictChipState.reading`, and the window's
+first traversal measured that plate before the verdict's Showing arrived (6 to 92 ms after Reading in the
+phone's lines). The verdict (666 px) then needed later frames: a recomposition, a re-measure, a hide for the
+size change, a move and a second reveal. 35d9 was revealed at 571 with the verdict already held and drew
+nothing after that. A window stopped there would now show "Leyendo oferta" whole, which is not a verdict, and
+the WP-AA check would take it down about 0.5 s later, because the composed plate is not the held verdict.
+Two changes make the first composition the final one. A new window waits for the verdict (`if (evaluated)
+attach()`); a window already up still swaps to Leyendo in place for a back-to-back offer, so an old verdict
+never stays over a new one. And in the overlay's window the plate is present in its first composition
+(`MutableTransitionState(visible)` in `MeasuredVerdictChip`), with no 120 ms fade and no 16 dp rise. So
+`window drawn … preDraws=1` follows `window reveal` in the same traversal, and the deadline is disarmed there.
+Exits, and returns during an exit, still animate; `ReglaPresence`'s own default and its other callers keep
+their entrance. Verdict latency is unchanged: before, the verdict also showed only at the second reveal. A
+window that stops after its reveal (3f3c, 35d9) now keeps showing the right chip. One that stops before
+drawing a later change (a new verdict, a back-to-back Leyendo, a hide) is still replaced. Debug builds now
+log each window's life at its detach and probe a window that seems to have stopped (`window life`,
+`window stall`; how to read them in TD-V4-13). `InvisibleChipReplayTest` replays 3f3c and 35d9 stopped at
+the reveal in three ways (composition, traversals, and frames no longer delivered to the process), a later
+verdict and a back-to-back Leyendo on a stopped window, and the probe's lines. The JVM proves the
+controller's bookkeeping and the window's own software draw. Only a phone screenshot shows that the reveal's
+frame reaches the screen, and only the new lines on the phone can say why windows stop.
+Two more fixes came out of that review. First, a crash: `MeasuredVerdictChip` took the display slot's
+`single()`, which threw `NoSuchElementException` during measure, on the main thread, once the plate had fully
+left. That happens when an Exiting fade (160 ms) ends before Hidden (160 ms after Exiting) takes the window
+down; the plate's own removal asks for that measure. It also happens in a window attached while the chip is
+leaving (a configuration change). A throw there takes the service's process down. Now an absent plate lays out
+1 px and still reports its placement. The controller sees a window that is not the placed size with no plate
+present (`chip hidden reason=PLATE_ABSENT`), holds it hidden and pass-through, and takes the reader's mask
+down. So it claims no chip until the plate returns at the placed size or the window detaches. Second, a window
+that stops before its first reveal used to sit attached and transparent for the whole offer with no line: no
+deadline ran before a reveal. The attach now arms the same deadline (entrance plus 400 ms). Only the reveal's
+own confirming traversal meets it, and a lapse replaces the window like an undrawn one, with `revealed=false`
+in the line. A window attached while the chip is leaving arms none. Replays cover the exit that ends before
+Hidden, the window attached while leaving, and a window whose traversals stop at its attach; each failed
+before its fix. The draw check stays a plain message (TD-V4-13).

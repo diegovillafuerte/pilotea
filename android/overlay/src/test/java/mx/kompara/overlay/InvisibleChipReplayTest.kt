@@ -69,6 +69,7 @@ import org.robolectric.annotation.GraphicsMode
 import org.robolectric.annotation.Implementation
 import org.robolectric.annotation.Implements
 import org.robolectric.annotation.RealObject
+import org.robolectric.shadows.ShadowChoreographer
 import org.robolectric.shadows.ShadowLog
 import org.robolectric.shadows.ShadowViewGroup
 import org.robolectric.shadows.ShadowViewRootImpl
@@ -94,6 +95,12 @@ import kotlin.coroutines.intrinsics.suspendCoroutineUninterceptedOrReturn
  * The replays stop it at the reveal in the two ways the phone's lines allow: the window's composition
  * gets no further frame (nothing recomposes: 35d9 never measured its rated pill), or the window gets no
  * further traversal (nothing is laid out or drawn). Either way the claim must not outlive the ink.
+ *
+ * WP-AB: a new window now waits for the verdict and its plate is present from its first composition, so
+ * the traversal that reveals it draws the final chip. A window that stops right after its reveal (3f3c,
+ * 35d9) keeps showing the right chip; one that stops before drawing a later change (a new verdict, a
+ * back-to-back offer's "Leyendo oferta") is still taken down. A third stop, frames no longer delivered
+ * to the process (vsync), and the stall probe's lines are replayed too.
  *
  * What these replays prove is the controller's bookkeeping, not what the compositor presents. "Drawn" here is the
  * window's own software draw, sampled at its pre-draw. The harness also gives each test its own frame clock, sends
@@ -143,7 +150,7 @@ class InvisibleChipReplayTest {
     @ForType(className = "android.view.ViewRootImpl")
     interface Traversals { @Direct fun scheduleTraversals() }
 
-    private enum class Freeze { NONE, COMPOSITION, TRAVERSALS }
+    private enum class Freeze { NONE, COMPOSITION, TRAVERSALS, VSYNC }
 
     /** What the window's last traversal painted, sampled at its pre-draw (after the controller's own). */
     private data class Drawn(val rect: ScreenRect, val ink: Int, val spoken: String?)
@@ -169,10 +176,13 @@ class InvisibleChipReplayTest {
         }
     }
 
+    private val frameDelay = ShadowChoreographer.getFrameDelay()
+
     @OptIn(InternalComposeUiApi::class)
     @After fun thaw() {
         WindowRecomposerPolicy.setFactory(WindowRecomposerFactory.LifecycleAware)
         FreezableViewRoot.frozen = null
+        ShadowChoreographer.setPaused(false); ShadowChoreographer.setFrameDelay(frameDelay)
         ScreenReaderState.clearOverlayChipRect()
         android.provider.Settings.Global.putFloat(context.contentResolver, android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f)
     }
@@ -202,21 +212,35 @@ class InvisibleChipReplayTest {
         val screens = mutableMapOf<ComposeView, Drawn?>()
         val violations = mutableListOf<String>()
         var revealedWidth: Int? = null
+        /** The first drawn sample of the frozen window, taken in the traversal that revealed it. */
+        var revealDrawn: Drawn? = null
+        var windowAtReading: Boolean? = null
+        /** Runs at every pre-draw of every window, before its sample is taken. */
+        var onPreDraw: ((ComposeView) -> Unit)? = null
     }
 
     /**
      * Replays [frames] at the phone's cadence (one capture every 900 ms). Before each later frame it checks,
      * like the screenshot script, the claim the frame line would carry against the window's last drawn frame.
      * [freezeAtReveal] stops the FIRST window right after its reveal pre-draw; [freezeBefore] stops whatever
-     * window is attached just before that frame index. From [goneFrom] on, frames show no offer (SoftHidden).
+     * window is attached just before that frame index; [freezeOnLeyendo] stops the window at that frame index
+     * once it draws a new session's "Leyendo oferta", before the verdict; [freezeAtAttach] stops the FIRST window
+     * as soon as it is attached, before its first traversal. From [goneFrom] on, frames show no offer.
      */
     private fun replay(frames: Int, geometry: (Long, HostRect?) -> HostGeometry, freezeAtReveal: Freeze = Freeze.NONE,
         showingAfterFirstMeasure: Boolean = false, freezeBefore: Pair<Int, Freeze>? = null, goneFrom: Int = Int.MAX_VALUE,
+        freezeOnLeyendo: Pair<Int, Freeze>? = null, freezeAtAttach: Freeze = Freeze.NONE,
         state: (Int) -> VerdictChipState = { rated }, session: (Int) -> String = { "s" }): Replay {
         val replay = Replay(controller())
         ShadowLog.clear()
         var at = System.currentTimeMillis()
-        var froze = false
+        if (freezeAtReveal != Freeze.NONE) replay.onPreDraw = { view ->
+            if (view.alpha == 1f) {
+                replay.onPreDraw = null
+                replay.revealedWidth = view.width
+                freeze(replay.controller, freezeAtReveal)
+            }
+        }
         for (i in 0 until frames) {
             if (i > 0) check(replay, i)
             freezeBefore?.takeIf { it.first == i }?.let { freeze(replay.controller, it.second) }
@@ -225,24 +249,28 @@ class InvisibleChipReplayTest {
                 hostGeometry = geometry(at, claim?.let { HostRect(it.left - 8, it.top - 8, it.right + 8, it.bottom + 8) })))
             if (i >= goneFrom) {
                 render(replay.controller, OverlayVisibility.SoftHidden)
-                repeat(60) { frame(); watch(replay) {} }
+                repeat(60) { frame(); watch(replay) }
                 at += 900
                 continue
             }
             if (i == 0 || session(i) != session(i - 1)) {
                 render(replay.controller, OverlayVisibility.Reading(session(i), event))
-                watch(replay) { view ->
-                    if (freezeAtReveal != Freeze.NONE && !froze && view.alpha == 1f) {
-                        froze = true
-                        replay.revealedWidth = view.width
-                        freeze(replay.controller, freezeAtReveal)
-                    }
+                watch(replay)
+                if (showingAfterFirstMeasure && i == 0) {
+                    frame()
+                    replay.windowAtReading = field("composeView").get(replay.controller) != null
                 }
-                if (showingAfterFirstMeasure && i == 0) frame()
+                freezeOnLeyendo?.takeIf { it.first == i }?.let { (_, how) ->
+                    replay.onPreDraw = { view ->
+                        if (view.alpha == 1f && spoken(view) == reading.spokenBand) { replay.onPreDraw = null; freeze(replay.controller, how) }
+                    }
+                    repeat(20) { frame() }
+                }
             }
             render(replay.controller, OverlayVisibility.Showing(state(i), session(i), event))
-            watch(replay) {}
-            repeat(60) { frame(); watch(replay) {} }
+            if (i == 0) freeze(replay.controller, freezeAtAttach)
+            watch(replay)
+            repeat(60) { frame(); watch(replay) }
             at += 900
         }
         check(replay, frames)
@@ -252,16 +280,18 @@ class InvisibleChipReplayTest {
     private fun frame() = looper.idleFor(Duration.ofMillis(15))
 
     /** Records every pre-draw of the current window (the frame it is about to draw), once per window. */
-    private fun watch(replay: Replay, onPreDraw: (ComposeView) -> Unit) {
+    private fun watch(replay: Replay) {
         val view = field("composeView").get(replay.controller) as ComposeView? ?: return
         if (view in replay.screens) return
         replay.screens[view] = null
         view.viewTreeObserver.addOnPreDrawListener {
-            onPreDraw(view)
+            val freezing = replay.onPreDraw != null
+            replay.onPreDraw?.invoke(view)
             if (field("composeView").get(replay.controller) === view && view.width > 0) {
                 val location = IntArray(2).also(view::getLocationOnScreen)
                 replay.screens[view] = Drawn(ScreenRect(location[0], location[1], location[0] + view.width, location[1] + view.height),
                     (ink(view) * view.alpha).toInt(), spoken(view))
+                if (freezing && replay.onPreDraw == null) replay.revealDrawn = replay.screens[view]
             }
             true
         }
@@ -271,9 +301,26 @@ class InvisibleChipReplayTest {
         val view = field("composeView").get(controller) as ComposeView? ?: return
         when (how) {
             Freeze.COMPOSITION -> (view.compositionContext as Recomposer).cancel()
-            Freeze.TRAVERSALS -> FreezableViewRoot.frozen = view.parent
+            // No further traversal, including one already scheduled (an attached window's first one).
+            Freeze.TRAVERSALS -> view.parent.let { root ->
+                FreezableViewRoot.frozen = root
+                root.javaClass.getDeclaredMethod("unscheduleTraversals").apply { isAccessible = true }.invoke(root)
+            }
+            // Frames stop reaching the process; the window then asks for one traversal (an alpha flip or a layout
+            // request does), whose barrier waits for a vsync that never comes and holds back plain messages.
+            Freeze.VSYNC -> {
+                ShadowChoreographer.setPaused(true); ShadowChoreographer.setFrameDelay(VSYNC_GAP)
+                view.post { view.invalidate() }
+            }
             Freeze.NONE -> Unit
         }
+    }
+
+    /** Delivers the vsync a VSYNC freeze withheld, so the window can be taken down. */
+    private fun thawVsync() {
+        looper.idleFor(VSYNC_GAP)
+        ShadowChoreographer.setPaused(false); ShadowChoreographer.setFrameDelay(frameDelay)
+        looper.idle()
     }
 
     /**
@@ -314,48 +361,132 @@ class InvisibleChipReplayTest {
         try {
             assertEquals(emptyList<String>(), replay.violations)
             assertNotNull("A chip is claimed", ScreenReaderState.overlayChipRect)
-            val lines = ShadowLog.getLogsForTag("OverlayController").map { it.msg }
-            val after = lines.drop(lines.indexOfFirst { "TEMP DIAG window reveal" in it })
+            val lines = logs()
+            val revealAt = lines.indexOfFirst { "TEMP DIAG window reveal" in it }
+            val after = lines.drop(revealAt)
             assertEquals("The steady card's 3 later frames", 3, after.count { "TEMP DIAG show" in it })
             assertTrue("Every later show is followed by a place line: " + after.map { it.substringBefore(" at=").substringBefore(" rect=") },
                 after.zipWithNext().all { (a, b) -> "TEMP DIAG show" !in a || "TEMP DIAG place" in b })
-            assertEquals("Drawn once, at the end of its entrance", 1, lines.count { "TEMP DIAG window drawn" in it })
-            assertFalse(lines.any { "UNDRAWN" in it || "undrawn" in it })
+            assertEquals("Drawn once", 1, lines.count { "TEMP DIAG window drawn" in it })
+            assertTrue("Drawn by the traversal that revealed it: ${lines[revealAt + 1]}",
+                lines[revealAt + 1].startsWith("TEMP DIAG window drawn") && lines[revealAt + 1].endsWith("preDraws=1"))
+            assertNull("No deadline is left pending", field("drawCheck").get(replay.controller))
+            assertFalse(lines.any { "UNDRAWN" in it || "undrawn" in it || "window stall" in it })
         } finally { replay.controller.stop() }
+        val life = lives().single()
+        assertTrue("A live window pre-draws, composes and re-places on every captured frame: $life",
+            life.preDraws >= 4 && life.compositions >= 4 && life.placed >= 4)
+        assertTrue("and did so until its detach: $life", life.lastPreDrawMsAgo in 0..900 && life.lastCompositionMsAgo in 0..900)
     }
 
-    private fun undrawn() = ShadowLog.getLogsForTag("OverlayController").single { "TEMP DIAG window undrawn" in it.msg }.msg
+    private fun logs() = ShadowLog.getLogsForTag("OverlayController").map { it.msg }
+    private fun undrawn() = logs().single { "TEMP DIAG window undrawn" in it }
+    private fun stall() = logs().single { "TEMP DIAG window stall" in it }
 
-    @Test fun `3f3c a window whose composition stops at the reveal does not keep claiming the chip`() {
+    private data class Life(val ms: Long, val preDraws: Int, val compositions: Int, val lastPreDrawMsAgo: Long,
+        val lastCompositionMsAgo: Long, val placed: Int)
+
+    /** The `window life` line of every window detached so far, oldest first. */
+    private fun lives() = logs().mapNotNull { LIFE.find(it)?.groupValues }.map {
+        Life(it[1].toLong(), it[2].toInt(), it[3].toInt(), it[4].toLong(), it[5].toLong(), it[6].toInt())
+    }
+
+    /**
+     * What a window that stopped right after its reveal shows now: the plate drawn whole by that traversal, at the
+     * claimed rectangle, with the verdict, for the rest of the offer, in one window; the draw check is met there.
+     */
+    private fun assertShownThoughStopped(replay: Replay) {
+        assertEquals(emptyList<String>(), replay.violations)
+        val drawn = requireNotNull(replay.revealDrawn) { "The window was never revealed" }
+        assertTrue("The reveal's own traversal paints the plate whole: alpha ${drawn.ink}/255", drawn.ink >= 250)
+        assertEquals("with the verdict", rated.regla.spokenBand, drawn.spoken)
+        assertEquals("where the frame line says", ScreenReaderState.overlayChipRect, drawn.rect)
+        assertEquals("One window for the whole offer", 1, replay.screens.size)
+        assertTrue(logs().any { "TEMP DIAG window drawn" in it })
+        assertFalse(logs().any { "UNDRAWN" in it || "undrawn" in it })
+    }
+
+    @Test fun `3f3c a window whose composition stops right after its reveal still shows the chip`() {
         val replay = replay(4, ::steady, freezeAtReveal = Freeze.COMPOSITION)
         try {
-            assertEquals("Only the frozen window may miss; the next window draws", emptyList<String>(), replay.violations)
-            assertNotNull("A fresh window shows the chip again", ScreenReaderState.overlayChipRect)
-            assertTrue(ShadowLog.getLogsForTag("OverlayController").any { "chip hidden reason=UNDRAWN" in it.msg })
-            assertTrue("The plate never entered", "presence=false/false" in undrawn())
+            assertShownThoughStopped(replay)
+            // Probed at the second captured frame after the stop: plain messages, frames and traversals all run, the
+            // window's composition does not (the replay cancelled its recomposer).
+            assertTrue(stall(), "handler=true choreographer=true invalidatePreDraw=true recomposed=false recomposer=ShutDown " +
+                "lifecycle=RESUMED attached=true windowVisibility=0 shown=true kept=true" in stall())
         } finally { replay.controller.stop() }
+        val life = lives().single()
+        assertTrue("Composed only before it stopped, ~3 s before its detach: $life",
+            life.compositions <= 2 && life.lastCompositionMsAgo >= 2_700 && life.placed <= 2)
     }
 
-    @Test fun `35d9 the Radar card revealed at its first-measure width does not keep claiming the chip`() {
+    @Test fun `35d9 the Radar card's first window composes the verdict and shows it though it stops at the reveal`() {
         val replay = replay(4, ::radar, freezeAtReveal = Freeze.COMPOSITION, showingAfterFirstMeasure = true)
         try {
-            val reveal = ShadowLog.getLogsForTag("OverlayController").first { "TEMP DIAG window reveal" in it.msg }.msg
-            assertEquals("Revealed with the Reading plate's width, before the rated pill was measured", 571, replay.revealedWidth)
-            assertTrue(reveal, "TEMP DIAG window reveal rect=473,202,1044,370" in reveal)
-            assertEquals(emptyList<String>(), replay.violations)
-            assertNotNull(ScreenReaderState.overlayChipRect)
-            assertTrue("Never re-measured with the rated pill", undrawn().let { "presence=false/false" in it && "composed=false" in it })
+            assertEquals("No window while the offer is read, so nothing measures the 571 px Leyendo plate", false, replay.windowAtReading)
+            val placed = field("placement").get(replay.controller) as OverlayPlacement.Displayed
+            assertEquals("Revealed at the rated pill's width, its first and only measure", placed.size.width, replay.revealedWidth)
+            assertEquals(1, logs().count { "TEMP DIAG window reveal" in it })
+            val rect = placed.position.bounds(placed.size)
+            assertEquals("The phone's Radar slot (rule HIGHER, right edge 1044), at the rated width", PlacementRule.HIGHER to
+                HostRect(1044 - placed.size.width, 202, 1044, 370), placed.rule to rect)
+            assertShownThoughStopped(replay)
         } finally { replay.controller.stop() }
     }
 
-    @Test fun `a window whose traversals stop at the reveal does not keep claiming the chip`() {
+    @Test fun `a window whose traversals stop right after its reveal still shows the chip`() {
         val replay = replay(4, ::steady, freezeAtReveal = Freeze.TRAVERSALS)
         try {
-            assertEquals(emptyList<String>(), replay.violations)
-            assertNotNull(ScreenReaderState.overlayChipRect)
-            assertTrue("The plate entered and was composed, but no traversal drew it", undrawn().let {
-                "presence=true/true" in it && "composed=true" in it })
+            assertShownThoughStopped(replay)
+            // The composition still runs on each frame; nothing lays the window out or draws it, the probe's request included.
+            assertTrue(stall(), "handler=true choreographer=true invalidatePreDraw=false recomposed=true " in stall())
         } finally { replay.controller.stop() }
+        val life = lives().single()
+        assertTrue("Composed on every frame, pre-drew only until it stopped: $life",
+            life.compositions >= 4 && life.lastCompositionMsAgo in 0..900 && life.lastPreDrawMsAgo >= 2_700)
+    }
+
+    /**
+     * Frames stop reaching the process (no vsync): nothing composes, lays out or draws, and a traversal the window
+     * asks for keeps its barrier on the main queue, which holds back every plain message. The probe's report is
+     * asynchronous, so it still arrives and says all three. Not seen on the phone yet; the JVM can only model it.
+     */
+    @Test fun `a window whose process gets no more frames still shows the chip and its probe names all three`() {
+        val replay = replay(4, ::steady, freezeAtReveal = Freeze.VSYNC)
+        try {
+            assertShownThoughStopped(replay)
+            assertTrue(stall(), "handler=false choreographer=false invalidatePreDraw=false recomposed=false recomposer=PendingWork " in stall())
+        } finally { thawVsync(); replay.controller.stop() }
+    }
+
+    /** The 571 px plate on a window already up: a back-to-back offer's Leyendo, drawn, then the window stops. */
+    @Test fun `a window that stops on a back-to-back offer's Leyendo plate is replaced`() {
+        val replay = replay(5, ::steady, freezeOnLeyendo = 2 to Freeze.COMPOSITION,
+            state = { if (it < 2) rated else next }, session = { if (it < 2) "first" else "second" })
+        try {
+            assertEquals(emptyList<String>(), replay.violations)
+            val leyendo = requireNotNull(replay.revealDrawn) { "The window never drew Leyendo" }
+            assertEquals("Drawn whole: 'Leyendo oferta', 571 px wide as on the S25", reading.spokenBand to 571,
+                leyendo.spoken to leyendo.rect.right - leyendo.rect.left)
+            assertTrue("It never composed the new verdict", "composed=false" in undrawn())
+            assertTrue(undrawn(), "lifecycle=RESUMED attached=true windowVisibility=0 shown=true" in undrawn())
+            assertEquals("A fresh window shows the second offer's verdict", next.regla.spokenBand,
+                replay.screens.entries.last().value?.spoken)
+            assertNotNull(ScreenReaderState.overlayChipRect)
+        } finally { replay.controller.stop() }
+    }
+
+    @Test fun `a later verdict on a window that stopped after its reveal is still replaced`() {
+        val replay = replay(4, ::steady, freezeAtReveal = Freeze.COMPOSITION, state = { if (it < 2) rated else next })
+        try {
+            assertEquals(emptyList<String>(), replay.violations)
+            assertTrue(logs().any { "chip hidden reason=UNDRAWN" in it })
+            assertTrue("The stopped window never composed the new verdict", "presence=true/true composed=false" in undrawn())
+            assertEquals("A fresh window draws it", 2, replay.screens.size)
+            assertEquals(next.regla.spokenBand, replay.screens.entries.last().value?.spoken)
+            assertNotNull(ScreenReaderState.overlayChipRect)
+        } finally { replay.controller.stop() }
+        assertEquals("Each window's life is logged at its detach", 2, lives().size)
     }
 
     /** The opposite failure: the same stop after a drawn chip leaves the old verdict over the next offer. */
@@ -371,6 +502,90 @@ class InvisibleChipReplayTest {
     }
 
     /** The other stale chip: the offer leaves (a frame without it soft-hides the chip) while the window has stopped. */
+    /**
+     * Before WP-AB's second round no deadline ran until a reveal, so a window that stopped before its first one sat
+     * attached and transparent for the whole offer and no line said so. Now the attach arms the deadline, met only by
+     * the reveal's confirming traversal; this one never traverses at all.
+     */
+    @Test fun `a window whose traversals stop right after attach is replaced and the next one shows the chip`() {
+        val replay = replay(4, ::steady, freezeAtAttach = Freeze.TRAVERSALS)
+        try {
+            assertEquals(emptyList<String>(), replay.violations)
+            assertTrue(undrawn(), "revealed=false" in undrawn() && "preDraws=0" in undrawn())
+            assertTrue(logs().any { "chip hidden reason=UNDRAWN revealed=false" in it })
+            assertEquals("The stopped window and its replacement", 2, replay.screens.size)
+            assertNull("The stopped window never drew a frame", replay.screens.entries.first().value)
+            assertEquals("The replacement shows the chip", rated.regla.spokenBand, replay.screens.entries.last().value?.spoken)
+            assertEquals(ScreenReaderState.overlayChipRect, replay.screens.entries.last().value?.rect)
+        } finally { replay.controller.stop() }
+        assertEquals("No pre-draw, composition or placement, ever", Life(lives().first().ms, 0, 0, -1, -1, 0), lives().first())
+    }
+
+    /**
+     * Exiting fades the plate out (160 ms); Hidden takes the window down 160 ms after Exiting. A fade that ends first
+     * leaves the display slot with no node, and the next measure (the slot's own removal, or a later inset or geometry
+     * write) used to throw in `single()` on the main thread, taking the service's process down. Now the window is held
+     * hidden for an absent plate: no ink, no reader mask, the window kept until Hidden.
+     */
+    @Test fun `an exit that ends before Hidden is held hidden, and its next measure does not throw`() {
+        val replay = replay(2, ::steady)
+        val controller = replay.controller
+        try {
+            val view = field("composeView").get(controller) as ComposeView
+            assertEquals(1f, view.alpha)
+            render(controller, OverlayVisibility.Exiting)
+            repeat(30) { frame() } // 450 ms: the fade ends and the plate leaves its layout
+            remeasure(controller)
+            check(replay, 2)
+            assertEquals(emptyList<String>(), replay.violations)
+            assertSame("Kept until Hidden", view, field("composeView").get(controller))
+            assertEquals("Held hidden", 0f, view.alpha)
+            assertEquals("Nothing drawn", 0, replay.screens[view]?.ink)
+            assertNull("and no chip claimed: the reader's mask is down", ScreenReaderState.overlayChipRect)
+            assertTrue(logs().any { "chip hidden reason=PLATE_ABSENT" in it })
+            assertFalse(logs().any { "UNDRAWN" in it })
+            render(controller, OverlayVisibility.Hidden)
+            assertNull(field("composeView").get(controller))
+            assertNull(ScreenReaderState.overlayChipRect)
+        } finally { controller.stop() }
+    }
+
+    /** A window attached while the chip is exiting (a configuration change re-attaches it) composes no plate at all. */
+    @Test fun `a window attached while the chip is exiting claims nothing, and its first measure does not throw`() {
+        val replay = replay(2, ::steady)
+        val controller = replay.controller
+        try {
+            render(controller, OverlayVisibility.Exiting)
+            // onConfigurationChanged: detach, then show the current event again.
+            val current = field("event").get(controller) as OfferEvent.Parsed
+            OverlayController::class.java.getDeclaredMethod("detach", String::class.java).apply { isAccessible = true }
+                .invoke(controller, "")
+            OverlayController::class.java.getDeclaredMethod("show", OfferEvent.Parsed::class.java).apply { isAccessible = true }
+                .invoke(controller, current)
+            Snapshot.sendApplyNotifications()
+            val view = field("composeView").get(controller) as ComposeView
+            watch(replay)
+            repeat(60) { frame() }
+            remeasure(controller)
+            assertSame("Kept until Hidden", view, field("composeView").get(controller))
+            assertEquals("Never revealed", 0f, view.alpha)
+            assertNull("No chip claimed", ScreenReaderState.overlayChipRect)
+            assertTrue(logs().any { "chip hidden reason=PLATE_ABSENT" in it })
+            assertFalse("Not a window that stopped: it was attached with nothing to show", logs().any { "UNDRAWN" in it })
+            render(controller, OverlayVisibility.Hidden)
+            assertNull(field("composeView").get(controller))
+        } finally { controller.stop() }
+    }
+
+    /** A measure pass of the chip's window with nothing else changed, as an inset or geometry write asks for. */
+    private fun remeasure(controller: OverlayController) {
+        @Suppress("UNCHECKED_CAST")
+        val geometry = field("geometry\$delegate").get(controller) as MutableState<HostGeometry?>
+        geometry.value = geometry.value?.copy(capturedAtMs = geometry.value!!.capturedAtMs + 1)
+        Snapshot.sendApplyNotifications()
+        repeat(10) { frame() }
+    }
+
     @Test fun `an offer that leaves a window that stopped does not leave its chip on screen`() {
         val replay = replay(4, ::steady, freezeBefore = 2 to Freeze.TRAVERSALS, goneFrom = 2)
         try {
@@ -511,4 +726,11 @@ class InvisibleChipReplayTest {
             else -> error("Unexpected DAO call: ${method.name}")
         }
     } as T
+
+    private companion object {
+        val LIFE = Regex("TEMP DIAG window life ms=(\\d+) preDraws=(\\d+) compositions=(\\d+) " +
+            "lastPreDrawMsAgo=(-?\\d+) lastCompositionMsAgo=(-?\\d+) placed=(\\d+)")
+        /** Longer than any replay: a VSYNC freeze's withheld frame. */
+        val VSYNC_GAP: Duration = Duration.ofSeconds(60)
+    }
 }

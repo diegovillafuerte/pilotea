@@ -96,6 +96,61 @@ class MeasuredVerdictChipTest {
         assertEquals(OverlayPlacement.Displayed(OverlayPosition(176,158),ChipSize(205,56),PlateFormat.FULL),decision)
     }
 
+    /**
+     * WP-AB: composed visible, the overlay's plate is whole in its first frame, with no entrance and no clock advanced,
+     * so a window's first drawn traversal needs no later one. Hidden later (Exiting), it still fades over frames; a
+     * parse during that fade still brings it back over frames. A fade that runs to its end leaves no plate: the chip
+     * lays out 1 px and still reports its placement (this measure used to throw in the display slot's `single()`),
+     * and the next show enters over frames at the placed size.
+     */
+    @Test fun `the plate is whole in its first frame and a later exit and return still animate`() {
+        var visible by mutableStateOf(true)
+        var presence: androidx.compose.animation.core.MutableTransitionState<Boolean>? = null
+        var decision: OverlayPlacement? = null
+        val g=geometry()
+        compose.mainClock.autoAdvance=false
+        compose.setContent { CompositionLocalProvider(LocalDensity provides Density(1f,1f)) { KomparaTheme {
+            MeasuredVerdictChip(model,g,OverlayViewport(g.displayBounds,1f,g.orientation),1000,null,visible,false,false,
+                VerdictChipCallbacks(),Modifier.testTag("chip"),onPresence={ presence=it }) { decision=it }
+        } } }
+        compose.waitForIdle()
+        // The K head's ink, inside the 2 dp paper ring: dark only where the plate is drawn at full alpha.
+        fun headInked()=compose.runOnIdle {
+            val view=compose.activity.findViewById<android.view.View>(android.R.id.content)
+            val pixel=Bitmap.createBitmap(view.width,view.height,Bitmap.Config.ARGB_8888).also { view.draw(Canvas(it)) }.getPixel(6,10)
+            android.graphics.Color.alpha(pixel)==255 && android.graphics.Color.red(pixel)<40
+        }
+        fun state()=compose.runOnIdle { presence!!.let { Triple(it.currentState,it.targetState,it.isIdle) } }
+        fun laidOut()=compose.onNodeWithTag("chip").fetchSemanticsNode().size.let { ChipSize(it.width,it.height) }
+        fun animating(target: Boolean)=state().let { (_,t,idle) -> t==target && !idle }
+        fun show(value: Boolean) { compose.runOnIdle { visible=value }; compose.waitForIdle(); compose.mainClock.advanceTimeByFrame(); compose.waitForIdle() }
+        fun settle() { compose.mainClock.autoAdvance=true; compose.waitForIdle(); compose.mainClock.autoAdvance=false }
+        val placed=(decision as OverlayPlacement.Displayed).size
+        assertEquals("Entered in its first composition",Triple(true,true,true),state())
+        assertTrue("and drawn whole in its first frame",headInked())
+        show(false)
+        compose.mainClock.advanceTimeBy(48); compose.waitForIdle()
+        assertTrue("The exit animates: ${state()}",animating(false))
+        assertFalse("part way out",headInked())
+        show(true)
+        assertTrue("A return during the fade animates: ${state()}",animating(true))
+        settle()
+        assertEquals(Triple(true,true,true),state())
+        assertTrue(headInked())
+        show(false)
+        settle()
+        assertEquals("The fade ran to its end",Triple(false,false,true),state())
+        assertFalse(headInked())
+        assertEquals("No plate: the chip lays out 1 px",ChipSize(1,1),laidOut())
+        assertEquals("and still reports where it would go",placed,(decision as OverlayPlacement.Displayed).size)
+        show(true)
+        assertTrue("The next show enters over frames: ${state()}",animating(true))
+        settle()
+        assertEquals(Triple(true,true,true),state())
+        assertTrue(headInked())
+        assertEquals(placed,laidOut())
+    }
+
     @Test fun `the drawn chip is exactly the placed size in every format, so the window never hides for a size change`() {
         data class Case(val value: ReglaModel, val g: HostGeometry, val size: ChipSize, val format: PlateFormat)
         val cases=listOf(Case(bid,geometry(),ChipSize(207,90),PlateFormat.FULL), Case(bid,geometry(230),ChipSize(205,56),PlateFormat.COMPACT),
