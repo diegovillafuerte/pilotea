@@ -60,8 +60,8 @@ import kotlin.math.abs
 @Config(sdk = [34])
 class RealOfferBurstReplayTest {
     private val viewport = OverlayViewport(display, 3f, HostOrientation.PORTRAIT, OverlayInsets(0, 91, 0, 144))
-    private val full = ChipSize(720, 336)
-    private val compact = ChipSize(720, 240)
+    /** 0.2.20's plate (720x336 / 720x240): too tall for these feet, it docks. Kept only to replay the dock-mask cases. */
+    private val V3_PLATE = ChipSize(720, 336) to ChipSize(720, 240)
 
     /**
      * [fare]/[tripKm]: the card published on the bus this frame. [shownFare]/[shownTrip]/[shownPickup]:
@@ -81,8 +81,12 @@ class RealOfferBurstReplayTest {
         val shownPickupMin: Double? = null, val shownTripMin: Double? = null,
         val pickupMin: Double? = null, val tripMin: Double? = null, val shownSession: String? = null)
 
-    private inner class Lane(val host: String, val full: ChipSize = this.full, val compact: ChipSize = this.compact,
-        costs: BoundaryCostProfileDao = BoundaryCostProfileDao()) {
+    /**
+     * [fontScale]: the chip's sizes are what MeasuredVerdictChip measures for each evaluated state ([S25ChipSizes]).
+     * [plate] replaces them with fixed (larger, smaller) sizes: only [V3_PLATE], to keep replaying the dock-mask cases.
+     */
+    private inner class Lane(val host: String, val fontScale: Float = 1f,
+        costs: BoundaryCostProfileDao = BoundaryCostProfileDao(), val plate: Pair<ChipSize, ChipSize>? = null) {
         val pipeline = OfferFramePipeline()
         val frames = mutableListOf<Frame>()
         val events = mutableListOf<OfferEvent>()
@@ -136,8 +140,8 @@ class RealOfferBurstReplayTest {
             for (event in events.drop(before)) when (event) {
                 is OfferEvent.Parsed -> {
                     // OverlayController evaluates every Parsed through the ledger row, placed or not.
-                    val verdict = runBlocking { RowBackedVerdict.evaluate(recorder, event, PlatformThreshold.DEFAULT) }
-                    published = event; softHidden = false; state = show(event)
+                    val verdict = runBlocking { RowBackedVerdict.evaluate(recorder, event) }
+                    published = event; softHidden = false; state = show(event, verdict.state.regla)
                     displayed = verdict.takeIf { shown != null }
                 }
                 is OfferEvent.LayoutUncertain -> if (state == "none") state = if (shown != null) "held" else "absent"
@@ -161,7 +165,8 @@ class RealOfferBurstReplayTest {
         fun forceDetach() { shown = null }
 
         /** OverlayController semantics: Reading swaps content in place; keep while safe, else re-place. */
-        private fun show(event: OfferEvent.Parsed): String {
+        private fun show(event: OfferEvent.Parsed, regla: mx.kompara.ui.components.ReglaModel): String {
+            val (full, compact) = plate ?: S25ChipSizes.of(regla, fontScale)
             var prefix = ""
             if (event.card.sessionId != key) { key = event.card.sessionId; evidence.reset(); prefix = "reading+" }
             val g0 = event.card.hostGeometry ?: return "detached:no-geometry".also { shown = null }
@@ -184,13 +189,15 @@ class RealOfferBurstReplayTest {
         }
     }
 
-    private fun chipText(r: HostRect) = listOf(b("Sin lectura", r.left + 42, r.top + 31, r.left + 347, r.top + 95),
-        b("falta la tarifa", r.left + 42, r.top + 113, r.left + 297, r.top + 159),
-        b("tu meta \$10.00", r.left + 42, r.top + 203, r.left + 315, r.top + 247))
+    /** The v4 pill's own words at density 3 (K, rate, unit, basis), as OCR would read them under our window. */
+    private fun chipText(r: HostRect) = listOf(b("K", r.left + 45, r.top + 60, r.left + 69, r.top + 108),
+        b("\$9.49", r.left + 222, r.top + 46, r.left + 456, r.top + 122),
+        b("/km", r.left + 471, r.top + 45, r.left + 549, r.top + 84),
+        b("neto", r.left + 471, r.top + 93, r.left + 540, r.top + 126))
 
-    private fun replay(host: String, full: ChipSize = this.full, compact: ChipSize = this.compact,
-        costs: BoundaryCostProfileDao = BoundaryCostProfileDao(), body: Lane.() -> Unit): Lane = runBlocking {
-        val lane = Lane(host, full, compact, costs)
+    private fun replay(host: String, fontScale: Float = 1f, costs: BoundaryCostProfileDao = BoundaryCostProfileDao(),
+        plate: Pair<ChipSize, ChipSize>? = null, body: Lane.() -> Unit): Lane = runBlocking {
+        val lane = Lane(host, fontScale, costs, plate)
         val job = launch(Dispatchers.Unconfined) { OfferEventBus.events.collect { lane.events += it } }
         val lifecycle = launch(Dispatchers.Unconfined) { OcrLifecycleBus.signals.collect { lane.signals += it } }
         yield()
@@ -527,17 +534,22 @@ class RealOfferBurstReplayTest {
         .map { "${it.label} chip ${it.rect} covers the decline control $body" }
 
     @Test fun `a Pon Tu Precio chip never covers the decline pill`() {
-        val lane = replay(DIDI) { repeat(5) { frame("ptp f$it", "ptp", RealGeometryFixtures.didiPtpS25(), it * 850L) } }
-        assertContract(lane, mapOf("ptp" to 68.60), mapOf("ptp" to 7.2))
-        val failures = declineCovered(lane, RealGeometryFixtures.pillBody) +
-            lane.frames.filter { it.rect != HostRect(36, 305, 756, 545) }.map { "${it.label} at ${it.rect}" }
-        assertTrue(failures.joinToString("\n", postfix = "\n${trace(lane)}"), failures.isEmpty())
+        // v4: with zero costs the offer passes the meta (plain pill at the foot; 0.2.20's 720x240 compact sat at
+        // (36,305)); with typical costs it is below the mínimo and the chip with both counter-offers takes the foot.
+        for ((costs, rect) in listOf(BoundaryCostProfileDao() to HostRect(36, 377, 651, 545),
+            BoundaryCostProfileDao(RunningCostInputs.TYPICAL) to HostRect(36, 275, 657, 545))) {
+            val lane = replay(DIDI, costs = costs) { repeat(5) { frame("ptp f$it", "ptp", RealGeometryFixtures.didiPtpS25(), it * 850L) } }
+            assertContract(lane, mapOf("ptp" to 68.60), mapOf("ptp" to 7.2))
+            val failures = declineCovered(lane, RealGeometryFixtures.pillBody) +
+                lane.frames.filter { it.rect != rect }.map { "${it.label} at ${it.rect}" }
+            assertTrue(failures.joinToString("\n", postfix = "\n${trace(lane)}"), failures.isEmpty())
+        }
     }
 
-    @Test fun `a tall Pon Tu Precio card shows a compact chip below the pill on every frame`() {
+    @Test fun `a tall Pon Tu Precio card shows the chip below the pill on every frame`() {
         for ((name, blocks, fare, trip) in listOf(Quad("tall", RealGeometryFixtures.didiPtpTallS25(), 41.58, 2.1),
             Quad("tall2", RealGeometryFixtures.didiPtpTall2S25(), 34.42, 2.7))) {
-            val rect = HostRect(36, 262, 756, 502)
+            val rect = HostRect(36, 262, 651, 430) // v4: the plain pill docks where 0.2.20's compact did
             val lane = replay(DIDI) { repeat(5) { frame("$name f$it", name, blocks, it * 850L) } }
             assertContract(lane, mapOf(name to fare), mapOf(name to trip))
             val failures = declineCovered(lane, RealGeometryFixtures.pillBody) +
@@ -550,7 +562,7 @@ class RealOfferBurstReplayTest {
         val lane = replay(DIDI) { repeat(5) { frame("mr f$it", "mr", RealGeometryFixtures.didiMasRapidoS25(), it * 850L) } }
         assertContract(lane, mapOf("mr" to 152.36), mapOf("mr" to 13.1))
         val failures = declineCovered(lane, RealGeometryFixtures.closeBody) +
-            lane.frames.filter { it.rect != HostRect(36, 262, 756, 598) }.map { "${it.label} at ${it.rect}" } +
+            lane.frames.filter { it.rect != HostRect(36, 262, 651, 430) }.map { "${it.label} at ${it.rect}" } +
             lane.frames.filter { it.rect?.overlaps(HostRect(152, 1694, 495, 1746).expanded(48)) == true }.map { "${it.label} on the metres pickup" }
         assertTrue(failures.joinToString("\n", postfix = "\n${trace(lane)}"), failures.isEmpty())
     }
@@ -563,7 +575,7 @@ class RealOfferBurstReplayTest {
         }
         assertContract(lane, mapOf("ptp" to 68.60), mapOf("ptp" to 7.2))
         val failures = declineCovered(lane, RealGeometryFixtures.pillBody) +
-            lane.frames.filter { it.rect != HostRect(36, 305, 756, 545) }.map { "${it.label} at ${it.rect}" }
+            lane.frames.filter { it.rect != HostRect(36, 377, 651, 545) }.map { "${it.label} at ${it.rect}" }
         assertTrue(failures.joinToString("\n", postfix = "\n${trace(lane)}"), failures.isEmpty())
     }
 
@@ -577,15 +589,15 @@ class RealOfferBurstReplayTest {
         }
         assertContract(lane, mapOf("ptp" to 68.60), mapOf("ptp" to 7.2))
         val failures = declineCovered(lane, RealGeometryFixtures.pillBody) +
-            lane.frames.filter { it.rect != HostRect(36, 305, 756, 545) }.map { "${it.label} at ${it.rect}" }
+            lane.frames.filter { it.rect != HostRect(36, 377, 651, 545) }.map { "${it.label} at ${it.rect}" }
         assertTrue(failures.joinToString("\n", postfix = "\n${trace(lane)}"), failures.isEmpty())
     }
 
     @Test fun `a DiDi offer whose decline control OCR never reads stays below the reserved area`() {
         val strip = { blocks: List<OcrBlock> -> blocks.filterNot { it.text.contains("Rechazo") || it.text.trim() == "X" } }
-        for ((name, blocks, rect) in listOf(Triple("ptp", RealGeometryFixtures.didiPtpS25(), HostRect(36, 305, 756, 545)),
-            Triple("tall", RealGeometryFixtures.didiPtpTallS25(), HostRect(36, 262, 756, 502)),
-            Triple("mr", RealGeometryFixtures.didiMasRapidoS25(), HostRect(36, 262, 756, 598)))) {
+        for ((name, blocks, rect) in listOf(Triple("ptp", RealGeometryFixtures.didiPtpS25(), HostRect(36, 377, 651, 545)),
+            Triple("tall", RealGeometryFixtures.didiPtpTallS25(), HostRect(36, 262, 651, 430)),
+            Triple("mr", RealGeometryFixtures.didiMasRapidoS25(), HostRect(36, 262, 651, 430)))) {
             val lane = replay(DIDI) { repeat(5) { frame("$name f$it", name, strip(blocks), it * 850L) } }
             val failures = declineCovered(lane, RealGeometryFixtures.pillBody).filter { name != "mr" } +
                 declineCovered(lane, RealGeometryFixtures.closeBody) +
@@ -687,15 +699,18 @@ class RealOfferBurstReplayTest {
     @Test fun `a dock over the Radar pill never pins an unread first fare as Sin lectura`() {
         // Codex C3 / W3: the high Radar layout docks over the pill on its first frame (fare unread);
         // our own mask then hid the pill on every later frame and kept the offer UNCERTAIN.
-        for ((name, layout, fare) in listOf(Triple("displaced", RealGeometryFixtures.radarHighDisplaced(), 129.55),
+        // v4: the pill finds a strict slot here; 0.2.20's plate still docks, so the dock case keeps replaying.
+        for (plate in listOf(null, V3_PLATE)) for ((name, layout, fare) in listOf(Triple("displaced", RealGeometryFixtures.radarHighDisplaced(), 129.55),
             Triple("distinct", RealGeometryFixtures.radarHighDistinct(), 118.20))) {
             val amount = "$" + String.format(java.util.Locale.US, "%.2f", fare)
             val unread = layout.filterNot { it.text == amount }
-            val lane = replay(UBER) {
+            val lane = replay(UBER, plate = plate) {
                 frame("$name f0 unread", name, unread, 0)
                 repeat(4) { frame("$name f${it + 1}", name, layout, (it + 1) * 850L) }
             }
-            assertTrue("$name: the first chip docks over the pill\n${trace(lane)}",
+            if (plate == null) assertTrue("$name: the first pill takes a strict slot\n${trace(lane)}",
+                lane.frames.first().state.let { "displayed:" in it && "DOCK" !in it })
+            else assertTrue("$name: the first chip docks over the pill\n${trace(lane)}",
                 lane.frames.first().rect?.top == 139)
             assertTrue("$name: frame 2 confirms the fare\n${trace(lane)}",
                 lane.frames.single { it.label == "$name f1" }.shownFare == fare)
@@ -710,14 +725,17 @@ class RealOfferBurstReplayTest {
         val corners = listOf(HostRect(48, 91, 192, 235), HostRect(888, 91, 1032, 235))
         // 0.2.15: an isolated misread reaches this policy only on a frame whose TOTAL row OCR lost.
         val misread = RealGeometryFixtures.withoutTotal(RealGeometryFixtures.retext(RealGeometryFixtures.priority(), "$79.45" to "$19.45"))
-        val lane = replay(UBER) {
-            frame("pr f0 misread", "pr", misread, 0, controls = corners)
-            repeat(4) { frame("pr f${it + 1}", "pr", RealGeometryFixtures.priority(), (it + 1) * 850L, controls = corners) }
+        // v4: the pill takes the strict foot above the card (top 351); 0.2.20's plate still docks at 283.
+        for ((plate, top) in listOf(null to 351, V3_PLATE to 283)) {
+            val lane = replay(UBER, plate = plate) {
+                frame("pr f0 misread", "pr", misread, 0, controls = corners)
+                repeat(4) { frame("pr f${it + 1}", "pr", RealGeometryFixtures.priority(), (it + 1) * 850L, controls = corners) }
+            }
+            assertTrue("The chip sits at $top under the corner buttons\n${trace(lane)}", lane.frames.all { it.rect?.top == top })
+            assertTrue("Two agreeing later frames revise the misread fare\n${trace(lane)}",
+                lane.frames.single { it.label == "pr f2" }.shownFare == 79.45 && lane.frames.last().shownFare == 79.45)
+            assertContract(lane, mapOf("pr" to 79.45), mapOf("pr" to 2.4))
         }
-        assertTrue("The chip docks under the corner buttons\n${trace(lane)}", lane.frames.all { it.rect?.top == 283 })
-        assertTrue("Two agreeing later frames revise the misread fare\n${trace(lane)}",
-            lane.frames.single { it.label == "pr f2" }.shownFare == 79.45 && lane.frames.last().shownFare == 79.45)
-        assertContract(lane, mapOf("pr" to 79.45), mapOf("pr" to 2.4))
     }
 
     @Test fun `a guard-rejected confirming frame never lends its pickup to the accepted seed fare`() {
@@ -838,13 +856,15 @@ class RealOfferBurstReplayTest {
         val radarB = RealGeometryFixtures.retext(RealGeometryFixtures.radar(), "$129.55" to "$88.30",
             "4 min (0.9 km)" to "1 min (0.2 km)", "34 min (12.2 km)" to "24 min (2.4 km)",
             "38 min • 13.1 km • $9.89/km est." to "25 min • 2.6 km • $33.96/km est.")
-        val lane = replay(UBER) {
+        // v4: A's pill takes the strict foot (351-519), its mask clear of A's card; 0.2.20's plate still docks into it.
+        for ((plate, span) in listOf(null to (351 to 519), V3_PLATE to (283 to 619))) {
+        val lane = replay(UBER, plate = plate) {
             var t = 0L
             repeat(3) { frame("a f$it", "a", RealGeometryFixtures.priority(), t, controls = corners); t += 850 }
             repeat(5) { frame("b f$it", "b", radarB, t, controls = corners); t += 850 }
         }
-        assertTrue("A's chip docks under the corner buttons; its mask reaches A's card top\n${trace(lane)}",
-            lane.frames.filter { it.offer == "a" }.all { it.rect?.top == 283 && it.rect?.bottom == 619 })
+        assertTrue("A's chip spans $span under the corner buttons\n${trace(lane)}",
+            lane.frames.filter { it.offer == "a" }.all { it.rect?.top == span.first && it.rect?.bottom == span.second })
         val a = lane.frames.first().sessionId
         val b = lane.frames.filter { it.offer == "b" }
         assertTrue("No B frame publishes or displays A's fare\n${trace(lane)}",
@@ -859,6 +879,7 @@ class RealOfferBurstReplayTest {
             rows.size == 2 && rows[0].fareMxn == 79.45 && rows[0].outcome == "UNKNOWN" &&
                 rows[1].fareMxn == 88.30 && rows[1].outcome == "PENDING")
         assertContract(lane, mapOf("a" to 79.45, "b" to 88.30), mapOf("a" to 2.4, "b" to 2.4))
+        }
     }
 
     @Test fun `a guard-blind pickup misread on an offer's second frame never revises the card or the row`() {
@@ -1162,8 +1183,8 @@ class RealOfferBurstReplayTest {
         var exercised = 0
         var offScreen = 0
         for (scale in listOf(1f, 1.3f)) {
-            val f = ChipSize((720 * scale).toInt(), (336 * scale).toInt())
-            val c = ChipSize((720 * scale).toInt(), (240 * scale).toInt())
+            // v4: the smallest rated plate, the plain pill at this font scale.
+            val c = S25ChipSizes.pill(scale)
             // The two dock columns (right, left) and what may block each: the right one also has
             // the One UI edge handle, a protected system window.
             val columns = listOf(1044 - c.width to listOf(RealGeometryFixtures.edgeHandle.expanded(48)), 36 to emptyList())
@@ -1172,7 +1193,7 @@ class RealOfferBurstReplayTest {
                 for (top in 300..1500 step 100) {
                     val moved = RealGeometryFixtures.shift(blocks, top - cardTop)
                         .filter { it.bounds.top >= 91 && it.bounds.bottom <= 2196 }
-                    val lane = replay(host, f, c) { frame("$name@$top f0", name, moved, 0); frame("$name@$top f1", name, moved, 850) }
+                    val lane = replay(host, scale) { frame("$name@$top f0", name, moved, 0); frame("$name@$top f1", name, moved, 850) }
                     val crit = critical(moved)
                     val complete = RealGeometryFixtures.legsOf(moved).size >= 2 && RealGeometryFixtures.fareOf(moved) != null
                     if (lane.frames.none { it.published }) {
@@ -1555,17 +1576,20 @@ class RealOfferBurstReplayTest {
 
     @Test fun `modern twin - a contradictory first fare under the corner-button dock never reveals, the next frame does`() {
         val corners = listOf(HostRect(48, 91, 192, 235), HostRect(888, 91, 1032, 235))
-        val lane = replay(UBER) {
-            frame("pr f0 misread", "pr", misreadFare(), 0, controls = corners)
-            repeat(4) { frame("pr f${it + 1}", "pr", RealGeometryFixtures.priority(), (it + 1) * 850L, controls = corners) }
+        // v4: the pill takes the strict foot (top 351); 0.2.20's plate still docks under the corner buttons (283).
+        for ((plate, top) in listOf(null to 351, V3_PLATE to 283)) {
+            val lane = replay(UBER, plate = plate) {
+                frame("pr f0 misread", "pr", misreadFare(), 0, controls = corners)
+                repeat(4) { frame("pr f${it + 1}", "pr", RealGeometryFixtures.priority(), (it + 1) * 850L, controls = corners) }
+            }
+            val f0 = lane.frames[0]
+            assertTrue("The contradiction mints nothing\n${trace(lane)}", !f0.published && f0.rect == null && f0.rows.isEmpty())
+            assertTrue("From the first consistent frame the chip sits at $top with the fare\n${trace(lane)}",
+                lane.frames.drop(1).all { it.rect?.top == top && it.shownFare == 79.45 && it.shownPickup == 0.2 })
+            assertTrue(trace(lane), lane.frames.none { it.fare == 19.45 || it.shownFare == 19.45 } &&
+                lane.offers.all().single().fareMxn == 79.45)
+            assertContract(lane, mapOf("pr" to 79.45), mapOf("pr" to 2.4))
         }
-        val f0 = lane.frames[0]
-        assertTrue("The contradiction mints nothing\n${trace(lane)}", !f0.published && f0.rect == null && f0.rows.isEmpty())
-        assertTrue("From the first consistent frame the chip docks under the corner buttons with the fare\n${trace(lane)}",
-            lane.frames.drop(1).all { it.rect?.top == 283 && it.shownFare == 79.45 && it.shownPickup == 0.2 })
-        assertTrue(trace(lane), lane.frames.none { it.fare == 19.45 || it.shownFare == 19.45 } &&
-            lane.offers.all().single().fareMxn == 79.45)
-        assertContract(lane, mapOf("pr" to 79.45), mapOf("pr" to 2.4))
     }
 
     @Test fun `modern twin - a contradictory first fare leaves the first reveal to the next frame whether or not the pickup moved`() {

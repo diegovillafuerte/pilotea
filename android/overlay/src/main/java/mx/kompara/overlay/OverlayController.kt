@@ -47,7 +47,6 @@ import mx.kompara.capture.HostGeometryEvidence
 import mx.kompara.capture.OverlayPresenter
 import mx.kompara.data.service.ScreenReaderState
 import mx.kompara.data.service.ScreenRect
-import mx.kompara.data.settings.PlatformThreshold
 import mx.kompara.data.settings.PreferredMetric
 import mx.kompara.data.settings.SettingsRepository
 import mx.kompara.parsers.model.HostGeometry
@@ -193,10 +192,9 @@ class OverlayController @Inject constructor(
 
     /** The ledger row's evaluation, shared with the replays (see [RowBackedVerdict]). */
     private suspend fun evaluate(event: OfferEvent.Parsed): VerdictChipState =
-        RowBackedVerdict.evaluate(recorder, event, thresholdSnapshot()).state
+        RowBackedVerdict.evaluate(recorder, event).state
 
     private fun sessionId(event: OfferEvent.Parsed) = event.card.sessionId ?: "${event.packageName}:${event.timestampMs}"
-    private fun thresholdSnapshot() = settingsSnapshot?.effectiveThreshold ?: PlatformThreshold.DEFAULT
 
     private suspend fun render(scope: CoroutineScope, visibility: OverlayVisibility) = withContext(Dispatchers.Main.immediate) {
         if (!readiness.state.value.canRead || !readiness.state.value.captureRunning) {
@@ -212,7 +210,7 @@ class OverlayController @Inject constructor(
                 placementEvidence.reset()
                 // This offer's frames are captured under the old plate: not touchable until seen clear.
                 forcePassThrough()
-                chipState = VerdictChipState.reading(thresholdSnapshot(), settingsSnapshot?.preferredMetric ?: PreferredMetric.DEFAULT)
+                chipState = VerdictChipState.reading(settingsSnapshot?.preferredMetric ?: PreferredMetric.DEFAULT)
                 chipVisible = true
                 show(visibility.event)
             }

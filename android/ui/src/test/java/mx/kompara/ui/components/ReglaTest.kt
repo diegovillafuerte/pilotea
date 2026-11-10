@@ -1,6 +1,5 @@
 package mx.kompara.ui.components
 
-import android.graphics.*
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
@@ -21,6 +20,7 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import mx.kompara.metrics.CounterOffers
+import mx.kompara.ui.contract.v4.V4Snapshot
 import mx.kompara.ui.fixtures.reglaFrame
 import mx.kompara.ui.theme.KomparaTheme
 import org.junit.Assert.*
@@ -30,7 +30,6 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
-import java.io.File
 import java.math.BigDecimal
 
 @RunWith(RobolectricTestRunner::class)
@@ -178,26 +177,16 @@ class ReglaTest {
                     contentAlignment = Alignment.Center) { Regla(model, Modifier.testTag("plate"), darkHost = dark) }
             }
         } }
-        data class Case(val id: String, val night: Boolean, val fontScale: Float = if (id == "S7") 1.3f else 1f, val suffix: String = "") {
-            val name = "regla_${id}_${if (night) "dark" else "day"}$suffix"
+        data class Case(val id: String, val night: Boolean, val fontScale: Float = if (id == "S7") 1.3f else 1f) {
+            val name = V4Snapshot.name("regla", id, night, WIDTH, fontScale)
         }
         val cases = listOf("S1", "S2", "S3", "S4", "S5", "S7", "S9", "S10").flatMap { listOf(Case(it, false), Case(it, true)) } +
-            Case("S5", false, 2f, "_2.0")
+            Case("S5", false, 2f)
         cases.forEach { case ->
             compose.runOnIdle { model = reglaFrame(case.id); dark = case.night; scale = case.fontScale }
-            compose.waitForIdle(); assertLabelsFit()
-            val bitmap = compose.runOnIdle {
-                val view = compose.activity.findViewById<android.view.View>(android.R.id.content)
-                Bitmap.createBitmap(WIDTH, view.height, Bitmap.Config.ARGB_8888).also { view.draw(Canvas(it)) }
-            }
-            val output = File("build/outputs/v3-screenshots/${case.name}.png").apply { parentFile!!.mkdirs() }
-            output.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
-            val expected = File("src/test/snapshots/v3/${case.name}.png")
-            if (System.getProperty("v3.recordScreenshots") == "true") output.copyTo(expected, overwrite = true)
-            else {
-                assertTrue("Missing reviewed baseline: $expected", expected.exists())
-                assertTrue("Screenshot changed: $output", BitmapFactory.decodeFile(expected.path).sameAs(bitmap))
-            }
+            compose.waitForIdle()
+            V4Snapshot.assertNothingClipped(compose, case.name)
+            V4Snapshot.assertMatchesBaseline(case.name, compose.runOnIdle { V4Snapshot.capture(compose.activity, WIDTH) })
         }
     }
 
