@@ -64,7 +64,7 @@ class NoticeContractTest {
         for (bad in listOf("kompara://notice/day/2026-02-30", "kompara://notice/week/2026-10-13",
             "kompara://notice/month/2026-13", "kompara://notice/reader/permission_lost", "kompara://notice/reader?off=true",
             "https://notice/day/2026-10-19", "kompara://notice/day/2026-10-19/extra", "kompara://notice/import/2026-10-13")) assertNull(bad, NoticeTarget.parse(Uri.parse(bad)))
-        assertEquals("inicio", NoticeNavigation.destination(NoticeTarget(NoticeKind.READER)))
+        assertEquals("ganancias", NoticeNavigation.destination(NoticeTarget(NoticeKind.READER)))
         assertEquals("day/2026-10-19", NoticeNavigation.destination(NoticeTarget(NoticeKind.DAY, "2026-10-19")))
         assertEquals("week/2026-10-12", NoticeNavigation.destination(NoticeTarget(NoticeKind.WEEK, "2026-10-12")))
         assertEquals("import", NoticeNavigation.destination(NoticeTarget(NoticeKind.IMPORT, "2026-10-12")))
@@ -102,7 +102,7 @@ class NoticeContractTest {
     @Test fun `month route updates shared selection before opening its own month`() = runTest {
         val selected = mx.kompara.ui.stats.SelectedPeriod(settings)
         val dispatcher = NoticeNavigation(selected, mx.kompara.ui.stats.AppClock { Instant.parse("2026-11-02T18:00:00Z").toEpochMilli() }, ZoneId.of("America/Mexico_City"))
-        assertEquals("ganancias-mes", dispatcher.route(NoticeTarget(NoticeKind.MONTH, "2026-09")))
+        assertEquals("imss", dispatcher.route(NoticeTarget(NoticeKind.MONTH, "2026-09")))
         assertEquals("2026-09", settings.selectedMonth.first())
     }
 }

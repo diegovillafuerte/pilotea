@@ -85,10 +85,14 @@ dependencies {
 // Measured host scenarios are test-only; never authorize a production layout from a fixture.
 tasks.withType<Test>().configureEach {
     systemProperty("v3.recordScreenshots", providers.gradleProperty("v3.recordScreenshots").getOrElse("false"))
+    // v4 baselines record apart (docs/v4-simple-launch-plan.md §2), so recording one set never rewrites the other.
+    systemProperty("v4.recordScreenshots", providers.gradleProperty("v4.recordScreenshots").getOrElse("false"))
+    inputs.files(fileTree("src/test/snapshots/v4"))
     inputs.dir("src/test/snapshots/v3")
     // Shared anonymized capture used by both parser and end-to-end verdict regressions.
     inputs.file("../ocr/src/test/resources/uber_priority_s25_2026_10_29.json")
     inputs.file("../ocr/src/test/resources/radar_me_interesa_s25_2026_10_30.json")
     inputs.file("../ocr/src/test/resources/uberx_me_interesa_s25_2026_10_30.json")
     outputs.dir(layout.buildDirectory.dir("outputs/v3-screenshots"))
+    outputs.dir(layout.buildDirectory.dir("outputs/v4-screenshots"))
 }

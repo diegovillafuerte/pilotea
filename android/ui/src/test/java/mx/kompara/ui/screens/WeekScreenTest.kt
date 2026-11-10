@@ -45,9 +45,9 @@ class WeekScreenTest {
     @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
     private val fixture get() = WeekFixture(ApplicationProvider.getApplicationContext())
     @Composable private fun Host(state: WeekSummaryUiState, sheet: (String) -> Unit = {}, next: () -> Unit = {}, previous: () -> Unit = {}, upgrade: () -> Unit = {}, onAnchor: (String, Float) -> Unit = { _, _ -> }) {
-        Scaffold(bottomBar = { RootBottomBar(1, {}) }) { padding ->
+        Scaffold(bottomBar = { RootBottomBar(0, {}) }) { padding ->
             Column(Modifier.padding(padding).consumeWindowInsets(padding)) {
-                mx.kompara.ui.nav.NavigationHeader("Ganancias", null, {}, showShare = true, onShare = if (state.loading) null else ({}))
+                mx.kompara.ui.nav.NavigationHeader("Ganancias", null, {})
                 WeekSummaryContent(state, sheet, previous, next, {}, {}, upgrade, {}, Modifier.weight(1f), onAnchor)
             }
         }

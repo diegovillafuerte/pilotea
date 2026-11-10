@@ -65,11 +65,11 @@ fun TaskScaffold(title: String, onClose: () -> Unit, modifier: Modifier = Modifi
     footer: (@Composable ColumnScope.() -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) =
     ScreenScaffold(title, modifier, ScreenKind.TASK, onClose, footer = footer, content = content)
 
-/** S7 will connect these three roots to navigation. No duplicate live destinations in S1. */
+/** The three tabs as the v4 kit's `.nav` draws them: 72 dp with its rule, the active tab in green under a 44 × 3 dp marker. */
 @Composable
 fun RootBottomBar(selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
-    val labels = listOf(R.string.v3_today, R.string.v3_earnings, R.string.v3_compare)
-    val icons = listOf(R.drawable.v3_home, R.drawable.v3_bar, R.drawable.v3_cmp)
+    val labels = listOf(R.string.v3_earnings, R.string.v3_compare, R.string.v4_imss)
+    val icons = listOf(R.drawable.v4_bar, R.drawable.v4_cmp, R.drawable.v4_imss)
     val density = LocalDensity.current
     val measurer = rememberTextMeasurer()
     val weights = labels.map { resource ->
@@ -78,16 +78,19 @@ fun RootBottomBar(selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = M
     }
     Column(modifier.background(KomparaTheme.colors.paper).navigationBarsPadding()) {
         Rule()
-        Row(Modifier.fillMaxWidth().heightIn(min = 80.dp).selectableGroup()) {
+        Row(Modifier.fillMaxWidth().heightIn(min = 71.dp).selectableGroup()) {
             labels.forEachIndexed { i, resource ->
-                val c = if (i == selected) KomparaTheme.colors.activeNavigation else KomparaTheme.colors.inkTertiary
-                Column(Modifier.weight(weights[i]).selectable(i == selected, role = Role.Tab, onClick = { onSelect(i) }),
-                    horizontalAlignment = Alignment.CenterHorizontally) {
-                    Box(Modifier.fillMaxWidth(.4f).height(3.dp).background(if (i == selected) c else KomparaTheme.colors.paper))
-                    Column(Modifier.heightIn(min = 77.dp).padding(vertical = 12.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                val active = i == selected
+                val c = if (active) KomparaTheme.colors.activeNavigation else KomparaTheme.colors.inkTertiary
+                Box(Modifier.weight(weights[i]).heightIn(min = 71.dp).selectable(active, role = Role.Tab, onClick = { onSelect(i) }),
+                    contentAlignment = Alignment.Center) {
+                    // The marker starts on the rule above it, as the kit's `top: -1px` does.
+                    if (active) Box(Modifier.align(Alignment.TopCenter).offset(y = (-1).dp).size(44.dp, 3.dp).background(c))
+                    Column(Modifier.padding(vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(5.dp)) {
                         DrawnIcon(icons[i], tint = c)
-                        Text(stringResource(resource), style = if (i == selected) KomparaType.smallStrong else KomparaType.small, color = c)
+                        Text(stringResource(resource), style = if (active) KomparaType.smallStrong else KomparaType.small,
+                            color = if (active) c else KomparaTheme.colors.inkSecondary)
                     }
                 }
             }

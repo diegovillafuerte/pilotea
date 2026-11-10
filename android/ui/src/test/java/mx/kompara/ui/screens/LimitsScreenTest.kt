@@ -35,20 +35,17 @@ import java.io.File
 class LimitsScreenTest {
     @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
     private val fixture get() = LimitsFixture(ApplicationProvider.getApplicationContext())
-    @Test fun `changed cents reach all four openers while only the named historical limit gets a suffix`() {
+    @Test fun `changed cents reach every opener while only the named historical limit gets a suffix`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-        val first = mx.kompara.ui.fixtures.HoyFixture(context).state("B3")
         val day = mx.kompara.ui.fixtures.DayFixture(context).day()
         val saved = LimitDraft.from(day.settings.effectiveThreshold, day.settings.preferredMetric)
         var draft by mutableStateOf(saved.edit(LimitField.MINIMUM, "6.50"))
         var opener by mutableIntStateOf(0)
-        val actions = HoyActions({}, {}, {}, { _, _ -> }, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
         compose.setContent { KomparaTheme(darkTheme = true) {
             key(opener, draft) {
                 val settings = day.settings.copy(threshold = draft.threshold(), preferredMetric = draft.metric)
                 when (opener) {
                     0 -> SemaforoContent(semaforoState(fixture.readiness("G4"), settings, emptyList(), fixture.fixture.zone), {}, {}, {}, {}, {}, { _, _ -> })
-                    1 -> HoyContent(InicioStats.today(first.snapshot!!, first.reader!!, settings), actions)
                     2 -> AjustesContent(state = AjustesState(limits = ThresholdEditor.pairLabel(draft)))
                     else -> {
                         val changed = DayPresentation(day.snapshot, settings)
@@ -61,11 +58,10 @@ class LimitsScreenTest {
         for (newDraft in listOf(saved.edit(LimitField.MINIMUM, "6.50"), saved.edit(LimitField.GOAL, "9.50"),
             saved.copy(metric = mx.kompara.data.settings.PreferredMetric.IPH).edit(LimitField.GOAL, "315.25"))) {
             compose.runOnIdle { draft = newDraft }
-            for (i in 0..3) {
+            for (i in listOf(0, 2, 3)) {
                 compose.runOnIdle { opener = i }
                 val expected = when (i) {
                     0, 2 -> ThresholdEditor.pairLabel(newDraft)
-                    1 -> "Tu meta ${ThresholdEditor.limit(newDraft.pair.goal, newDraft.unit)} · tu mínimo ${ThresholdEditor.limit(newDraft.pair.minimum, newDraft.unit)}"
                     else -> "$9.81/km · arriba de tu meta de $8.00/km" + if (newDraft.km.goal != saved.km.goal) " a esa hora" else ""
                 }
                 compose.onNode(SemanticsMatcher("opener $i: $expected") { node ->
@@ -189,18 +185,16 @@ class LimitsScreenTest {
         assertEquals(released, steps)
         compose.mainClock.autoAdvance = true
     }
-    @Test fun `all four openers reserve snackbar space without covering rows or footer actions`() {
+    @Test fun `every opener reserves snackbar space without covering rows or footer actions`() {
         var opener by mutableIntStateOf(0)
         val message = "Guardado: tu mínimo ahora es $6.50/km"
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-        val actions = HoyActions({}, {}, {}, { _, _ -> }, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
         compose.setContent { KomparaTheme {
             key(opener) {
                 val snackbar = remember { SaveSnackbarState().apply { saved(message) } }
                 CompositionLocalProvider(LocalLimitsSnackbar provides snackbar) {
                     when (opener) {
                         0 -> SemaforoContent(fixture.reader("G4i"), {}, {}, {}, {}, {}, { _, _ -> })
-                        1 -> HoyContent(mx.kompara.ui.fixtures.HoyFixture(context).state("B3"), actions)
                         2 -> AjustesContent(limits = "$8.00/km · $6.50/km")
                         else -> {
                             val day = mx.kompara.ui.fixtures.DayFixture(context).day()
@@ -213,11 +207,11 @@ class LimitsScreenTest {
                 }
             }
         } }
-        for (i in 0..3) {
+        for (i in listOf(0, 2, 3)) {
             compose.runOnIdle { opener = i }
             compose.onNodeWithText(message).assertIsDisplayed()
             val toast = compose.onNodeWithText(message).fetchSemanticsNode().boundsInRoot
-            val action = when (i) { 0 -> "Pausar el semáforo hasta mañana"; 1 -> "Abrir Uber para probar"; 2 -> null; else -> "Cambiar tu meta y tu mínimo" }
+            val action = when (i) { 0 -> "Pausar el semáforo hasta mañana"; 2 -> null; else -> "Cambiar tu meta y tu mínimo" }
             if (action != null) {
                 val bounds = compose.onNodeWithText(action).fetchSemanticsNode().boundsInRoot
                 assertTrue("opener $i has clearance", toast.bottom + 8 <= bounds.top)

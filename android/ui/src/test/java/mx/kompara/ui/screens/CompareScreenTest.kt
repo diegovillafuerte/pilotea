@@ -40,9 +40,9 @@ class CompareScreenTest {
     private val fixture get() = CompareFixture(ApplicationProvider.getApplicationContext())
     @Composable private fun Host(state: CompareUiState, sheet: (String) -> Unit = {}, scope: (CompareScope) -> Unit = {},
         imports: () -> Unit = {}, upgrade: () -> Unit = {}, retry: () -> Unit = {}) {
-        Scaffold(bottomBar = { RootBottomBar(2, {}) }) { padding ->
+        Scaffold(bottomBar = { RootBottomBar(1, {}) }) { padding ->
             Column(Modifier.padding(padding).consumeWindowInsets(padding)) {
-                mx.kompara.ui.nav.NavigationHeader("Comparar", null, {}, showShare = state.comparison?.rank != null, onShare = {})
+                mx.kompara.ui.nav.NavigationHeader("Comparar", null, {})
                 CompararContent(state, scope, sheet, {}, {}, imports, upgrade, retry, Modifier.weight(1f))
             }
         }

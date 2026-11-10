@@ -2,6 +2,7 @@ package mx.kompara.ui.nav
 
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
@@ -27,16 +28,16 @@ import org.robolectric.annotation.Config
 class NavigationHeaderTest {
     @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
 
-    @Test fun `month share identifies its period and header controls clear side cutouts at large text`() {
-        var shares = 0
+    @Test fun `root gear and drill back clear side cutouts at large text and the root has no share`() {
+        var settings = 0; var back = 0
         lateinit var view: android.view.View
         compose.setContent {
             view = LocalView.current
             CompositionLocalProvider(LocalDensity provides Density(1f, 2f)) {
-                KomparaTheme { Box(Modifier.width(393.dp)) {
-                    NavigationHeader("Ganancias", {}, {}, showShare = true, onShare = { shares++ },
-                        shareDescription = "Compartir mes")
-                } }
+                KomparaTheme { Box(Modifier.width(393.dp)) { Column {
+                    NavigationHeader("IMSS", null, { settings++ })
+                    NavigationHeader("Ajustes", { back++ }, null)
+                } } }
             }
         }
         compose.runOnIdle {
@@ -46,8 +47,8 @@ class NavigationHeaderTest {
                 .setInsets(WindowInsetsCompat.Type.displayCutout(), Insets.of(44, 0, 0, 0))
                 .build())
         }
-        compose.onNodeWithContentDescription("Compartir semana").assertDoesNotExist()
-        for (label in listOf("Volver", "Compartir mes", "Ajustes")) {
+        compose.onNodeWithContentDescription("Compartir", substring = true).assertDoesNotExist()
+        for (label in listOf("Volver", "Ajustes")) {
             val node = compose.onNodeWithContentDescription(label)
             node.assertWidthIsAtLeast(48.dp).assertHeightIsAtLeast(48.dp)
             val bounds = node.fetchSemanticsNode().boundsInRoot
@@ -55,7 +56,8 @@ class NavigationHeaderTest {
             assertTrue("$label clears right cutout", bounds.right <= 393f - 28f)
             assertTrue("$label clears status bar", bounds.top >= 24f)
         }
-        compose.onNodeWithContentDescription("Compartir mes").performClick()
-        assertEquals(1, shares)
+        compose.onNodeWithContentDescription("Ajustes").performClick()
+        compose.onNodeWithContentDescription("Volver").performClick()
+        assertEquals(1, settings); assertEquals(1, back)
     }
 }
