@@ -24,9 +24,10 @@ class PlanFixture(context: Context) {
     private fun LocalDate.millis() = atStartOfDay(fixture.zone).toInstant().toEpochMilli()
     val price = Formatters.formatMxnWhole(plan.getInt("price_monthly").toBigDecimal())
     val product = SubscriptionProduct("kompara_premium", "monthly", null, "debug-only", price, "MXN", plan.getLong("price_monthly") * 1_000_000, false)
-    private val comparison = CompareFixture(context).comparison("F3")
+    // Uber's confirmed pay per trip that week, as the retired Comparar city view showed it.
+    private val perTrip = CompareFixture(context).let { it.statement.value(it.current.money.window.start, "UBER", mx.kompara.metrics.compare.ComparisonMetric.PER_TRIP) }
     val offer = PaywallUiState.Ready(product, PremiumEvidence(listOf("El promedio de tu ciudad", "El detalle de cada semana", "Tu semana y tu mes en PDF"),
-        "Por viaje, Uber te pagó", Formatters.formatMxnWhole(requireNotNull(comparison.values.first { it.own }.value))), TrialEligibility.ELIGIBLE)
+        "Por viaje, Uber te pagó", Formatters.formatMxnWhole(requireNotNull(perTrip))), TrialEligibility.ELIGIBLE)
     val reminder = planDate(until.millis(), fixture.zone)
     fun state(frame: String): TuPlanState {
         val status = when (frame) {

@@ -50,8 +50,8 @@ import mx.kompara.ui.screens.AjustesScreen
 import mx.kompara.ui.screens.CompararScreen
 import mx.kompara.ui.screens.CostProfileScreen
 import mx.kompara.ui.screens.DayDetailScreen
-import mx.kompara.ui.screens.FiscalScreen
 import mx.kompara.ui.screens.HelpScreen
+import mx.kompara.ui.screens.ImssScreen
 import mx.kompara.ui.screens.LectorScreen
 import mx.kompara.ui.screens.ThresholdsScreen
 import mx.kompara.ui.screens.WeekSummaryScreen
@@ -225,17 +225,8 @@ private fun NavGraphBuilder.tabScreens(navController: NavController) {
             onImport = { navController.navigate(KomparaDestination.IMPORT_ROUTE) },
         )
     }
-    composable(KomparaDestination.COMPARAR.route) {
-        CompararScreen(
-            onUpgrade = { surface -> navController.navigateToPaywall(surface) },
-            // Confirmation returns to the same saved comparison context and week.
-            onImport = { navController.navigate(KomparaDestination.IMPORT_ROUTE) },
-        )
-    }
-    composable(KomparaDestination.IMSS.route) {
-        FiscalScreen(onUpgrade = { surface -> navController.navigateToPaywall(surface) },
-            onImport = { navController.navigate(KomparaDestination.IMPORT_ROUTE) })
-    }
+    composable(KomparaDestination.COMPARAR.route) { CompararScreen() }
+    composable(KomparaDestination.IMSS.route) { ImssScreen() }
     composable(KomparaDestination.SEMAFORO.route) {
         LectorScreen(
             onBack = { navController.popBackStack() },
