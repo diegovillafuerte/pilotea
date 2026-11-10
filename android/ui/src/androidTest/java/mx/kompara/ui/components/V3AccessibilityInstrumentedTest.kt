@@ -64,25 +64,21 @@ class V3AccessibilityInstrumentedTest {
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.TraversalIndex, 2f))
     }
 
-    @Test fun fullAndCompactChipExposeOnePhraseFirstBandThenTheTwoLimits() {
+    @Test fun fullAndCompactChipExposeOneAccessibleName() {
         var compact by mutableStateOf(false)
-        val model = ReglaModel(ReglaBand.Rated(ReglaPosition.ABOVE, BigDecimal("9.49")),
-            BigDecimal("8"), BigDecimal("6"))
+        val model = ReglaModel(ReglaBand.Rated(ReglaPosition.BELOW, BigDecimal("1.09")),
+            counterOffers = mx.kompara.metrics.CounterOffers(203, 249))
         compose.setContent { KomparaTheme { Regla(model, compact = compact) } }
         for (isCompact in listOf(false, true)) {
             compose.runOnIdle { compact = isCompact }
-            compose.onNodeWithContentDescription("Arriba de tu meta: 9.49 pesos netos por km")
+            compose.onNodeWithContentDescription("Abajo de tu mínimo: 1.09 pesos por kilómetro, neto" +
+                if (isCompact) "" else ". Desde 203 pesos alcanza tu mínimo; desde 249, tu meta.")
                 .assertHasNoClickAction()
-                .assert(SemanticsMatcher.expectValue(SemanticsProperties.TraversalIndex, 0f))
             compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.ContentDescription))
                 .assertCountEquals(1)
-            compose.onNodeWithText("tu meta $8")
-                .assert(SemanticsMatcher.expectValue(SemanticsProperties.TraversalIndex, 1f))
-            compose.onNodeWithText("tu mínimo $6")
-                .assert(SemanticsMatcher.expectValue(SemanticsProperties.TraversalIndex, 2f))
-            // The painted number, phrase and cue must not add duplicate accessible announcements.
-            compose.onAllNodes(hasText("9.49", substring = true), useUnmergedTree = true).assertCountEquals(0)
-            compose.onAllNodes(hasText("Arriba de tu meta"), useUnmergedTree = true).assertCountEquals(0)
+            // The painted K, number, unit and tray must not add duplicate accessible announcements.
+            compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.Text), useUnmergedTree = true)
+                .assertAll(SemanticsMatcher.keyIsDefined(SemanticsProperties.HideFromAccessibility))
         }
     }
 }

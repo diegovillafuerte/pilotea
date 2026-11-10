@@ -42,11 +42,8 @@ data class VerdictChipState(val regla: ReglaModel, val grossPerKm: String) {
 
         /** No previous trip amount is retained while a new session is being evaluated. */
         fun reading(threshold: PlatformThreshold, preferred: PreferredMetric): ReglaModel {
-            val km = preferred == PreferredMetric.IPK
             return ReglaModel(ReglaBand.Unavailable(ReglaUnavailable.READING),
-                (if (km) threshold.minPerKmMxn else threshold.minPerHourMxn).toBigDecimal(),
-                (if (km) threshold.redPerKmMxn else threshold.redPerHourMxn).toBigDecimal(),
-                if (km) ReglaUnit.KM else ReglaUnit.HOUR)
+                if (preferred == PreferredMetric.IPK) ReglaUnit.KM else ReglaUnit.HOUR)
         }
     }
 }

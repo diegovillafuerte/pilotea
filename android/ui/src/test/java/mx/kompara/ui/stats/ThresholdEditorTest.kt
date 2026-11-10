@@ -51,7 +51,6 @@ class ThresholdEditorTest {
         assertEquals(ReglaPosition.BELOW, (preview(red).band as ReglaBand.Rated).position)
         assertEquals("$285", preview(base.copy(metric = IPH)).rateText)
         assertTrue(preview(base.copy(metric = IPH)).spokenBand.contains("por hora"))
-        assertTrue(preview(base.copy(metric = IPH)).goalLabel.endsWith("/h"))
     }
     @Test fun `untouched precision survives unit and other-limit edits`() {
         val original = PlatformThreshold(8.05, 400.1234, 6.0375, 150.5678)

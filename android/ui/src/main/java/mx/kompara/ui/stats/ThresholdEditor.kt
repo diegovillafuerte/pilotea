@@ -104,6 +104,6 @@ object ThresholdEditor {
         val position = when (result.verdict.level) { VerdictLevel.GREEN -> ReglaPosition.ABOVE; VerdictLevel.YELLOW -> ReglaPosition.MEETS; VerdictLevel.RED -> ReglaPosition.BELOW; else -> null }
         val rate = (if (draft.metric == PreferredMetric.IPK) result.perKmDecimal else result.perHourDecimal)?.toBigDecimalOrNull()
         return ReglaModel(if (position != null && rate != null) ReglaBand.Rated(position, rate) else ReglaBand.Unavailable(ReglaUnavailable.UNCONFIRMED),
-            parse(draft.pair.goal)!!, parse(draft.pair.minimum)!!, draft.unit, showLimitCents = draft.metric == PreferredMetric.IPK)
+            draft.unit)
     }
 }

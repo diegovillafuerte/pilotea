@@ -37,7 +37,7 @@ import java.math.BigDecimal
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class MeasuredVerdictChipTest {
     @get:Rule val compose=createAndroidComposeRule<ComponentActivity>()
-    private val model=ReglaModel(ReglaBand.Rated(ReglaPosition.ABOVE,BigDecimal("9.4916666667")),BigDecimal(8),BigDecimal(6),ReglaUnit.KM)
+    private val model=ReglaModel(ReglaBand.Rated(ReglaPosition.ABOVE,BigDecimal("9.4916666667")),ReglaUnit.KM)
     private fun geometry(top: Int=545, chrome: Int=128, markers: List<MapMarker> = emptyList(), width: Int=393) =
         HostGeometry("com.ubercab.driver","test-only",1000,HostRect(0,0,width,852),HostOrientation.PORTRAIT,
             HostRect(0,80,width,chrome),HostRect(0,top,width,838),listOf(HostRect(20,750,width-20,810)),markers)
@@ -62,7 +62,7 @@ class MeasuredVerdictChipTest {
         compose.waitForIdle()
         assertTrue(decision is OverlayPlacement.Suppressed)
         compose.onNodeWithText("tu meta $8").assertDoesNotExist()
-        compose.runOnIdle { scale=1f; g=geometry(); value=model.copy(goal=BigDecimal("99999999999999999999999999999999999999.99")) }
+        compose.runOnIdle { scale=1f; g=geometry(); value=model.copy(band=ReglaBand.Rated(ReglaPosition.ABOVE,BigDecimal("99999999999999999999999999999999999999.99"))) }
         compose.waitForIdle()
         assertTrue("long labels must be measured rather than clipped to 240",decision is OverlayPlacement.Suppressed)
         compose.runOnIdle { value=model }
