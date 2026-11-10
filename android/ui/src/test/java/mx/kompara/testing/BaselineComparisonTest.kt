@@ -14,7 +14,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import java.io.File
 
-/** The rendered-frame rule (`android/test-support`): rendering differences between CPUs pass, anything visible fails. */
+/** The rendered-frame rule (`android/test-support`): rounding differences between CPUs pass; a moved edge, a different word or a changed colour fails. */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -24,6 +24,8 @@ class BaselineComparisonTest {
     private fun frame(width: Int = 100, height: Int = 100) = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).apply { eraseColor(ground) }
     /** The first [count] pixels with their red raised by [levels]. */
     private fun shifted(count: Int, levels: Int) = frame().apply { repeat(count) { setPixel(it % width, it / width, Color.rgb(200 + levels, 100, 50)) } }
+    /** Every pixel with its red raised by one level, the first [beyond] by two. */
+    private fun allShifted(beyond: Int) = frame().apply { repeat(width * height) { setPixel(it % width, it / width, Color.rgb(200 + if (it < beyond) 2 else 1, 100, 50)) } }
     private fun accepts(rendered: Bitmap, baseline: Bitmap = frame()) = BaselineComparison.assertMatches(baseline, rendered, output)
     private fun rejects(rendered: Bitmap, baseline: Bitmap = frame()) = assertThrows(AssertionError::class.java) { accepts(rendered, baseline) }
 
@@ -38,16 +40,32 @@ class BaselineComparisonTest {
         assertEquals(10, difference.pixels); assertEquals(1, difference.largest)
     }
 
-    @Test fun `three levels pass and four fail`() {
-        accepts(shifted(1, 3))
-        val failure = rejects(shifted(1, 4))
-        listOf("1 of 10000 pixels differ (0.010 %)", "largest channel difference 4", "limits 3 levels on 5 %", "$output")
+    @Test fun `one level on half the frame passes`() {
+        accepts(shifted(5000, 1))
+        val difference = BaselineComparison.measure(frame(), shifted(5000, 1))
+        assertEquals(5000, difference.rounding); assertEquals(0, difference.beyond)
+    }
+
+    /** A night sheet on CI: one level across the scrim, a few edge pixels beyond it, in the same frame. */
+    @Test fun `one level on every pixel passes, with a tenth of a percent beyond it too, and one pixel more fails`() {
+        accepts(allShifted(0))
+        accepts(allShifted(10))
+        val difference = BaselineComparison.measure(frame(), allShifted(10))
+        assertEquals(9990, difference.rounding); assertEquals(10, difference.beyond); assertEquals(2, difference.largest)
+        rejects(allShifted(11))
+    }
+
+    @Test fun `more than one level on exactly a tenth of a percent passes and one pixel more fails`() {
+        accepts(shifted(10, 2))
+        val failure = rejects(shifted(11, 2))
+        listOf("11 of 10000 pixels differ (0.110 %)", "largest channel difference 2", "0 by one level, 11 by more (0.1100 %)", "at most 0.1 % by more", "$output")
             .forEach { assertTrue("\"${failure.message}\" names $it", it in failure.message!!) }
     }
 
-    @Test fun `one level on more than five percent of the pixels fails`() {
-        accepts(shifted(500, 1))
-        rejects(shifted(501, 1))
+    @Test fun `three levels pass and four fail`() {
+        accepts(shifted(1, 3))
+        val failure = rejects(shifted(1, 4))
+        listOf("largest channel difference 4", "none by more than 3", "$output").forEach { assertTrue("\"${failure.message}\" names $it", it in failure.message!!) }
     }
 
     @Test fun `a different size fails`() {

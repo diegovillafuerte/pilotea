@@ -8,7 +8,7 @@ S1's component gallery (`V3ComponentHost`: D1, E1, F1, G2, G4 and H5 scenes and 
 adb shell am start -n mx.kompara.app/mx.kompara.ui.fixtures.V3ComponentActivity --es gananciasFrame L4 --ez dark true
 ```
 
-Normal `testDebugUnitTest` compares each render with its reviewed PNG in `v3/` (and `v4/`) by one rule, `BaselineComparison` (`android/test-support`): identical passes; otherwise no channel of any pixel may differ by more than 3 levels of 255 and at most 5 % of the pixels may differ, which absorbs the software rasterizer's differences between CPUs and nothing visible. It writes current images to `ui/build/outputs/v3-screenshots/`, and checks text overflow independently (1px tolerance for native subpixel glyph measurement). Failures point to the actual image. Baselines are declared Gradle test inputs. Explicitly regenerate only after reviewing the change:
+Normal `testDebugUnitTest` compares each render with its reviewed PNG in `v3/` (and `v4/`) by one rule, `BaselineComparison` (`android/test-support`): identical passes; otherwise any number of pixels may differ by 1 level of 255, at most 0.1 % by more and none by more than 3, which is what the software rasterizer's differences between CPUs amount to (blend rounding, antialiased edges). A one-level change over any area passes too, so record the baselines after one made on purpose. It writes current images to `ui/build/outputs/v3-screenshots/`, and checks text overflow independently (1px tolerance for native subpixel glyph measurement). Failures point to the actual image. Baselines are declared Gradle test inputs. Explicitly regenerate only after reviewing the change:
 
 ```sh
 export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
