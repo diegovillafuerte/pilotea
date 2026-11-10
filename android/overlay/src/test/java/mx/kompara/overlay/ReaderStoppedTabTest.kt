@@ -177,7 +177,8 @@ class StoppedTabAfterStallTest {
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class ReaderStoppedTabTest {
     @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
-    @Test fun `C6 passive tab retains words geometry and no action at day night and large fonts`() {
+    /** v3's C6 is the v4 kit's S8, unchanged: these renders are its coverage in both contracts. */
+    @Test fun `C6 (S8) passive tab retains words geometry and no action at day night and large fonts`() {
         data class Case(val name: String, val scale: Float = 1f, val width: Int = 393, val dark: Boolean = false)
         val cases = listOf(Case("C6_day"), Case("C6_night", dark = true),
             Case("C6_1.3", scale = 1.3f), Case("C6_narrow_1.3", scale = 1.3f, width = 320),

@@ -119,7 +119,7 @@ class S25LiveOfferLifecycleReplayTest {
             scope.backgroundScope.launch(UnconfinedTestDispatcher(scope.testScheduler)) {
                 // Production-faithful: the chip shows the ledger row's evaluation, never the incoming card.
                 OverlayStateMachine(evaluate = { event ->
-                    RowBackedVerdict.evaluate(recorder, event, PlatformThreshold.DEFAULT)
+                    RowBackedVerdict.evaluate(recorder, event)
                         .also { verdicts += it; rows += it.row }.state
                 }).visibility(OfferEventBus.events).collect { visibility ->
                     visibilities += visibility
@@ -133,9 +133,11 @@ class S25LiveOfferLifecycleReplayTest {
                             val keep = current != null && !(evidence.dock && !current.docked) &&
                                 OverlayPositioning.valid(current.position, current.size, evidence.geometry, viewport,
                                     current.overMarker, current.docked)
+                            // v4: the sizes MeasuredVerdictChip measures for this state's pill.
+                            val (full, compact) = S25ChipSizes.of(visibility.state.regla)
                             displayed = OverlayPositioning.place(
                                 evidence.geometry, event.packageName, viewport, event.timestampMs,
-                                ChipSize(720, 336), ChipSize(720, 200), current?.position?.takeIf { keep },
+                                full, compact, current?.position?.takeIf { keep },
                                 evidence.dock, keep && current!!.docked) as? OverlayPlacement.Displayed
                         }
                         OverlayVisibility.SoftHidden, OverlayVisibility.Exiting -> Unit

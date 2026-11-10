@@ -39,10 +39,6 @@ class V3ComponentActivity : ComponentActivity() {
 
 @Composable
 fun V3ComponentHost(frame: String, modifier: Modifier = Modifier) {
-    if (frame.startsWith("C") || frame in listOf("N8", "N9", "N10")) {
-        ReglaFixtureHost(frame, modifier)
-        return
-    }
     val context = LocalContext.current
     val data = remember(context) { V3Fixture(context) }
     var selected by remember(frame) { mutableIntStateOf(0) }

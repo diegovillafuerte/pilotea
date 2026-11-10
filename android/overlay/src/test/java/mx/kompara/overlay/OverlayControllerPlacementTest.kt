@@ -98,7 +98,7 @@ class OverlayControllerPlacementTest {
         emptyList(), emptyList())
     private val didi = geometry.copy(packageName = "com.didiglobal.driver")
     private val placement = OverlayPlacement.Displayed(OverlayPosition(324, 243), ChipSize(720, 336), PlateFormat.FULL)
-    private val reading = VerdictChipState.reading(PlatformThreshold.DEFAULT, PreferredMetric.IPK)
+    private val reading = VerdictChipState.reading(PreferredMetric.IPK)
     private val rated = VerdictChipState(reading.copy(band = ReglaBand.Rated(ReglaPosition.ABOVE, BigDecimal("12"))), "15")
 
     // 0.2.14: the initial-boundary / two-capture gates detached the first frame of every real
@@ -178,7 +178,7 @@ class OverlayControllerPlacementTest {
                 OverlayStateMachine(evaluate = { event ->
                     rowAgreement.check(event) // Round 3 (A3): the row the chip is painted from agrees
                     VerdictChipState.from(NetProfitEngine().evaluate(OfferMapping.toTripOffer(event.card),
-                        "2.84".toBigDecimal(), PlatformThreshold.DEFAULT, PreferredMetric.IPK), PlatformThreshold.DEFAULT)
+                        "2.84".toBigDecimal(), PlatformThreshold.DEFAULT, PreferredMetric.IPK))
                 }).visibility(OfferEventBus.events).collect {
                     seen += it
                     // The first Reading precedes the verified window supplied by this compositor
@@ -258,8 +258,8 @@ class OverlayControllerPlacementTest {
             val first = parsed.single()
             assertEquals(605, first.card.hostGeometry!!.offerCard.top)
             var shown = OverlayPositioning.place(first.card.hostGeometry, first.packageName, v,
-                first.timestampMs, ChipSize(720, 336), ChipSize(720, 200)) as OverlayPlacement.Displayed
-            assertEquals(OverlayPosition(324, 221), shown.position)
+                first.timestampMs, S25ChipSizes.pill(), S25ChipSizes.pill()) as OverlayPlacement.Displayed
+            assertEquals(OverlayPosition(429, 389), shown.position) // v4: the pill at the right foot
             assertTrue(shown.position.bounds(shown.size).overlaps(close))
             @Suppress("UNCHECKED_CAST")
             val savedPositions = field("savedPositions").get(controller) as MutableMap<OverlayPositionKey, OverlayPosition?>
@@ -332,8 +332,8 @@ class OverlayControllerPlacementTest {
             val first = parsed.single()
             assertEquals(605, first.card.hostGeometry!!.offerCard.top)
             var shown = OverlayPositioning.place(first.card.hostGeometry, first.packageName, v,
-                first.timestampMs, ChipSize(720, 336), ChipSize(720, 200)) as OverlayPlacement.Displayed
-            assertEquals(OverlayPosition(324, 221), shown.position)
+                first.timestampMs, S25ChipSizes.pill(), S25ChipSizes.pill()) as OverlayPlacement.Displayed
+            assertEquals(OverlayPosition(429, 389), shown.position) // v4: the pill at the right foot
             assertTrue(shown.position.bounds(shown.size).overlaps(close))
             @Suppress("UNCHECKED_CAST")
             val savedPositions = field("savedPositions").get(controller) as MutableMap<OverlayPositionKey, OverlayPosition?>
@@ -432,7 +432,7 @@ class OverlayControllerPlacementTest {
             testScheduler.runCurrent()
             val first = parsed.single()
             val shown = OverlayPositioning.place(first.card.hostGeometry, first.packageName, v,
-                first.timestampMs, ChipSize(720, 336), ChipSize(720, 200)) as OverlayPlacement.Displayed
+                first.timestampMs, S25ChipSizes.pill(), S25ChipSizes.pill()) as OverlayPlacement.Displayed
             assertTrue(shown.position.bounds(shown.size).overlaps(close))
             field("composeView").set(controller, ComposeView(context).apply { alpha = 1f })
             field("placement").set(controller, shown)
@@ -460,11 +460,11 @@ class OverlayControllerPlacementTest {
             assertEquals(first.card.sessionId, recovered.card.sessionId)
             assertTrue(recovered.card.hostGeometry!!.protectedControls.contains(close))
             val safe = OverlayPositioning.place(recovered.card.hostGeometry, recovered.packageName, v,
-                recovered.timestampMs, ChipSize(720, 336), ChipSize(720, 200)) as OverlayPlacement.Displayed
+                recovered.timestampMs, S25ChipSizes.pill(), S25ChipSizes.pill()) as OverlayPlacement.Displayed
             assertFalse(safe.position.bounds(safe.size).overlaps(close))
             repeat(4) {
                 assertEquals(safe, OverlayPositioning.place(recovered.card.hostGeometry, recovered.packageName, v,
-                    recovered.timestampMs, ChipSize(720, 336), ChipSize(720, 200), safe.position))
+                    recovered.timestampMs, S25ChipSizes.pill(), S25ChipSizes.pill(), safe.position))
             }
         } finally { controller.stop(); Dispatchers.resetMain() }
     }
@@ -1032,11 +1032,12 @@ class OverlayControllerPlacementTest {
                 topChrome = HostRect(0, 0, 1080, 91), offerCard = HostRect(0, 749 - up, v.bounds.right, v.bounds.bottom), source = HostGeometrySource.OCR_TEXT_BOUNDS,
                 fareBounds = HostRect(102, fareTop - up, 489, fareBottom - up), ocrEvidence = HostOcrGeometryEvidence(null, listOf(HostRect(124, 797 - up, 327, 844 - up)),
                     listOf(HostRect(193, 1425 - up, 509, 1469 - up), HostRect(194, 1565 - up, 533, 1616 - up)), false))
-            val chip = OverlayPlacement.Displayed(OverlayPosition(36, 342), ChipSize(720, 336), PlateFormat.FULL)
+            // v4: the plain pill at its foot under the 726 ceiling (726 - 48 - 168).
+            val chip = OverlayPlacement.Displayed(OverlayPosition(36, 510), S25ChipSizes.pill(), PlateFormat.FULL)
             val view = ComposeView(context).apply { alpha = 1f }
             field("composeView").set(controller, view)
             field("placement").set(controller, chip)
-            field("layoutParams").set(controller, WindowManager.LayoutParams().apply { x = 36; y = 342 })
+            field("layoutParams").set(controller, WindowManager.LayoutParams().apply { x = 36; y = 510 })
             state(controller, "geometry", frame(902, 1012)); state(controller, "viewport", v)
             render(controller, backgroundScope, OverlayVisibility.Showing(rated, "s", parsed(frame(902, 1012), "s")))
             assertEquals(1f, view.alpha)
@@ -1048,7 +1049,7 @@ class OverlayControllerPlacementTest {
             val rise = parsed(frame(902, 1012, up = 41), "s")
             render(controller, backgroundScope, OverlayVisibility.Showing(rated, "s", rise))
             assertEquals("A real 41 px rise hides on that frame", 0f, view.alpha)
-            assertEquals("And re-places under the new ceiling, 685 - 48 - 336", 301, measuredPlacement(controller, rise, v).position.y)
+            assertEquals("And re-places under the new ceiling, 685 - 48 - 168", 469, measuredPlacement(controller, rise, v).position.y)
         } finally { controller.stop(); Dispatchers.resetMain() }
     }
 
@@ -1414,10 +1415,10 @@ class OverlayControllerPlacementTest {
         } finally { controller.stop() }
     }
 
-    /** What MeasuredVerdictChip computes from the controller's state for this frame. */
+    /** What MeasuredVerdictChip computes from the controller's state for this frame: a rated Uber chip, the plain pill twice. */
     private fun measuredPlacement(controller: OverlayController, next: OfferEvent.Parsed, v: OverlayViewport) =
         OverlayPositioning.place((field("geometry\$delegate").get(controller) as MutableState<*>).value as HostGeometry,
-            next.packageName, v, next.timestampMs, ChipSize(720, 336), ChipSize(720, 200),
+            next.packageName, v, next.timestampMs, S25ChipSizes.pill(), S25ChipSizes.pill(),
             (field("savedPosition\$delegate").get(controller) as MutableState<*>).value as OverlayPosition?,
             (field("dockRequested\$delegate").get(controller) as MutableState<*>).value as Boolean,
             (field("savedDocked\$delegate").get(controller) as MutableState<*>).value as Boolean) as OverlayPlacement.Displayed

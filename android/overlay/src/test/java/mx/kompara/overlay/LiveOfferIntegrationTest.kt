@@ -36,13 +36,13 @@ class LiveOfferIntegrationTest {
             assertEquals("DRIVER_PAYMENT", card.paymentBasis)
             assertEquals(113.92, result.netMxn!!, 0.000001)
             assertEquals(9.4933333333, result.netPerKm!!, 0.000001)
-            assertTrue(VerdictChipState.from(result, limits).regla.band is ReglaBand.Rated)
+            assertTrue(VerdictChipState.from(result).regla.band is ReglaBand.Rated)
         }
     }
 
     @Test fun `C4 missing fare renders Sin lectura for either recognized host`() {
         for (card in listOf(UberOcrParser().parse(uber(fare = false))!!, DidiOcrParser().parse(didi(fare = false))!!)) {
-            val state = VerdictChipState.from(metrics(card), limits)
+            val state = VerdictChipState.from(metrics(card))
             assertEquals(ReglaUnavailable.FARE, (state.regla.band as ReglaBand.Unavailable).input)
             assertEquals("Sin lectura", state.heroRate)
             assertNull(state.regla.rateText)
@@ -51,11 +51,11 @@ class LiveOfferIntegrationTest {
 
     @Test fun `C5 missing time renders Sin lectura in hourly unit while km stays computable`() {
         for (card in listOf(UberOcrParser().parse(uber(time = false))!!, DidiOcrParser().parse(didi(time = false))!!)) {
-            val state = VerdictChipState.from(metrics(card, PreferredMetric.IPH), limits)
+            val state = VerdictChipState.from(metrics(card, PreferredMetric.IPH))
             assertEquals(ReglaUnavailable.TIME, (state.regla.band as ReglaBand.Unavailable).input)
             assertEquals("Sin lectura", state.heroRate)
             assertNull(state.regla.rateText)
-            assertTrue(VerdictChipState.from(metrics(card), limits).regla.band is ReglaBand.Rated)
+            assertTrue(VerdictChipState.from(metrics(card)).regla.band is ReglaBand.Rated)
         }
     }
 
@@ -65,14 +65,15 @@ class LiveOfferIntegrationTest {
         blocks.map { HostTextBounds(it.text, HostRect(it.bounds.left, it.bounds.top, it.bounds.right, it.bounds.bottom)) },
         HostGeometrySource.OCR_TEXT_BOUNDS, card.contentBounds,
         topChrome = HostRect(0, 0, 393, chromeBottom), markers = markers)!!
+    /** v4: a rated chip without counter-offers is the plain pill, 205 x 56 dp, as both of the placer's sizes. */
     private fun place(g: HostGeometry) = OverlayPositioning.place(g, g.packageName, viewport, 1_000,
-        ChipSize(240, 112), ChipSize(240, 80))
+        ChipSize(205, 56), ChipSize(205, 56))
 
     @Test fun `OCR derived card uses right foot 16dp above its top and never covers fare or accept`() {
         for ((blocks, card) in listOf(uber() to UberOcrParser().parse(uber())!!, didi() to DidiOcrParser().parse(didi())!!)) {
             val g = derived(blocks, card)
             val p = place(g) as OverlayPlacement.Displayed
-            assertEquals(141, p.position.x)
+            assertEquals(393 - 12 - 205, p.position.x)
             assertEquals(g.offerCard.top - 16, p.position.y + p.size.height)
             assertTrue(g.offerCard.top <= 540 - HostGeometryDeriver.CARD_TEXT_PADDING_DP)
             assertFalse(p.position.bounds(p.size).overlaps(g.offerCard))
@@ -80,16 +81,17 @@ class LiveOfferIntegrationTest {
         }
     }
 
-    // 0.2.14 product decision: below the compact foot band the plate docks (fail-open); "No cupo"
-    // only when even the docked compact plate would touch the fare, legs, close or accept.
-    @Test fun `OCR band switches to compact then docks and suppresses only when even the dock cannot fit`() {
+    // 0.2.14 product decision: below the foot band the plate docks (fail-open); "No cupo"
+    // only when even the docked plate would touch the fare, legs, close or accept.
+    // v4: the pill needs a 56 dp band between the chrome's and the card's 16 dp margins (0.2.20's compact: 80).
+    @Test fun `OCR band takes the pill at its foot then docks and suppresses only when even the dock cannot fit`() {
         val blocks = uber()
         val card = UberOcrParser().parse(blocks)!!
         val top = derived(blocks, card).offerCard.top
-        val foot = place(derived(blocks, card, top - 112)) as OverlayPlacement.Displayed
-        assertEquals(PlateFormat.COMPACT, foot.format)
+        val foot = place(derived(blocks, card, top - 88)) as OverlayPlacement.Displayed
+        assertEquals(PlacementRule.FOOT, foot.rule)
         assertFalse(foot.docked)
-        val docked = place(derived(blocks, card, top - 111)) as OverlayPlacement.Displayed
+        val docked = place(derived(blocks, card, top - 87)) as OverlayPlacement.Displayed
         assertTrue(docked.docked)
         assertTrue(docked.position.bounds(docked.size).bottom <= 540 - 16)
         assertTrue(place(derived(blocks, card, top + 10)) is OverlayPlacement.Suppressed)

@@ -7,10 +7,11 @@ import kotlinx.coroutines.flow.flowOf
 import mx.kompara.capture.OfferEvent
 import mx.kompara.data.db.entity.OfferEntity
 import mx.kompara.data.settings.CostProfileRepository
-import mx.kompara.data.settings.PlatformThreshold
+import mx.kompara.data.settings.RateBasis
 import mx.kompara.data.settings.SettingsRepository
 import mx.kompara.metrics.NetProfitEngine
 import mx.kompara.metrics.OfferRecorder
+import mx.kompara.metrics.counterOffers
 import mx.kompara.ui.components.ReglaBand
 import mx.kompara.ui.components.ReglaUnavailable
 import org.junit.Assert.assertEquals
@@ -38,7 +39,7 @@ internal class RowBackedAgreement {
         val card = event.card
         val session = card.sessionId ?: "${event.packageName}:${event.timestampMs}"
         val before = offers.forSession(session)
-        val shown = RowBackedVerdict.evaluate(recorder, event, PlatformThreshold.DEFAULT)
+        val shown = RowBackedVerdict.evaluate(recorder, event)
         val row = offers.forSession(session)
         assertNotNull("The evaluation wrote and reads the session's ledger row", row)
         assertEquals("The chip is painted from the session's ledger row", row!!.id, shown.row.id)
@@ -51,6 +52,10 @@ internal class RowBackedAgreement {
                 before?.let(::economics) ?: listOf(null) + published.drop(1), economics(row))
         } else {
             assertEquals("The chip's row carries the published economics", published, economics(row))
+            // v4: the chip says the basis the row was judged in; only a Pon Tu Precio card carries counter-offers.
+            assertEquals("The chip's basis is the row's", RateBasis.fromName(row.evaluation?.rateBasis), shown.state.regla.basis)
+            assertEquals("Counter-offers come from the row's frozen limits, on a bid card only",
+                if (card.variant == "bid") row.counterOffers() else null, shown.state.regla.counterOffers)
         }
     }
 }

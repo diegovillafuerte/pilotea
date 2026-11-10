@@ -22,16 +22,16 @@ The S1 repair supplies a writable Robolectric home in `android/.gradle/test-home
 The fonts come from the Google Fonts Barlow and Barlow Semi Condensed distributions; exact download URLs, weights and SHA-256 hashes are in `android/licenses/v3-fonts.json`, alongside both OFL notices. `FontContractTest` parses OS/2 and GSUB metadata, tests native `tnum` digit advances, peso/minus and Spanish glyph coverage. The fonts use lining digits by default; `lnum` is requested alongside `tnum` and needs no substitution table. No synthetic horizontal scaling or runtime download is used. Actual mounted-device 13sp legibility is still the S21 gate (TD-044).
 
 
-## S4 — Regla
+## Regla, the v4 pill (WP-B)
 
-`ReglaTest` adds 28 component PNGs prefixed `regla_`: C1–C5/C7/C12, N8–N10, C10's 1.3× full plate, 1.3× compact, 320dp width, 2× negative, cents/hour examples, and greyscale full/compact/status-family renders. Values come from the same `V3Fixture` calculator; no host-map bitmap or production coordinate is embedded. The 393×852dp viewport isolates the component from placement (S5). At 2× the plate is 480dp wide and is inspected in a 560dp viewport; it is never shrunk to fit a narrow host. The debug host allows horizontal inspection at such sizes, not a live-placement fallback.
+`ReglaTest` records 17 component PNGs in `v4/`, named `regla_<frame>_<day|night>_393_<fontScale>` after the v4 kit's chip frames: S1–S5, S9 and S10 on a day and a dark host at 1×, S7 at 1.3×, and S5 (the tray) at 2×. Values come from `reglaFrame`, which evaluates the kit's offers with `NetProfitEngine` and `CounterOffers`; no host-map bitmap or production coordinate is embedded. The v3 plate's `regla_*` and `gallery_*` renders were retired with its frames (contract/v4/WpB.kt).
 
-Both the native overlay and existing simulator now render `ui/components/Regla`. `V3ComponentActivity --es frame C1` (or C4/C5/C12/N8/N9/N10) opens the debug component host; use Android's font setting for C10. Pure/Compose tests check pair formatting, exact measured size, phrase-first band semantics followed by real limit text, all missing-input states without trip money, long labels, atomic swaps and presence/reduced-motion behavior. The 500ms disappearance grace and 160ms exit are also checked with coroutine virtual time. Native subpixel label overflow gets the same 1px tolerance as the S1 suite.
+Pure/Compose tests check the measured sizes (56 and 90 dp × font scale; widths hug the content), every drawn word, the one accessible name per chip, which counter-offers the verdict lets the tray show, long rates growing instead of truncating, atomic swaps and presence/reduced-motion behaviour.
 
 Record only this suite after a reviewed rendering change:
 
 ```sh
-./gradlew :ui:testDebugUnitTest --tests '*Regla*Test' -Pv3.recordScreenshots=true --console=plain
+./gradlew :ui:testDebugUnitTest --tests '*ReglaTest' -Pv4.recordScreenshots=true --console=plain
 ```
 
 Software View PNGs do not certify Android's hardware shadow, mounted legibility, actual host separation or parse-to-photon latency. Those device/driver checks remain S5/S21 gates (TD-047). No device result is inferred from these screenshots.

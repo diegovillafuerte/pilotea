@@ -20,7 +20,7 @@ import org.junit.Test
 class OverlayStateMachineTest {
     private val threshold = PlatformThreshold(8.0, 200.0, 6.0, 150.0)
     private fun state(fare: Double = 100.0) = VerdictChipState.from(NetProfitEngine().evaluate(
-        TripOffer("uber", fare, 2.0, 5.0, 8.0, 15.0), CostProfile.ZERO, threshold), threshold)
+        TripOffer("uber", fare, 2.0, 5.0, 8.0, 15.0), CostProfile.ZERO, threshold))
     private fun parsed(ts: Long = 1, session: String = "one", host: String = "uber") = OfferEvent.Parsed(
         host, ts, OfferCard(host, fare = 100.0, sessionId = session))
     private fun noCard(ts: Long = 2, host: String = "uber", reason: OfferEvent.Reason = OfferEvent.Reason.NOT_AN_OFFER) =

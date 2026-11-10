@@ -28,8 +28,9 @@ import java.io.File
 class InitialPlacementReplayTest {
     private val viewport = OverlayViewport(HostRect(0, 0, 1080, 2340), 3f, HostOrientation.PORTRAIT)
     private val close = HostRect(837, 650, 983, 793)
-    private val fullSize = ChipSize(720, 336)
-    private val compactSize = ChipSize(720, 200)
+    /** v4 (WP-B): an Uber offer's chip is the plain pill, 205 x 56 dp at density 3, as both of the placer's sizes. */
+    private val fullSize = ChipSize(615, 168)
+    private val compactSize = ChipSize(615, 168)
 
     private fun fixture(): List<OcrBlock> {
         val json = JSONArray(File("../ocr/src/test/resources/uber_priority_s25_2026_10_29.json").readText())
