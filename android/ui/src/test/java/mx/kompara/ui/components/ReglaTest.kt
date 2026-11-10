@@ -159,7 +159,8 @@ class ReglaTest {
             for (id in listOf("N8", "N9", "N10")) { add(Case("${id}_1.3", id, 1.3f, 320)); add(Case("${id}_2.0", id, 2f, 560)) }
             add(Case("C10", "C1", 1.3f)); add(Case("C12_1.3", "C12", 1.3f))
             add(Case("C1_narrow", "C1", width = 320)); add(Case("C7_2.0", "C7", 2f, 560))
-            for (id in listOf("C1", "C2", "C3", "C4", "C5", "C7", "C12", "G4")) add(Case("${id}_grey", id, grey = true))
+            // G4's Semáforo screen is retired (WP-F, J4); its grey chip went with it.
+            for (id in listOf("C1", "C2", "C3", "C4", "C5", "C7", "C12")) add(Case("${id}_grey", id, grey = true))
             for (id in listOf("C2", "C3", "C4", "C5")) add(Case("${id}_compact_grey", id, compact = true, grey = true))
             add(Case("cents", model = fixture.regla("C1").copy(goal = BigDecimal("9.50"), minimum = BigDecimal("6.00"),
                 band = ReglaBand.Rated(ReglaPosition.MEETS, (fixture.regla("C1").band as ReglaBand.Rated).rate))))

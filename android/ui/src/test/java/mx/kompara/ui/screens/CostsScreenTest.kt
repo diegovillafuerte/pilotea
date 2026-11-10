@@ -33,8 +33,9 @@ import java.io.File
 class CostsScreenTest {
     @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
     private val fixture get() = CostsFixture(ApplicationProvider.getApplicationContext())
-    @Test fun `settings costs car and efficiency render without clipping at supported sizes`() {
-        var frame by mutableStateOf("G1")
+    private val settings get() = SettingsFixture(ApplicationProvider.getApplicationContext())
+    @Test fun `efficiency renders without clipping at supported sizes`() {
+        var frame by mutableStateOf("A5")
         var scale by mutableFloatStateOf(1f)
         var width by mutableIntStateOf(393)
         compose.setContent {
@@ -44,9 +45,7 @@ class CostsScreenTest {
                 }
             }
         }
-        val cases = listOf("G1", "G1b", "G1e", "G1n", "G3", "G5", "A5", "electric", "direct").map { Triple(it, 1f, 393) } +
-            listOf("G1", "G3", "G5", "A5").map { Triple(it, 1.3f, 393) } +
-            listOf("G1n", "G3", "G5", "A5").map { Triple(it, 2f, 320) }
+        val cases = listOf(Triple("A5", 1f, 393), Triple("A5", 1.3f, 393), Triple("A5", 2f, 320))
         for ((id, font, size) in cases) {
             compose.runOnIdle { frame = id; scale = font; width = size }; compose.waitForIdle()
             mx.kompara.ui.contract.FrameContract.assertFrame(compose, id)
@@ -66,29 +65,37 @@ class CostsScreenTest {
             else { assertTrue("Missing $name", baseline.exists()); assertTrue("Changed $name", BitmapFactory.decodeFile(baseline.path).sameAs(bitmap)) }
         }
     }
-    @Test fun `all settings doors have independent actions and theme is scrollable`() {
+    @Test fun `Ajustes has six doors each with its own action and the retired rows are gone`() {
         val clicks = mutableListOf<String>()
-        compose.setContent { KomparaTheme { AjustesContent(state = fixture.settings("G1e"), actions = AjustesActions(
-            account = { clicks += "account" }, plan = { clicks += "plan" }, limits = { clicks += "limits" }, costs = { clicks += "costs" },
-            car = { clicks += "car" }, reader = { clicks += "reader" }, notices = { clicks += "notices" }, referral = { clicks += "referral" },
-            help = { clicks += "help" }, data = { clicks += "data" }, theme = { clicks += "theme" })) } }
-        listOf("Entrar con WhatsApp", "Plan gratis", "Tu meta y tu mínimo", "Tus costos", "Lo del coche", "Semáforo", "Avisos", "Invita y gana", "Ayuda", "Tus datos", "Tema").forEach {
+        compose.setContent { KomparaTheme { AjustesContent(state = settings.ajustes(), actions = AjustesActions(
+            limits = { clicks += "limits" }, costs = { clicks += "costs" }, reader = { clicks += "reader" },
+            account = { clicks += "account" }, data = { clicks += "data" }, help = { clicks += "help" })) } }
+        listOf("Tu meta y tu mínimo", "Tus costos", "Semáforo", "Tu cuenta", "Tus datos", "Ayuda").forEach {
             compose.onNodeWithText(it).performScrollTo().performClick()
         }
-        assertEquals(listOf("account", "plan", "limits", "costs", "car", "reader", "notices", "referral", "help", "data", "theme"), clicks)
-        compose.onNodeWithText("Sin agregar").assertExists()
-        compose.onNodeWithText("Prueba Premium 14 días").assertDoesNotExist()
+        assertEquals(listOf("limits", "costs", "reader", "account", "data", "help"), clicks)
+        for (gone in listOf("Lo del coche", "Avisos", "Invita y gana", "Tema", "Plan gratis")) compose.onNodeWithText(gone).assertDoesNotExist()
     }
-    @Test fun `formula rows open their own edits and no idle save or car appears`() {
-        var selected: CostField? = null
-        compose.setContent { KomparaTheme { CostProfileContent(fixture.editor("G3"), {}, { selected = it }) } }
-        compose.onNodeWithText("Guardar").assertDoesNotExist(); compose.onNodeWithText("Lo del coche").assertDoesNotExist()
-        for (field in listOf(CostField.FUEL, CostField.EFFICIENCY, CostField.PRICE, CostField.WEAR, CostField.DIRECT)) {
-            compose.onNodeWithText(field.title).performScrollTo().performClick(); assertEquals(field, selected)
+    @Test fun `formula rows open their own edits and the car opens its sheet`() {
+        var selected: CostField? = null; var car = 0; val bases = mutableListOf<mx.kompara.data.settings.RateBasis>()
+        compose.setContent { KomparaTheme { CostProfileContent(settings.costs("J3"), {}, { selected = it }, openCar = { car++ }, choose = { bases += it }) } }
+        compose.onNodeWithText("Guardar").assertDoesNotExist()
+        for ((row, field) in listOf("Rendimiento" to CostField.EFFICIENCY, "Gasolina" to CostField.FUEL, "Desgaste" to CostField.WEAR,
+            "Escribir mi costo por km" to CostField.DIRECT)) {
+            compose.onNodeWithText(row).performScrollTo().performClick(); assertEquals(field, selected)
         }
+        compose.onNodeWithText("Renta, crédito o seguro").performScrollTo().performClick(); assertEquals(1, car)
+        compose.onNodeWithText("Bruto").performScrollTo().performClick()
+        assertEquals(listOf(mx.kompara.data.settings.RateBasis.GROSS), bases)
+    }
+    @Test fun `the applied switch says the converted limits under the choice`() {
+        compose.setContent { KomparaTheme { CostProfileContent(settings.costs("J3").copy(basis = mx.kompara.data.settings.RateBasis.GROSS,
+            basisResult = "Tu meta y tu mínimo pasan a $11.00 y $9.00."), {}, {}) } }
+        compose.onNodeWithText("Tu meta y tu mínimo pasan a $11.00 y $9.00.").assertExists()
+        compose.onNode(hasText("Bruto") and isSelectable()).assertIsSelected()
     }
     @Test fun `input sheets switch fuel retain values and accept direct numeric entry`() {
-        var state by mutableStateOf(fixture.editor("G3").let { it.copy(field = CostField.FUEL) })
+        var state by mutableStateOf(settings.costs("J3").copy(field = CostField.FUEL))
         var saves = 0
         compose.setContent { KomparaTheme { SheetContent("Combustible") { CostInputContent(state, { state = state.copy(draft = it) }, { saves++ }) } } }
         compose.onNodeWithText("Eléctrico").performClick()
@@ -121,14 +128,14 @@ class CostsScreenTest {
         for (offset in 0..7) assertEquals(offset, rendered.offsetMapping.transformedToOriginal(rendered.offsetMapping.originalToTransformed(offset)))
     }
 
-    @Test fun `car sheet keeps daily calendar explanation and actual numeric amount editable`() {
-        var state by mutableStateOf(fixture.car())
+    @Test fun `car sheet is a weekly amount with no daily charge and stays editable`() {
+        var state by mutableStateOf(fixture.fixture.schedule.car.single().let { CarCostState(open = true, amount = it.weeklyMxn!!.toPlainString(),
+            from = it.effectiveFrom, today = fixture.fixture.date, canRemove = true) })
         var saves = 0; var removes = 0
-        compose.setContent { KomparaTheme { SheetContent("Lo del coche") { CarCostContent(state, { state = state.copy(amount = it) }, {}, { saves++ }, { removes++ }) } } }
-        compose.onNodeWithText("Se resta de cada día: $214, también los días que no manejas.").assertExists()
-        compose.onNodeWithText("Nunca del semáforo.").assertExists()
+        compose.setContent { KomparaTheme { SheetContent("El coche") { CarCostContent(state, { state = state.copy(amount = it) }, {}, { saves++ }, { removes++ }) } } }
+        compose.onNodeWithText("Lo ves en tu semana. No cambia el semáforo.").assertExists()
+        compose.onNodeWithText("Se resta", substring = true).assertDoesNotExist()
         compose.onNodeWithContentDescription("Cada semana").performTextReplacement("700")
-        compose.onNodeWithText("Se resta de cada día: $100, también los días que no manejas.").assertExists()
         compose.onNodeWithText("Guardar").performScrollTo().performClick(); assertEquals(1, saves)
         compose.onNodeWithText("Quitar").performScrollTo().performClick(); assertEquals(1, removes)
     }

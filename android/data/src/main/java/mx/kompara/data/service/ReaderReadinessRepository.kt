@@ -120,11 +120,13 @@ class ReaderReadinessRepository(
         generation++
         publish(memory.copy(pauseUntil = LocalDate.now(clock).plusDays(1)))
     }
-    /** Explicit local erase invalidates queued reads and removes their persisted proof. */
-    @Synchronized fun forgetHistoryAndPause() {
+    /**
+     * Explicit local erase invalidates queued reads and removes their persisted proof. It leaves the
+     * reader running: the launch set has no resume control (docs/v4-simple-launch-plan.md §3).
+     */
+    @Synchronized fun forgetHistory() {
         generation++
-        publish(memory.copy(lastRead = emptyMap(), suppressionCount = 0, suppressionDate = null,
-            pauseUntil = LocalDate.now(clock).plusDays(1)))
+        publish(memory.copy(lastRead = emptyMap(), suppressionCount = 0, suppressionDate = null))
     }
     @Synchronized fun resume() {
         generation++

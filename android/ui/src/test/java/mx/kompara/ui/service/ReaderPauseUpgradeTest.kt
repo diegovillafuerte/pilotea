@@ -29,8 +29,20 @@ class ReaderPauseUpgradeTest {
         ReaderPauseUpgrade(prefs, reader).run()
         assertFalse(reader.state.value.paused)
         assertNull(store.value.pauseUntil)
-        reader.forgetHistoryAndPause() // Tus datos' local erase still pauses until tomorrow.
+        reader.pauseUntilTomorrow() // A later pause (the OCR fallback's stop) is not cleared again.
         ReaderPauseUpgrade(prefs, ReaderReadinessRepository(store, clock)).run()
         assertTrue(ReaderReadinessRepository(store, clock).state.value.paused)
+    }
+
+    @Test fun `Tus datos' local erase forgets the reads and leaves the reader running`() {
+        val reader = ReaderReadinessRepository(store, clock)
+        reader.observeEnvironment(true, false); reader.bound()
+        assertTrue(reader.canRead())
+        val queued = reader.captureToken()
+        reader.forgetHistory()
+        assertFalse(reader.state.value.paused)
+        assertNull(store.value.pauseUntil)
+        assertTrue(reader.canRead())
+        assertFalse(reader.canRead(token = queued))
     }
 }

@@ -15,7 +15,7 @@ import mx.kompara.data.service.*
 import mx.kompara.data.settings.SettingsRepository
 import javax.inject.Inject
 
-enum class OnboardingPage { PITCH, DISCLOSURE, ACCESSIBILITY, BATTERY, CAPTURE, SIGNIN, DONE }
+enum class OnboardingPage { PITCH, DISCLOSURE, ACCESSIBILITY, BATTERY, CAPTURE, DONE }
 enum class OnboardingEntry { FIRST_RUN, RECOVERY, BATTERY }
 
 data class PermissionReturnState(val ready: Boolean = false, val missing: Boolean = false) {
@@ -79,15 +79,11 @@ class OnboardingViewModel @Inject constructor(
             OnboardingPage.DISCLOSURE -> OnboardingStep.DISCLOSURE
             OnboardingPage.ACCESSIBILITY -> OnboardingStep.ACCESSIBILITY
             OnboardingPage.BATTERY -> OnboardingStep.OEM
-            OnboardingPage.SIGNIN -> OnboardingStep.SIGNUP
             else -> null
         }
         if (step != null) viewModelScope.launch { funnel.record(step) }
     }
     fun begin() = go(OnboardingPage.DISCLOSURE)
-    fun signIn() = go(OnboardingPage.SIGNIN)
-    fun signedIn() { viewModelScope.launch { funnel.record(OnboardingStep.SIGNUP_DONE) }; begin() }
-    fun cancelSignIn() = go(OnboardingPage.PITCH)
     fun consent(accepted: Boolean) {
         if (busy) return
         busy = true
@@ -150,7 +146,6 @@ class OnboardingViewModel @Inject constructor(
     }
     fun back() {
         when {
-            page.value == OnboardingPage.SIGNIN -> cancelSignIn()
             entry != OnboardingEntry.FIRST_RUN -> finish()
             page.value == OnboardingPage.DISCLOSURE -> go(OnboardingPage.PITCH)
             page.value == OnboardingPage.ACCESSIBILITY -> { confirmation?.cancel(); go(OnboardingPage.DISCLOSURE) }

@@ -5,8 +5,6 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import mx.kompara.billing.Entitlement
-import mx.kompara.billing.EntitlementRepository
 import mx.kompara.data.accounting.*
 import mx.kompara.data.model.City
 import mx.kompara.data.service.*
@@ -20,22 +18,15 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import javax.inject.Inject
 
+/** J1's six rows: the value each row shows (v4 plan 4.8). */
 data class AjustesState(
-    val account: String = "Entrar con WhatsApp", val accountDetail: String? = null,
-    val signedIn: Boolean = false, val plan: String = "Plan gratis", val planDetail: String? = null,
-    val limits: String = "", val costs: String = "", val car: String = "Sin agregar",
-    val reader: String = "", val glyph: StatusGlyph = StatusGlyph.WAITING,
-    val firstPermission: Boolean = false, val theme: ThemePreference = ThemePreference.AUTOMATIC,
+    val limits: String = "", val costs: String = "", val reader: String = "", val glyph: StatusGlyph = StatusGlyph.WAITING,
+    val account: String = "Entrar con WhatsApp", val signedIn: Boolean = false, val firstPermission: Boolean = false,
 )
-fun costConfirmationText(version: RunningCostVersion, today: LocalDate, zone: ZoneId): String {
-    if (version.confirmation == CostConfirmation.TYPICAL) return "típicos, sin confirmar"
-    val date = version.confirmedAt?.let { Instant.ofEpochMilli(it).atZone(zone).toLocalDate() } ?: return "confirmados"
-    return when (date) {
-        today -> "confirmados hoy"
-        today.minusDays(1) -> "confirmados ayer"
-        else -> "confirmados el ${costDate(date, today)}"
-    }
-}
+/** J1's Tus costos value: "$2.84 por km · coche $1,500 a la semana"; the car only when a weekly amount is in force. */
+fun costsSummary(costPerKm: java.math.BigDecimal?, weeklyCar: java.math.BigDecimal?): String =
+    (costPerKm?.let { "${Formatters.formatMxn(it)} por km" } ?: "Sin confirmar") +
+        (weeklyCar?.let { " · coche ${Formatters.formatMxnWhole(it)} a la semana" } ?: "")
 fun costDate(date: LocalDate, today: LocalDate = date) = date.format(DateTimeFormatter.ofPattern(
     if (date.year == today.year) "EEEE d MMM" else "EEEE d MMM yyyy", Locale.forLanguageTag("es-MX")))
 fun settingsReaderText(reader: ReaderReadiness): String = when (reader.phase) {
@@ -53,7 +44,6 @@ class AjustesViewModel @Inject constructor(
     car: CarCostRepository,
     reader: ReaderReadinessRepository,
     auth: AuthRepository,
-    entitlement: EntitlementRepository,
     clock: AppClock,
     zone: ZoneId,
 ) : ViewModel() {
@@ -62,26 +52,18 @@ class AjustesViewModel @Inject constructor(
     private val refresh = MutableStateFlow(0)
     private val money = combine(costs.versions, car.versions, clock.moments()) { running, fixed, now ->
         val schedule = CostSchedule(running.map { it.toDomain() }, fixed.map { it.toDomain() })
-        val today = now.atZone(zone).toLocalDate()
-        val active = schedule.runningAt(now.toEpochMilli())
-        val costLabel = active?.inputs?.costPerKm?.let { "${Formatters.formatMxn(it)} por km · ${costConfirmationText(active, today, zone)}" } ?: "Sin confirmar"
-        val current = schedule.carAt(today)
-        val next = schedule.car.filter { it.effectiveFrom > today }.minWithOrNull(compareBy<CarCostVersion> { it.effectiveFrom }.thenByDescending { it.id })
-        val carLabel = current?.weeklyMxn?.let { "${Formatters.formatMxnWhole(it)} a la semana" } ?: "Sin agregar"
-        costLabel to (carLabel + (next?.let { " · ${it.weeklyMxn?.let(Formatters::formatMxnWhole) ?: "Sin cargo"} desde ${costDate(it.effectiveFrom, today)}" } ?: ""))
+        costsSummary(schedule.runningAt(now.toEpochMilli())?.inputs?.costPerKm, schedule.carAt(now.atZone(zone).toLocalDate())?.weeklyMxn)
     }
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-    val state = refresh.flatMapLatest { combine(settingsRepository.settings, money, reader.state, auth.sessionState, entitlement.entitlement) { prefs, amounts, ready, session, plan ->
+    val state = refresh.flatMapLatest { combine(settingsRepository.settings, money, reader.state, auth.sessionState) { prefs, costsLabel, ready, session ->
         val driver = (session as? SessionState.Authenticated)?.driver
+        val city = (driver?.city?.let { City.fromKey(it) } ?: prefs.city.takeIf { prefs.cityChosen })?.displayName
+        val who = driver?.phone?.let { phone -> if (phone.startsWith("+52") && phone.length == 13) "+52 ${phone.substring(3, 5)} ${phone.substring(5, 9)} ${phone.substring(9)}" else phone } ?: "Entrar con WhatsApp"
         AjustesState(
-            account = driver?.phone?.let { phone -> if (phone.startsWith("+52") && phone.length == 13) "+52 ${phone.substring(3, 5)} ${phone.substring(5, 9)} ${phone.substring(9)}" else phone } ?: "Entrar con WhatsApp",
-            accountDetail = driver?.city?.let { City.fromKey(it)?.displayName },
-            signedIn = driver != null, plan = if (plan is Entitlement.Premium) "Tu plan" else "Plan gratis",
-            planDetail = (plan as? Entitlement.Premium)?.let { p -> p.expiresAt?.let { "Premium hasta ${costDate(Instant.ofEpochMilli(it).atZone(zone).toLocalDate(), ready.date)}" } ?: "Premium" },
-            limits = ThresholdEditor.pairLabel(LimitDraft.from(prefs.effectiveThreshold, prefs.preferredMetric)),
-            costs = amounts.first, car = amounts.second, reader = settingsReaderText(ready), glyph = ready.statusGlyph(),
+            limits = ThresholdEditor.summary(LimitDraft.from(prefs.effectiveThreshold, prefs.preferredMetric, prefs.rateBasis)),
+            costs = costsLabel, reader = settingsReaderText(ready), glyph = ready.statusGlyph(),
+            account = listOfNotNull(who, city).joinToString(" · "), signedIn = driver != null,
             firstPermission = ready.permission == false && ready.apps.values.none { it.lastReadAt != null } && ready.incident == null,
-            theme = prefs.themePreference,
         )
     }.map<AjustesState, AjustesState?> { it }.catch { e ->
         if (e is kotlinx.coroutines.CancellationException) throw e
@@ -95,7 +77,6 @@ class AjustesViewModel @Inject constructor(
             error.value = "No pudimos guardar el ajuste. Inténtalo otra vez."
         }
     } }
-    fun setThemePreference(value: ThemePreference) = persist { settingsRepository.setThemePreference(value) }
     fun setFiscalMonthlySummaryEnabled(value: Boolean) = persist { settingsRepository.setFiscalMonthlySummaryEnabled(value) }
     fun setShareWeeklyReminderEnabled(value: Boolean) = persist { settingsRepository.setShareWeeklyReminderEnabled(value) }
     fun setDebugPremium(value: Boolean) = persist { settingsRepository.setDebugPremium(value) }

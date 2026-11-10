@@ -3,6 +3,7 @@ package mx.kompara.ui.stats
 import mx.kompara.data.accounting.RunningCostInputs
 import mx.kompara.data.settings.PlatformThreshold
 import mx.kompara.data.settings.PreferredMetric.*
+import mx.kompara.data.settings.RateBasis
 import mx.kompara.ui.components.*
 import org.junit.Assert.*
 import org.junit.Test
@@ -67,5 +68,33 @@ class ThresholdEditorTest {
         assertEquals(LimitsBack.HIDE_KEYBOARD, limitsBack(true, true))
         assertEquals(LimitsBack.CONFIRM, limitsBack(false, true))
         assertEquals(LimitsBack.CLOSE, limitsBack(false, false))
+    }
+    @Test fun `conversion goes both ways in both units and rounds to each editor's step`() {
+        val cost = RunningCostInputs.TYPICAL.costPerKm!!
+        val net = LimitDraft.from(PlatformThreshold(8.0, 200.0, 6.0, 150.0), IPK)
+        val gross = ThresholdEditor.convert(net, RateBasis.GROSS, cost)
+        assertEquals(LimitPair("11.00", "9.00"), gross.km); assertEquals(LimitPair("280.00", "230.00"), gross.hour)
+        assertEquals(RateBasis.GROSS, gross.basis); assertEquals(IPK, gross.metric)
+        val back = ThresholdEditor.convert(gross, RateBasis.NET, cost)
+        assertEquals(net.km, back.km); assertEquals(net.hour, back.hour); assertEquals(RateBasis.NET, back.basis)
+        assertEquals(gross, LimitDraft.decode(gross.encode()))
+        assertEquals(RateBasis.NET, LimitDraft.decode(net.encode().take(5)).basis) // A 0.2.x saved draft has no basis.
+    }
+    @Test fun `bruto judges and shows the fare rate and every line says its basis`() {
+        val cost = RunningCostInputs.TYPICAL.costPerKm!!
+        val gross = ThresholdEditor.convert(base, RateBasis.GROSS, cost)
+        assertEquals("$12.33", ThresholdEditor.preview(gross, cost).rateText)
+        assertEquals(ReglaPosition.ABOVE, (ThresholdEditor.preview(gross, cost).band as ReglaBand.Rated).position)
+        assertEquals("$12.33", ThresholdEditor.preview(gross, null).rateText) // Bruto needs no cost.
+        assertEquals("$370", ThresholdEditor.preview(gross.copy(metric = IPH), cost).rateText)
+        assertEquals("Neto: ya restamos tu costo de $2.84 por km.", ThresholdEditor.basisHelper(RateBasis.NET, IPK, cost))
+        assertEquals("Bruto: la tarifa entre los km, sin restar tu costo.", ThresholdEditor.basisHelper(RateBasis.GROSS, IPK, cost))
+        assertEquals("Bruto: la tarifa por hora, sin restar tu costo.", ThresholdEditor.basisHelper(RateBasis.GROSS, IPH, cost))
+        assertEquals("Son tus $8.00 y $6.00 neto más tu costo de $2.84, redondeados.", ThresholdEditor.explanation(base, cost))
+        assertEquals("Son tus $11.00 y $9.00 bruto menos tu costo de $2.84, redondeados.", ThresholdEditor.explanation(gross, cost))
+        assertEquals("Son tus $200 y $150 neto, convertidos con tu costo de $2.84 por km y redondeados.", ThresholdEditor.explanation(base.copy(metric = IPH), cost))
+        assertTrue(ThresholdEditor.dirty(gross, base))
+        assertEquals("Guardado: tu meta $11.00/km · tu mínimo $9.00/km", ThresholdEditor.savedMessage(gross, base, false))
+        assertTrue(ThresholdEditor.changes(gross, base).endsWith("Muestra: Bruto"))
     }
 }

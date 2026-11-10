@@ -107,4 +107,59 @@ class ThresholdsViewModelTest {
             assertTrue(h.memory.commits.isEmpty())
         }
     }
+    @Test fun `a basis switch is staged with converted limits until Guardar and Cancelar restores the draft`() = runBlocking {
+        Harness().use { h ->
+            h.seed(); val handle = SavedStateHandle(); val vm = h.vm(handle); vm.ready()
+            assertFalse(vm.state.value.canReset)
+            vm.edit(LimitField.MINIMUM, "6.50")
+            vm.choose(RateBasis.GROSS)
+            val staged = vm.state.value
+            assertTrue(staged.staged); assertTrue(staged.canReset); assertTrue(staged.canSave)
+            assertEquals(LimitPair("11.00", "9.50"), staged.draft!!.km); assertEquals(LimitPair("690.00", "220.00"), staged.draft.hour)
+            assertEquals("Son tus $8.00 y $6.50 neto más tu costo de $2.84, redondeados.", staged.explanation)
+            assertEquals("$12.33", staged.preview!!.rateText)
+            assertTrue(h.memory.commits.isEmpty())
+            // The staged switch survives recreation with its explanation.
+            val restored = h.vm(SavedStateHandle(handle.keys().associateWith { handle.get<Any?>(it) })); restored.ready()
+            assertEquals(staged.draft, restored.state.value.draft); assertEquals(staged.explanation, restored.state.value.explanation)
+            vm.reset() // "Cancelar"
+            assertFalse(vm.state.value.staged); assertNull(vm.state.value.explanation)
+            assertEquals(LimitPair("8.00", "6.50"), vm.state.value.draft!!.km); assertEquals("$9.49", vm.state.value.preview!!.rateText)
+            vm.choose(RateBasis.GROSS); vm.choose(RateBasis.NET) // Choosing the saved basis again is the same as Cancelar.
+            assertEquals(LimitPair("8.00", "6.50"), vm.state.value.draft!!.km); assertFalse(vm.state.value.staged)
+            vm.choose(RateBasis.GROSS); vm.edit(LimitField.GOAL, "12.00")
+            assertNull(vm.state.value.explanation) // The numbers are no longer the converted ones.
+            vm.save()
+            val result = withTimeout(10_000) { vm.state.first { it.result != null } }
+            assertEquals(1, h.memory.commits.size)
+            val saved = h.prefs.settings.first()
+            assertEquals(RateBasis.GROSS, saved.rateBasis)
+            assertEquals(PlatformThreshold(12.0, 690.0, 9.5, 220.0), saved.effectiveThreshold)
+            assertEquals("Guardado: tu meta $12.00/km · tu mínimo $9.50/km", result.result)
+            assertFalse(result.staged); assertNull(result.switchedFrom)
+        }
+    }
+    @Test fun `per-hour mode converts in proportion and starts bruto from converted defaults`() = runBlocking {
+        Harness().use { h ->
+            h.seed(); val vm = h.vm(); vm.ready()
+            vm.select(PreferredMetric.IPH); vm.choose(RateBasis.GROSS)
+            assertEquals("Son tus $500 y $153.25 neto, convertidos con tu costo de $2.84 por km y redondeados.", vm.state.value.explanation)
+            assertEquals("$370", vm.state.value.preview!!.rateText)
+            vm.save(); withTimeout(10_000) { vm.state.first { it.result != null } }
+            assertEquals(PreferredMetric.IPH, h.prefs.settings.first().preferredMetric)
+            // Reopened in bruto, "Volver a…" offers the starting limits in bruto.
+            val reopened = h.vm(); reopened.ready()
+            assertEquals(RateBasis.GROSS, reopened.state.value.initial!!.basis)
+            assertEquals(LimitPair("11.00", "9.00"), reopened.state.value.initial!!.km)
+        }
+    }
+    @Test fun `without a known cost the basis cannot be switched`() = runBlocking {
+        Harness().use { h ->
+            h.prefs.saveLimits(PlatformThreshold(8.0, 500.0, 6.0, 153.25), PreferredMetric.IPK); h.memory.commits.clear()
+            val vm = h.vm(); vm.ready()
+            assertNull(vm.state.value.cost)
+            vm.choose(RateBasis.GROSS)
+            assertFalse(vm.state.value.staged); assertEquals(RateBasis.NET, vm.state.value.draft!!.basis)
+        }
+    }
 }
