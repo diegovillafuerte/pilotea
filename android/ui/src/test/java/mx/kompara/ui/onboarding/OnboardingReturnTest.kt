@@ -189,15 +189,4 @@ class OnboardingReturnTest {
         assertFalse(vm.permissionReturn.value.ready)
         vm.finish(); runCurrent(); assertEquals(OnboardingPage.DONE, vm.page.value)
     }
-    @Test fun `optional sign in returns to the pending first run and cancel returns to demo`() = runTest {
-        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val vm = vm(); vm.start(OnboardingEntry.FIRST_RUN); vm.onResume(); runCurrent()
-        vm.signIn(); assertEquals(OnboardingPage.SIGNIN, vm.page.value)
-        vm.cancelSignIn(); assertEquals(OnboardingPage.PITCH, vm.page.value)
-        vm.signIn(); vm.signedIn(); runCurrent()
-        assertEquals(OnboardingPage.DISCLOSURE, vm.page.value)
-        assertFalse(settings.isOnboardingCompleted())
-        assertEquals(1, records.count { it == OnboardingStep.SIGNUP_DONE })
-    }
-
 }

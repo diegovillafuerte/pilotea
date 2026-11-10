@@ -145,7 +145,8 @@ class PrivacyViewModelsTest {
         eraser.erase()
         assertNull(db.offerDao().findById(id)); assertEquals(0, db.openHelper.readableDatabase.query("SELECT count(*) FROM trips").use { it.moveToFirst(); it.getInt(0) })
         assertEquals(token, auth.currentToken()); assertEquals(rule, settings.settings.first().threshold)
-        assertFalse(export.exists()); assertTrue(reader.state.value.paused); assertFalse(reader.canRead(token = oldGeneration))
+        // The erase leaves the reader as it was (no resume control in the launch set) but drops queued reads.
+        assertFalse(export.exists()); assertFalse(reader.state.value.paused); assertFalse(reader.canRead(token = oldGeneration))
         assertNull(reader.state.value.apps[ReaderReadinessReducer.UBER]?.lastReadAt)
         assertTrue(db.costProfileDao().observeVersions().first().isNotEmpty()); assertEquals(0, deletes)
     }

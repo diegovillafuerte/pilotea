@@ -48,7 +48,12 @@ class CostEditorsViewModelTest {
         val store = ViewModelStore()
         val jobs = mutableListOf<Job>()
         fun <T : ViewModel> track(vm: T) = vm.also { store.put(jobs.size.toString(), it); jobs += it.viewModelScope.coroutineContext[Job]!! }
-        fun costVm(handle: SavedStateHandle = SavedStateHandle()) = track(CostProfileViewModel(costs, rollup, AppClock { now.toEpochMilli() }, zone, handle))
+        val prefs = SettingsRepository(object : androidx.datastore.core.DataStore<androidx.datastore.preferences.core.Preferences> {
+            override val data = MutableStateFlow(androidx.datastore.preferences.core.emptyPreferences())
+            override suspend fun updateData(transform: suspend (androidx.datastore.preferences.core.Preferences) -> androidx.datastore.preferences.core.Preferences) =
+                transform(data.value).also { data.value = it }
+        })
+        fun costVm(handle: SavedStateHandle = SavedStateHandle()) = track(CostProfileViewModel(costs, rollup, AppClock { now.toEpochMilli() }, zone, handle, prefs, car))
         fun carVm(handle: SavedStateHandle = SavedStateHandle()) = track(CarCostViewModel(car, costs, rollup, AppClock { now.toEpochMilli() }, zone, handle))
         suspend fun seed() { costs.saveRunningCosts(RunningCostInputs.TYPICAL, now.minusSeconds(86400).toEpochMilli(), now.minusSeconds(86400).toEpochMilli(), CostConfirmation.TYPICAL) }
         override fun close() { store.clear(); runBlocking { jobs.forEach { it.join() } }; db.close() }
@@ -173,13 +178,34 @@ class CostEditorsViewModelTest {
         }
     }
 
-    @Test fun `confirmations are dated and first permission state has no fabricated proof`() {
+    @Test fun `J3 applies neto or bruto at once with the converted limits said under it`() = runBlocking {
+        Harness().use { h ->
+            h.seed(); h.prefs.saveLimits(PlatformThreshold(8.0, 200.0, 6.0, 150.0), PreferredMetric.IPK)
+            val vm = h.costVm(); vm.ready()
+            assertEquals(RateBasis.NET, withTimeout(10000) { vm.state.first { it.saved != null } }.basis)
+            vm.switchBasis(RateBasis.GROSS)
+            val gross = withTimeout(10000) { vm.state.first { it.basisResult != null } }
+            assertEquals("Tu meta y tu mínimo pasan a $11.00 y $9.00.", gross.basisResult)
+            assertEquals(RateBasis.GROSS, gross.basis)
+            val saved = h.prefs.settings.first()
+            assertEquals(RateBasis.GROSS, saved.rateBasis)
+            assertEquals(PlatformThreshold(11.0, 280.0, 9.0, 230.0), saved.effectiveThreshold)
+            h.prefs.saveLimits(saved.effectiveThreshold, PreferredMetric.IPH)
+            vm.switchBasis(RateBasis.NET)
+            assertEquals("Tu meta y tu mínimo pasan a $200 y $150.", withTimeout(10000) { vm.state.first { it.basis == RateBasis.NET && !it.switching } }.basisResult)
+            assertEquals(PlatformThreshold(8.0, 200.0, 6.0, 150.0), h.prefs.settings.first().effectiveThreshold)
+        }
+    }
+    @Test fun `J3's car row follows the weekly amount in force`() = runBlocking {
+        Harness().use { h ->
+            h.seed(); val vm = h.costVm(); vm.ready()
+            assertEquals("Sin agregar", vm.state.value.car)
+            h.car.save(BigDecimal("1500"), LocalDate.parse("2026-09-28"), h.now.toEpochMilli())
+            assertEquals("$1,500 a la semana", withTimeout(10000) { vm.state.first { it.car != "Sin agregar" } }.car)
+        }
+    }
+    @Test fun `first permission state has no fabricated proof`() {
         val zone = ZoneId.of("America/Mexico_City")
-        val day = LocalDate.parse("2026-10-19")
-        val version = RunningCostVersion(1, 0, 0, RunningCostInputs.TYPICAL, CostConfirmation.CONFIRMED, day.atStartOfDay(zone).toInstant().toEpochMilli())
-        assertEquals("confirmados hoy", costConfirmationText(version, day, zone))
-        assertEquals("confirmados ayer", costConfirmationText(version, day.plusDays(1), zone))
-        assertEquals("típicos, sin confirmar", costConfirmationText(version.copy(confirmation = CostConfirmation.TYPICAL), day, zone))
         val off = mx.kompara.data.service.ReaderReadinessReducer.reduce(mx.kompara.data.service.ReaderMemory(), mx.kompara.data.service.ReaderSignals(permission = false), 0, zone)
         assertEquals("Apagado · falta el permiso", settingsReaderText(off))
         assertEquals("Preparado · permiso listo", settingsReaderText(off.copy(phase = mx.kompara.data.service.ReaderPhase.PREPARED, permission = true)))

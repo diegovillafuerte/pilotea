@@ -235,8 +235,6 @@ private fun NavGraphBuilder.tabScreens(navController: NavController) {
             onHelp = { navController.navigate("help?answer=semaforo") },
             onPermission = { navController.navigate(KomparaDestination.RECOVERY_ROUTE) },
             onBattery = { navController.navigate(KomparaDestination.BATTERY_ROUTE) },
-            onOffer = { day, id -> navController.navigate(KomparaDestination.dayRoute(day, id)) },
-            onOpenThresholds = { navController.navigate(KomparaDestination.THRESHOLDS_ROUTE) },
         )
     }
     composable(KomparaDestination.AJUSTES.route) {
@@ -245,14 +243,10 @@ private fun NavGraphBuilder.tabScreens(navController: NavController) {
             onOpenCostProfile = { navController.navigate(KomparaDestination.COST_PROFILE_ROUTE) },
             onOpenPermission = { navController.navigate(KomparaDestination.RECOVERY_ROUTE) },
             onSignIn = { navController.navigate("settings-signin") },
-            onPlan = { navController.navigate(KomparaDestination.PLAN_ROUTE) },
-            onOpenReferral = { navController.navigate(KomparaDestination.REFERRAL_ROUTE) },
             onOpenThresholds = { navController.navigate(KomparaDestination.THRESHOLDS_ROUTE) },
             onOpenHelp = { navController.navigate(KomparaDestination.HELP_ROUTE) },
             onOpenAccount = { navController.navigate(KomparaDestination.ACCOUNT_ROUTE) },
             onOpenData = { navController.navigate(KomparaDestination.DATA_ROUTE) },
-            // Avisos is gone in the launch set (plan §3); WP-F removes its row.
-            onOpenNotices = {},
         )
     }
 }

@@ -31,14 +31,14 @@ import java.io.File
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class OnboardingScreenTest {
     @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
-    @Test fun `short onboarding and auth frames remain readable at larger text and narrow width`() {
-        var frame by mutableStateOf("A1"); var scale by mutableFloatStateOf(1f); var width by mutableIntStateOf(393)
+    @Test fun `auth and capture frames remain readable at larger text and narrow width`() {
+        var frame by mutableStateOf("A6"); var scale by mutableFloatStateOf(1f); var width by mutableIntStateOf(393)
         compose.setContent { CompositionLocalProvider(LocalDensity provides Density(1f, scale)) {
             KomparaTheme(darkTheme = width == 320) { Box(Modifier.width(width.dp).height(852.dp)) { key(frame, scale, width) { OnboardingFixtureHost(frame) } } }
         } }
-        val cases = listOf("A1", "A2", "A3", "A3n", "granted", "A4", "A4b", "A4r", "A6", "A7", "auth-error", "capture").map { Triple(it, 1f, 393) } +
-            listOf("A1", "A2", "A3", "A7").map { Triple(it, 1.3f, 393) } +
-            listOf("A1", "A2", "A3n", "A4r", "A6", "A7").map { Triple(it, 2f, 320) }
+        // The first run itself is P1–P4 (SettingsFramesTest); sign-in and the capture consent keep their v3 frames.
+        val cases = listOf("A6", "A7", "auth-error", "capture").map { Triple(it, 1f, 393) } + Triple("A7", 1.3f, 393) +
+            listOf("A6", "A7").map { Triple(it, 2f, 320) }
         for ((id, font, size) in cases) {
             compose.runOnIdle { frame = id; scale = font; width = size }; compose.waitForIdle()
             mx.kompara.ui.contract.FrameContract.assertFrame(compose, id)
@@ -58,37 +58,35 @@ class OnboardingScreenTest {
             else { assertTrue("Missing $name", baseline.exists()); assertTrue("Changed $name", BitmapFactory.decodeFile(baseline.path).sameAs(bitmap)) }
         }
     }
-    @Test fun `demo runs once over the four actual offers and a tap ends autoplay`() {
+    @Test fun `demo steps once through the three colours and rests on green`() {
         compose.mainClock.autoAdvance = false
         compose.setContent { KomparaTheme { PitchScreen({}, autoplay = true) } }
+        compose.onNodeWithText("$148.00").assertExists()
         compose.mainClock.advanceTimeBy(1600)
         compose.onNodeWithText("$120.00").assertExists()
-        compose.onNode(hasText("Abajo de tu mínimo") and SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Tab)).performScrollTo().performClick()
-        compose.mainClock.advanceTimeByFrame()
+        compose.mainClock.advanceTimeBy(1500)
         compose.onNodeWithText("$62.00").assertExists()
+        compose.mainClock.advanceTimeBy(1500)
+        compose.onNodeWithText("$148.00").assertExists()
         compose.mainClock.advanceTimeBy(8_000)
-        compose.onNodeWithText("$62.00").assertExists()
+        compose.onNodeWithText("$148.00").assertExists()
+        compose.onNodeWithText("Entrar con WhatsApp").assertDoesNotExist()
         var playback = DemoPlayback()
         val states = mutableListOf(playback.selected)
-        repeat(4) { playback = playback.tick(); states += playback.selected }
-        assertEquals(listOf(DemoOffer.GREEN, DemoOffer.YELLOW, DemoOffer.RED, DemoOffer.UNREAD, DemoOffer.GREEN), states)
+        repeat(3) { playback = playback.tick(); states += playback.selected }
+        assertEquals(listOf(DemoOffer.GREEN, DemoOffer.YELLOW, DemoOffer.RED, DemoOffer.GREEN), states)
         assertEquals(playback, playback.tick())
     }
-    @Test fun `reduced motion has no autoplay and selections atomically swap rate and host`() {
+    @Test fun `reduced motion has no autoplay and each teaching offer matches the kit chips`() {
         compose.mainClock.autoAdvance = false
         compose.setContent { KomparaTheme { PitchScreen({}, autoplay = false) } }
         compose.mainClock.advanceTimeBy(10_000)
         compose.onNodeWithText("$148.00").assertExists()
-        compose.onNode(hasText("Sin lectura") and SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Tab)).performScrollTo().performClick()
-        compose.mainClock.advanceTimeByFrame()
-        compose.onNodeWithText("Sin tarifa").assertExists()
-        compose.onNodeWithText("$148.00").assertDoesNotExist()
         val fixture = V3Fixture(compose.activity)
         listOf(DemoOffer.GREEN to "verde", DemoOffer.YELLOW to "amarillo", DemoOffer.RED to "rojo").forEach { (offer, key) ->
             val rate = (offer.model().band as ReglaBand.Rated).rate
             assertEquals(0, fixture.chip(key).ratePerKm!!.compareTo(rate))
         }
-        assertTrue(DemoOffer.UNREAD.model().band is ReglaBand.Unavailable)
     }
     @Test fun `Android illustration is one inert image and denial retry skip remain reachable`() {
         var opens = 0; var skips = 0

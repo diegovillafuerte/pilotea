@@ -1,10 +1,8 @@
 package mx.kompara.ui.stats
 
 import androidx.test.core.app.ApplicationProvider
-import mx.kompara.data.db.dao.SuppressedOffer
 import mx.kompara.data.service.*
-import mx.kompara.data.settings.Settings
-import mx.kompara.ui.fixtures.LimitsFixture
+import mx.kompara.ui.fixtures.SettingsFixture
 import mx.kompara.ui.components.StatusGlyph
 import org.junit.Assert.*
 import org.junit.Test
@@ -15,35 +13,44 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class SemaforoStateTest {
-    private val f get() = LimitsFixture(ApplicationProvider.getApplicationContext())
-    @Test fun `prepared history pause off and partial support use real per app proof`() {
-        assertEquals("Lectura comprobada · 14:32", f.reader("G4").apps[0].detail)
-        assertEquals(StatusGlyph.DONE, f.reader("G4").apps[0].glyph)
-        assertEquals("Esperando una oferta", f.reader("G4e").apps[0].detail)
-        assertEquals("Última lectura ayer 20:10", f.reader("G4f").apps[0].detail)
-        assertEquals("Sin ofertas leídas hoy", f.reader("G4d").apps[1].detail)
-        assertEquals("Lectura comprobada · 12:10", f.reader("G4d").apps[0].detail)
-        assertEquals("Por ahora no la leemos", f.reader("G4g").apps[1].detail)
-        assertEquals("Aún no disponible", f.reader("G4g").apps[2].detail)
-        assertEquals("Sin permiso, no leemos ofertas", f.reader("G4h").apps[0].detail)
-        assertEquals("desde ayer 20:31", f.reader("G4h").since)
+    private val f get() = SettingsFixture(ApplicationProvider.getApplicationContext())
+    private fun state(reader: ReaderReadiness, capture: Boolean = false) = semaforoState(reader, f.zone, capture)
+    private fun phase(phase: ReaderPhase, reader: ReaderReadiness = f.readiness()) = reader.copy(phase = phase)
+
+    @Test fun `working shows each app's last read offer and inDrive as not available`() {
+        val working = state(f.readiness())
+        assertEquals("Semáforo funcionando", working.title)
+        assertEquals(listOf("Uber", "DiDi", "inDrive"), working.apps.map { it.name })
+        assertEquals(listOf("Leyó tu última oferta · 14:32", "Leyó tu última oferta · 12:25", "Aún no disponible"), working.apps.map { it.detail })
+        assertEquals(listOf(StatusGlyph.DONE, StatusGlyph.DONE, StatusGlyph.OFF), working.apps.map { it.glyph })
+        assertNull(working.primary); assertNull(working.detail)
     }
-    @Test fun `only real dated suppression has a door and paused off hide it`() {
-        val fixture = f
-        val record = SuppressedOffer(9, fixture.at(fixture.fixture.date, "12:10"), "NO_ROOM_NAVIGATION")
-        assertEquals("12:10 · no cupo en la pantalla (navegación)", fixture.reader("G4c").suppressionDetail)
-        for (frame in listOf("G4", "G4d", "G4h", "G4e")) assertTrue(fixture.reader(frame).suppressed.isEmpty())
-        for (frame in listOf("G4d", "G4h")) assertTrue(semaforoState(fixture.readiness(frame), Settings.DEFAULT, listOf(record), fixture.fixture.zone).suppressed.isEmpty())
-        assertTrue(semaforoState(fixture.readiness("G4").copy(date = fixture.fixture.date.plusDays(1)), Settings.DEFAULT, listOf(record), fixture.fixture.zone).suppressed.isEmpty())
+    @Test fun `prepared history and paused keep 0_2_20 proof wording`() {
+        val prepared = state(f.readiness("prepared"))
+        assertEquals("Esperando una oferta", prepared.apps[0].detail)
+        assertEquals("Tu primera oferta lo confirma", prepared.detail)
+        val yesterday = f.readiness("prepared").let { r -> r.copy(apps = r.apps + (ReaderReadinessReducer.UBER to AppReadiness(true, f.at(f.date.minusDays(1), "20:10"), false))) }
+        assertEquals("Última lectura ayer 20:10", state(yesterday).apps[0].detail)
+        assertEquals("Tu primera oferta de hoy lo confirma", state(yesterday).detail)
+        // A pause can only come from the capture fallback's stop now; it has no button here.
+        val paused = state(phase(ReaderPhase.PAUSED))
+        assertNull(paused.primary)
+        assertEquals("Leyó tu última oferta · 14:32", paused.apps[0].detail)
     }
-    @Test fun `actions reflect permission battery pause or actual fallback never a redundant OCR button`() {
-        assertNull(f.reader("G4").primary); assertNull(f.reader("G4e").primary)
-        assertNull(f.reader("G4g").primary)
-        assertEquals(SemaforoAction.RESUME, f.reader("G4d").primary); assertFalse(f.reader("G4d").canPause)
-        assertEquals(SemaforoAction.PERMISSION, f.reader("G4h").primary); assertFalse(f.reader("G4h").canPause)
-        assertEquals(SemaforoAction.BATTERY, f.reader("G4b").primary)
-        val fixture = f
-        assertEquals(SemaforoAction.CAPTURE, semaforoState(fixture.readiness("G4e"), Settings.DEFAULT, emptyList(), fixture.fixture.zone, true).primary)
-        assertEquals("$8.00/km · $6.50/km", fixture.reader("G4i").limits)
+    @Test fun `off states carry the cause and one button, the same as Ganancias`() {
+        val off = state(f.readiness("off"))
+        assertEquals("Semáforo apagado", off.title)
+        assertEquals("desde ayer 20:31", off.since)
+        assertEquals("Falta el permiso de Accesibilidad", off.detail)
+        assertEquals("Android a veces lo apaga, por ejemplo al ahorrar batería. Sin él, Kompara no ve tus ofertas.", off.consequence)
+        assertEquals(SemaforoAction.PERMISSION, off.primary)
+        assertEquals("Volver a dar el permiso", off.primaryLabel)
+        assertEquals("Sin permiso, no leemos ofertas", off.apps[0].detail)
+        val disconnected = f.readiness("off").copy(permission = true)
+        assertEquals(SemaforoAction.SETTINGS, state(disconnected).primary)
+        assertEquals("Dejamos de leer tus ofertas", state(disconnected).detail)
+        assertEquals("Sin lectura de ofertas", state(disconnected).apps[0].detail)
+        assertEquals(SemaforoAction.BATTERY, state(phase(ReaderPhase.ATTENTION, f.readiness().copy(batteryRestricted = true))).primary)
+        assertEquals(SemaforoAction.CAPTURE, state(f.readiness("prepared"), capture = true).primary)
     }
 }

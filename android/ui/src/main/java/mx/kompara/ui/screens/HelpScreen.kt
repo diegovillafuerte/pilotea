@@ -13,6 +13,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import mx.kompara.ui.components.*
 import mx.kompara.ui.theme.KomparaTheme
 import mx.kompara.ui.theme.KomparaType
@@ -21,20 +22,17 @@ internal data class HelpAnswer(val id: String, val question: String, val lines: 
 internal val helpAnswers = listOf(
     HelpAnswer("semaforo", "¿Por qué no me sale el semáforo?", listOf(
         "Falta el permiso de Accesibilidad: Ajustes › Semáforo › Volver a dar el permiso.",
-        "La batería lo apagó: quita la restricción.",
-        "No cupo en la pantalla (navegación, oferta alta): no tienes que hacer nada; queda en Tu día.",
-        "Lo pausaste: Reanudar el semáforo en Hoy.")),
+        "La batería lo apagó: quita la restricción.")),
     HelpAnswer("colores", "¿Qué significan los colores?", listOf(
-        "Verde: arriba de tu meta.", "Amarillo: cumple tu mínimo.", "Rojo: abajo de tu mínimo.",
-        "Gris: faltó un dato, como la tarifa (te decimos cuál).")),
+        "Verde: arriba de tu meta.", "Amarillo: entre tu mínimo y tu meta.", "Rojo: abajo de tu mínimo.",
+        "Sin lectura: faltó la tarifa, la distancia o el tiempo.")),
     HelpAnswer("lectura", "¿Qué lee Kompara?", listOf(
         "Lee cada oferta con el permiso de accesibilidad de Android: toma tarifa, distancia y tiempo de una captura de pantalla y la borra.",
         "Guarda tus cifras en este teléfono, nunca imágenes ni datos del pasajero.",
         "Manda conteos de lectura (apágalos en Tus datos) y, si tú eliges, totales, tu aporte al promedio, archivos o reportes.")),
     HelpAnswer("apps", "¿Me pueden bloquear Uber o DiDi?", listOf(
         "Uber y DiDi no son parte de Kompara y podrían no permitir apps como esta. Kompara nunca toca su app.")),
-    HelpAnswer("precio", "¿Cuánto cuesta?", listOf(
-        "El semáforo, tus límites, tus costos y tus totales son gratis. Consulta el precio de Premium en Tu plan.")),
+    HelpAnswer("precio", "¿Cuánto cuesta?", listOf("Hoy todo lo que ves en Kompara es gratis.")),
 )
 
 @Composable
@@ -49,22 +47,23 @@ fun HelpScreen(modifier: Modifier = Modifier, initialAnswer: String? = null, onB
 @Composable
 internal fun HelpContent(modifier: Modifier = Modifier, initialAnswer: String? = null, onBack: () -> Unit = {},
     supportAvailable: Boolean = false, support: () -> Unit = {}, failure: String? = null) {
-    var expanded by rememberSaveable { mutableStateOf(initialAnswer?.takeIf { id -> helpAnswers.any { it.id == id } }) }
+    // J6: the first question opens unless a link asked for another one.
+    var expanded by rememberSaveable { mutableStateOf<String?>(initialAnswer?.takeIf { id -> helpAnswers.any { it.id == id } } ?: helpAnswers.first().id) }
     ScreenScaffold("Ayuda", modifier, ScreenKind.DRILL, onBack, footer = if (supportAvailable) ({
         PrimaryButton("Escríbenos por WhatsApp", support)
     }) else null) {
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(8.dp))
         helpAnswers.forEach { answer ->
             val open = expanded == answer.id
             Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable { expanded = if (open) null else answer.id }
                 .semantics(mergeDescendants = true) { stateDescription = if (open) "Abierta" else "Cerrada" }
-                .padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically,
+                .padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(answer.question, Modifier.weight(1f), style = KomparaType.body)
-                DrawnIcon(R.drawable.v3_chev, Modifier.rotate(if (open) -90f else 90f))
+                DrawnIcon(R.drawable.v3_chev, Modifier.size(20.dp).rotate(if (open) -90f else 90f), tint = KomparaTheme.colors.inkTertiary)
             }
-            if (open) Column(Modifier.padding(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                answer.lines.forEach { Text(it, style = KomparaType.body, color = KomparaTheme.colors.inkSecondary) }
+            if (open) Column(Modifier.padding(bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                answer.lines.forEach { Text(it, style = KomparaType.small.copy(fontSize = 14.5.sp, lineHeight = 21.sp), color = KomparaTheme.colors.inkSecondary) }
             }
             Rule()
         }

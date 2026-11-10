@@ -30,7 +30,7 @@ class LocalHistoryEraser @Inject constructor(
 ) {
     suspend fun erase() {
         uploads.revoke(deleting = true)
-        reader.forgetHistoryAndPause()
+        reader.forgetHistory()
         localData.eraseHistory()
         settings.selectWeekStart(null)
         withContext(Dispatchers.IO) {
