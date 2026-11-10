@@ -80,6 +80,43 @@ class CounterOffersTest {
             counters(bid(99.0, 10.0, 25.0), PlatformThreshold(11.0, 240.0, 9.0, 228.0), PreferredMetric.IPH, RateBasis.GROSS))
     }
 
+    @Test fun `a counter-offer is a fare the engine itself rates at the limit`() {
+        // $216, 40 km, 62 min, neto per hour against 200 / 100: 100 × 62 / 60 + 113.6667 = 217.00 on paper, but the
+        // engine rates $217 at 99.9999…/h (still red), so the minimum's counter is $218; the goal's 320.33 → 321.
+        val offer = bid(216.0, 40.0, 62.0)
+        val limits = PlatformThreshold(8.0, 200.0, 6.0, 100.0)
+        assertEquals(VerdictLevel.RED, engine.evaluate(bid(217.0, 40.0, 62.0), cost, limits, PreferredMetric.IPH, RateBasis.NET).verdict.level)
+        assertEquals(VerdictLevel.YELLOW, engine.evaluate(bid(218.0, 40.0, 62.0), cost, limits, PreferredMetric.IPH, RateBasis.NET).verdict.level)
+        assertEquals(VerdictLevel.RED to CounterOffers(218, 321), counters(offer, limits, PreferredMetric.IPH, RateBasis.NET))
+    }
+
+    @Test fun `every counter-offer reaches its limit and a peso less does not`() {
+        val kmLimits = listOf(PlatformThreshold(8.0, 200.0, 6.0, 150.0), PlatformThreshold(11.0, 280.0, 9.0, 230.0),
+            PlatformThreshold(6.5, 130.0, 4.5, 100.0), PlatformThreshold(7.25, 240.0, 3.75, 228.0))
+        var checked = 0
+        for (fare in listOf(37.0, 90.05, 99.0, 148.0, 216.0, 333.33)) for (km in listOf(1.3, 10.4, 22.9, 40.0))
+            for (minutes in listOf(7.0, 22.0, 25.0, 40.0, 62.0, 95.0)) for (limits in kmLimits)
+                for (unit in PreferredMetric.entries) for (basis in RateBasis.entries) {
+                    fun level(at: Double) = engine.evaluate(bid(at, km, minutes), cost, limits, unit, basis).verdict.level
+                    val (now, found) = counters(bid(fare, km, minutes), limits, unit, basis)
+                    val offers = requireNotNull(found)
+                    val case = "$fare, $km km, $minutes min, $limits, $unit, $basis"
+                    assertEquals(case, now == VerdictLevel.RED, offers.toMinimum != null)
+                    assertEquals(case, now != VerdictLevel.GREEN, offers.toGoal != null)
+                    offers.toMinimum?.let {
+                        assertEquals(case, true, level(it.toDouble()) != VerdictLevel.RED)
+                        assertEquals(case, VerdictLevel.RED, level(it - 1.0))
+                        checked++
+                    }
+                    offers.toGoal?.let {
+                        assertEquals(case, VerdictLevel.GREEN, level(it.toDouble()))
+                        assertEquals(case, true, level(it - 1.0) != VerdictLevel.GREEN)
+                        checked++
+                    }
+                }
+        assertEquals(true, checked > 1000)
+    }
+
     @Test fun `unknown inputs give no counter-offers`() {
         val noCost = engine.evaluate(bid(90.05, 22.9, 40.0), null, neto)
         assertNull(CounterOffers.of(noCost, BigDecimal(8), BigDecimal(6), PreferredMetric.IPK, RateBasis.NET))

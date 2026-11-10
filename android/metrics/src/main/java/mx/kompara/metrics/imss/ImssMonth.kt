@@ -39,14 +39,15 @@ enum class ImssState {
     WILL_FALL_SHORT,
     /** A past month that closed short by [ImssApp.shortBy]: "Te faltaron $9,651". */
     FELL_SHORT,
-    /** Current month before day [ImssMonth.PACE_FROM_DAY]: no pace yet, only the amount. */
+    /** Current month before day [ImssMonth.PACE_FROM_DAY], or an app with no trips in it: no pace, only the amount. */
     NO_PACE_YET,
 }
 
 /**
  * One app's month. [trips] = fares of its taken trips that started in the month; [incentives] =
  * what the driver typed (null when nothing was typed); [counted] = both; [pace] = trips ÷ day of
- * month × days in month + incentives, unrounded (the screen shows it to the hundred).
+ * month × days in month + incentives, unrounded (the screen shows it to the hundred); null with no
+ * trips in the month.
  */
 data class ImssApp(
     val platform: String,
@@ -63,7 +64,10 @@ data class ImssMonth(
     val month: YearMonth,
     val today: LocalDate,
     val need: BigDecimal,
-    /** Apps with taken trips or typed incentives in the month, Uber, DiDi, inDrive first. */
+    /**
+     * Apps with taken trips in the month or the month before, or typed incentives in the month, Uber,
+     * DiDi, inDrive first: an app that drove last month keeps a block, so this month's bonus can be typed.
+     */
     val apps: List<ImssApp>,
 ) {
     val current: Boolean get() = YearMonth.from(today) == month
@@ -77,20 +81,23 @@ data class ImssMonth(
         /** The pace is shown from this day of the month on. */
         const val PACE_FROM_DAY = 7
 
-        /** [trips]: fares by platform of the month's taken trips; [incentives]: typed whole pesos by platform. */
+        /**
+         * [trips]: fares by platform of the month's taken trips; [incentives]: typed whole pesos by platform;
+         * [lastMonth]: platforms with taken trips in the month before.
+         */
         fun of(month: YearMonth, today: LocalDate, trips: Map<String, BigDecimal>, incentives: Map<String, Int>,
-            rule: ImssRule = ImssRule.Y2026): ImssMonth {
+            rule: ImssRule = ImssRule.Y2026, lastMonth: Set<String> = emptySet()): ImssMonth {
             val need = rule.need
             val phase = month.compareTo(YearMonth.from(today))
             val order = Platform.entries.map { it.name }
-            val apps = (trips.keys + incentives.keys).distinct()
+            val apps = (trips.keys + incentives.keys + lastMonth).distinct()
                 .sortedWith(compareBy<String> { order.indexOf(it).takeIf { i -> i >= 0 } ?: order.size }.thenBy { it })
                 .map { platform ->
                     val fares = trips[platform] ?: BigDecimal.ZERO
                     val typed = incentives[platform]
                     val extra = BigDecimal(typed ?: 0)
                     val counted = fares.add(extra)
-                    val pace = if (phase == 0 && today.dayOfMonth >= PACE_FROM_DAY) fares.multiply(BigDecimal(month.lengthOfMonth()))
+                    val pace = if (phase == 0 && today.dayOfMonth >= PACE_FROM_DAY && fares.signum() > 0) fares.multiply(BigDecimal(month.lengthOfMonth()))
                         .divide(BigDecimal(today.dayOfMonth), MONEY_CONTEXT).add(extra) else null
                     val state = when {
                         counted >= need -> ImssState.OVER

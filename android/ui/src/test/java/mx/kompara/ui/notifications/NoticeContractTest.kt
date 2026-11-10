@@ -40,6 +40,10 @@ class NoticeContractTest {
         assertEquals("Tu resumen del 19 oct está listo", late.first)
         assertEquals("1 viaje · 1 h 0 min en turno", late.second.replace('\u00a0', ' '))
     }
+    @Test fun `the summaries channel describes the one summary left`() = runTest {
+        channels.migrate()
+        assertEquals("Tu resumen de la semana. Sin montos.", manager.getNotificationChannel(NoticeChannels.SUMMARIES).description)
+    }
     @Test fun `public versions have titles only and distinct dated immutable activity intents`() = runTest {
         channels.migrate()
         val targets = listOf(NoticeTarget(NoticeKind.READER), NoticeTarget(NoticeKind.DAY, "2026-10-19"),

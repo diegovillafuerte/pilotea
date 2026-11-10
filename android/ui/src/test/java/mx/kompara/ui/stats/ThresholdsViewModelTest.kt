@@ -135,7 +135,7 @@ class ThresholdsViewModelTest {
             val saved = h.prefs.settings.first()
             assertEquals(RateBasis.GROSS, saved.rateBasis)
             assertEquals(PlatformThreshold(12.0, 690.0, 9.5, 220.0), saved.effectiveThreshold)
-            assertEquals("Guardado: tu meta $12.00/km · tu mínimo $9.50/km", result.result)
+            assertEquals("Guardado: $12.00 · $9.50 por km, bruto", result.result) // the unit and the basis, as the editor summarises them
             assertFalse(result.staged); assertNull(result.switchedFrom)
         }
     }

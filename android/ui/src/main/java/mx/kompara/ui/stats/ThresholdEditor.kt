@@ -93,6 +93,11 @@ object ThresholdEditor {
     /** J1's value: "$8.00 · $6.00 por km, neto". */
     fun summary(draft: LimitDraft) = "${amount(draft.pair.goal, draft.unit)} · ${amount(draft.pair.minimum, draft.unit)} " +
         "${if (draft.metric == PreferredMetric.IPK) "por km" else "por hora"}, ${basisWord(draft.basis)}"
+    /** J2's reset link: both amounts as the limit rows beside it print them ("$8.00", "$67.50"). */
+    fun resetLabel(initial: LimitDraft): String {
+        fun row(text: String) = parse(text)?.let(Formatters::formatMxn) ?: text
+        return "Volver a ${row(initial.pair.goal)} y ${row(initial.pair.minimum)}"
+    }
     /** The same limits in [to]: WP-A's conversion, from the draft's last valid values. */
     fun convert(draft: LimitDraft, to: RateBasis, costPerKm: BigDecimal): LimitDraft =
         LimitDraft.from(LimitConversion.convert(draft.threshold(), draft.basis, to, costPerKm, HOUR_STEP), draft.metric, to)
@@ -126,7 +131,7 @@ object ThresholdEditor {
         val goal = limit(d.goal, draft.unit); val minimum = limit(d.minimum, draft.unit)
         val otherChanged = if (draft.metric == PreferredMetric.IPK) !same(draft.hour, saved.hour) else !same(draft.km, saved.km)
         return when {
-            draft.basis != saved.basis -> "Guardado: tu meta $goal · tu mínimo $minimum"
+            draft.basis != saved.basis -> "Guardado: ${summary(draft)}"
             otherChanged -> "Guardado: ${changes(draft, saved).replace("\n", " · ") }"
             reset -> "Guardado: volviste a $goal y $minimum"
             draft.metric != saved.metric || (!sameAmount(d.goal, s.goal) && !sameAmount(d.minimum, s.minimum)) -> "Guardado: tu meta $goal · tu mínimo $minimum"

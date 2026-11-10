@@ -93,7 +93,12 @@ class ThresholdEditorTest {
         assertEquals("Son tus $11.00 y $9.00 bruto menos tu costo de $2.84, redondeados.", ThresholdEditor.explanation(gross, cost))
         assertEquals("Son tus $200 y $150 neto, convertidos con tu costo de $2.84 por km y redondeados.", ThresholdEditor.explanation(base.copy(metric = IPH), cost))
         assertTrue(ThresholdEditor.dirty(gross, base))
-        assertEquals("Guardado: tu meta $11.00/km · tu mínimo $9.00/km", ThresholdEditor.savedMessage(gross, base, false))
+        // B9: a neto/bruto switch says the unit and the basis, with the editor's summary
+        assertEquals("Guardado: $11.00 · $9.00 por km, bruto", ThresholdEditor.savedMessage(gross, base, false))
+        assertEquals("Guardado: $280 · $230 por hora, bruto", ThresholdEditor.savedMessage(gross.copy(metric = IPH, hour = LimitPair("280.00", "230.00")), base, false))
+        // The reset link prints both amounts the way the rows beside it do.
+        assertEquals("Volver a $8.00 y $6.00", ThresholdEditor.resetLabel(base))
+        assertEquals("Volver a $90.00 y $67.50", ThresholdEditor.resetLabel(base.copy(metric = IPH, hour = LimitPair("90.00", "67.50"))))
         assertTrue(ThresholdEditor.changes(gross, base).endsWith("Muestra: Bruto"))
     }
 }

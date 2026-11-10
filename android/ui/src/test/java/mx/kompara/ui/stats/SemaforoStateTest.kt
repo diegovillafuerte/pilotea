@@ -5,6 +5,7 @@ import mx.kompara.data.service.*
 import mx.kompara.ui.fixtures.SettingsFixture
 import mx.kompara.ui.components.StatusGlyph
 import org.junit.Assert.*
+import mx.kompara.ui.format.Formatters
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -52,6 +53,11 @@ class SemaforoStateTest {
         val off = state(f.readiness("off"))
         assertEquals("Semáforo apagado", off.title)
         assertEquals("desde ayer 20:31", off.since)
+        // One date, one format: Ganancias says the same for an older incident.
+        val incident = f.readiness("off").incident!!
+        val older = incident.copy(firstSeenAt = incident.firstSeenAt - 2 * 86_400_000L)
+        assertEquals(Formatters.formatSince(older.firstSeenAt, f.readiness("off").date, f.zone), state(f.readiness("off").copy(incident = older)).since)
+        assertTrue(state(f.readiness("off").copy(incident = older)).since!!.matches(Regex("desde el \\S+ \\d+ \\S+, \\d+:\\d\\d")))
         assertEquals("Falta el permiso de Accesibilidad", off.detail)
         assertEquals("Android a veces lo apaga, por ejemplo al ahorrar batería. Sin él, Kompara no ve tus ofertas.", off.consequence)
         assertEquals(SemaforoAction.PERMISSION, off.primary)

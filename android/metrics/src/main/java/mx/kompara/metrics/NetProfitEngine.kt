@@ -35,11 +35,14 @@ class NetProfitEngine @Inject constructor() {
         val cost = costPerKm?.takeIf { it.signum() >= 0 }
         val driverPayment = offer.paymentBasis == "DRIVER_PAYMENT"
         val net = if (driverPayment && cost != null && km != null) gross?.subtract(cost.multiply(km)) else null
-        val perKm = rate(net, km)
+        fun judged(value: BigDecimal?, unit: PreferredMetric): BigDecimal? = value?.let { amount ->
+            (if (unit == PreferredMetric.IPK) km else minutes)?.takeIf { it.signum() > 0 }?.let { judgedRate(amount, it, unit) }
+        }
+        val perKm = judged(net, PreferredMetric.IPK)
         val perMin = rate(net, minutes)
-        val perHour = rate(net?.multiply(BigDecimal(60)), minutes)
-        val grossPerKm = rate(gross, km)
-        val grossPerHour = rate(gross?.multiply(BigDecimal(60)), minutes)
+        val perHour = judged(net, PreferredMetric.IPH)
+        val grossPerKm = judged(gross, PreferredMetric.IPK)
+        val grossPerHour = judged(gross, PreferredMetric.IPH)
         val judgeNet = rateBasis == RateBasis.NET
         val judgedKm = if (judgeNet) perKm else grossPerKm?.takeIf { driverPayment }
         val judgedHour = if (judgeNet) perHour else grossPerHour?.takeIf { driverPayment }
@@ -75,3 +78,10 @@ class NetProfitEngine @Inject constructor() {
         }
     }
 }
+
+/**
+ * The rate the engine judges: [amount] (the net or the fare) per km of a positive [denominator], or
+ * per hour of [denominator] minutes. [CounterOffers] checks its fares through this same calculation.
+ */
+internal fun judgedRate(amount: BigDecimal, denominator: BigDecimal, unit: PreferredMetric): BigDecimal =
+    (if (unit == PreferredMetric.IPK) amount else amount.multiply(BigDecimal(60))).divide(denominator, MONEY_CONTEXT)

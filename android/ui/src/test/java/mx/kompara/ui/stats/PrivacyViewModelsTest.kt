@@ -194,10 +194,18 @@ class PrivacyViewModelsTest {
         assertEquals(City.CDMX, settings.currentCity()); assertEquals(rule, settings.settings.first().threshold)
         profileFailure = false; city = "monterrey"; vm.chooseCity(City.MONTERREY)
         vm.state.await { it.pendingCity != null }; vm.confirmCity(); vm.state.await { it.city == City.MONTERREY && !it.busy }
-        assertEquals(rule, settings.settings.first().threshold); assertNull(vm.state.value.suggestedGoal)
+        assertEquals(rule, settings.settings.first().threshold)
         assertEquals("elegida por ti", vm.state.value.citySource)
         val recreated = AccountViewModel(auth, settings, SavedStateHandle()); observe(recreated, recreated.state)
         assertEquals(City.MONTERREY, recreated.state.await { it.loaded }.city)
+    }
+    @Test fun `the city confirmation says the city changes and prints the limits with their unit and basis`() = runBlocking {
+        seed()
+        settings.saveLimits(PlatformThreshold(11.0, 280.0, 9.0, 230.0), PreferredMetric.IPH, RateBasis.GROSS)
+        val vm = AccountViewModel(auth, settings, SavedStateHandle()); observe(vm, vm.state)
+        val state = vm.state.await { it.loaded && it.limits.endsWith("bruto") }
+        assertEquals("$280 · $230 por hora, bruto", state.limits)
+        assertEquals("Tu ciudad cambia a León. Tu meta y tu mínimo siguen en $280 · $230 por hora, bruto.", cityConfirmation(state, City.LEON))
     }
     @Test fun `logout keeps history and reader available and profile draft restores`() = runBlocking {
         val id = seed()

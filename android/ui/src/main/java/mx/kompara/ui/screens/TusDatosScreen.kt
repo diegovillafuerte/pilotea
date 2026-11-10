@@ -72,8 +72,7 @@ internal fun TusDatosContent(state: TusDatosState, onBack: () -> Unit = {}, tele
         listOf(
             "Tu WhatsApp y los datos de tu cuenta se envían al entrar con un código.",
             "Enviar conteos de lectura manda conteos anónimos, sin cifras de tus viajes. Puedes apagarlo en Tus datos.",
-            "Cuando traes un resumen, tu archivo se sube a Kompara solo para leer tus números. Un reporte se comparte solo cuando lo confirmas.",
-            "Google Play procesa las compras. Kompara recibe el estado de tu plan.",
+            "Un reporte se comparte solo cuando lo confirmas.",
             "Uber y DiDi no son parte de Kompara y podrían no permitir apps como esta. Kompara nunca toca su app.",
         ).forEach { Text(it, Modifier.padding(vertical = 12.dp), style = KomparaType.body); Rule() }
         externalDeletion?.let { ListRow("Eliminar cuenta fuera de la app", onClick = { openExternal(it) }) }
@@ -81,7 +80,7 @@ internal fun TusDatosContent(state: TusDatosState, onBack: () -> Unit = {}, tele
     if (dialog != null) SettingsConfirmation(
         title = if (dialog == "account") "¿Eliminar tu cuenta?" else "¿Borrar datos del teléfono?",
         body = if (dialog == "account") deletionBody(state.playSubscription)
-            else "Se borran las ofertas, viajes, turnos y resúmenes de este teléfono y las copias para compartir. Tu cuenta, tus costos y tus límites se conservan.",
+            else "Se borran de este teléfono las ofertas, viajes, turnos y resúmenes, los incentivos que escribiste y las copias para compartir. Tu cuenta, tus costos y tus límites se conservan.",
         confirm = if (dialog == "account") "Eliminar" else "Borrar", dismiss = { dialog = null },
         accept = { val action = dialog; dialog = null; if (action == "account") delete() else erase() })
 }

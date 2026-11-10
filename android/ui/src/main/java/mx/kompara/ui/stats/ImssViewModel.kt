@@ -49,6 +49,8 @@ class ImssViewModel @Inject constructor(
 ) : ViewModel() {
     /** "rule" (M3) or "incentives:<PLATFORM>" (M4). */
     val sheet = saved.getStateFlow<String?>("imssSheet", null)
+    /** The month M4 was opened for: month-end or process death never moves where Guardar and Quitar write. */
+    private val sheetMonth = saved.getStateFlow<String?>(SHEET_MONTH, null)
     private val draft = saved.getStateFlow("imssDraft", "")
     private val saving = MutableStateFlow(false)
     private val saveError = MutableStateFlow(false)
@@ -68,10 +70,12 @@ class ImssViewModel @Inject constructor(
             .catch { today().let { day -> emit(ImssUiState(month(choice, day), day, error = true)) } }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), today().let { ImssUiState(month(selected.value, it), it) })
 
-    val incentiveSheet: StateFlow<IncentiveSheet?> = combine(sheet, draft, saving, saveError, uiState) { sheet, draft, busy, failed, state ->
-        sheet?.takeIf { it.startsWith(INCENTIVES) }?.removePrefix(INCENTIVES)?.let { platform ->
-            IncentiveSheet(platform, state.month, state.imss?.apps?.firstOrNull { it.platform == platform }?.incentives, draft, busy, failed,
-                current = !state.canNext)
+    val incentiveSheet: StateFlow<IncentiveSheet?> = combine(sheet, sheetMonth) { sheet, month ->
+        sheet?.takeIf { it.startsWith(INCENTIVES) }?.removePrefix(INCENTIVES)?.let { platform -> month?.let { platform to YearMonth.parse(it) } }
+    }.flatMapLatest { opened ->
+        val (platform, month) = opened ?: return@flatMapLatest flowOf(null)
+        combine(incentives.observe(month), draft, saving, saveError, uiState) { typed, draft, busy, failed, state ->
+            IncentiveSheet(platform, month, typed[platform], draft, busy, failed, current = month == YearMonth.from(state.today))
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
@@ -85,16 +89,18 @@ class ImssViewModel @Inject constructor(
     fun openRule() { saved["imssSheet"] = RULE }
 
     fun openIncentives(platform: String) {
-        val typed = uiState.value.imss?.apps?.firstOrNull { it.platform == platform }?.incentives
+        val state = uiState.value
+        val typed = state.imss?.apps?.firstOrNull { it.platform == platform }?.incentives
         saveError.value = false
         saved["imssDraft"] = typed?.toString().orEmpty()
+        saved[SHEET_MONTH] = state.month.toString()
         saved["imssSheet"] = INCENTIVES + platform
     }
 
     /** Whole pesos only. */
     fun editDraft(text: String) { if (!saving.value) { saved["imssDraft"] = text.filter(Char::isDigit).take(7); saveError.value = false } }
 
-    fun closeSheet() { if (!saving.value) { saved["imssSheet"] = null; saved["imssDraft"] = ""; saveError.value = false } }
+    fun closeSheet() { if (!saving.value) { saved["imssSheet"] = null; saved[SHEET_MONTH] = null; saved["imssDraft"] = ""; saveError.value = false } }
 
     fun saveIncentives() { incentiveSheet.value?.let { sheet -> sheet.amount?.let { amount -> write { incentives.set(sheet.platform, sheet.month, amount, clock.nowMs()) } } } }
 
@@ -114,5 +120,6 @@ class ImssViewModel @Inject constructor(
     companion object {
         const val RULE = "rule"
         const val INCENTIVES = "incentives:"
+        private const val SHEET_MONTH = "imssSheetMonth"
     }
 }

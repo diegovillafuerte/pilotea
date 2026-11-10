@@ -14,7 +14,6 @@ import mx.kompara.ui.components.*
 import mx.kompara.ui.format.Formatters
 import mx.kompara.ui.service.statusLabel
 import java.math.BigDecimal
-import java.time.Instant
 import java.time.LocalDate
 
 /** Hoy's body: the day (L1), the first day (L2), or the semáforo off (L3). */
@@ -26,10 +25,12 @@ data class GananciasStatus(val title: String, val detail: String?, val glyph: St
 /** What L3's primary button does: open the permission flow, open the Semáforo screen, or turn a stopped reader back on. */
 enum class OffAction { RECOVERY, SEMAFORO, RESUME }
 
-/** L3: the cause and its primary button. A reader the driver stopped has no secondary: Android did not turn it off. */
-data class ReaderOff(val headline: String, val body: String, val primary: String, val action: OffAction) {
-    val secondary get() = action != OffAction.RESUME
-}
+/**
+ * L3: the cause and its primary button. A reader the driver stopped has no secondary (Android did not
+ * turn it off), and neither has one that was never on.
+ */
+data class ReaderOff(val headline: String, val body: String, val primary: String, val action: OffAction,
+    val secondary: Boolean = action != OffAction.RESUME)
 
 /** "Ayer, lunes 19 oct, ganaste $1,240." — a dated line that opens that day; [amount] is drawn strong. */
 data class DayLine(val prefix: String, val amount: String, val suffix: String, val day: LocalDate) {
@@ -61,14 +62,8 @@ object GananciasStats {
         val date = money.window.start
         val zone = money.window.zone
         val hasHistory = snapshot.hasHistory || reader.apps.values.any { it.lastReadAt != null }
-        fun clock(at: Long) = Formatters.formatClock(at, zone)
-        fun relative(at: Long) = when (val day = Instant.ofEpochMilli(at).atZone(zone).toLocalDate()) {
-            date -> clock(at)
-            date.minusDays(1) -> "ayer ${clock(at)}"
-            else -> "${Formatters.formatDayLabel(day.toString())} ${clock(at)}"
-        }
         val status = when (reader.phase) {
-            ReaderPhase.OFF -> GananciasStatus("Semáforo apagado", reader.incident?.let { "desde ${relative(it.firstSeenAt)}" }
+            ReaderPhase.OFF -> GananciasStatus("Semáforo apagado", reader.incident?.let { Formatters.formatSince(it.firstSeenAt, date, zone) }
                 ?: "falta el permiso".takeIf { reader.permission == false }, StatusGlyph.OFF, opens = false)
             ReaderPhase.WORKING -> GananciasStatus("Semáforo funcionando", null, StatusGlyph.HEALTHY, true)
             ReaderPhase.ATTENTION -> GananciasStatus(reader.statusLabel(), null, StatusGlyph.ATTENTION, true)
@@ -83,7 +78,7 @@ object GananciasStats {
             val off = when {
                 reader.paused -> ReaderOff(STOPPED_TITLE, STOPPED_LINE, "Encender el semáforo", OffAction.RESUME)
                 reader.permission == false && !hasHistory -> ReaderOff("Activa el semáforo",
-                    "Sin el permiso de Accesibilidad, Kompara no ve tus ofertas.", "Activar el semáforo", OffAction.RECOVERY)
+                    "Sin el permiso de Accesibilidad, Kompara no ve tus ofertas.", "Activar el semáforo", OffAction.RECOVERY, secondary = false)
                 reader.permission == false -> ReaderOff("Falta el permiso de Accesibilidad",
                     "Android a veces lo apaga, por ejemplo al ahorrar batería. Sin él, Kompara no ve tus ofertas.", "Volver a dar el permiso", OffAction.RECOVERY)
                 else -> ReaderOff("Dejamos de leer tus ofertas",

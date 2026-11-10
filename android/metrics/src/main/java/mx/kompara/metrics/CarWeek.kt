@@ -18,21 +18,25 @@ data class CarWeek(
 ) {
     val earned: BigDecimal get() = days.fold(BigDecimal.ZERO) { sum, day -> sum.add(day ?: BigDecimal.ZERO) }
 
-    /** The first day the week's running total reached the bill ("cubierto el martes"); null while short. */
+    /**
+     * "Cubierto el martes": the first day from which the week's running total never falls below the
+     * bill again; null while the running total is under it, even after it once reached it.
+     */
     val coveredOn: DayOfWeek? get() {
         val bill = bill ?: return null
         var total = BigDecimal.ZERO
+        var from: DayOfWeek? = null
         days.forEachIndexed { i, day ->
             total = total.add(day ?: BigDecimal.ZERO)
-            if (total >= bill) return DayOfWeek.of(i + 1)
+            from = if (total < bill) null else from ?: DayOfWeek.of(i + 1)
         }
-        return null
+        return from
     }
 
     /** "Te faltan" / "Te faltaron": bill − earned, while not covered. */
     val missing: BigDecimal? get() = bill?.takeIf { coveredOn == null }?.subtract(earned)
 
-    /** "Tuyo": earned − bill, once covered. */
+    /** "Tuyo": earned − bill, once covered; never negative. */
     val yours: BigDecimal? get() = bill?.takeIf { coveredOn != null }?.let { earned.subtract(it) }
 
     companion object {

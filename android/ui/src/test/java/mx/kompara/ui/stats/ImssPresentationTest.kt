@@ -1,8 +1,10 @@
 package mx.kompara.ui.stats
 
 import androidx.test.core.app.ApplicationProvider
+import mx.kompara.metrics.imss.ImssApp
 import mx.kompara.metrics.imss.ImssMonth
 import mx.kompara.metrics.imss.ImssRule
+import mx.kompara.metrics.imss.ImssState
 import mx.kompara.ui.fixtures.ImssFixture
 import org.junit.Assert.*
 import org.junit.Test
@@ -73,8 +75,8 @@ class ImssPresentationTest {
     @Test fun `the first six days show the amount without a pace`() {
         val sixth = month(LocalDate.of(2026, 10, 6), mapOf("UBER" to 5_000))
         assertNull(sixth.blocks.single().said); assertEquals("\$5,000", sixth.blocks.single().amount)
-        // day 7: 5,000 / 7 × 31 = 22,142.86 → unos $22,100
-        assertEquals("A este ritmo cierras en unos \$22,100. Lo alcanzas.", month(LocalDate.of(2026, 10, 7), mapOf("UBER" to 5_000)).blocks.single().said!!.text)
+        // day 7: 5,000 / 7 × 31 = 22,142.86 → a pace that reaches rounds up: unos $22,200
+        assertEquals("A este ritmo cierras en unos \$22,200. Lo alcanzas.", month(LocalDate.of(2026, 10, 7), mapOf("UBER" to 5_000)).blocks.single().said!!.text)
     }
 
     @Test fun `days left read queda 1 día and último día`() {
@@ -88,8 +90,34 @@ class ImssPresentationTest {
         assertEquals("Aún no hay viajes en octubre.", p.empty)
         assertTrue(p.blocks.isEmpty()); assertNull(p.combined); assertFalse(p.vigencia)
         val typedOnly = month(LocalDate.of(2026, 10, 19), emptyMap(), mapOf("UBER" to 500))
-        assertEquals("Aún no hay viajes en octubre.", typedOnly.empty)
-        assertEquals("Viajes \$0 · Incentivos \$500", typedOnly.blocks.single().parts)
+        assertNull(typedOnly.empty) // a block is there
+        assertEquals("Viajes \$0 · Incentivos \$500", typedOnly.blocks.single().parts); assertNull(typedOnly.blocks.single().said)
+        assertEquals("No hubo viajes en septiembre.", month(LocalDate.of(2026, 10, 19), emptyMap(), month = YearMonth.of(2026, 9)).empty)
+    }
+
+    @Test fun `an app that drove the month before can take this month's incentives`() {
+        val p = ImssPresentation.of(ImssMonth.of(october, LocalDate.of(2026, 10, 19), mapOf("UBER" to BigDecimal(12_487)), emptyMap(),
+            lastMonth = setOf("DIDI")))
+        val didi = p.blocks[1]
+        assertEquals(listOf("DiDi", "\$0", "Viajes \$0 · Incentivos: agregar"), listOf(didi.name, didi.amount, didi.parts))
+        assertNull(didi.said); assertNull(p.empty)
+        val onlyBefore = ImssPresentation.of(ImssMonth.of(october, LocalDate.of(2026, 10, 19), emptyMap(), emptyMap(), lastMonth = setOf("DIDI")))
+        assertNull(onlyBefore.empty); assertEquals(listOf("\$0"), onlyBefore.blocks.map { it.amount })
+    }
+
+    @Test fun `a pace near the amount rounds toward its own verdict and a shortfall is never zero`() {
+        fun said(pace: Int, state: ImssState, shortBy: Int?) = ImssPresentation.of(ImssMonth(october, LocalDate.of(2026, 10, 19), BigDecimal(21_938),
+            listOf(ImssApp("UBER", BigDecimal(13_000), null, BigDecimal(13_000), BigDecimal(pace), state, shortBy?.let(::BigDecimal))))).blocks.single().said!!.text
+        assertEquals("A este ritmo cierras en unos \$22,000. Lo alcanzas.", said(21_940, ImssState.WILL_REACH, null))
+        assertEquals("A este ritmo cierras en unos \$21,900. Te faltarían \$100.", said(21_900, ImssState.WILL_FALL_SHORT, 38))
+    }
+
+    @Test fun `the combined line adds the printed amounts and a closed month says juntaste`() {
+        val trips = mapOf("UBER" to BigDecimal("11000.4"), "DIDI" to BigDecimal("10999.4")) // 21,999.8 raw; printed 11,000 + 10,999
+        val open = ImssPresentation.of(ImssMonth.of(october, LocalDate.of(2026, 10, 19), trips, emptyMap()))
+        assertEquals("Entre las dos llevas \$21,999. En una sola app ya lo habrías alcanzado.", open.combined!!.text)
+        val closed = ImssPresentation.of(ImssMonth.of(YearMonth.of(2026, 9), LocalDate.of(2026, 10, 19), trips, emptyMap()))
+        assertEquals("Entre las dos juntaste \$21,999. En una sola app ya lo habrías alcanzado.", closed.combined!!.text)
     }
 
     @Test fun `three apps under the amount that together reach it`() {

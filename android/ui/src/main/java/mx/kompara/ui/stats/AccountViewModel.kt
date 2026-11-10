@@ -11,21 +11,19 @@ import mx.kompara.data.model.City
 import mx.kompara.data.settings.SettingsRepository
 import mx.kompara.sync.auth.AuthRepository
 import mx.kompara.sync.auth.SessionState
-import mx.kompara.ui.format.Formatters
-import java.math.BigDecimal
 import javax.inject.Inject
 
 data class AccountUiState(
     val loaded: Boolean = false, val phone: String = "", val name: String = "", val city: City = City.DEFAULT,
-    val citySource: String? = null, val goal: String = "$8.00/km", val minimum: String = "$6.00/km",
+    val citySource: String? = null,
+    /** The limits editor's summary, with unit and basis: "$8.00 · $6.00 por km, neto". */
+    val limits: String = "$8.00 · $6.00 por km, neto",
     val busy: Boolean = false, val message: String? = null, val error: String? = null,
     val sheet: String? = null, val pendingCity: City? = null, val nameDraft: String = "",
-    // Only supplied by a validated configuration. The fixture is not a live city proposal.
-    val suggestedGoal: String? = null,
 )
+/** Tu ciudad is not open at launch: a new city compares nothing yet, and the limits stay. */
 fun cityConfirmation(state: AccountUiState, city: City): String =
-    "Te comparamos con ${city.displayName} desde esta semana. Tu meta sigue en ${state.goal}" +
-        (state.suggestedGoal?.let { "; allá se sugiere $it." } ?: "; tu mínimo, en ${state.minimum}.")
+    "Tu ciudad cambia a ${city.displayName}. Tu meta y tu mínimo siguen en ${state.limits}."
 
 @HiltViewModel
 class AccountViewModel @Inject constructor(
@@ -46,12 +44,9 @@ class AccountViewModel @Inject constructor(
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val state = refresh.flatMapLatest { combine(auth.sessionState, settings.settings, operation, draft) { session, prefs, action, editor ->
         val driver = (session as? SessionState.Authenticated)?.driver
-        val rule = prefs.effectiveThreshold
-        val hour = prefs.preferredMetric == mx.kompara.data.settings.PreferredMetric.IPH
         AccountUiState(loaded = true, phone = driver?.phone.orEmpty(), name = driver?.name.orEmpty(), city = prefs.city,
             citySource = if (prefs.cityChosen) "elegida por ti" else if (driver?.city == null) "valor inicial" else null,
-            goal = Formatters.formatMxn(BigDecimal.valueOf(if (hour) rule.minPerHourMxn else rule.minPerKmMxn)) + if (hour) "/h" else "/km",
-            minimum = Formatters.formatMxn(BigDecimal.valueOf(if (hour) rule.redPerHourMxn else rule.redPerKmMxn)) + if (hour) "/h" else "/km",
+            limits = ThresholdEditor.summary(LimitDraft.from(prefs.effectiveThreshold, prefs.preferredMetric, prefs.rateBasis)),
             busy = action.first, error = action.second, message = action.third, sheet = editor.first,
             pendingCity = editor.second, nameDraft = editor.third)
     } .catch { e ->

@@ -137,8 +137,12 @@ tu app de viajes."
 - An offer row freezes the basis it was judged in, next to the frozen goal and minimum
   (new column, section 6 WP-A). Old rows are NET.
 - **Every rate the app shows follows the choice and says the word** ("por km, neto",
-  "$9.49 por km neto", the chip's "neto"/"bruto"). A row's rate is shown in the current choice;
-  both are computable from any row. Peso totals never change with the choice.
+  "$9.49 por km neto", the chip's "neto"/"bruto"). **A row is the record of what the semáforo
+  said:** it shows the rate in the unit and basis it was judged in, with its frozen mark. The list's
+  right-hand label still names the driver's current choice ("por km, neto"); a row whose frozen unit
+  or basis differs says its own: the unit is already in the suffix ("$148/h"), and when the basis
+  differs the word follows the rate ("$12.33/km bruto"). Unread rows show no rate. Peso totals and
+  Comparar never change with a row's basis: they are computed from the trips, not from verdicts.
 
 ### 4.3 The chip
 
@@ -198,7 +202,8 @@ permiso listo" (permission granted, no offer read yet) · "Semáforo apagado · 
 desgaste" (opens L8); then "Ofertas de hoy 11" with "por km, neto" at the right, newest first.
 - A row: the verdict mark (▲ ◆ ▼, or a dash when unread), the **app's name** (founder: "it should
   say which app the offers came from, Uber or Didi"), under it "14:32 · En curso" / "La tomaste" /
-  "Se fue sin tomar" / "Sin lectura", and the rate at the right in the current unit and basis.
+  "Se fue sin tomar" / "Sin lectura", and the rate at the right in the unit and basis it was judged
+  in (section 4.2).
   Offers not taken are dimmed. Unread offers show no rate. For outcomes the frames do not draw
   (unknown, cancelled, still on screen) keep 0.2.20's wording.
 - Tap a row → the offer sheet (L7). Its actions keep 0.2.20's behaviour.
@@ -222,10 +227,11 @@ adds "· en curso" and its forward arrow is disabled. "Ganaste" (closed) or "Est
 "62 viajes · ya restamos gasolina y desgaste" opens the calculation sheet.
 - Seven bars, heights relative to the best day. The best day is ink and carries its amount; a day
   without trips is a hairline. Tap a day → `day/{day}` (L6).
-- **The car is a weekly bill** (only when a weekly car cost is set). One bar under the chart:
-  - covered: "El coche, cubierto el martes" $1,500 · "Tuyo" $4,980. The hatched part is
-    car ÷ earned; the rest is ink. The covering day is the first day the week's running total
-    reached the bill.
+- **The car is a weekly bill** (only when a weekly car cost is set, and only when the week has a
+  figure). One bar under the chart:
+  - covered (the week's running total is at or above the bill): "El coche, cubierto el martes"
+    $1,500 · "Tuyo" $4,980. The hatched part is car ÷ earned; the rest is ink. The covering day is
+    the first day from which the running total never falls below the bill again.
   - not yet, week under way: "El coche" "$762 de $1,500" · "Te faltan" $738. The hatched part is
     earned ÷ car.
   - not covered, week closed: "El coche" "$1,200 de $1,500" · "Te faltaron" $300.
@@ -244,16 +250,19 @@ current unit and basis ("Tus viajes · últimas 4 semanas · por km, neto").
 - Three questions, each one sentence and one small chart:
   - "¿Uber o DiDi?" — "DiDi te deja $1.67 más por km." Two horizontal bars.
   - "¿Qué días?" — "El sábado te deja $5.05 más que el viernes." Seven bars, best in ink with its
-    rate, worst labelled too.
+    rate, worst labelled too. Per hour it says its unit ("… $60 más por hora que el viernes"). All
+    drawn days at the same figure: "Todos tus días te dejan lo mismo." from three days drawn, else
+    the two days by name ("El lunes y el viernes te dejan lo mismo.").
   - "¿A qué hora?" — "De 18 a 22 h es cuando más te deja." Blocks 6–10, 10–14, 14–18, 18–22, 22–6,
-    by the trip's local start time.
+    by the trip's local start time. Blocks tied at the best figure are all named ("De 14 a 18 h y
+    de 18 a 22 h es cuando más te deja.").
   - In bruto say "te paga" / "te pagan" instead of "te deja". Differences are taken from the
     printed figures.
 - A group needs 3 trips to be drawn. With one app only: "Solo tienes viajes de Uber en estas
   semanas." Use the ledger's own definition of a day.
 - **First days (K2):** under 30 taken trips in the window: "Aún juntamos tus viajes", "Con 30
   viajes empezamos a comparar tus apps, tus días y tus horas. Llevas 6.", a progress bar, and
-  "Mientras tanto, el semáforo ya compara cada oferta con tu meta."
+  "Mientras tanto, el semáforo compara cada oferta con tu meta." (no "ya": it may not be on)
 
 **Tu ciudad.** Not open at launch: the city comparison needs drivers to share averages, and that
 is the founder's decision 1 (section 8). Build one honest state and nothing that sends data:
@@ -274,11 +283,14 @@ is the founder's decision 1 (section 8). Build one honest state and nothing that
   one place in code, with the year. Serving them from the server is a tech-debt entry.
 - counted(app, month) = fares of the app's taken trips that started in the month + the incentives
   the driver typed for that app and month. Each app counts on its own. Tips are never read.
-- pace(app) = trips ÷ day of month × days in month + incentives, shown rounded to the hundred,
-  from the 7th day of the month on.
+- pace(app) = trips ÷ day of month × days in month + incentives, shown to the hundred, from the
+  7th day of the month on, for an app with trips in the month. A pace that reaches rounds up; a
+  shortfall rounds up to the hundred and is never $0.
 - The screen (M1): month between arrows ("Octubre · quedan 12 días"; past months just the name;
   "queda 1 día"; "último día"); the rule sentence with the amount and its small print; one block per
-  app that has trips or incentives in the month: name, "de $21,938", the amount, a bar, the row
+  app that has trips in the month or the month before, or incentives in the month (an app with no
+  trips this month shows "$0", "Viajes $0 · Incentivos: agregar" and no pace): name, "de $21,938",
+  the amount, a bar, the row
   "Viajes $12,487 · Incentivos $1,800" or "… · Incentivos: agregar" (opens M4), and one sentence:
   - "A este ritmo cierras en unos $22,200. **Lo alcanzas.**" / "… unos $13,000. **Te faltarían
     $9,000.**"
@@ -286,8 +298,9 @@ is the founder's decision 1 (section 8). Build one honest state and nothing that
     escribiste. Confírmalo en el IMSS."
   - a past month short of it: "Te faltaron $9,651."
   - With two or more apps, none there, but the sum there: "Entre las dos llevas $22,229. En una
-    sola app ya lo habrías alcanzado."
-  - No trips in the month: "Aún no hay viajes en octubre."
+    sola app ya lo habrías alcanzado." The sum adds the printed amounts; a closed month says
+    "juntaste".
+  - No block at all: "Aún no hay viajes en octubre."; a past month: "No hubo viajes en septiembre."
 - Rows: "¿Qué cambia si lo alcanzas?" (M3) and, once an app is over, "Ver mi vigencia en el IMSS"
   (external; reuse 0.2.20's link).
 - **No IMSS screen says "cubierto" or "ya te toca".** Only the app and the IMSS can certify coverage.

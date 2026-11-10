@@ -41,7 +41,8 @@ class ImssViewModelTest {
         val costs = CostProfileRepository(db.costProfileDao())
         val months = ImssMonthRepository(db, PeriodMoneyRepository(db, costs, CarCostRepository(db.carCostDao())))
         val incentives = MonthlyIncentiveRepository(db.monthlyIncentiveDao())
-        val clock = AppClock { at("2026-10-19T14:40") }
+        var now = at("2026-10-19T14:40")
+        val clock = AppClock { now }
         val store = ViewModelStore()
         private var id = 1L
         private var vms = 0
@@ -116,6 +117,47 @@ class ImssViewModelTest {
             vm.await { it.view!!.blocks[1].parts.endsWith("agregar") }
             assertEquals(mapOf("UBER" to 1_800), h.incentives.observe(YearMonth.of(2026, 10)).first())
             collector.cancel()
+        }
+    }
+
+    @Test fun `an open incentives sheet keeps the month and app it was opened for`() = runBlocking {
+        Harness().use { h ->
+            h.seed()
+            val handle = SavedStateHandle()
+            val vm = h.vm(handle)
+            val collector = launch { vm.incentiveSheet.collect() }
+            vm.await { true }
+            vm.openIncentives("DIDI")
+            vm.editDraft("700")
+            withTimeout(15_000) { vm.incentiveSheet.filterNotNull().first { it.draft == "700" } }
+            // The driver leaves the app across month-end: the screen moves to November, the sheet stays October's.
+            h.now = h.at("2026-11-01T09:00")
+            vm.await { it.month == YearMonth.of(2026, 11) }
+            val sheet = withTimeout(15_000) { vm.incentiveSheet.filterNotNull().first { !it.current } }
+            assertEquals("DIDI", sheet.platform); assertEquals(YearMonth.of(2026, 10), sheet.month)
+            vm.saveIncentives()
+            withTimeout(15_000) { vm.sheet.first { it == null } }
+            assertEquals(mapOf("UBER" to 1_800, "DIDI" to 700), h.incentives.observe(YearMonth.of(2026, 10)).first())
+            assertEquals(emptyMap<String, Int>(), h.incentives.observe(YearMonth.of(2026, 11)).first())
+            collector.cancel()
+            // Process death with October's sheet open: the restored ViewModel, in November, still edits October.
+            h.now = h.at("2026-10-31T23:58")
+            val beforeHandle = SavedStateHandle()
+            val before = h.vm(beforeHandle)
+            val beforeCollector = launch { before.incentiveSheet.collect() }
+            before.await { it.month == YearMonth.of(2026, 10) }
+            before.openIncentives("DIDI")
+            withTimeout(15_000) { before.incentiveSheet.filterNotNull().first { it.saved == 700 } }
+            beforeCollector.cancel()
+            h.now = h.at("2026-11-01T09:00")
+            val restored = h.vm(SavedStateHandle(beforeHandle.keys().associateWith { beforeHandle.get<Any?>(it) }))
+            val restoredCollector = launch { restored.incentiveSheet.collect() }
+            val again = withTimeout(15_000) { restored.incentiveSheet.filterNotNull().first { it.saved == 700 } }
+            assertEquals(YearMonth.of(2026, 10), again.month); assertEquals("700", again.draft)
+            restored.removeIncentives()
+            withTimeout(15_000) { restored.sheet.first { it == null } }
+            assertEquals(mapOf("UBER" to 1_800), h.incentives.observe(YearMonth.of(2026, 10)).first())
+            restoredCollector.cancel()
         }
     }
 

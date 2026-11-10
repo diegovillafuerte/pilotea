@@ -11,6 +11,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import mx.kompara.data.model.City
+import mx.kompara.data.settings.PreferredMetric
 import mx.kompara.ui.components.*
 import mx.kompara.ui.screens.*
 import mx.kompara.ui.stats.*
@@ -21,7 +22,7 @@ import mx.kompara.ui.theme.KomparaTheme
 fun PrivacyFixtureHost(frame: String) {
     val fixture = V3Fixture(LocalContext.current)
     val profile = AccountUiState(loaded = true, phone = "+525512345678", citySource = "por tu número",
-        goal = "$${fixture.goal}/km", minimum = "$${fixture.minimum}/km", suggestedGoal = "$7.70/km")
+        limits = ThresholdEditor.summary(LimitDraft(LimitPair(fixture.goal, fixture.minimum), LimitPair("200", "150"), PreferredMetric.IPK)))
     when (frame) {
         "profile" -> AccountContent(profile, supportAvailable = true)
         "G9" -> Box(Modifier.fillMaxSize()) {

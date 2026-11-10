@@ -97,7 +97,7 @@ private fun TuGathering(tu: TuPresentation.Gathering) {
         .background(KomparaTheme.colors.rule, RoundedCornerShape(5.dp))) {
         Box(Modifier.fillMaxWidth(tu.progress).fillMaxHeight().background(KomparaTheme.colors.ink, RoundedCornerShape(5.dp)))
     }
-    Text("Mientras tanto, el semáforo ya compara cada oferta con tu meta.", Modifier.padding(start = 20.dp, end = 20.dp, top = 16.dp),
+    Text("Mientras tanto, el semáforo compara cada oferta con tu meta.", Modifier.padding(start = 20.dp, end = 20.dp, top = 16.dp),
         style = small14, color = KomparaTheme.colors.inkSecondary)
 }
 

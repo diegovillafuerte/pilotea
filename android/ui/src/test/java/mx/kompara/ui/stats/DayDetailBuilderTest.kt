@@ -101,13 +101,32 @@ class DayDetailBuilderTest {
             "DRIVER_PAYMENT", "114", "9.49", "285", null)
         val row = OfferRowModel(1, 1, "UBER", 148.0, OfferOutcome.ACCEPTED, VerdictLevel.GREEN, evaluation = snapshot)
         val limits = mx.kompara.data.settings.PlatformThreshold(8.0, 200.0, 6.5, 150.0)
-        assertEquals("", row.historicalLimitSuffix(limits))
-        assertEquals(" a esa hora", row.copy(verdict = VerdictLevel.YELLOW).historicalLimitSuffix(limits))
-        assertEquals(" a esa hora", row.historicalLimitSuffix(limits.copy(minPerKmMxn = 9.5)))
-        org.junit.Assert.assertNull(row.copy(evaluation = null).historicalLimitSuffix(limits))
+        val km = mx.kompara.data.settings.PreferredMetric.IPK
+        val hour = mx.kompara.data.settings.PreferredMetric.IPH
+        val net = mx.kompara.data.settings.RateBasis.NET
+        assertEquals("", row.historicalLimitSuffix(limits, km, net))
+        assertEquals(" a esa hora", row.copy(verdict = VerdictLevel.YELLOW).historicalLimitSuffix(limits, km, net))
+        assertEquals(" a esa hora", row.historicalLimitSuffix(limits.copy(minPerKmMxn = 9.5), km, net))
+        org.junit.Assert.assertNull(row.copy(evaluation = null).historicalLimitSuffix(limits, km, net))
         val hourly = row.copy(evaluation = snapshot.copy(unit = "IPH", goal = "200", minimum = "150"))
-        assertEquals("", hourly.historicalLimitSuffix(limits.copy(minPerKmMxn = 99.0)))
-        assertEquals(" a esa hora", hourly.historicalLimitSuffix(limits.copy(minPerHourMxn = 210.0)))
+        assertEquals("", hourly.historicalLimitSuffix(limits.copy(minPerKmMxn = 99.0), hour, net))
+        assertEquals(" a esa hora", hourly.historicalLimitSuffix(limits.copy(minPerHourMxn = 210.0), hour, net))
+    }
+
+    @Test fun `a esa hora appears when either limit a yellow sentence names, the unit or the basis changed`() {
+        // B8: a yellow sentence names both limits; the basis and the unit count too.
+        val snapshot = mx.kompara.data.db.entity.OfferEvaluation(1, "IPK", "8", "6", 1, "OCR", "DRIVER_PAYMENT", "76", "6.39", "181", null)
+        val yellow = OfferRowModel(1, 1, "DIDI", 96.0, OfferOutcome.NOT_TAKEN, VerdictLevel.YELLOW, evaluation = snapshot)
+        val km = mx.kompara.data.settings.PreferredMetric.IPK
+        val net = mx.kompara.data.settings.RateBasis.NET
+        val limits = mx.kompara.data.settings.PlatformThreshold(8.0, 200.0, 6.0, 150.0)
+        assertEquals("", yellow.historicalLimitSuffix(limits, km, net))
+        assertEquals(" a esa hora", yellow.historicalLimitSuffix(limits.copy(minPerKmMxn = 9.0), km, net)) // only the goal moved
+        assertEquals(" a esa hora", yellow.historicalLimitSuffix(limits, km, mx.kompara.data.settings.RateBasis.GROSS))
+        assertEquals(" a esa hora", yellow.historicalLimitSuffix(limits, mx.kompara.data.settings.PreferredMetric.IPH, net))
+        val green = yellow.copy(verdict = VerdictLevel.GREEN)
+        assertEquals(" a esa hora", green.historicalLimitSuffix(limits, km, mx.kompara.data.settings.RateBasis.GROSS))
+        assertEquals("", green.historicalLimitSuffix(limits.copy(redPerKmMxn = 6.5), km, net)) // a green sentence names only the goal
     }
 
     @Test fun `legacy zero and stored verdict survive without invented monetary explanation`() {

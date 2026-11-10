@@ -870,3 +870,10 @@ Conscious deferrals. Each entry: date, severity, context, why deferred, when to 
 - **Dead before the rebuild, left alone:** `CompareBars`, `StepperField`, `StatusDoor`, `RootScaffold`, `DrillScaffold`, `Observation`, `MaskedValue`, `StateLegend`, drawables `v3_clock`, `v3_more`, `v3_person`, `mipmap/ic_launcher_round`, `app` string `share_import_needs_account`.
 - **Contract gap:** `V4ContractTest` proves a reviewed PNG exists for each frame, not that a test still compares it; a stale baseline whose test stopped rendering it would pass.
 - **When to fix:** decide with each surface's return; delete the pre-rebuild dead code in a cleanup pass.
+
+## TD-V4-09: the screen-capture consent says DiDi only, but that lane reads Uber too
+
+- **Date / severity:** 2026-11-09 / Medium (consent wording; below Android 11 only).
+- **Context:** `lector_ocr_disclosure_body` (`android/ui/src/main/res/values/strings.xml:4`, shown by `LectorScreen` before the MediaProjection consent, the lane used below Android 11) says "Para mostrarte el semáforo sobre las ofertas de DiDi, Kompara captura tu pantalla…". Since 0.2.14 that lane reads Uber's offer card too (Uber's card has no accessibility text either), so the sentence understates what is captured.
+- **Why deferred:** consent and disclosure wording is under legal review (B-038) and outside the v4 build, which keeps the disclosure text unchanged.
+- **When to fix:** with B-038: name both apps ("sobre las ofertas de Uber y DiDi") or neither, in the same review as P2's disclosure lines and `docs/play-compliance.md`.

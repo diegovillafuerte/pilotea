@@ -44,6 +44,16 @@ class CarWeekTest {
         assertEquals(DayOfWeek.WEDNESDAY, week.coveredOn); assertEquals(BigDecimal.ZERO, week.yours)
     }
 
+    @Test fun `a week that falls back under the bill is not covered`() {
+        // Monday 1,510 covers 1,500; Tuesday a trip costs more than it pays and the week is at 1,490.
+        val under = CarWeek(bill, listOf(BigDecimal(1510), BigDecimal(-20), null, null, null, null, null))
+        assertNull(under.coveredOn); assertNull(under.yours)
+        assertEquals(BigDecimal(10), under.missing)
+        // Back over on Wednesday: covered from Wednesday, the first day it never falls under again.
+        val back = under.copy(days = listOf(BigDecimal(1510), BigDecimal(-20), BigDecimal(30), BigDecimal(-15), null, null, null))
+        assertEquals(DayOfWeek.WEDNESDAY, back.coveredOn); assertEquals(BigDecimal(5), back.yours); assertNull(back.missing)
+    }
+
     @Test fun `the amount in force on the week's last elapsed day is the week's bill, whole`() {
         val start = LocalDate.of(2026, 10, 19)
         fun window(today: LocalDate) = PeriodWindow(start, start.plusDays(6), today.atTime(14, 40).atZone(zone).toInstant(), zone)

@@ -40,14 +40,25 @@ class DayPresentationTest {
         assertEquals(listOf(false, true, true, true, false, false), day.rows.take(6).map(day::dim))
     }
 
-    @Test fun `every rate follows the current unit and basis and says the word`() {
+    @Test fun `a row is the record of what the semaforo said, in the unit and basis it was judged in`() {
+        // A2: the column names the current choice; a row keeps the rate beside its frozen mark and says its own basis when it differs.
         val day = fixture.dayPresentation("L1")
         val gross = DayPresentation(day.snapshot, day.settings.copy(rateBasis = RateBasis.GROSS))
-        assertEquals("por km, bruto", gross.column); assertEquals("$12.33/km", gross.rate(gross.row("14:32")))
+        assertEquals("por km, bruto", gross.column); assertEquals("$9.49/km neto", gross.rate(gross.row("14:32")))
         val hour = DayPresentation(day.snapshot, day.settings.copy(preferredMetric = PreferredMetric.IPH))
-        assertEquals("por hora, neto", hour.column); assertEquals("$285/h", hour.rate(hour.row("14:32"))); assertNull(hour.rate(hour.row("11:48")))
+        assertEquals("por hora, neto", hour.column); assertEquals("$9.49/km", hour.rate(hour.row("14:32"))); assertNull(hour.rate(hour.row("11:48")))
         val grossHour = DayPresentation(day.snapshot, day.settings.copy(preferredMetric = PreferredMetric.IPH, rateBasis = RateBasis.GROSS))
-        assertEquals("por hora, bruto", grossHour.column); assertEquals("$370/h", grossHour.rate(grossHour.row("14:32")))
+        assertEquals("por hora, bruto", grossHour.column); assertEquals("$9.49/km neto", grossHour.rate(grossHour.row("14:32")))
+        // A $148, 12 km, 60 min offer judged red against a $150/h mínimo stays "$148/h" beside its red mark once the driver is per km.
+        val raw = day.snapshot.offers.first { it.id == day.at("14:32") }
+        val red = raw.copy(verdict = "RED", durationMin = 60.0, evaluation = raw.evaluation!!.copy(unit = "IPH", goal = "200", minimum = "150", perHour = "114"))
+        val redDay = DayPresentation(day.snapshot.copy(offers = day.snapshot.offers.map { if (it.id == raw.id) red else it }), day.settings)
+        assertEquals(mx.kompara.ui.components.OfferMarkState.BELOW, redDay.row("14:32").mark)
+        assertEquals("por km, neto", redDay.column); assertEquals("$114/h", redDay.rate(redDay.row("14:32")))
+        // judged in bruto, shown under neto: the word follows the rate
+        val bruto = raw.copy(evaluation = raw.evaluation!!.copy(rateBasis = RateBasis.GROSS.name, goal = "11", minimum = "9"))
+        val brutoDay = DayPresentation(day.snapshot.copy(offers = day.snapshot.offers.map { if (it.id == raw.id) bruto else it }), day.settings)
+        assertEquals("$12.33/km bruto", brutoDay.rate(brutoDay.row("14:32")))
         // Peso totals never change with the choice.
         assertEquals(day.amount, gross.amount); assertEquals(day.amount, grossHour.amount)
     }
@@ -69,7 +80,7 @@ class DayPresentationTest {
         assertEquals(listOf("$11.40/km", "$11.04/km", "$7.16/km", "$9.49/km", "$6.39/km", "$2.20/km", null), day.rows.take(7).map(day::rate))
         assertEquals("DiDi", appName(day.row("12:25").platform)); assertEquals("12:25 · Se fue sin tomar", day.detail(day.row("12:25")))
         val calculation = day.calculation
-        assertEquals("Cómo se calculó · lun 19 oct", calculation.title)
+        assertEquals("Cómo se calculó · lunes 19 oct", calculation.title)
         assertEquals(listOf("$1,590", "−$350", "$1,240"), calculation.rows.map { it.value })
         assertEquals("Ganaste", calculation.rows.last().label)
     }
@@ -117,9 +128,9 @@ class DayPresentationTest {
         val late = fixture.dayPresentation("L6")
         assertEquals("$2.20 por km neto · abajo de tu mínimo de $6.00", late.offer(late.at("12:10"))!!.why)
         assertEquals("$7.16 por km neto · entre tu mínimo de $6.00 y tu meta de $8.00", late.offer(late.at("14:50"))!!.why)
-        // The sheet keeps the row's own judgement when the driver later shows bruto.
+        // The sheet keeps the row's own judgement when the driver later shows bruto, and says it was then (B8).
         val gross = DayPresentation(day.snapshot, day.settings.copy(rateBasis = RateBasis.GROSS))
-        assertEquals(offer.why, gross.offer(day.at("14:32"))!!.why)
+        assertEquals(offer.why + " a esa hora", gross.offer(day.at("14:32"))!!.why)
     }
 
     @Test fun `a row judged in bruto or per hour explains itself in that basis and unit`() {

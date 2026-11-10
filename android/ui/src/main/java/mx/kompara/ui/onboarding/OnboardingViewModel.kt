@@ -15,7 +15,11 @@ import mx.kompara.data.service.*
 import mx.kompara.data.settings.SettingsRepository
 import javax.inject.Inject
 
-enum class OnboardingPage { PITCH, DISCLOSURE, ACCESSIBILITY, BATTERY, CAPTURE, DONE }
+enum class OnboardingPage {
+    PITCH, DISCLOSURE, ACCESSIBILITY, BATTERY, CAPTURE, DONE,
+    /** 0.2.20's sign-in page, retired: kept only so a saved state naming it still deserializes. It restores as [PITCH]. */
+    SIGNIN,
+}
 enum class OnboardingEntry { FIRST_RUN, RECOVERY, BATTERY }
 
 data class PermissionReturnState(val ready: Boolean = false, val missing: Boolean = false) {
@@ -31,6 +35,11 @@ class OnboardingViewModel @Inject constructor(
     private val saved: SavedStateHandle,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
+    init {
+        // A saved page this build does not show (0.2.20's SIGNIN, or a value of another type) restores as the first page.
+        if (saved.contains("page") && saved.get<Any?>("page").let { it !is OnboardingPage || it == OnboardingPage.SIGNIN })
+            saved["page"] = OnboardingPage.PITCH
+    }
     val page = saved.getStateFlow("page", OnboardingPage.PITCH)
     // PermissionReturnState is reconstructed from primitive saved values below, never parcelled.
     private val _return = MutableStateFlow(PermissionReturnState(missing = saved["missing"] ?: false))

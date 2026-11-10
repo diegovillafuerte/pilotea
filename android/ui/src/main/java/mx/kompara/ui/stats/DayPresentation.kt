@@ -52,16 +52,22 @@ data class DayPresentation(val snapshot: DayMoneySnapshot, val settings: Setting
     }
     val section = if (isToday) "Ofertas de hoy" else "Ofertas del día"
     val column = unitWords(settings.preferredMetric, settings.rateBasis)
-    val calculation get() = periodCalculation(money, if (isToday) "hoy" else Formatters.formatDayLabel(date.toString()), label)
+    /** "Cómo se calculó · hoy", or the day's own title in lower case: "· lunes 19 oct". */
+    val calculation get() = periodCalculation(money, if (isToday) "hoy" else title.replaceFirstChar { it.lowercase(spanish) }, label)
 
     fun clock(row: OfferRowModel) = Formatters.formatClock(row.seenAt, money.window.zone)
     fun detail(row: OfferRowModel) = "${clock(row)} · ${row.outcomeLabel}"
     /** Offers that did not become a counted trip are dimmed. */
     fun dim(row: OfferRowModel) = !row.counts
     private fun raw(row: OfferRowModel) = snapshot.offers.first { it.id == row.offerId }
-    /** The row's rate in the driver's current unit and basis; none for an unread offer. */
-    fun rate(row: OfferRowModel): String? =
-        row.rate(raw(row), settings.preferredMetric, settings.rateBasis)?.let { formatRate(it, settings.preferredMetric) }
+    /**
+     * A row is the record of what the semáforo said: its rate in the unit and basis it was judged in,
+     * beside its frozen mark. The unit is in the suffix ("/h"); a basis other than the current one
+     * follows the rate ("$12.33/km bruto"). None for an unread offer.
+     */
+    fun rate(row: OfferRowModel): String? = row.rate(raw(row), row.judgedMetric, row.judgedBasis)?.let {
+        formatRate(it, row.judgedMetric) + if (row.judgedBasis != settings.rateBasis) " ${basisWord(row.judgedBasis)}" else ""
+    }
     private fun suppressed(row: OfferRowModel): OfferPresentationEntity? {
         val session = raw(row).sessionId ?: return null
         return snapshot.presentations.firstOrNull { it.sessionId == session && it.outcome == "SUPPRESSED" }
@@ -72,14 +78,14 @@ data class DayPresentation(val snapshot: DayMoneySnapshot, val settings: Setting
         val row = rows.firstOrNull { it.offerId == id } ?: return null
         val raw = raw(row)
         val evaluation = row.evaluation
-        val metric = if (evaluation?.unit == PreferredMetric.IPH.name) PreferredMetric.IPH else PreferredMetric.IPK
-        val basis = RateBasis.fromName(evaluation?.rateBasis)
+        val metric = row.judgedMetric
+        val basis = row.judgedBasis
         val legacy = raw.inputProvenance == "LEGACY_UNSPECIFIED"
         val cost = snapshot.runningCosts.firstOrNull { it.id == evaluation?.costVersionId }
         val rate = row.rate(raw, metric, basis)?.let {
             (if (metric == PreferredMetric.IPH) Formatters.formatMxnWhole(it) + " por hora" else Formatters.formatMxn(it) + " por km") + " " + basisWord(basis)
         }
-        val suffix = row.historicalLimitSuffix(settings.effectiveThreshold)
+        val suffix = row.historicalLimitSuffix(settings.effectiveThreshold, settings.preferredMetric, settings.rateBasis)
         val why = if (rate != null && suffix != null && evaluation != null) {
             fun limit(value: String) = value.toBigDecimal().let { if (metric == PreferredMetric.IPH && it.stripTrailingZeros().scale() <= 0) Formatters.formatMxnWhole(it) else Formatters.formatMxn(it) }
             val phrase = when (row.mark) {
@@ -129,6 +135,9 @@ internal val OfferRowModel.mark get() = when (verdict) {
     VerdictLevel.RED -> OfferMarkState.BELOW
     else -> OfferMarkState.UNKNOWN
 }
+/** The unit and basis the row was judged in (old rows: per km, NET). */
+internal val OfferRowModel.judgedMetric get() = if (evaluation?.unit == PreferredMetric.IPH.name) PreferredMetric.IPH else PreferredMetric.IPK
+internal val OfferRowModel.judgedBasis get() = RateBasis.fromName(evaluation?.rateBasis)
 internal val OfferRowModel.meaning get() = when {
     evaluation?.unavailableReason == "FARE" -> "No pudimos leer la tarifa"
     mark == OfferMarkState.ABOVE -> "Arriba de tu meta"

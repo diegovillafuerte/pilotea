@@ -56,7 +56,7 @@ data class WeekPresentation(val snapshot: WeekMoneySnapshot) {
     val amount: String? get() = money.tripContribution?.let(Formatters::formatMxnWhole)
     val calculable get() = money.trips > 0
     val quietLine get() = when {
-        money.trips == 0 -> "Todavía no hay viajes esta semana"
+        money.trips == 0 -> if (open) "Todavía no hay viajes esta semana" else "No tuviste viajes esa semana."
         amount == null -> "${tripsLabel(money.trips)}\nFaltan datos para calcular lo que ${if (open) "llevas" else "ganaste"}"
         else -> "${tripsLabel(money.trips)} · ya restamos ${if (money.electric()) "energía" else "gasolina"} y desgaste"
     }
@@ -74,6 +74,7 @@ data class WeekPresentation(val snapshot: WeekMoneySnapshot) {
     val car: WeekCar? get() {
         val car = snapshot.car
         val bill = car.bill ?: return null
+        if (amount == null) return null // no week figure, no car bar: it would count an uncalculated day as $0
         val covered = car.coveredOn
         fun share(part: BigDecimal, whole: BigDecimal) =
             if (whole.signum() <= 0) 0f else part.divide(whole, 6, RoundingMode.HALF_UP).toFloat().coerceIn(0f, 1f)

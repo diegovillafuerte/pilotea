@@ -53,7 +53,9 @@ class LimitsScreenTest {
                 compose.runOnIdle { opener = i }
                 val expected = when (i) {
                     2 -> ThresholdEditor.summary(newDraft)
-                    else -> "$9.81 por km neto · arriba de tu meta de $8.00" + if (newDraft.km.goal != saved.km.goal) " a esa hora" else ""
+                    // B8: a goal edited, or a unit other than the one the row was judged in
+                    else -> "$9.81 por km neto · arriba de tu meta de $8.00" +
+                        if (newDraft.km.goal != saved.km.goal || newDraft.metric != PreferredMetric.IPK) " a esa hora" else ""
                 }
                 compose.onNode(SemanticsMatcher("opener $i: $expected") { node ->
                     node.config.getOrNull(androidx.compose.ui.semantics.SemanticsProperties.Text).orEmpty().any {

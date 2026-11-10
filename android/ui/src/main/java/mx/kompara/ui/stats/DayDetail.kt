@@ -10,6 +10,7 @@ import mx.kompara.data.db.entity.OfferEvaluation
 import mx.kompara.data.db.entity.hasItemConfirmation
 import mx.kompara.data.settings.PlatformThreshold
 import mx.kompara.data.settings.PreferredMetric
+import mx.kompara.data.settings.RateBasis
 
 /**
  * Everything the day-detail screen renders for one local day (B-040 req 2): the per-shift timeline,
@@ -74,20 +75,19 @@ data class OfferRowModel(
         else -> null
     }
 
-    /** Only the limit named by the frozen judgement controls “a esa hora”. */
-    fun historicalLimitSuffix(current: PlatformThreshold): String? {
+    /**
+     * “A esa hora” when a limit the sentence names (green: the goal; yellow: both; red: the minimum),
+     * the unit or the basis it was judged in is not the driver's current one.
+     */
+    fun historicalLimitSuffix(current: PlatformThreshold, unit: PreferredMetric, basis: RateBasis): String? {
         val snapshot = evaluation ?: return null
         val km = snapshot.unit == PreferredMetric.IPK.name
-        val goal = verdict == VerdictLevel.GREEN
         if (verdict == null || verdict == VerdictLevel.UNKNOWN) return null
-        val previous = (if (goal) snapshot.goal else snapshot.minimum).toBigDecimal()
-        val now = when {
-            goal && km -> current.minPerKmMxn
-            goal -> current.minPerHourMxn
-            km -> current.redPerKmMxn
-            else -> current.redPerHourMxn
-        }.toBigDecimal()
-        return if (previous.compareTo(now) == 0) "" else " a esa hora"
+        fun same(saved: String, now: Double) = saved.toBigDecimal().compareTo(now.toBigDecimal()) == 0
+        val goal = same(snapshot.goal, if (km) current.minPerKmMxn else current.minPerHourMxn)
+        val minimum = same(snapshot.minimum, if (km) current.redPerKmMxn else current.redPerHourMxn)
+        val named = when (verdict) { VerdictLevel.GREEN -> goal; VerdictLevel.RED -> minimum; else -> goal && minimum }
+        return if (named && snapshot.unit == unit.name && RateBasis.fromName(snapshot.rateBasis) == basis) "" else " a esa hora"
     }
 }
 

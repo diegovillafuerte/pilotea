@@ -13,7 +13,10 @@ import java.time.ZoneId
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** The IMSS tab's month (M1): the ledger's taken trips by app plus the typed incentives, one transaction. */
+/**
+ * The IMSS tab's month (M1): the ledger's taken trips by app plus the typed incentives, and which apps
+ * drove the month before, one transaction.
+ */
 @Singleton
 class ImssMonthRepository @Inject constructor(
     private val database: KomparaDatabase,
@@ -26,7 +29,10 @@ class ImssMonthRepository @Inject constructor(
     suspend fun snapshot(month: YearMonth, asOf: Instant, zone: ZoneId): ImssMonth = database.withTransaction {
         val money = periods.daySnapshot(PeriodWindow(month.atDay(1), month.atEndOfMonth(), asOf, zone)).money
         val trips = money.byApp.filterValues { it.trips > 0 }.mapValues { it.value.payment ?: BigDecimal.ZERO }
+        val before = month.minusMonths(1)
+        val lastMonth = periods.daySnapshot(PeriodWindow(before.atDay(1), before.atEndOfMonth(), asOf, zone)).money
+            .byApp.filterValues { it.trips > 0 }.keys
         val incentives = database.monthlyIncentiveDao().forMonth(month.toString()).associate { it.platform to it.amountMxn }
-        ImssMonth.of(month, asOf.atZone(zone).toLocalDate(), trips, incentives)
+        ImssMonth.of(month, asOf.atZone(zone).toLocalDate(), trips, incentives, lastMonth = lastMonth)
     }
 }

@@ -15,8 +15,9 @@ import java.time.YearMonth
 data class ImssBlock(val platform: String, val name: String, val amount: String, val fraction: Float, val parts: String, val said: Emphasis?)
 
 /**
- * The IMSS tab (M1/M2, plan 4.7). A pace and its shortfall are shown to the hundred; a closed month's
- * shortfall to the peso, from the printed amount. No line certifies coverage: only the app and the IMSS can.
+ * The IMSS tab (M1/M2, plan 4.7). A pace and its shortfall are shown to the hundred: a pace that
+ * reaches rounds up, a shortfall rounds up (never $0); a closed month's shortfall to the peso, from the
+ * printed amount. No line certifies coverage: only the app and the IMSS can.
  */
 data class ImssPresentation(
     val title: String,
@@ -24,7 +25,7 @@ data class ImssPresentation(
     val need: String,
     val rule: Emphasis,
     val blocks: List<ImssBlock>,
-    /** "Aún no hay viajes en octubre." when the month has no taken trips. */
+    /** "Aún no hay viajes en octubre." / "No hubo viajes en septiembre." when the month has no block. */
     val empty: String?,
     val combined: Emphasis?,
     /** "Ver mi vigencia en el IMSS" shows once an app is over the amount. */
@@ -34,10 +35,16 @@ data class ImssPresentation(
         fun of(month: ImssMonth): ImssPresentation {
             val need = Formatters.formatMxnWhole(month.need)
             val blocks = month.apps.map { app -> block(app, need, month.need) }
-            val combined = if (!month.combinedReaches) null else
-                Emphasis("Entre las ${count(month.apps.size)} llevas ", Formatters.formatMxnWhole(month.combined), ". En una sola app ya lo habrías alcanzado.")
-            return ImssPresentation(title(month.month, month.today), need, rule(month.need), blocks,
-                if (month.hasTrips) null else "Aún no hay viajes en ${monthName(month.month)}.", combined,
+            // The sum of the amounts printed above it, so it never reads a peso off them.
+            val printed = month.apps.fold(BigDecimal.ZERO) { sum, app -> sum.add(app.counted.setScale(0, RoundingMode.HALF_UP)) }
+            val combined = if (!month.combinedReaches) null else Emphasis("Entre las ${count(month.apps.size)} ${if (month.current) "llevas" else "juntaste"} ",
+                Formatters.formatMxnWhole(printed), ". En una sola app ya lo habrías alcanzado.")
+            val empty = when {
+                month.apps.isNotEmpty() -> null
+                month.current -> "Aún no hay viajes en ${monthName(month.month)}."
+                else -> "No hubo viajes en ${monthName(month.month)}."
+            }
+            return ImssPresentation(title(month.month, month.today), need, rule(month.need), blocks, empty, combined,
                 month.apps.any { it.state == ImssState.OVER })
         }
 
@@ -63,8 +70,10 @@ data class ImssPresentation(
                     // "lo que escribiste" are the typed incentives; without them only the trips were read.
                     if (app.incentives != null) ", según lo que leímos y lo que escribiste. Confírmalo en el IMSS."
                     else ", según lo que leímos. Confírmalo en el IMSS.")
-                ImssState.WILL_REACH -> Emphasis("A este ritmo cierras en unos ${hundreds(app.pace!!)}. ", "Lo alcanzas.")
-                ImssState.WILL_FALL_SHORT -> Emphasis("A este ritmo cierras en unos ${hundreds(app.pace!!)}. ", "Te faltarían ${hundreds(app.shortBy!!)}.")
+                ImssState.WILL_REACH -> Emphasis("A este ritmo cierras en unos ${hundreds(app.pace!!, RoundingMode.CEILING)}. ", "Lo alcanzas.")
+                // Short of the amount the pace keeps the nearest hundred, as M1 draws it (12,958 → "unos $13,000").
+                ImssState.WILL_FALL_SHORT -> Emphasis("A este ritmo cierras en unos ${hundreds(app.pace!!, RoundingMode.HALF_UP)}. ",
+                    "Te faltarían ${hundreds(app.shortBy!!, RoundingMode.CEILING)}.")
                 ImssState.FELL_SHORT -> Emphasis("", "Te faltaron ${Formatters.formatMxnWhole(need.subtract(app.counted.setScale(0, RoundingMode.HALF_UP)))}.")
                 ImssState.NO_PACE_YET -> null
             }
@@ -72,8 +81,8 @@ data class ImssPresentation(
             return ImssBlock(app.platform, name, Formatters.formatMxnWhole(app.counted), fraction, parts, said)
         }
 
-        private fun hundreds(value: BigDecimal): String =
-            Formatters.formatMxnWhole(value.divide(BigDecimal(100), MONEY_CONTEXT).setScale(0, RoundingMode.HALF_UP).multiply(BigDecimal(100)))
+        private fun hundreds(value: BigDecimal, rounding: RoundingMode): String =
+            Formatters.formatMxnWhole(value.divide(BigDecimal(100), MONEY_CONTEXT).setScale(0, rounding).multiply(BigDecimal(100)))
 
         private fun count(apps: Int) = when (apps) { 2 -> "dos"; 3 -> "tres"; else -> "$apps" }
     }

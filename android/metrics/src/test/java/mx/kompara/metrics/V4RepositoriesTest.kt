@@ -113,6 +113,15 @@ class V4RepositoriesTest {
         assertEquals(true, month.combinedReaches)
     }
 
+    @Test fun `an app with trips in the month before has an IMSS block this month`() = runBlocking {
+        taken("UBER", "2026-10-02T09:00", 1_000.0, 50.0)
+        taken("DIDI", "2026-09-12T09:00", 800.0, 40.0) // September only
+        taken("INDRIVE", "2026-08-20T09:00", 500.0, 20.0) // two months back: no block
+        val month = ImssMonthRepository(db, periods).observe(YearMonth.of(2026, 10), asOf, zone).first()
+        assertEquals(listOf("UBER", "DIDI"), month.apps.map { it.platform })
+        assertEquals(0, BigDecimal.ZERO.compareTo(month.apps[1].counted)); assertEquals(ImssState.NO_PACE_YET, month.apps[1].state)
+    }
+
     @Test fun `the slices read the 28 days before today`() = runBlocking {
         taken("UBER", "2026-10-02T09:00", 100.0, 10.0)
         taken("UBER", "2026-10-03T19:00", 300.0, 20.0)

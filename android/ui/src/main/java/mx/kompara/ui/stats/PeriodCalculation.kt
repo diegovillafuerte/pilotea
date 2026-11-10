@@ -37,7 +37,8 @@ fun periodCalculation(money: PeriodMoney, period: String, total: String): Period
         .subtract(expense.setScale(0, RoundingMode.HALF_UP)).compareTo(result.setScale(0, RoundingMode.HALF_UP)) != 0
     return PeriodCalculation("Cómo se calculó · $period", rows, listOfNotNull(
         "El total se calcula antes de redondear cada cifra.".takeIf { rounded },
-        "No conservamos tus costos de ese día".takeIf { money.unknownHistoricalCost },
+        "No conservamos tus costos de ${if (money.window.start == money.window.endInclusive) "ese día" else "esos días"}"
+            .takeIf { money.unknownHistoricalCost },
         ESTIMATE_NOTE,
     ))
 }

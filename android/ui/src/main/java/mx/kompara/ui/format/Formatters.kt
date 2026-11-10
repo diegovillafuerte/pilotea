@@ -132,6 +132,16 @@ object Formatters {
     }
 
     /** The kit's 24-hour clock, without a leading hour zero, in the evidence's time zone. */
+    /** The semáforo's "desde …" line, one format on every screen: "desde 13:02", "desde ayer 20:31", "desde el sáb 17 oct, 20:31". */
+    fun formatSince(epochMs: Long, today: LocalDate, zone: java.time.ZoneId): String {
+        val clock = formatClock(epochMs, zone)
+        return "desde " + when (val date = java.time.Instant.ofEpochMilli(epochMs).atZone(zone).toLocalDate()) {
+            today -> clock
+            today.minusDays(1) -> "ayer $clock"
+            else -> "el ${date.format(DAY_LABEL)}, $clock"
+        }
+    }
+
     fun formatClock(epochMs: Long, zone: java.time.ZoneId = java.time.ZoneId.systemDefault()): String =
         java.time.Instant.ofEpochMilli(epochMs)
             .atZone(zone)

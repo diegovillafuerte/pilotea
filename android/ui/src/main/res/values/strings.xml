@@ -21,7 +21,7 @@
     <string name="watchdog_channel_desc">Avisos cuando se apaga el semáforo.</string>
     <string name="share_card_whatsapp_cta">Compartir en WhatsApp</string>
     <string name="share_channel_name">Resúmenes</string>
-    <string name="share_channel_desc">Tus resúmenes de día, semana y mes. Sin montos.</string>
+    <string name="share_channel_desc">Tu resumen de la semana. Sin montos.</string>
     <string name="share_week_close_notif_title">Tu semana está lista</string>
     <string name="v3_earnings">Ganancias</string>
     <string name="v3_compare">Comparar</string>

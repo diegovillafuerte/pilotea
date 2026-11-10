@@ -79,6 +79,24 @@ class WeekPresentationTest {
         assertEquals("$0 de $1,500", state.car!!.amount); assertEquals("$1,500", state.car!!.rest)
         val unknown = week.copy(snapshot = week.snapshot.copy(money = week.money.copy(tripContribution = null)))
         assertNull(unknown.amount); assertEquals("6 viajes\nFaltan datos para calcular lo que llevas", unknown.quietLine)
+        // B7: no week figure, no car bar (it would count the day it cannot calculate as $0)
+        assertNull(unknown.car)
+    }
+
+    @Test fun `a week without its costs says de esos días`() {
+        fun PeriodMoney.lost() = copy(contributions = contributions.mapIndexed { i, it -> if (i == 0) it.copy(runningCostVersion = null) else it })
+        val week = fixture.week("L4").money.lost()
+        assertTrue(periodCalculation(week, "semana", "Ganaste").notes.contains("No conservamos tus costos de esos días"))
+        val day = fixture.dayPresentation("L6").money.lost()
+        assertTrue(periodCalculation(day, "lunes 19 oct", "Ganaste").notes.contains("No conservamos tus costos de ese día"))
+    }
+
+    @Test fun `a closed week without trips says it had none`() {
+        val week = fixture.week("L4")
+        val empty = PeriodAccounting.calculate(week.money.window, emptyList(), fixture.fixture.schedule)
+        val state = WeekPresentation(week.snapshot.copy(money = empty, days = List(7) { null }, car = CarWeek(null, List(7) { null })))
+        assertFalse(state.open); assertEquals("Ganaste", state.label)
+        assertEquals("No tuviste viajes esa semana.", state.quietLine)
     }
 
     @Test fun `statement difference is same app same week payment before costs only`() {

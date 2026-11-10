@@ -82,6 +82,12 @@ class CompararScreenTest {
         compose.onNodeWithText("¿Uber o DiDi?").assertExists()
     }
 
+    @Test fun `first days never claim the semaforo is on`() {
+        compose.setContent { KomparaTheme { Host(compareFixtureState(fixture, "K2")) } }
+        compose.onNodeWithText("Mientras tanto, el semáforo compara cada oferta con tu meta.").assertExists()
+        compose.onNodeWithText("ya compara", substring = true).assertDoesNotExist()
+    }
+
     @Test fun `an unknown city says de tu ciudad and nothing on Tu ciudad sends data`() {
         compose.setContent { KomparaTheme { Host(CompararUiState(CompararTab.CIUDAD)) } }
         compose.onNodeWithText("Cuando haya suficientes conductores de tu ciudad", substring = true).assertExists()

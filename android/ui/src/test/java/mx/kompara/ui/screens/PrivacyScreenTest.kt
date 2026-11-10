@@ -125,8 +125,26 @@ class PrivacyScreenTest {
         compose.onNodeWithText("Eliminar cuenta").assertDoesNotExist(); compose.onNodeWithText("Guardar").assertDoesNotExist()
         compose.onNodeWithText("Para cambiarlo, escríbenos").assertDoesNotExist()
         compose.onNodeWithText("Tu ciudad").performClick(); assertEquals("city", sheet)
-        assertEquals("Te comparamos con Monterrey desde esta semana. Tu meta sigue en $8.00/km; allá se sugiere $7.70/km.",
-            cityConfirmation(AccountUiState(suggestedGoal = "$7.70/km"), City.MONTERREY))
+        assertEquals("Tu ciudad cambia a Monterrey. Tu meta y tu mínimo siguen en $8.00 · $6.00 por km, neto.",
+            cityConfirmation(AccountUiState(), City.MONTERREY))
+    }
+    @Test fun `Tu cuenta opens a screen titled Tu cuenta`() {
+        compose.setContent { KomparaTheme { AccountContent(AccountUiState(loaded = true, phone = "+525512345678")) } }
+        compose.onNodeWithText("Tu cuenta").assertExists()
+        compose.onNodeWithText("Tu perfil").assertDoesNotExist()
+    }
+    @Test fun `what leaves the phone says only what can happen at launch`() {
+        compose.setContent { KomparaTheme { TusDatosContent(TusDatosState(loaded = true, signedIn = true)) } }
+        compose.onNodeWithText("Qué sale del teléfono").performClick()
+        compose.onNodeWithText("Un reporte se comparte solo cuando lo confirmas.").assertExists()
+        compose.onNodeWithText("resumen", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("Google Play", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("Uber y DiDi no son parte de Kompara", substring = true).assertExists()
+    }
+    @Test fun `erasing the phone's data says it erases the typed incentives too`() {
+        compose.setContent { KomparaTheme { TusDatosContent(TusDatosState(loaded = true, signedIn = true)) } }
+        compose.onNodeWithText("Borrar datos del teléfono").performClick()
+        compose.onNodeWithText("los incentivos que escribiste", substring = true).assertExists()
     }
     @Test fun `unconfigured support is hidden and cannot open arbitrary WhatsApp contacts`() {
         var clicked = false

@@ -123,7 +123,25 @@ class TuPresentationTest {
         assertEquals("Aún no podemos comparar tus horas.", p.hours.finding)
         assertEquals("\$7.16", p.hours.bars.last().value)
         val even = mapOf(DayOfWeek.MONDAY to group(20, 2000.0, 200.0), DayOfWeek.FRIDAY to group(20, 2000.0, 200.0))
-        assertEquals("Todos tus días te dejan lo mismo.", ready(slices(twoApps, even)).days.finding)
+        // two days drawn: name them; "todos tus días" only from three
+        assertEquals("El lunes y el viernes te dejan lo mismo.", ready(slices(twoApps, even)).days.finding)
+        val three = even + (DayOfWeek.SATURDAY to group(20, 2000.0, 200.0))
+        assertEquals("Todos tus días te dejan lo mismo.", ready(slices(twoApps, three)).days.finding)
+    }
+
+    @Test fun `the two best hour blocks at the same figure are both named`() {
+        val hours = mapOf(HourBlock.H6_10 to group(20, 1800.0, 200.0), HourBlock.H14_18 to group(20, 2400.0, 200.0),
+            HourBlock.H18_22 to group(20, 2400.0, 200.0))
+        assertEquals("De 14 a 18 h y de 18 a 22 h es cuando más te deja.", ready(slices(twoApps, hours = hours)).hours.finding)
+    }
+
+    @Test fun `per hour the days sentence says por hora as the apps sentence does`() {
+        val days = mapOf(DayOfWeek.FRIDAY to group(20, 2000.0, 200.0, 300.0), DayOfWeek.SATURDAY to group(20, 2400.0, 200.0, 300.0))
+        val hour = ready(slices(twoApps, days), unit = IPH)
+        assertEquals("DiDi te deja \$80 más por hora.", hour.apps.finding)
+        assertEquals("El sábado te deja \$80 más por hora que el viernes.", hour.days.finding)
+        val even = mapOf(DayOfWeek.MONDAY to group(20, 2000.0, 200.0, 300.0), DayOfWeek.FRIDAY to group(20, 2000.0, 200.0, 300.0))
+        assertEquals("El lunes y el viernes te dejan lo mismo por hora.", ready(slices(twoApps, even), unit = IPH).days.finding)
     }
 
     @Test fun `the night block reads de 22 a 6 h`() {

@@ -64,6 +64,22 @@ class OnboardingReturnTest {
     }
     @After fun cleanup() { models.forEach { it.viewModelScope.cancel() }; Dispatchers.resetMain() }
 
+    @Test fun `a saved page this build no longer shows restores as the first page`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        // The bytes 0.2.20 parcelled for its sign-in page: the enum OnboardingPage, constant SIGNIN, by name.
+        val bytes = java.io.ByteArrayOutputStream().also { java.io.ObjectOutputStream(it).use { out -> out.writeObject(OnboardingPage.DONE) } }.toByteArray()
+        val done = byteArrayOf(0x74, 0, 4) + "DONE".toByteArray()
+        val at = (0..bytes.size - done.size).first { i -> done.indices.all { bytes[i + it] == done[it] } }
+        val signIn = bytes.copyOfRange(0, at) + byteArrayOf(0x74, 0, 6) + "SIGNIN".toByteArray() + bytes.copyOfRange(at + done.size, bytes.size)
+        val restored = java.io.ObjectInputStream(signIn.inputStream()).use { it.readObject() }
+        for (page in listOf(restored, "SIGNIN", 3)) {
+            val vm = vm(SavedStateHandle(mapOf("entry" to OnboardingEntry.FIRST_RUN, "page" to page)))
+            vm.start(OnboardingEntry.FIRST_RUN); vm.onResume(); runCurrent()
+            assertEquals(OnboardingPage.PITCH, vm.page.value)
+            vm.begin(); runCurrent()
+            assertEquals(OnboardingPage.DISCLOSURE, vm.page.value)
+        }
+    }
     @Test fun `short run has no account cost profile limited or done detour`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val vm = vm(); vm.start(OnboardingEntry.FIRST_RUN); vm.onResume(); runCurrent()

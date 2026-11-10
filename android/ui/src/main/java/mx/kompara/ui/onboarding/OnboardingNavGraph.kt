@@ -38,7 +38,7 @@ fun OnboardingNavGraph(onComplete: () -> Unit, modifier: Modifier = Modifier,
     BackHandler(page != OnboardingPage.PITCH) { viewModel.back() }
     if (!loaded) return
     when (page) {
-        OnboardingPage.PITCH -> PitchScreen(viewModel::begin, modifier)
+        OnboardingPage.PITCH, OnboardingPage.SIGNIN -> PitchScreen(viewModel::begin, modifier)
         OnboardingPage.DISCLOSURE -> DisclosureScreen({ viewModel.consent(true) }, { viewModel.consent(false) }, modifier, viewModel::back, error)
         OnboardingPage.ACCESSIBILITY -> AccessibilityGrantScreen(permission, viewModel::openSettings, viewModel::finish, modifier, viewModel::back, error)
         OnboardingPage.BATTERY -> OemSurvivalScreen(readiness.permission == true, viewModel::openSettings, viewModel::finish,

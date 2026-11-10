@@ -67,16 +67,23 @@ sealed interface TuPresentation {
             val days = DayOfWeek.entries.map { slices.byWeekday[it] }
             val dayChart = chart.rank(dayLetters, days, labelAll = false, labelLow = true)
             val dayGap = dayChart.gap
+            // Per hour the days sentence says its unit, as the apps sentence does; K1 draws the per-km one without it.
+            val dayPer = if (perKm) "" else " $per"
             val dayFinding = when {
                 dayGap == null -> "Aún no podemos comparar tus días."
-                dayGap.signum() == 0 -> "Todos tus días $leavesMany lo mismo."
-                else -> "El ${dayNames[dayChart.best!!]} $leaves ${chart.show(dayGap)} más que el ${dayNames[dayChart.worst!!]}."
+                dayGap.signum() == 0 && dayChart.drawn >= 3 -> "Todos tus días $leavesMany lo mismo$dayPer."
+                dayGap.signum() == 0 -> "${together(dayChart.drawnIndices.map { "el ${dayNames[it]}" }).replaceFirstChar { it.uppercase() }} " +
+                    "$leavesMany lo mismo$dayPer."
+                else -> "El ${dayNames[dayChart.best!!]} $leaves ${chart.show(dayGap)} más$dayPer que el ${dayNames[dayChart.worst!!]}."
             }
 
             val blocks = HourBlock.entries
             val hourChart = chart.rank(blocks.map { "${it.fromHour}–${it.untilHour}" }, blocks.map { slices.byHourBlock[it] }, labelAll = false, labelLow = false)
+            // Blocks that print the best figure are all named, in the order of the day.
+            val bestHours = hourChart.drawnIndices.filter { hourChart.printed[it]!!.compareTo(hourChart.printed[hourChart.best!!]) == 0 }
             val hourFinding = if (hourChart.drawn < 2) "Aún no podemos comparar tus horas."
-                else "${blockName(blocks[hourChart.best!!])} es cuando más $leaves."
+                else "${together(bestHours.mapIndexed { i, b -> blockName(blocks[b]).let { if (i == 0) it else it.replaceFirstChar(Char::lowercase) } })} " +
+                    "es cuando más $leaves."
 
             return Ready("Tus viajes · últimas 4 semanas · $per, ${if (gross) "bruto" else "neto"}",
                 // Read aloud in the order drawn, best first; every drawn app prints its rate.
@@ -87,7 +94,7 @@ sealed interface TuPresentation {
 
         private fun blockName(block: HourBlock) = "De ${block.fromHour} a ${block.untilHour} h"
 
-        private fun together(names: List<String>) = names.dropLast(1).joinToString(", ") + " y " + names.last()
+        private fun together(names: List<String>) = if (names.size == 1) names.single() else names.dropLast(1).joinToString(", ") + " y " + names.last()
     }
 }
 
@@ -100,6 +107,7 @@ private class TuChart(private val unit: PreferredMetric, private val basis: Rate
     /** [worst] is null when every drawn group prints the same figure. */
     class Ranked(val labels: List<String>, val bars: List<TuBar>, val printed: List<BigDecimal?>, val best: Int?, val worst: Int?) {
         val drawn: Int get() = printed.count { it != null }
+        val drawnIndices: List<Int> get() = printed.indices.filter { printed[it] != null }
         val drawnLabels: List<String> get() = labels.filterIndexed { i, _ -> printed[i] != null }
         val bestLabel: String get() = labels[best!!]
         /** Best minus worst printed figure; null under two drawn groups. */

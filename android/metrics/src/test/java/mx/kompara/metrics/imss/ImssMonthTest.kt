@@ -74,6 +74,20 @@ class ImssMonthTest {
         assertEquals(ImssState.OVER, over.state) // exactly the need counts
     }
 
+    @Test fun `an app with trips the month before gets a block with no pace`() {
+        // DiDi read trips in September but none in October: its block is there so October's bonus can be typed.
+        val m = ImssMonth.of(october, day19, mapOf("UBER" to pesos(12_487)), emptyMap(), lastMonth = setOf("DIDI", "UBER"))
+        assertEquals(listOf("UBER", "DIDI"), m.apps.map { it.platform })
+        val didi = m.apps[1]
+        assertEquals(BigDecimal.ZERO, didi.trips); assertEquals(BigDecimal.ZERO, didi.counted); assertNull(didi.incentives)
+        assertNull(didi.pace); assertEquals(ImssState.NO_PACE_YET, didi.state); assertNull(didi.shortBy)
+        // incentives typed with no trips in the month: still no pace to project
+        val typed = ImssMonth.of(october, day19, emptyMap(), mapOf("DIDI" to 500)).apps.single()
+        assertNull(typed.pace); assertEquals(ImssState.NO_PACE_YET, typed.state)
+        // a closed month keeps its closing line
+        assertEquals(ImssState.FELL_SHORT, ImssMonth.of(YearMonth.of(2026, 9), day19, emptyMap(), emptyMap(), lastMonth = setOf("DIDI")).apps.single().state)
+    }
+
     @Test fun `the last day, incentives without trips, and an empty month`() {
         val last = ImssMonth.of(october, LocalDate.of(2026, 10, 31), mapOf("UBER" to pesos(1_000)), emptyMap())
         assertTrue(last.current) // the screen says "último día" (ImssPresentation.title)

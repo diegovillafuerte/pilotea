@@ -38,7 +38,7 @@ class GananciasStatsTest {
         assertEquals("falta el permiso", with(ReaderPhase.OFF, permission = false).status!!.detail)
         assertNull(with(ReaderPhase.OFF).status!!.detail)
         val older = ReaderIncident(ReaderIncidentCause.SERVICE_DISCONNECTED, f.at(f.date.minusDays(3), "9:15").toEpochMilli())
-        assertEquals("desde vie 16 oct 9:15", with(ReaderPhase.OFF, incident = older).status!!.detail)
+        assertEquals("desde el vie 16 oct, 9:15", with(ReaderPhase.OFF, incident = older).status!!.detail)
         assertEquals("desde 13:02", with(ReaderPhase.OFF, incident = older.copy(firstSeenAt = f.at(f.date, "13:02").toEpochMilli())).status!!.detail)
         // Until the reader reports its permission, Hoy waits.
         assertEquals(GananciasUiState(), with(ReaderPhase.PREPARED, permission = null))
@@ -54,7 +54,9 @@ class GananciasStatsTest {
         assertEquals("Que no se vuelva a apagar", GananciasStats.SECONDARY)
         val f = fixture
         val first = GananciasStats.of(f.today("L2"), f.readiness("L3").copy(apps = f.readiness("L2").apps), Settings.DEFAULT)
-        assertEquals(ReaderOff("Activa el semáforo", "Sin el permiso de Accesibilidad, Kompara no ve tus ofertas.", "Activar el semáforo", OffAction.RECOVERY), first.off)
+        assertEquals(ReaderOff("Activa el semáforo", "Sin el permiso de Accesibilidad, Kompara no ve tus ofertas.", "Activar el semáforo", OffAction.RECOVERY,
+            secondary = false), first.off)
+        assertFalse("It was never on, so nothing can keep it from turning off again", first.off!!.secondary)
         val stopped = GananciasStats.of(f.today("L1"), f.readiness("L1").copy(phase = ReaderPhase.OFF,
             incident = ReaderIncident(ReaderIncidentCause.CAPTURE_STOPPED, f.at(f.date, "13:02").toEpochMilli())), Settings.DEFAULT)
         assertEquals(ReaderOff("Dejamos de leer tus ofertas", "Revisa el estado del semáforo para volver a leer tus ofertas.", "Revisar el semáforo", OffAction.SEMAFORO), stopped.off)

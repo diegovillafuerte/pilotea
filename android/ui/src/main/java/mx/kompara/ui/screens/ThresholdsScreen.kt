@@ -88,9 +88,7 @@ fun ThresholdsContent(state: ThresholdsUiState, edit: (LimitField, String) -> Un
         PrimaryButton("Guardar", save, Modifier.testTag("limits-save"), enabled = state.canSave)
         if (!ime) {
             val initial = state.initial?.copy(metric = state.draft?.metric ?: PreferredMetric.IPK)
-            val label = if (state.staged) "Cancelar" else initial?.let {
-                "Volver a ${ThresholdEditor.amount(it.pair.goal, it.unit)} y ${ThresholdEditor.amount(it.pair.minimum, it.unit)}"
-            } ?: "Volver a lo inicial"
+            val label = if (state.staged) "Cancelar" else initial?.let(ThresholdEditor::resetLabel) ?: "Volver a lo inicial"
             TextButton(reset, Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("limits-reset"), enabled = state.canReset && !state.saving) {
                 Text(label, style = KomparaType.bodyStrong, color = if (state.canReset) KomparaTheme.colors.ink else KomparaTheme.colors.inkTertiary)
             }

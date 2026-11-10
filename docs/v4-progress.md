@@ -41,7 +41,29 @@ three tab roots in the shell (`shell_*`).
 
 **Notices.** "Tu semana está lista" opens `week/{monday}`: Semana alone on that week, the shell's back arrow,
 no bottom bar. "Se apagó el semáforo" opens Ganancias, which shows the cause. A 0.2.x import reminder still
-in the shade opens Ganancias too.
+in the shade opens Ganancias too. The "Resúmenes" channel says "Tu resumen de la semana. Sin montos."
+
+**Review fixes (WP-X).** What the two reviews changed, each with its test:
+- Pon Tu Precio: a counter-offer is the smallest whole-peso fare the engine itself rates at the limit
+  (`CounterOffers` checks through `judgedRate`, the engine's own rate; `CounterOffersTest` sweeps a grid).
+- A day's offer rows show the rate in the unit and basis they were judged in, beside the frozen mark; a basis
+  other than the current one follows the rate ("$12.33/km bruto"). The column still names the current choice.
+- The offer sheet's "a esa hora": a limit the sentence names (yellow: both), the unit or the basis changed.
+- Semana: the car is covered only while the week's running total is at or above the bill (the covering day is
+  the first from which it never falls under again); no car bar when the week has no figure; a closed week
+  without trips says "No tuviste viajes esa semana."
+- IMSS: a block for every app with trips this month or last, or typed incentives ("$0", no pace); M4 keeps the
+  month and app it was opened for (saved state); a reaching pace rounds up, a shortfall up to the hundred;
+  "Entre las dos" adds the printed amounts and says "juntaste" on a closed month; "No hubo viajes en …".
+- First run: a saved page 0.3.0 no longer shows (0.2.20's `SIGNIN`, kept as a retired constant so its saved
+  state deserializes) restores as the first page.
+- Copy: Tu cuenta's title and its city confirmation ("Tu ciudad cambia a León. Tu meta y tu mínimo siguen en
+  …", limits from `ThresholdEditor.summary`), Tus datos' "Qué sale del teléfono" and erase confirmation, the
+  never-on Ganancias state without a secondary button, Comparar's per-hour unit and ties, one "desde …" format
+  (`Formatters.formatSince`), the reset link and the basis-switch snackbar, "de esos días" on a week's sheet,
+  the day sheet's title ("Cómo se calculó · lunes 19 oct").
+- Re-recorded: `comparar_K2_*` (4), `limits_hour_day_393_1.0`, and the v3 `privacy_G9_*`/`privacy_profile_*` (4,
+  title "Tu cuenta" and the new city confirmation).
 
 ## Not built, and why
 

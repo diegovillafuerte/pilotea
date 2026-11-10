@@ -81,7 +81,7 @@ fun semaforoState(reader: ReaderReadiness, zone: ZoneId, needsCaptureConsent: Bo
             reader.permission == false -> "Android a veces lo apaga, por ejemplo al ahorrar batería. Sin él, Kompara no ve tus ofertas."
             else -> null
         },
-        appRows, primary, reader.incident?.takeIf { off && !reader.paused }?.let { "desde ${relative(it.firstSeenAt)}" })
+        appRows, primary, reader.incident?.takeIf { off && !reader.paused }?.let { mx.kompara.ui.format.Formatters.formatSince(it.firstSeenAt, reader.date, zone) })
 }
 
 /** A stored pause (the screen-capture fallback's own stop), on Ganancias (L3) and the Semáforo screen (J4) alike. */
