@@ -13,6 +13,7 @@ import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import mx.kompara.testing.BaselineComparison
 import mx.kompara.ui.auth.*
 import mx.kompara.ui.components.*
 import mx.kompara.ui.fixtures.*
@@ -55,7 +56,7 @@ class OnboardingScreenTest {
             output.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
             val baseline = File("src/test/snapshots/v3/$name.png")
             if (System.getProperty("v3.recordScreenshots") == "true") output.copyTo(baseline, overwrite = true)
-            else { assertTrue("Missing $name", baseline.exists()); assertTrue("Changed $name", BitmapFactory.decodeFile(baseline.path).sameAs(bitmap)) }
+            else { assertTrue("Missing $name", baseline.exists()); BaselineComparison.assertMatches(BitmapFactory.decodeFile(baseline.path), bitmap, output) }
         }
     }
     @Test fun `demo steps once through the three colours and rests on green`() {

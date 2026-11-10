@@ -20,6 +20,7 @@ import mx.kompara.overlay.RealGeometryFixtures.UBER
 import mx.kompara.overlay.RealGeometryFixtures.display
 import mx.kompara.overlay.RealGeometryFixtures.navigationBar
 import mx.kompara.overlay.RealGeometryFixtures.statusBar
+import mx.kompara.testing.BaselineComparison
 import mx.kompara.ui.theme.KomparaTheme
 import mx.kompara.parsers.model.HostGeometry
 import mx.kompara.parsers.model.HostGeometryDeriver
@@ -206,7 +207,7 @@ class ReaderStoppedTabTest {
             out.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
             val baseline = File("src/test/snapshots/v3/${out.name}")
             if (System.getProperty("v3.recordScreenshots") == "true") out.copyTo(baseline, overwrite = true)
-            else { assertTrue("Missing $baseline", baseline.exists()); assertTrue("Changed $out", BitmapFactory.decodeFile(baseline.path).sameAs(bitmap)) }
+            else { assertTrue("Missing $baseline", baseline.exists()); BaselineComparison.assertMatches(BitmapFactory.decodeFile(baseline.path), bitmap, out) }
         }
     }
 }

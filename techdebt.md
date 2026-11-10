@@ -877,3 +877,10 @@ Conscious deferrals. Each entry: date, severity, context, why deferred, when to 
 - **Context:** `lector_ocr_disclosure_body` (`android/ui/src/main/res/values/strings.xml:4`, shown by `LectorScreen` before the MediaProjection consent, the lane used below Android 11) says "Para mostrarte el semáforo sobre las ofertas de DiDi, Kompara captura tu pantalla…". Since 0.2.14 that lane reads Uber's offer card too (Uber's card has no accessibility text either), so the sentence understates what is captured.
 - **Why deferred:** consent and disclosure wording is under legal review (B-038) and outside the v4 build, which keeps the disclosure text unchanged.
 - **When to fix:** with B-038: name both apps ("sobre las ofertas de Uber y DiDi") or neither, in the same review as P2's disclosure lines and `docs/play-compliance.md`.
+
+## TD-V4-10: this Mac builds and tests on JBR 25, CI on Temurin 21
+
+- **Date / severity:** 2026-11-10 / Low (both pass the same checks now; a JDK difference can still stay hidden until CI runs).
+- **Context:** local builds and tests use Android Studio's bundled JBR (`/Applications/Android Studio.app/Contents/jbr/Contents/Home`, now 25.0.4); CI (`.github/workflows/android.yml`) uses Temurin 21 on Linux x86-64. Older notes that say "JBR 21" are out of date. The gap surfaced on PR #59, where the v3/v4 JVM tests ran on CI for the first time: es-MX "sep" on JDK 25 against "sept" on JDK 21, and exact screenshot comparisons across CPUs. Both are fixed for what they are, not by pinning a JDK: the app owns its short month and weekday names (`spanishDate`), and rendered frames are compared by one measured rule (`BaselineComparison`); see `docs/v4-progress.md`. The Mac has no other JDK and no Docker.
+- **Why deferred:** pinning one JDK for both needs a decision: a Gradle toolchain (a JDK 21 download or resolver on the Mac) or moving CI to 25. Either changes the build or the workflow, outside the WP-Y fix.
+- **When to fix:** the next time the build's JDK or the CI workflow is touched, or at the next failure that only CI shows. Until then, read a red CI with green local tests for a JDK or CPU difference first.

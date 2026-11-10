@@ -13,6 +13,7 @@ import mx.kompara.data.settings.Settings
 import mx.kompara.data.settings.SettingsRepository
 import mx.kompara.metrics.PeriodMoneyRepository
 import mx.kompara.ui.R
+import mx.kompara.ui.format.spanishDate
 import mx.kompara.ui.share.WeekCloseAction
 import mx.kompara.ui.share.WeekCloseDecision
 import mx.kompara.ui.stats.AppClock
@@ -135,7 +136,7 @@ class SummaryDelivery @Inject constructor(
 data class SummaryFacts(val trips: Int?, val minutes: Long)
 fun summaryCopy(context: Context, target: NoticeTarget, facts: SummaryFacts, today: LocalDate): Pair<String, String> {
     val locale = Locale.forLanguageTag("es-MX")
-    val dateFormat = DateTimeFormatter.ofPattern("d MMM", locale)
+    val dateFormat = spanishDate("d MMM")
     val count = facts.trips?.let { context.resources.getQuantityString(R.plurals.notice_trips, it, it) }
     return when (target.kind) {
         NoticeKind.DAY -> {

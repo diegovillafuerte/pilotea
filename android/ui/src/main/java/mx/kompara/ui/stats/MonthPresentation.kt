@@ -5,6 +5,7 @@ import mx.kompara.metrics.MonthMoneySnapshot
 import mx.kompara.ui.components.BarValue
 import mx.kompara.ui.components.CalculationRow
 import mx.kompara.ui.format.Formatters
+import mx.kompara.ui.format.spanishDate
 import java.math.BigDecimal
 import java.time.LocalDate
 import java.time.YearMonth
@@ -16,7 +17,7 @@ fun monthName(month: YearMonth): String = month.atDay(1).format(DateTimeFormatte
 fun monthLabel(month: YearMonth, today: LocalDate): String = monthName(month).replaceFirstChar { it.titlecase(monthSpanish) } +
     if (month.year != today.year) " ${month.year}" else ""
 fun monthRange(start: LocalDate, end: LocalDate): String =
-    (if (start == end) "${start.dayOfMonth}" else "${start.dayOfMonth} – ${end.dayOfMonth}") + " " + end.format(DateTimeFormatter.ofPattern("MMM", monthSpanish))
+    (if (start == end) "${start.dayOfMonth}" else "${start.dayOfMonth} – ${end.dayOfMonth}") + " " + end.format(spanishDate("MMM"))
 
 /** One dated net ledger and separately named statement-payment scopes. */
 data class MonthPresentation(val snapshot: MonthMoneySnapshot, val premium: Boolean = false) {
@@ -57,8 +58,8 @@ data class MonthPresentation(val snapshot: MonthMoneySnapshot, val premium: Bool
 }
 
 fun paymentLabel(record: IncomeRecord): String = (if (record.paymentBasis == PaymentBasis.UNCONFIRMED) "Pago leído de" else "Te pagó") +
-    " ${appName(record.app)} del " + record.coverage.start.format(DateTimeFormatter.ofPattern(if (record.coverage.start.month == record.coverage.endInclusive.month) "d" else "d MMM", monthSpanish)) + " al " +
-    record.coverage.endInclusive.format(DateTimeFormatter.ofPattern("d MMM", monthSpanish))
+    " ${appName(record.app)} del " + record.coverage.start.format(spanishDate(if (record.coverage.start.month == record.coverage.endInclusive.month) "d" else "d MMM")) + " al " +
+    record.coverage.endInclusive.format(spanishDate("d MMM"))
 
 fun monthCalculation(month: MonthPresentation): DayCalculation {
     val money = month.money

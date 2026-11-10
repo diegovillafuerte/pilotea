@@ -37,7 +37,7 @@ object FiscalReportComposer {
                 })
             }
             if (month.open) add("Registros hasta el " + money.window.asOf.atZone(money.window.zone)
-                .format(java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy, HH:mm", java.util.Locale.forLanguageTag("es-MX"))))
+                .format(mx.kompara.ui.format.spanishDate("d MMM yyyy, HH:mm")))
             val calculationNotes = mx.kompara.ui.stats.monthCalculation(month).notes
             if (calculationNotes.any { it.startsWith("El total se calcula") }) add("El total se calcula antes de redondear cada cifra.")
             addAll(calculationNotes.filter { it == "Con costos típicos" || it == "No conservamos tus costos de ese día" })

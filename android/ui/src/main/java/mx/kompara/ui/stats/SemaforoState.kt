@@ -2,11 +2,11 @@ package mx.kompara.ui.stats
 
 import mx.kompara.data.service.*
 import mx.kompara.ui.components.StatusGlyph
+import mx.kompara.ui.format.spanishDate
 import mx.kompara.ui.service.statusGlyph
 import mx.kompara.ui.service.statusLabel
 import java.time.Instant
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 
 data class SemaforoApp(val name: String, val detail: String, val glyph: StatusGlyph)
 enum class SemaforoAction { PERMISSION, BATTERY, CAPTURE, SETTINGS, RESUME }
@@ -38,7 +38,7 @@ fun semaforoState(reader: ReaderReadiness, zone: ZoneId, needsCaptureConsent: Bo
         return when (date) {
             reader.date -> clock(at)
             reader.date.minusDays(1) -> "ayer ${clock(at)}"
-            else -> "${date.format(DateTimeFormatter.ofPattern("d MMM", java.util.Locale.forLanguageTag("es-MX")))} ${clock(at)}"
+            else -> "${date.format(spanishDate("d MMM"))} ${clock(at)}"
         }
     }
     // A pause can still come from the screen-capture fallback's own "Detener" (below Android 11). There is no

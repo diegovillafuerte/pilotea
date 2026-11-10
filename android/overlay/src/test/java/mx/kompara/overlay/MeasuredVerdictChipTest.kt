@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import mx.kompara.data.settings.RateBasis
 import mx.kompara.metrics.CounterOffers
 import mx.kompara.parsers.model.*
+import mx.kompara.testing.BaselineComparison
 import mx.kompara.ui.components.*
 import mx.kompara.ui.theme.KomparaTheme
 import org.junit.Assert.*
@@ -192,7 +193,7 @@ class MeasuredVerdictChipTest {
             out.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG,100,it) }
             val baseline=File("src/test/snapshots/v4/${out.name}")
             if(System.getProperty("v4.recordScreenshots")=="true") { baseline.parentFile!!.mkdirs(); out.copyTo(baseline,overwrite=true) }
-            else { assertTrue("Missing v4 baseline $baseline",baseline.exists()); assertTrue("Changed $out",BitmapFactory.decodeFile(baseline.path).sameAs(bitmap)) }
+            else { assertTrue("Missing v4 baseline $baseline",baseline.exists()); BaselineComparison.assertMatches(BitmapFactory.decodeFile(baseline.path),bitmap,out) }
         }
     }
 }

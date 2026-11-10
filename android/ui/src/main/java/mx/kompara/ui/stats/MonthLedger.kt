@@ -3,20 +3,18 @@ package mx.kompara.ui.stats
 import mx.kompara.data.accounting.*
 import mx.kompara.ui.components.CalculationRow
 import mx.kompara.ui.format.Formatters
+import mx.kompara.ui.format.spanishDate
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import java.util.Locale
 
 /*
  * The v3 period ledger, kept only for the month the dormant IMSS PDF prints (MonthPresentation,
  * after launch per docs/v4-simple-launch-plan.md §3). Ganancias uses PeriodCalculation instead.
  */
 
-private val spanish = Locale.forLanguageTag("es-MX")
-internal fun LocalDate.dated(today: LocalDate): String = format(DateTimeFormatter.ofPattern(
-    if (year == today.year) "EEEE d MMM" else "EEEE d MMM yyyy", spanish))
+internal fun LocalDate.dated(today: LocalDate): String = format(spanishDate(
+    if (year == today.year) "EEEE d MMM" else "EEEE d MMM yyyy"))
 internal fun PeriodMoney.isToday() = window.start == window.asOf.atZone(window.zone).toLocalDate()
 internal fun PeriodMoney.dayLabel() = if (isToday()) "Llevas hoy · aprox."
     else "Te quedaron el ${window.start.dated(window.asOf.atZone(window.zone).toLocalDate())} · aprox."

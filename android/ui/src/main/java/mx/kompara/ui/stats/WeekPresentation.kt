@@ -3,17 +3,17 @@ package mx.kompara.ui.stats
 import mx.kompara.data.accounting.*
 import mx.kompara.metrics.WeekMoneySnapshot
 import mx.kompara.ui.format.Formatters
+import mx.kompara.ui.format.spanishDate
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
 
 private val weekSpanish = Locale.forLanguageTag("es-MX")
 fun weekRange(start: LocalDate, today: LocalDate = start): String {
     val end = start.plusDays(6)
-    val month = DateTimeFormatter.ofPattern("MMM", weekSpanish)
+    val month = spanishDate("MMM")
     val first = if (start.month == end.month && start.year == end.year) "${start.dayOfMonth}" else "${start.dayOfMonth} ${start.format(month)}" + if (start.year != end.year) " ${start.year}" else ""
     return "$first – ${end.dayOfMonth} ${end.format(month)}" + if (end.year != today.year || start.year != end.year) " ${end.year}" else ""
 }

@@ -47,6 +47,11 @@ android {
             isIncludeAndroidResources = true
         }
     }
+
+    // The one baseline comparison rule for rendered frames, shared with :overlay (BaselineComparison).
+    sourceSets {
+        getByName("test").kotlin.srcDir("../test-support/java")
+    }
 }
 
 dependencies {
@@ -112,6 +117,10 @@ tasks.withType<Test>().configureEach {
     systemProperty("v4.recordScreenshots", providers.gradleProperty("v4.recordScreenshots").getOrElse("false"))
     inputs.files(fileTree("src/test/snapshots/v4"))
     inputs.dir("src/test/snapshots/v3")
+    // SpanishDateTest scans every module's main sources. Without them as inputs, a change in a module :ui does
+    // not depend on would leave this task up to date and the guard unrun.
+    inputs.files(fileTree("..") { include("*/src/main/**/*.kt") }).withPropertyName("mainSourcesScannedByGuards")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
     outputs.dir(layout.buildDirectory.dir("outputs/v3-screenshots"))
     outputs.dir(layout.buildDirectory.dir("outputs/v4-screenshots"))
 }

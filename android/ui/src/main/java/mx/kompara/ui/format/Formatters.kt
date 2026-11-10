@@ -55,7 +55,7 @@ object Formatters {
 
     /** A relative money label always dates its evidence, including across year boundaries. */
     fun formatDatedRelativeLabel(date: LocalDate, today: LocalDate): String {
-        val dated = date.format(DateTimeFormatter.ofPattern(if (date.year == today.year) "EEEE d MMM" else "EEEE d MMM yyyy", MX))
+        val dated = date.format(spanishDate(if (date.year == today.year) "EEEE d MMM" else "EEEE d MMM yyyy"))
         return when (date) {
             today -> "Hoy, $dated"
             today.minusDays(1) -> "Ayer, $dated"
@@ -148,9 +148,9 @@ object Formatters {
             .format(CLOCK)
 
     private val ISO: DateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE
-    private val DAY_LABEL: DateTimeFormatter = DateTimeFormatter.ofPattern("EEE d MMM", MX)
-    private val WEEK_LABEL: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM", MX)
-    private val MONTH_ABBREV: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM", MX)
+    private val DAY_LABEL: DateTimeFormatter = spanishDate("EEE d MMM")
+    private val WEEK_LABEL: DateTimeFormatter = spanishDate("d MMM")
+    private val MONTH_ABBREV: DateTimeFormatter = spanishDate("MMM")
     private val MONTH_YEAR: DateTimeFormatter = DateTimeFormatter.ofPattern("MMMM yyyy", MX)
     private val WEEKDAY: DateTimeFormatter = DateTimeFormatter.ofPattern("EEEE", MX)
     private val CLOCK: DateTimeFormatter = DateTimeFormatter.ofPattern("H:mm", MX)

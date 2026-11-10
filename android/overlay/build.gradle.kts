@@ -34,6 +34,8 @@ android {
     // /uber/s25/2026-11-06/): the parser replays and the end-to-end overlay replays read the same files.
     sourceSets {
         getByName("test").resources.srcDir("../ocr/src/test/resources")
+        // The one baseline comparison rule for rendered frames, shared with :ui (BaselineComparison).
+        getByName("test").kotlin.srcDir("../test-support/java")
     }
 }
 

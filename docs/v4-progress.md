@@ -65,6 +65,25 @@ in the shade opens Ganancias too. The "Resúmenes" channel says "Tu resumen de l
 - Re-recorded: `comparar_K2_*` (4), `limits_hour_day_393_1.0`, and the v3 `privacy_G9_*`/`privacy_profile_*` (4,
   title "Tu cuenta" and the new city confirmation).
 
+**The same checks on any machine (WP-Y).** PR #59's CI check (Linux x86-64, Temurin 21), the first CI run of
+these tests, failed 20 that pass on this Mac (Apple silicon, JBR 25), for two measured reasons:
+- *How a rendered frame is compared with its baseline.* One rule, `BaselineComparison`
+  (`android/test-support/java/mx/kompara/testing/`, a test source directory shared by `:ui` and `:overlay`): both
+  ARGB_8888 and the same size; identical passes; otherwise no channel of any pixel may differ by more than 3 levels of 255,
+  and at most 5 % of the pixels may differ at all, compared in premultiplied bytes as `sameAs` does. The software
+  rasterizer is not bit-exact across CPUs: of the runner's 22 frames, 7 were identical and 15 differed in 0.012 %
+  to 0.43 % of their pixels, by 1 level (2 on three pixels in all), on antialiased edges and on text or shapes
+  blended with alpha; layout, text and colours were the same. A frame accepted with differences prints one line
+  with its numbers in the test report; an identical one prints nothing. `BaselineComparisonTest` pins the rule
+  and one real pair (ReglaTest's S1 as the runner and this Mac drew it). Recording is unchanged.
+- *Short month and weekday names are the app's own* (`spanishDate`, `ui/format/SpanishDate.kt`): `ene … dic`,
+  `lun … dom`, what JDK 25 prints for es-MX. The locale data said "sept" on JDK 21, and Android's ICU data
+  differs between releases the same way, so two phones could print the same date two ways. Full names and
+  numbers stay with the platform. `SpanishDateTest` fails if main code formats a three-letter `MMM`/`LLL`/`EEE`
+  or a `TextStyle.SHORT`/`NARROW` name any other way.
+
+The JDK gap itself is TD-V4-10.
+
 ## Not built, and why
 
 - **K3, K4** (Tu ciudad open, and its count and button): founder decision 1, sharing averages by app,

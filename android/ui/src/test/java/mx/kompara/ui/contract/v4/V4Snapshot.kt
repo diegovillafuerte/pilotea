@@ -7,6 +7,7 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.compose.ui.text.TextLayoutResult
+import mx.kompara.testing.BaselineComparison
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import java.io.File
@@ -48,7 +49,7 @@ internal object V4Snapshot {
             baseline.parentFile!!.mkdirs(); output.copyTo(baseline, overwrite = true)
         } else {
             assertTrue("Missing reviewed v4 baseline $baseline; record it with -Pv4.recordScreenshots=true", baseline.exists())
-            assertTrue("v4 screenshot changed: $output", BitmapFactory.decodeFile(baseline.path).sameAs(bitmap))
+            BaselineComparison.assertMatches(BitmapFactory.decodeFile(baseline.path), bitmap, output)
         }
     }
 }

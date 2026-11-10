@@ -14,6 +14,7 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import mx.kompara.data.model.City
+import mx.kompara.testing.BaselineComparison
 import mx.kompara.ui.fixtures.PrivacyFixtureHost
 import mx.kompara.ui.stats.*
 import mx.kompara.ui.theme.KomparaTheme
@@ -63,7 +64,7 @@ class PrivacyScreenTest {
             output.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
             val baseline = File("src/test/snapshots/v3/$name.png")
             if (System.getProperty("v3.recordScreenshots") == "true") output.copyTo(baseline, overwrite = true)
-            else { assertTrue("Missing $name", baseline.exists()); assertTrue("Changed $name", BitmapFactory.decodeFile(baseline.path).sameAs(bitmap)) }
+            else { assertTrue("Missing $name", baseline.exists()); BaselineComparison.assertMatches(BitmapFactory.decodeFile(baseline.path), bitmap, output) }
         }
     }
     @Test fun `help has five questions the first open and entry opens only its requested answer`() {

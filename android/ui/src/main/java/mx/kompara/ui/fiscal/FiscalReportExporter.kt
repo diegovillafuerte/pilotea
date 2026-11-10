@@ -5,10 +5,10 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import mx.kompara.ui.format.spanishDate
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -48,7 +48,6 @@ class FiscalReportExporter @Inject constructor(
             .format(DAY_LABEL)
 
     private companion object {
-        val MX: Locale = Locale.forLanguageTag("es-MX")
-        val DAY_LABEL: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM yyyy", MX)
+        val DAY_LABEL: DateTimeFormatter = spanishDate("d MMM yyyy")
     }
 }

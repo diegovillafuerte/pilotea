@@ -10,11 +10,11 @@ import mx.kompara.metrics.VerdictLevel
 import mx.kompara.ui.components.CalculationRow
 import mx.kompara.ui.components.OfferMarkState
 import mx.kompara.ui.format.Formatters
+import mx.kompara.ui.format.spanishDate
 import java.math.BigDecimal
 import java.math.MathContext
 import java.math.RoundingMode
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 private val spanish = Locale.forLanguageTag("es-MX")
@@ -25,8 +25,8 @@ internal fun unitWords(metric: PreferredMetric, basis: RateBasis) = "${if (metri
 internal fun formatRate(value: BigDecimal, metric: PreferredMetric) =
     if (metric == PreferredMetric.IPH) Formatters.formatPerHourWhole(value) else Formatters.formatPerKm(value)
 /** "Lunes 19 oct", the title of a past day (L6). */
-internal fun LocalDate.dayTitle(today: LocalDate): String = format(DateTimeFormatter.ofPattern(
-    if (year == today.year) "EEEE d MMM" else "EEEE d MMM yyyy", spanish)).replaceFirstChar { it.titlecase(spanish) }
+internal fun LocalDate.dayTitle(today: LocalDate): String = format(spanishDate(
+    if (year == today.year) "EEEE d MMM" else "EEEE d MMM yyyy")).replaceFirstChar { it.titlecase(spanish) }
 
 /**
  * One day as Ganancias shows it (v4 L1, L6): what the day's taken trips kept, its offers newest first,

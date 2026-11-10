@@ -38,13 +38,14 @@ jobs:
       - name: Lint
         run: ./gradlew lintDebug
 
-      # A red run keeps what is needed to see why: each failed assertion's message, the lint
-      # report, and the screenshots the tests rendered on this runner.
-      - name: Upload reports and rendered screenshots (on failure)
-        if: failure()
+      # Every finished run keeps its reports: a red one to see why (each failed assertion's message,
+      # the lint report, the screenshots the tests rendered on this runner), a green one to see which
+      # frames were accepted with rendering differences and by how much (BaselineComparison).
+      - name: Upload reports and rendered screenshots
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
-          name: failure-reports
+          name: test-reports
           path: |
             android/*/build/reports/tests/testDebugUnitTest
             android/*/build/test-results/testDebugUnitTest

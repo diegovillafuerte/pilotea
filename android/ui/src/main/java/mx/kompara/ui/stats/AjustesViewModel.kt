@@ -11,10 +11,9 @@ import mx.kompara.data.settings.*
 import mx.kompara.sync.auth.*
 import mx.kompara.ui.components.StatusGlyph
 import mx.kompara.ui.format.Formatters
+import mx.kompara.ui.format.spanishDate
 import mx.kompara.ui.service.statusGlyph
 import java.time.*
-import java.time.format.DateTimeFormatter
-import java.util.Locale
 import javax.inject.Inject
 
 /** J1's six rows: the value each row shows (v4 plan 4.8). */
@@ -30,8 +29,8 @@ fun costsSummary(costPerKm: java.math.BigDecimal?, weeklyCar: java.math.BigDecim
 fun accountSummary(phone: String?, city: City?): String = listOfNotNull(
     phone?.let { if (it.startsWith("+52") && it.length == 13) "+52 ${it.substring(3, 5)} ${it.substring(5, 9)} ${it.substring(9)}" else it } ?: "Entrar con WhatsApp",
     city?.displayName).joinToString(" · ")
-fun costDate(date: LocalDate, today: LocalDate = date) = date.format(DateTimeFormatter.ofPattern(
-    if (date.year == today.year) "EEEE d MMM" else "EEEE d MMM yyyy", Locale.forLanguageTag("es-MX")))
+fun costDate(date: LocalDate, today: LocalDate = date) = date.format(spanishDate(
+    if (date.year == today.year) "EEEE d MMM" else "EEEE d MMM yyyy"))
 fun settingsReaderText(reader: ReaderReadiness): String = when (reader.phase) {
     ReaderPhase.OFF -> if (reader.permission == false) "Apagado · falta el permiso" else "Apagado · sin lectura"
     ReaderPhase.PREPARED -> if (reader.permission == true) "Preparado · permiso listo" else "Comprobando el permiso"

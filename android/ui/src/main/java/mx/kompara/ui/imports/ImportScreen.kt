@@ -32,6 +32,7 @@ import mx.kompara.sync.api.ImportFile
 import mx.kompara.sync.imports.*
 import mx.kompara.ui.components.*
 import mx.kompara.ui.format.Formatters
+import mx.kompara.ui.format.spanishDate
 import mx.kompara.ui.stats.appName
 import mx.kompara.ui.stats.weekRange
 import mx.kompara.ui.theme.KomparaTheme
@@ -272,8 +273,8 @@ fun reconciliationConsequence(review: ImportUiState.Review): String {
 @Composable private fun Consent() { Text(IMPORT_CONSENT, style = KomparaType.small); Spacer(Modifier.height(12.dp)) }
 @Composable private fun TextAction(text: String, action: () -> Unit) = KomparaButton(text, action, variant = ButtonVariant.TEXT, fullWidth = true)
 private fun decimal(value: Double) = value.toBigDecimal().stripTrailingZeros().toPlainString()
-private fun shortRange(start: LocalDate, end: LocalDate) = if (start == end) "${start.dayOfMonth} ${start.format(DateTimeFormatter.ofPattern("MMM", Locale.forLanguageTag("es-MX")))}"
-    else "${start.dayOfMonth} – ${end.dayOfMonth} ${end.format(DateTimeFormatter.ofPattern("MMM", Locale.forLanguageTag("es-MX")))}"
+private fun shortRange(start: LocalDate, end: LocalDate) = if (start == end) "${start.dayOfMonth} ${start.format(spanishDate("MMM"))}"
+    else "${start.dayOfMonth} – ${end.dayOfMonth} ${end.format(spanishDate("MMM"))}"
 internal fun retainedImportRows(state: ImportUiState.Error): List<CalculationRow> {
     val draft = state.draft
     val period = draft?.metrics()?.weekStart?.let { runCatching { weekRange(LocalDate.parse(it)) }.getOrNull() }
