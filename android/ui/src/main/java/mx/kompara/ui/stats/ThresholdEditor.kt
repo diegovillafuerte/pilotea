@@ -142,7 +142,7 @@ object ThresholdEditor {
         val result = NetProfitEngine().evaluate(TripOffer("EXAMPLE", 148.0, 2.0, 4.0, 10.0, 20.0), costPerKm, draft.threshold(), draft.metric, draft.basis)
         val position = when (result.verdict.level) { VerdictLevel.GREEN -> ReglaPosition.ABOVE; VerdictLevel.YELLOW -> ReglaPosition.MEETS; VerdictLevel.RED -> ReglaPosition.BELOW; else -> null }
         val rate = result.rate(draft.metric, draft.basis)
-        return ReglaModel(if (position != null && rate != null) ReglaBand.Rated(position, rate) else ReglaBand.Unavailable(ReglaUnavailable.UNCONFIRMED),
-            parse(draft.pair.goal)!!, parse(draft.pair.minimum)!!, draft.unit, showLimitCents = draft.metric == PreferredMetric.IPK)
+        return if (position != null && rate != null) ReglaModel.rated(position, rate, draft.unit, draft.basis)
+            else ReglaModel(ReglaBand.Unavailable(ReglaUnavailable.UNCONFIRMED), draft.unit, draft.basis)
     }
 }

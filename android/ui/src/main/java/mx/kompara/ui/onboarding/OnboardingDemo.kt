@@ -2,6 +2,7 @@ package mx.kompara.ui.onboarding
 
 import mx.kompara.data.settings.PlatformThreshold
 import mx.kompara.data.settings.PreferredMetric
+import mx.kompara.data.settings.RateBasis
 import mx.kompara.metrics.NetProfitEngine
 import mx.kompara.metrics.TripOffer
 import mx.kompara.metrics.VerdictLevel
@@ -19,7 +20,7 @@ enum class DemoOffer(val fare: Double, val km: Double, val minutes: Double, val 
         val position = when (result.verdict.level) {
             VerdictLevel.GREEN -> ReglaPosition.ABOVE; VerdictLevel.YELLOW -> ReglaPosition.MEETS; else -> ReglaPosition.BELOW
         }
-        return ReglaModel(ReglaBand.Rated(position, result.perKmDecimal!!.toBigDecimal()), BigDecimal(8), BigDecimal(6))
+        return ReglaModel.rated(position, result.perKmDecimal!!.toBigDecimal(), ReglaUnit.KM, RateBasis.NET)
     }
 }
 

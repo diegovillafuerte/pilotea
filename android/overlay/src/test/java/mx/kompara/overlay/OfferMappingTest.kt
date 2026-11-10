@@ -80,8 +80,8 @@ class OfferMappingTest {
             mx.kompara.metrics.CostProfile.ZERO, mx.kompara.data.settings.PlatformThreshold.DEFAULT,
             mx.kompara.data.settings.PreferredMetric.IPH)
         val state = VerdictChipState.from(result, mx.kompara.data.settings.PlatformThreshold.DEFAULT)
-        assertEquals("Falta tiempo", state.heroRate)
-        assertEquals("Falta tiempo: sin cálculo", state.regla.spokenBand)
+        assertEquals("Sin lectura", state.heroRate)
+        assertEquals("Sin lectura: no pudimos leer esta oferta", state.regla.spokenBand)
         org.junit.Assert.assertNull(state.regla.rateText)
     }
 
