@@ -1,5 +1,6 @@
 package mx.kompara.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -18,6 +19,8 @@ import mx.kompara.ui.paywall.GateSurface
 import mx.kompara.ui.stats.*
 import mx.kompara.ui.theme.KomparaTheme
 import mx.kompara.ui.theme.KomparaType
+import java.time.LocalDate
+import java.time.YearMonth
 
 const val IMSS_VIGENCIA_URL = "https://www.imss.gob.mx/faq/vigencia-derechos"
 const val IMSS_NON_REPRESENTATION = "El IMSS confirma tu vigencia. Kompara no lo representa."
@@ -84,4 +87,33 @@ fun ImssExplanation(onOfficial: () -> Unit) {
         "El monto que cuenta para el IMSS y el monto mínimo los define la ley, no Kompara.",
         "Aquí no te decimos si ya te toca: consúltalo directo.").forEach { Text("• $it", Modifier.padding(bottom = 16.dp), style = KomparaType.body) }
     ListRow("Consultar mi vigencia en el IMSS", onClick = onOfficial)
+}
+
+@Composable
+fun EarningsDoor(label: String, icon: Int, detail: String? = null, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Column(modifier) {
+        Rule()
+        Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(onClick = onClick).padding(vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            DrawnIcon(icon)
+            Column(Modifier.weight(1f)) {
+                Text(label, style = KomparaType.body)
+                detail?.let { Text(it, style = KomparaType.small, color = KomparaTheme.colors.inkSecondary) }
+            }
+            DrawnIcon(R.drawable.v3_chev)
+        }
+    }
+}
+
+@Composable
+fun MonthPickerContent(choices: List<YearMonth>, selected: YearMonth, today: LocalDate, onSelect: (YearMonth) -> Unit, onImport: () -> Unit) {
+    choices.forEach { month ->
+        Rule()
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            ListRow(monthLabel(month, today) + if (month == YearMonth.from(today)) " · en curso" else "", Modifier.weight(1f), onClick = { onSelect(month) })
+            if (month == selected) StatusIcon(StatusGlyph.DONE)
+        }
+    }
+    Spacer(Modifier.height(24.dp))
+    ListRow("Traer un resumen", onClick = onImport)
 }

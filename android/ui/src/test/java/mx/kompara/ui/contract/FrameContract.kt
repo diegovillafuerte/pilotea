@@ -23,17 +23,20 @@ object FrameContract {
     fun normalize(text: String): String = text.replace("\u2060", "").replace('\u00a0', ' ')
         .replace(Regex("\\s+"), " ").replace(Regex(" +/"), "/").trim()
 
+    /** Every text, edit value and content description on screen, normalized. The v4 contract reads it too. */
+    fun visibleText(compose: ComposeTestRule): String = compose.onAllNodes(SemanticsMatcher("all") { true }, useUnmergedTree = true)
+        .fetchSemanticsNodes().flatMap { node ->
+            val layouts = mutableListOf<TextLayoutResult>()
+            node.config.getOrNull(SemanticsActions.GetTextLayoutResult)?.action?.invoke(layouts)
+            layouts.map { it.layoutInput.text.text } +
+                node.config.getOrNull(SemanticsProperties.Text).orEmpty().map { it.text } +
+                listOfNotNull(node.config.getOrNull(SemanticsProperties.EditableText)?.text) +
+                node.config.getOrNull(SemanticsProperties.ContentDescription).orEmpty()
+        }.joinToString(" ").let(::normalize)
+
     fun assertFrame(compose: ComposeTestRule, id: String) {
         if (id !in strings) return // Additional native error/empty/editor scenarios have their own assertions.
-        fun visibleText() = compose.onAllNodes(SemanticsMatcher("all") { true }, useUnmergedTree = true)
-            .fetchSemanticsNodes().flatMap { node ->
-                val layouts = mutableListOf<TextLayoutResult>()
-                node.config.getOrNull(SemanticsActions.GetTextLayoutResult)?.action?.invoke(layouts)
-                layouts.map { it.layoutInput.text.text } +
-                    node.config.getOrNull(SemanticsProperties.Text).orEmpty().map { it.text } +
-                    listOfNotNull(node.config.getOrNull(SemanticsProperties.EditableText)?.text) +
-                    node.config.getOrNull(SemanticsProperties.ContentDescription).orEmpty()
-            }.joinToString(" ").let(::normalize)
+        fun visibleText() = visibleText(compose)
         var text = visibleText()
         if (id in setOf("D1", "D1a", "D1b", "N3")) {
             // The offer log is lazy: inspect its entire actual list, then restore the screenshot origin.

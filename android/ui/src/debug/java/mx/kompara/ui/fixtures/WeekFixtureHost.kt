@@ -21,7 +21,7 @@ fun WeekFixtureHost(frame: String) {
     var sheet by rememberSaveable(frame) { mutableStateOf(when (frame) {
         "E1b", "E1c" -> "days"; "E1d" -> "calculation"; "E1e" -> "statement:UBER"; "E1f" -> "apps"; "E6" -> "picker"; else -> null
     }) }
-    Scaffold(bottomBar = { RootBottomBar(1, {}) }) { padding ->
+    Scaffold(bottomBar = { RootBottomBar(0, {}) }) { padding ->
         Column(Modifier.padding(padding)) {
             Text("Ganancias", Modifier.padding(20.dp), style = KomparaType.rootTitle)
             WeekSummaryContent(WeekSummaryUiState(week.start, frame == "E7", week, offline = frame == "E7b"),

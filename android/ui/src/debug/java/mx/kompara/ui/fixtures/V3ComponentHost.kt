@@ -30,9 +30,9 @@ class V3ComponentActivity : ComponentActivity() {
             else if (intent.hasExtra("costsFrame")) CostsFixtureHost(intent.getStringExtra("costsFrame") ?: "G1")
             else if (intent.hasExtra("limitsFrame")) LimitsFixtureHost(intent.getStringExtra("limitsFrame") ?: "G2b")
             else if (intent.hasExtra("compareFrame")) CompareFixtureHost(intent.getStringExtra("compareFrame") ?: "F1")
-            else if (intent.hasExtra("monthFrame")) MonthFixtureHost(intent.getStringExtra("monthFrame") ?: "E3")
+            else if (intent.hasExtra("monthFrame")) MonthFixtureHost(intent.getStringExtra("monthFrame") ?: "E4")
             else if (intent.hasExtra("weekFrame")) WeekFixtureHost(intent.getStringExtra("weekFrame") ?: "E1")
-            else V3ComponentHost(intent.getStringExtra("frame") ?: "B1")
+            else V3ComponentHost(intent.getStringExtra("frame") ?: "D1")
         } }
     }
 }
@@ -48,18 +48,16 @@ fun V3ComponentHost(frame: String, modifier: Modifier = Modifier) {
     var selected by remember(frame) { mutableIntStateOf(0) }
     var showLedger by remember { mutableStateOf(false) }
     val title = when (frame) { "D1" -> "Tu día"; "E1" -> "Ganancias"; "F1" -> "Comparar"; "G2" -> "Tu meta y tu mínimo"; "G4" -> "Semáforo"; "H5" -> "Importar"; else -> "Hoy" }
-    ScreenScaffold(title, modifier, kind = if (frame in listOf("B1", "E1", "F1")) ScreenKind.ROOT else ScreenKind.DRILL,
-        bottomBar = { if (frame in listOf("B1", "D1", "E1", "F1")) RootBottomBar(when (frame) { "E1" -> 1; "F1" -> 2; else -> 0 }, { selected = it }) }) {
+    ScreenScaffold(title, modifier, kind = if (frame in listOf("E1", "F1")) ScreenKind.ROOT else ScreenKind.DRILL,
+        bottomBar = { if (frame in listOf("D1", "E1", "F1")) RootBottomBar(if (frame == "F1") 1 else 0, { selected = it }) }) {
         when (frame) {
-            "B1", "D1" -> {
-                if (frame == "B1") StatusDoor("Semáforo funcionando", "tu meta $8 · tu mínimo $6", StatusGlyph.HEALTHY, { showLedger = true })
-                PeriodHero("Llevas hoy · aprox.", Formatters.formatMxnWhole(if (frame == "D1") data.closedDay else data.today),
-                    if (frame == "D1") "9 viajes tomados en ${Formatters.formatDuration(490)}, ya restamos gasolina, desgaste y coche"
-                    else "6 viajes tomados (1\u00a0en\u00a0curso),\nya restamos gasolina, desgaste y coche", { showLedger = true })
+            "D1" -> {
+                PeriodHero("Llevas hoy · aprox.", Formatters.formatMxnWhole(data.closedDay),
+                    "9 viajes tomados en ${Formatters.formatDuration(490)}, ya restamos gasolina, desgaste y coche", { showLedger = true })
                 Spacer(Modifier.height(32.dp))
-                Text(if (frame == "D1") "Ofertas de hoy · 13" else "Últimas ofertas", style = KomparaType.section)
+                Text("Ofertas de hoy · 13", style = KomparaType.section)
                 Text(stringResource(R.string.v3_rate_basis), style = KomparaType.small, color = KomparaTheme.colors.inkSecondary)
-                OfferRow(if (frame == "B1") "En curso" else "La tomaste", "14:32 · Arriba de tu meta", data.chipRate("verde"), OfferMarkState.ABOVE, { showLedger = true })
+                OfferRow("La tomaste", "14:32 · Arriba de tu meta", data.chipRate("verde"), OfferMarkState.ABOVE, { showLedger = true })
                 Rule()
                 OfferRow("Se fue sin tomar", "12:10 · Abajo de tu mínimo", data.chipRate("rojo"), OfferMarkState.BELOW, { showLedger = true })
                 Rule()
@@ -132,7 +130,7 @@ fun V3ComponentHost(frame: String, modifier: Modifier = Modifier) {
 
 @Preview(widthDp = 393, heightDp = 852, showBackground = true)
 @Composable
-private fun ComponentsDay() { KomparaTheme(darkTheme = false) { V3ComponentHost("B1") } }
+private fun ComponentsDay() { KomparaTheme(darkTheme = false) { V3ComponentHost("D1") } }
 @Preview(widthDp = 393, heightDp = 852, showBackground = true)
 @Composable
-private fun ComponentsNight() { KomparaTheme(darkTheme = true) { V3ComponentHost("B1") } }
+private fun ComponentsNight() { KomparaTheme(darkTheme = true) { V3ComponentHost("D1") } }

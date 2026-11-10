@@ -64,7 +64,7 @@ class IncidentDeliveryTest {
         restarted.observeEnvironment(true, true); runCurrent()
         assertTrue(shadowOf(manager).allNotifications.isEmpty())
         assertEquals(ReaderPhase.PREPARED, restarted.state.value.phase)
-        assertEquals("inicio", NoticeNavigation.destination(NoticeTarget.parse(staleTap.data)!!))
+        assertEquals("ganancias", NoticeNavigation.destination(NoticeTarget.parse(staleTap.data)!!))
         assertNull(restarted.state.value.incident)
     }
     @Test fun `Android denial is not delivered and permission return retries same unresolved incident`() = runTest {

@@ -19,10 +19,10 @@ class NoticeNavigation @Inject constructor(private val selection: SelectedPeriod
     }
     companion object {
         fun destination(target: NoticeTarget): String = when (target.kind) {
-            NoticeKind.READER -> KomparaDestination.INICIO.route
+            NoticeKind.READER -> KomparaDestination.GANANCIAS.route
             NoticeKind.DAY -> KomparaDestination.dayRoute(target.period)
             NoticeKind.WEEK -> "${KomparaDestination.WEEK_SUMMARY_ROUTE}/${target.period}"
-            NoticeKind.MONTH -> KomparaDestination.MONTH_ROUTE
+            NoticeKind.MONTH -> KomparaDestination.IMSS.route
             NoticeKind.IMPORT -> KomparaDestination.IMPORT_ROUTE
         }
     }

@@ -14,7 +14,6 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import mx.kompara.data.model.City
-import mx.kompara.data.settings.Settings
 import mx.kompara.ui.fixtures.PrivacyFixtureHost
 import mx.kompara.ui.stats.*
 import mx.kompara.ui.theme.KomparaTheme
@@ -41,9 +40,9 @@ class PrivacyScreenTest {
                 Box(Modifier.width(width.dp).height(852.dp)) { key(frame, scale, width) { PrivacyFixtureHost(frame) } }
             }
         } }
-        val cases = listOf("G6", "G6b", "G7", "G8", "G9", "allowed", "profile", "deleted", "delete-error", "support-gated").map { Triple(it, 1f, 393) } +
-            listOf("G6", "G7", "G8", "G9").map { Triple(it, 1.3f, 393) } +
-            listOf("G6", "G7", "G8", "profile").map { Triple(it, 2f, 320) }
+        val cases = listOf("G6", "G6b", "G8", "G9", "profile", "deleted", "delete-error", "support-gated").map { Triple(it, 1f, 393) } +
+            listOf("G6", "G8", "G9").map { Triple(it, 1.3f, 393) } +
+            listOf("G6", "G8", "profile").map { Triple(it, 2f, 320) }
         for ((id, font, size) in cases) {
             compose.runOnIdle { frame = id; scale = font; width = size }; compose.waitForIdle()
             mx.kompara.ui.contract.FrameContract.assertFrame(compose, id)
@@ -78,19 +77,6 @@ class PrivacyScreenTest {
         compose.onNodeWithText("Amarillo: cumple tu mínimo.").assertExists()
         compose.onNodeWithText("¿Qué significan los colores?").performClick()
         compose.onNodeWithText("Amarillo: cumple tu mínimo.").assertDoesNotExist()
-    }
-    @Test fun `OS block preserves saved switches and return enables the same preferences`() {
-        var state by mutableStateOf(AvisosState(Settings.DEFAULT.copy(dailySummaryEnabled = false), false, true))
-        var system = 0; val changes = mutableListOf<Pair<NoticePreference, Boolean>>()
-        compose.setContent { KomparaTheme { AvisosContent(state, openSystem = { system++ }, change = { k, v -> changes += k to v }) } }
-        compose.onNodeWithContentDescription("Tu resumen de hoy").assertIsOff().assertIsNotEnabled()
-        compose.onNodeWithContentDescription("Tu semana, los lunes").assertIsOn().assertIsNotEnabled()
-        compose.onNodeWithText("Sin montos").assertIsDisplayed()
-        compose.onNodeWithText("Activar avisos en el teléfono").performClick(); assertEquals(1, system)
-        compose.runOnIdle { state = state.copy(allowed = true) }
-        compose.onNodeWithText("Tu teléfono los tiene apagados").assertDoesNotExist()
-        compose.onNodeWithContentDescription("Tu resumen de hoy").assertIsOff().assertIsEnabled().performClick()
-        assertEquals(listOf(NoticePreference.DAY to true), changes)
     }
     @Test fun `data deletion actions require distinct confirmations and errors stay outside them`() {
         var state by mutableStateOf(TusDatosState(loaded = true, signedIn = true))

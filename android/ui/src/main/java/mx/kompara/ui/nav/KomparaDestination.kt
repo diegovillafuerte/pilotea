@@ -2,17 +2,16 @@ package mx.kompara.ui.nav
 
 /** Three roots and the stable drill-in route keys used by existing links. */
 enum class KomparaDestination(val route: String) {
-    INICIO("inicio"),
     GANANCIAS("ganancias"),
     COMPARAR("comparar"),
-    LECTOR("lector"),
-    FISCAL("fiscal"),
+    IMSS("imss"),
+    SEMAFORO("semaforo"),
     AJUSTES("ajustes");
 
     companion object {
-        const val MONTH_ROUTE = "ganancias-mes"
-        fun showsBottomBar(route: String?): Boolean = barItems.any { it.route == route } || route == MONTH_ROUTE ||
-            route == DAY_DETAIL_ROUTE || route?.startsWith("$DAY_DETAIL_ROUTE/") == true || route?.startsWith("$WEEK_SUMMARY_ROUTE/") == true
+        /** The bar shows on the three roots and on a past day (docs/v4-simple-launch-plan.md §3). */
+        fun showsBottomBar(route: String?): Boolean = barItems.any { it.route == route } ||
+            route == DAY_DETAIL_ROUTE || route?.startsWith("$DAY_DETAIL_ROUTE/") == true
 
         fun dayRoute(day: String, offerId: Long? = null, ledger: Boolean = false): String = "$DAY_DETAIL_ROUTE/$day" +
             (offerId?.let { "?offerId=$it" + if (ledger) "&ledger=true" else "" } ?: if (ledger) "?ledger=true" else "")
@@ -21,10 +20,10 @@ enum class KomparaDestination(val route: String) {
         const val BATTERY_ROUTE = "reader-battery"
 
         /** The destination the app launches into. */
-        val START: KomparaDestination = INICIO
+        val START: KomparaDestination = GANANCIAS
 
         /** Bar items in display order (same as declaration order). */
-        val barItems: List<KomparaDestination> = listOf(INICIO, GANANCIAS, COMPARAR)
+        val barItems: List<KomparaDestination> = listOf(GANANCIAS, COMPARAR, IMSS)
 
         /**
          * The tab to highlight for a given nav back stack, by route. Detail screens (Ayuda,
@@ -34,11 +33,18 @@ enum class KomparaDestination(val route: String) {
          * to its root (B-074 F5). [backStackRoutes] runs root → top (oldest entry first).
          */
         fun activeTab(backStackRoutes: List<String?>): KomparaDestination =
-            backStackRoutes.asReversed()
-                .firstNotNullOfOrNull { route -> if (route == MONTH_ROUTE || route?.startsWith("$WEEK_SUMMARY_ROUTE/") == true) GANANCIAS else barItems.firstOrNull { it.route == route } }
-                ?: START
+            backStackRoutes.asReversed().firstNotNullOfOrNull { route -> barItems.firstOrNull { it.route == route } } ?: START
 
-        /** Cost-profile editor (B-040 req 4), reachable from Ajustes and the Inicio first-run nudge. */
+        /** The shell's header title for [route]; null where the screen draws its own header. */
+        fun headerTitle(route: String?): String? = when {
+            route == GANANCIAS.route || route?.startsWith("$WEEK_SUMMARY_ROUTE/") == true -> "Ganancias"
+            route == COMPARAR.route -> "Comparar"
+            route == IMSS.route -> "IMSS"
+            route == AJUSTES.route -> "Ajustes"
+            else -> null
+        }
+
+        /** Cost-profile editor (B-040 req 4), reachable from Ajustes. */
         const val COST_PROFILE_ROUTE: String = "cost-profile"
 
         /** Threshold editor (B-070): the semáforo floors (neto $/km y $/h), reachable from Ajustes. One semáforo para todas las plataformas (B-076). */
@@ -50,7 +56,6 @@ enum class KomparaDestination(val route: String) {
         /** Account management ("Tu cuenta", B-069): profile edit, logout, delete; reachable from Ajustes. */
         const val ACCOUNT_ROUTE: String = "account"
         const val DATA_ROUTE = "your-data"
-        const val NOTICES_ROUTE = "notices"
 
         /**
          * Import flow (B-045), reachable from the History screen's "Importar semana" CTA. The screen +
@@ -62,9 +67,8 @@ enum class KomparaDestination(val route: String) {
         const val IMPORT_ROUTE: String = "import"
 
         /**
-         * Referral / "Invita y gana" flow (B-056), reachable from Ajustes. Also the target of the
-         * `kompara://referral?code=X` deep link (registered in the app manifest, handled in
-         * MainActivity → the screen prefills the code once signed in).
+         * Referral / "Invita y gana" flow (B-056), reachable from Ajustes. After launch, per
+         * docs/v4-simple-launch-plan.md: the manifest no longer routes `kompara://referral` here.
          */
         const val REFERRAL_ROUTE: String = "referral"
 
@@ -96,9 +100,8 @@ enum class KomparaDestination(val route: String) {
         fun paywallRoute(surface: String): String = "$PAYWALL_ROUTE/$surface"
 
         /**
-         * Shareable earnings-card preview (B-055), reachable from the Inicio header share icon, the
-         * week-summary CTA, and the Monday week-close notification. Renders the card bitmap with a
-         * hide-amounts toggle, a story/landscape variant toggle, and the "Compartir" button.
+         * Shareable earnings-card preview (B-055). After launch, per docs/v4-simple-launch-plan.md:
+         * the shell header no longer opens it.
          */
         const val SHARE_CARD_ROUTE: String = "share-card"
     }
