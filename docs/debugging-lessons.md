@@ -151,6 +151,25 @@ other makers, measure before assuming the same holds.
 
 ---
 
+### 12. "Revealed" in the log is the controller's belief; the screenshot is the check
+
+On the S25 (2026-11-10) 2 of 5 offers logged `TEMP DIAG window reveal` and put `chip=<rect>` on every
+frame line, yet nothing was drawn there for the whole offer. The controller's state looked exactly as
+in the offers where the chip showed: window attached, alpha 1, laid out at the logged rectangle, mask
+up. A reveal only flips the window. The plate inside starts at its entrance animation's alpha 0, and
+it reaches the screen only through the window's next frames. In those offers no next frame came: no
+`place` line followed any `show`, and one Radar card never measured its rated pill.
+
+What caught it was a screenshot comparison. A script took each offer's logged chip rectangle and the
+screenshots taken once a second during the same offer, then sampled the chip's dark K head at that
+spot: dark means drawn, the map's colour means not drawn.
+
+**Apply:** Treat every "shown", "revealed" or "hidden" line as a claim, and check it against pixels
+before believing it. In code, make a claim follow evidence: publish what a drawn frame showed, not
+what the controller asked for, and put a time limit on any claim that is not confirmed.
+
+---
+
 ## What worked — keep doing
 
 - **Adversarial review (codex / multi-agent) before shipping** caught real regressions unit tests

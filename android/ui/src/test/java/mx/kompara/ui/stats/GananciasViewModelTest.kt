@@ -215,7 +215,7 @@ class GananciasViewModelTest {
                 h.prefs.setOnboardingCompleted(true); h.reader.observeEnvironment(false, false)
                 assertNull("the first run left the reader off", withTimeoutOrNull(300) { vm.askNotifications.first { it } })
                 h.reader.observeEnvironment(true, false); due()
-                vm.notificationsAsked()
+                vm.notificationsAnswered()
                 withTimeout(15_000) { vm.askNotifications.first { !it } }
                 assertTrue(h.prefs.notificationsAsked.first())
                 val again = h.vm()

@@ -1,6 +1,9 @@
 package mx.kompara.overlay
 
+import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.unit.Constraints
@@ -25,6 +28,8 @@ internal fun MeasuredVerdictChip(
     modifier: Modifier = Modifier,
     dock: Boolean = false,
     savedDocked: Boolean = false,
+    /** The displayed plate's presence, so the host can tell an entered plate from one still at alpha 0. */
+    onPresence: (MutableTransitionState<Boolean>) -> Unit = {},
     onPlacement: (OverlayPlacement) -> Unit,
 ) {
     SubcomposeLayout(modifier) { _ ->
@@ -35,7 +40,9 @@ internal fun MeasuredVerdictChip(
         val shown = decision as? OverlayPlacement.Displayed
         val plate = shown?.let {
             subcompose("display") {
-                ReglaPresence(visible, reducedMotion) {
+                val presence = remember { MutableTransitionState(false) }
+                SideEffect { onPresence(presence) }
+                ReglaPresence(visible, reducedMotion, presence) {
                     VerdictChipUi(state, callbacks, compact = it.format == PlateFormat.COMPACT, darkHost = darkHost)
                 }
             }.single().measure(Constraints.fixed(it.size.width, it.size.height))

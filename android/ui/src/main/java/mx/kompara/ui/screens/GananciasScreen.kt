@@ -75,7 +75,7 @@ fun GananciasScreen(onSemaforo: () -> Unit, onDay: (LocalDate) -> Unit, onLimits
     val message = dayMessage(today)
     val context = LocalContext.current
     val askNotifications by viewModel.askNotifications.collectAsStateWithLifecycle()
-    NotificationPermissionRequest(askNotifications, viewModel::notificationsAsked)
+    NotificationPermissionRequest(askNotifications, viewModel::notificationsAnswered)
     GananciasContent(state, period, day, week, GananciasActions(viewModel::selectPeriod, onSemaforo, today::openOffer,
         { today.showLedger(true) }, onDay, { viewModel.step(-1) }, { viewModel.step(1) }, { viewModel.showWeekCalculation(true) },
         onLimits, onCosts, { HoyHostLinks.openUber(context) }, { when (state.off?.action) {

@@ -13,10 +13,14 @@ import android.view.Gravity
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowManager
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.runtime.Recomposer
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.compositionContext
 import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.lifecycle.setViewTreeViewModelStoreOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
@@ -55,6 +59,7 @@ import mx.kompara.parsers.model.HostOrientation
 import mx.kompara.parsers.model.HostRect
 import mx.kompara.ui.components.ReglaBand
 import mx.kompara.ui.components.ReglaModel
+import mx.kompara.ui.components.ReglaMotion
 import mx.kompara.ui.theme.KomparaTheme
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -86,6 +91,19 @@ class OverlayController @Inject constructor(
     private var revealedRect: HostRect? = null
     /** TEMP DIAG: decline rects latched for the current offer (count only). */
     private var latchedDeclines = 0
+    /**
+     * WP-AA: a reveal is the window's state, not the screen's. At the reveal the plate is still at its presence
+     * transition's alpha 0, and that transition, like every later chip state, reaches the screen only through
+     * this window's next frames. [presence] and [composedState] are what the window's composition last applied;
+     * [drawnState] is the chip a revealed traversal of this window was seen drawing in full; [drawCheck] is the
+     * pending deadline for the window to show what the controller holds (see [armDrawCheck]).
+     */
+    private var presence: MutableTransitionState<Boolean>? = null
+    private var composedState: ReglaModel? = null
+    private var drawnState: ReglaModel? = null
+    private var drawCheck: Runnable? = null
+    private var preDrawsSinceArm = 0
+    private val mainHandler by lazy { Handler(Looper.getMainLooper()) }
     private var event: OfferEvent.Parsed? = null
     private var evaluated = false
     private var chipState by mutableStateOf<ReglaModel?>(null)
@@ -295,6 +313,8 @@ class OverlayController @Inject constructor(
             "decline=${g.declineControls.diagList()} latched=${evidence.latched} " +
             "touch=${current?.let { currentIsSafe && touchable(it, g) }}")
         attach()
+        // A visible window that has not drawn this chip yet (a new verdict, a back-to-back offer) must draw it in time.
+        if (composeView?.alpha == 1f && chipState != drawnState) armDrawCheck()
     }
 
     /**
@@ -359,9 +379,11 @@ class OverlayController @Inject constructor(
                     val v = viewport ?: return@KomparaTheme
                     val reduced = android.provider.Settings.Global.getFloat(context.contentResolver,
                         android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
+                    SideEffect { if (composeView === this) composedState = state }
                     MeasuredVerdictChip(state, g, v, g.capturedAtMs, savedPosition, chipVisible, reduced,
                         g.appearance == HostAppearance.DARK, VerdictChipCallbacks(::onDrag) { onDragEnd() },
-                        dock = dockRequested, savedDocked = savedDocked) { decision ->
+                        dock = dockRequested, savedDocked = savedDocked,
+                        onPresence = { if (composeView === this) presence = it }) { decision ->
                         // Consume this measurement at pre-draw in the SAME traversal, after layout.
                         // No window/Compose mutation during measurement and no extra posted frame.
                         val frameGeneration = generation
@@ -404,7 +426,7 @@ class OverlayController @Inject constructor(
         }
         view.viewTreeObserver.addOnPreDrawListener {
             measuredPlacement?.also { measuredPlacement = null; it() }
-            settleWindow()
+            confirmDrawn(view, settled = settleWindow())
             true
         }
         owner.onResume()
@@ -461,26 +483,29 @@ class OverlayController @Inject constructor(
                 viewport.bounds.bottom - screen.y - size.height + windowOrigin.y)
         else screen.inWindow(windowOrigin)
 
-    /** Actual location/size must agree before visibility, touch or displayed history is published. */
-    private fun settleWindow() {
-        val view = composeView ?: return
-        val params = layoutParams ?: return
-        val shown = placement ?: return
+    /**
+     * Actual location/size must agree before visibility, touch or displayed history is published. True when this
+     * traversal verified the visible window: laid out with no layout pending, at the placed size and position, valid.
+     */
+    private fun settleWindow(): Boolean {
+        val view = composeView ?: return false
+        val params = layoutParams ?: return false
+        val shown = placement ?: return false
         // Layout-change listeners run before the root's screen transform is final. Only pre-draw
         // after a completed layout may read getLocationOnScreen or reveal the chip.
-        if (!view.isLaidOut || view.isLayoutRequested) return
+        if (!view.isLaidOut || view.isLayoutRequested) return false
         if (view.width != shown.size.width || view.height != shown.size.height) {
             // A larger phrase/limit must not paint once at the old position.
             hideUntilSettled("SIZE_CHANGED", "actual=${view.width}x${view.height} expected=${shown.size.width}x${shown.size.height}")
-            return
+            return false
         }
-        val g = geometry ?: return
-        val v = viewport ?: return
+        val g = geometry ?: return false
+        val v = viewport ?: return false
         val problem = OverlayPositioning.geometryProblem(g, event?.packageName.orEmpty(), v,
             System.currentTimeMillis(), checkAge = false)
         if (problem != null) {
             diagnostic(problem, geometryDetails(g, v))
-            detach(problem); return
+            detach(problem); return false
         }
         val location = IntArray(2); view.getLocationOnScreen(location)
         val actual = OverlayPosition(location[0], location[1])
@@ -496,13 +521,13 @@ class OverlayController @Inject constructor(
             runCatching { windowManager.updateViewLayout(view, params) }.onFailure {
                 diagnostic("WINDOW_UPDATE_FAILED", it.javaClass.simpleName); detach()
             }
-            return
+            return false
         }
         if (!OverlayPositioning.valid(actual, shown.size, g, v, shown.overMarker, shown.docked, kept = true)) {
-            hideUntilSettled("SUPPRESSED_OCCLUSION", geometryDetails(g, v)); return
+            hideUntilSettled("SUPPRESSED_OCCLUSION", geometryDetails(g, v)); return false
         }
         // A soft-hidden chip stays settled but invisible until the next parsed frame.
-        if (softHidden) return
+        if (softHidden) return false
         // 0.2.17 (user decision 2026-11-07, "only in a clear slot"): draggable only in a strict tier
         // over no host control or soft chrome; docked or over host chrome, taps pass through.
         // 0.2.18: never on Uber; on DiDi only on a fresh frame of the current foreground with a settled
@@ -511,19 +536,83 @@ class OverlayController @Inject constructor(
         if (debugDiag && view.alpha != 1f) Log.d(TAG, "TEMP DIAG window reveal rect=${actual.bounds(shown.size).diag()} " +
             "touch=$touchable decline=${g.declineControls.diagList()} latched=$latchedDeclines")
         revealedRect = actual.bounds(shown.size)
+        val revealing = view.alpha != 1f
         view.alpha = 1f
+        if (revealing) armDrawCheck()
         val untouchable = params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE != 0
         if (untouchable == touchable) {
             params.flags = if (touchable) params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
                 else params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
             if (debugDiag) Log.d(TAG, "TEMP DIAG window touch=$touchable rect=${revealedRect?.diag()}")
+            // A flags-only update: it requests layout again, but this traversal already verified what it draws.
             runCatching { windowManager.updateViewLayout(view, params) }.onFailure {
-                diagnostic("WINDOW_UPDATE_FAILED", it.javaClass.simpleName); detach(); return
+                diagnostic("WINDOW_UPDATE_FAILED", it.javaClass.simpleName); detach(); return false
             }
         }
         val rect = actual.bounds(shown.size)
+        // The mask goes up with the reveal: the plate may be on screen from this frame on. It comes down with the
+        // window if this frame never draws it (armDrawCheck). Displayed history waits for the drawn plate.
         ScreenReaderState.setOverlayChipRect(ScreenRect(rect.left, rect.top, rect.right, rect.bottom))
-        record(shown)
+        if (drawCheck == null && drawnState == chipState) record(shown)
+        return true
+    }
+
+    /**
+     * Arms the deadline for this window to show what the controller now holds: the plate fully present with the
+     * current chip after a reveal or a content change, or no plate after a hide. Only a later pre-draw of this
+     * window can meet it ([confirmDrawn]); a window that draws no further frame is taken down when it lapses, so
+     * the frame line, the reader's mask and displayed history never outlive the ink, and never keep an old verdict
+     * over a new offer. The next frame attaches a fresh window. One deadline at a time: later frames never extend it.
+     */
+    private fun armDrawCheck() {
+        val view = composeView ?: return
+        if (drawCheck != null) return
+        preDrawsSinceArm = 0
+        val armed = generation
+        val check = Runnable {
+            if (composeView !== view || generation != armed) return@Runnable
+            drawCheck = null
+            val p = presence
+            val details = "alpha=${view.alpha} presence=${p?.currentState}/${p?.isIdle} composed=${composedState == chipState} " +
+                "preDraws=$preDrawsSinceArm recomposer=${(view.compositionContext as? Recomposer)?.currentState?.value}"
+            diagnostic("UNDRAWN", details)
+            if (debugDiag) Log.d(TAG, "TEMP DIAG window undrawn rect=${revealedRect?.diag()} $details")
+            detach("UNDRAWN")
+        }
+        drawCheck = check
+        mainHandler.postDelayed(check, drawConfirmMs())
+    }
+
+    /**
+     * Pre-draw: this traversal draws the window as the controller holds it. A visible window counts only when
+     * [settled] (settleWindow verified it this traversal), not by a pending-layout check: settleWindow's own
+     * flags-only touch update requests layout after verifying, and a DiDi drag repeats it on every frame.
+     */
+    private fun confirmDrawn(view: ComposeView, settled: Boolean) {
+        if (drawCheck == null || composeView !== view) return
+        preDrawsSinceArm++
+        val visible = view.alpha == 1f
+        if (visible) {
+            val p = presence
+            if (!settled || p == null || !p.isIdle || !p.currentState || composedState != chipState) return
+            drawnState = chipState
+        }
+        disarmDrawCheck()
+        if (!visible) return
+        if (debugDiag) Log.d(TAG, "TEMP DIAG window drawn rect=${revealedRect?.diag()} preDraws=$preDrawsSinceArm")
+        placement?.let(::record)
+    }
+
+    private fun disarmDrawCheck() {
+        drawCheck?.let(mainHandler::removeCallbacks)
+        drawCheck = null
+    }
+
+    /** The plate's own entrance ([ReglaMotion.enterMs] at the system's animator scale) plus a margin under one capture. */
+    private fun drawConfirmMs(): Long {
+        val scale = overlayContext?.let { android.provider.Settings.Global.getFloat(it.contentResolver,
+            android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) } ?: 1f
+        return DRAW_CONFIRM_MS + (ReglaMotion.enterMs(scale == 0f) * scale).toLong()
     }
 
     private fun touchable(shown: OverlayPlacement.Displayed, g: HostGeometry) =
@@ -551,8 +640,11 @@ class OverlayController @Inject constructor(
 
     private fun hideUntilSettled(reason: String = "LAYOUT_PENDING", details: String = "") {
         if (event != null) diagnostic(reason, details)
-        if (debugDiag && composeView?.alpha == 1f) Log.d(TAG, "TEMP DIAG window hide reason=$reason rect=${revealedRect?.diag()}")
+        val visible = composeView?.alpha == 1f
+        if (debugDiag && visible) Log.d(TAG, "TEMP DIAG window hide reason=$reason rect=${revealedRect?.diag()}")
         composeView?.alpha = 0f
+        // A hide is a claim too: only a later traversal takes the plate off the screen.
+        if (visible) armDrawCheck()
         forcePassThrough()
         // Keep the last visible footprint masked until the window settles or detaches. The
         // compositor may still contain those pixels while the transparent update is in flight.
@@ -576,6 +668,7 @@ class OverlayController @Inject constructor(
         composeView?.let { runCatching { windowManager.removeView(it) } }
         lifecycleOwner?.onDestroy()
         composeView = null; lifecycleOwner = null; layoutParams = null; placement = null
+        disarmDrawCheck(); presence = null; composedState = null; drawnState = null
         ScreenReaderState.clearOverlayChipRect()
     }
 
@@ -786,6 +879,12 @@ class OverlayController @Inject constructor(
         const val FRAME_SILENCE_MS = 3_000L
         /** Main's ceiling without a successful parse: the window detaches. */
         const val PARSE_CEILING_MS = 15_000L
+        /**
+         * WP-AA: after the plate's entrance, how long a revealed, re-verdicted or hidden window has to draw that
+         * state before it is taken down. Below the S25's ~0.9 s capture gap less the ~70 ms to a reveal, so the next
+         * frame line never claims a chip this window did not draw.
+         */
+        const val DRAW_CONFIRM_MS = 400L
     }
 }
 

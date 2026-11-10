@@ -67,7 +67,8 @@ class GananciasViewModel @Inject constructor(
     val askNotifications: StateFlow<Boolean> = combine(settings.settings, settings.notificationsAsked, reader.state) { prefs, asked, readiness ->
         NotificationAsk.eligible(prefs.onboardingCompleted, asked, readiness)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
-    fun notificationsAsked() { viewModelScope.launch { settings.setNotificationsAsked() } }
+    /** The system dialog was answered (granted or declined): it is not asked again. */
+    fun notificationsAnswered() { viewModelScope.launch { settings.setNotificationsAsked() } }
 
     fun selectPeriod(index: Int) { savedStateHandle[PERIOD] = index }
     /** One week back or forward; never past the current week. */

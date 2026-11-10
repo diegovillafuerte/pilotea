@@ -174,3 +174,31 @@ apaga", which the launch set removed. Ganancias now asks (`NotificationPermissio
 run with the reader on (permission given, not off or stopped), on API 33+ and only if not granted. The
 stored `notifications_asked` flag keeps it from asking again, a decline included. No screen of its own. With
 no Avisos row, a decline cannot be undone inside the app: TD-V4-12.
+
+**Found on the S25, 2026-11-10 (WP-AA):** on 2 of 5 offers, on 0.3.0 and on 0.2.20 alike, the log said
+`window reveal` and every frame line said `chip=<rect>`, but the screenshots showed nothing drawn there for
+the whole offer. In every such offer no `place` line followed any `show` after the reveal. That is not because
+the card stood still: each frame writes new geometry, so a live window re-places on every frame (the
+replay of offer 3f3c does, with `rawCardTop` fixed at 626). In those windows the composition and drawing had
+stopped. Offer 35d9 shows it best: its rated pill (666 px) was never measured, so it stayed revealed at the
+571 px "Leyendo" width. What the code shows is why the claim went wrong. The reveal (`settleWindow`) flips the
+window, puts up the reader's mask, logs the reveal and records the presentation. At that moment the plate is
+still at its entrance animation's alpha 0 (`ReglaPresence`), and only the window's next frames bring it in. So
+any window that stops after the reveal keeps the claim for the whole offer with no ink. Why the window stops
+on the phone is **not** established; the code alone cannot settle it.
+The controller now checks its claim against the window. A reveal, a new verdict on a visible window and a
+hide each set a deadline: the plate's entrance plus 400 ms. Only a pre-draw meets it, and that pre-draw must
+draw the current verdict fully present (or nothing, after a hide). A window that misses it is taken down with
+`chip hidden reason=UNDRAWN` and its mask; the next frame attaches a fresh one. Presentation history waits for
+the drawn plate. The same check stops a window that has stopped drawing from leaving its last chip on screen:
+an old verdict over a back-to-back offer, or a chip after the offer leaves. `InvisibleChipReplayTest` replays
+3f3c and 35d9 with the window stopped at the reveal, its composition or its traversals, plus both stale
+cases. On the next phone run, the `TEMP DIAG window undrawn` line tells which of the two stopped: presence
+`false/false` means the plate never got a frame; presence `true/true` with `composed=true` means it was
+composed but never drawn again. The replays check the controller's bookkeeping against the window's own
+software draw, not what the compositor presents; only a phone screenshot shows a frame reached the screen.
+A visible window counts as drawn when `settleWindow` verified that traversal, not when no layout is pending:
+the flags-only touch update it makes afterwards requests layout, and a DiDi drag repeats it every frame
+(Codex review; a 900 ms drag replay was taken down at 555 ms before this). Also in WP-AA: the notification ask is now recorded from the dialog's answer,
+not before it, and a configuration change while the dialog is up does not ask twice. So it is at most
+once per answered dialog: a process lost before the answer asks again.

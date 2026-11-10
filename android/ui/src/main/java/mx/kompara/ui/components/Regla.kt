@@ -148,10 +148,13 @@ private fun VerdictShape(position: ReglaPosition, color: Color, modifier: Modifi
     }
 }
 
-/** Only presence animates. Swapping [content]'s model never crossfades colours or old amounts. */
+/**
+ * Only presence animates. Swapping [content]'s model never crossfades colours or old amounts. [state] lets a host
+ * read whether the plate is fully present (`isIdle && currentState`): it starts absent and enters on later frames.
+ */
 @Composable
-fun ReglaPresence(visible: Boolean, reducedMotion: Boolean, content: @Composable () -> Unit) {
-    val state = remember { MutableTransitionState(false) }
+fun ReglaPresence(visible: Boolean, reducedMotion: Boolean, state: MutableTransitionState<Boolean> = remember { MutableTransitionState(false) },
+    content: @Composable () -> Unit) {
     state.targetState = visible
     val rise = with(LocalDensity.current) { ReglaMotion.riseDp(reducedMotion).dp.roundToPx() }
     val duration = ReglaMotion.enterMs(reducedMotion)
