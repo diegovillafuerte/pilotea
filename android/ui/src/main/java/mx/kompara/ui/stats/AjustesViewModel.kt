@@ -27,6 +27,10 @@ data class AjustesState(
 fun costsSummary(costPerKm: java.math.BigDecimal?, weeklyCar: java.math.BigDecimal?): String =
     (costPerKm?.let { "${Formatters.formatMxn(it)} por km" } ?: "Sin confirmar") +
         (weeklyCar?.let { " · coche ${Formatters.formatMxnWhole(it)} a la semana" } ?: "")
+/** J1's Tu cuenta value: the phone (or "Entrar con WhatsApp") and the driver's city once known. */
+fun accountSummary(phone: String?, city: City?): String = listOfNotNull(
+    phone?.let { if (it.startsWith("+52") && it.length == 13) "+52 ${it.substring(3, 5)} ${it.substring(5, 9)} ${it.substring(9)}" else it } ?: "Entrar con WhatsApp",
+    city?.displayName).joinToString(" · ")
 fun costDate(date: LocalDate, today: LocalDate = date) = date.format(DateTimeFormatter.ofPattern(
     if (date.year == today.year) "EEEE d MMM" else "EEEE d MMM yyyy", Locale.forLanguageTag("es-MX")))
 fun settingsReaderText(reader: ReaderReadiness): String = when (reader.phase) {
@@ -57,12 +61,11 @@ class AjustesViewModel @Inject constructor(
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val state = refresh.flatMapLatest { combine(settingsRepository.settings, money, reader.state, auth.sessionState) { prefs, costsLabel, ready, session ->
         val driver = (session as? SessionState.Authenticated)?.driver
-        val city = (driver?.city?.let { City.fromKey(it) } ?: prefs.city.takeIf { prefs.cityChosen })?.displayName
-        val who = driver?.phone?.let { phone -> if (phone.startsWith("+52") && phone.length == 13) "+52 ${phone.substring(3, 5)} ${phone.substring(5, 9)} ${phone.substring(9)}" else phone } ?: "Entrar con WhatsApp"
         AjustesState(
             limits = ThresholdEditor.summary(LimitDraft.from(prefs.effectiveThreshold, prefs.preferredMetric, prefs.rateBasis)),
             costs = costsLabel, reader = settingsReaderText(ready), glyph = ready.statusGlyph(),
-            account = listOfNotNull(who, city).joinToString(" · "), signedIn = driver != null,
+            account = accountSummary(driver?.phone, driver?.city?.let { City.fromKey(it) } ?: prefs.city.takeIf { prefs.cityChosen }),
+            signedIn = driver != null,
             firstPermission = ready.permission == false && ready.apps.values.none { it.lastReadAt != null } && ready.incident == null,
         )
     }.map<AjustesState, AjustesState?> { it }.catch { e ->

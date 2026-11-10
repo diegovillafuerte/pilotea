@@ -100,15 +100,18 @@ internal fun AjustesRow(label: String, detail: String? = null, modifier: Modifie
     Row(modifier.fillMaxWidth().heightIn(min = if (link) 52.dp else 60.dp)
         .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier).padding(vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Column(Modifier.weight(1f)) {
-            Text(label, style = KomparaType.body)
-            if (detail != null) Row(Modifier.padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                glyph?.let { StatusIcon(it) }
-                Text(detail, style = RowDetail, color = KomparaTheme.colors.inkSecondary)
+        // A value sits at the right while it fits beside the label; at large text it moves under it.
+        FlowRow(Modifier.weight(1f), horizontalArrangement = Arrangement.SpaceBetween, itemVerticalAlignment = Alignment.CenterVertically) {
+            Column {
+                Text(label, style = KomparaType.body)
+                if (detail != null) Row(Modifier.padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    glyph?.let { StatusIcon(it) }
+                    Text(detail, style = RowDetail, color = KomparaTheme.colors.inkSecondary)
+                }
             }
+            if (value != null) Text(value, Modifier.padding(start = 12.dp), style = KomparaType.meaning, color = KomparaTheme.colors.inkSecondary)
         }
-        if (value != null) Text(value, Modifier.widthIn(max = 200.dp), style = KomparaType.meaning, color = KomparaTheme.colors.inkSecondary)
         if (trailing != null) trailing()
         else if (onClick != null) DrawnIcon(R.drawable.v3_chev, Modifier.size(20.dp), tint = KomparaTheme.colors.inkTertiary)
     }

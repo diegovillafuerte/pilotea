@@ -8,7 +8,7 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
-data class SemaforoApp(val name: String, val detail: String, val glyph: StatusGlyph, val unavailable: Boolean)
+data class SemaforoApp(val name: String, val detail: String, val glyph: StatusGlyph)
 enum class SemaforoAction { PERMISSION, BATTERY, CAPTURE, SETTINGS }
 
 /** J4: the state, one proof row per app, and when the reader is off its cause and one button. No pause (v4 plan 4.8). */
@@ -72,7 +72,7 @@ fun semaforoState(reader: ReaderReadiness, zone: ZoneId, needsCaptureConsent: Bo
             app.lastReadAt != null -> "Última lectura ${relative(app.lastReadAt!!)}" to StatusGlyph.WAITING
             else -> "Esperando una oferta" to StatusGlyph.WAITING
         }
-        SemaforoApp(name, proof, glyph, !app.supported || off)
+        SemaforoApp(name, proof, glyph)
     }
     return SemaforoState(reader.statusLabel(), reader.statusGlyph(), detail,
         // L3's words for the lost permission; Ganancias says the same.

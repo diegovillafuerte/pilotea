@@ -87,7 +87,7 @@ class WeekCarNavigationTest {
             assertFalse("Week must load from its dated Room evidence", weekModel.uiState.value.error)
             compose.onNodeWithText("Cada día se restan $214 del coche").performScrollTo().performClick()
             awaitState { carModel.state.value.open }
-            compose.onNodeWithText("Lo del coche").assertIsDisplayed()
+            compose.onNodeWithText("El coche").assertIsDisplayed()
             compose.onNodeWithText("Cada semana").assertIsDisplayed()
             compose.onNodeWithText("Renta, crédito o seguro").assertIsDisplayed()
             assertEquals("1500", carModel.state.value.amount)
@@ -96,7 +96,7 @@ class WeekCarNavigationTest {
             compose.onNode(SemanticsMatcher.keyIsDefined(SemanticsActions.Dismiss))
                 .performSemanticsAction(SemanticsActions.Dismiss) { it() }
             awaitState { !carModel.state.value.open }
-            compose.onNodeWithText("Lo del coche").assertDoesNotExist()
+            compose.onNodeWithText("El coche").assertDoesNotExist()
             compose.onNodeWithText("Cada día se restan $214 del coche").assertIsDisplayed()
             assertEquals("$548", weekModel.uiState.value.week!!.amount)
             assertEquals(day.date, weekModel.uiState.value.weekStart)

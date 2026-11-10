@@ -15,6 +15,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -87,7 +91,8 @@ fun PitchScreen(onFinished: () -> Unit, modifier: Modifier = Modifier,
         }
     }
     OnboardingFrame(null, modifier = modifier, brand = true, contentTop = 6.dp, footer = { PrimaryButton("Empezar", onFinished) }) {
-        Column(Modifier.padding(horizontal = 20.dp)) { Title("Antes de aceptar, ve cuánto te deja.") }
+        Text("Antes de aceptar, ve cuánto te deja.", Modifier.padding(horizontal = 20.dp),
+            style = KomparaType.headline.copy(lineBreak = androidx.compose.ui.text.style.LineBreak.Heading))
         DemoHost(selected, Modifier.padding(top = 14.dp))
         Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 10.dp)) {
             listOf(OfferMarkState.ABOVE to "Arriba de tu meta", OfferMarkState.MEETS to "Entre tu mínimo y tu meta",
@@ -109,7 +114,10 @@ fun PitchScreen(onFinished: () -> Unit, modifier: Modifier = Modifier,
 @Composable private fun DemoHost(offer: DemoOffer, modifier: Modifier = Modifier) {
     val map = Color(0xFFECEEF3); val road = Color.White; val route = Color(0xFF1B2430)
     val card = Color.White; val ink = Color(0xFF111111)
-    Box(modifier.fillMaxWidth().height(262.dp).clipToBounds().background(map)) {
+    // A picture of the ride app: past 1.3× the chip alone is wider than a small phone, so the picture stops growing there.
+    val density = LocalDensity.current
+    CompositionLocalProvider(LocalDensity provides Density(density.density, density.fontScale.coerceAtMost(1.3f))) {
+    Box(modifier.fillMaxWidth().heightIn(min = 262.dp).clipToBounds().background(map)) {
         Canvas(Modifier.matchParentSize().clearAndSetSemantics {}) {
             fun dp(v: Int) = v.dp.toPx()
             for ((x, w) in listOf(86 to 9, 196 to 8, 292 to 8)) drawRect(road, Offset(dp(x), 0f), Size(dp(w), size.height))
@@ -120,26 +128,35 @@ fun PitchScreen(onFinished: () -> Unit, modifier: Modifier = Modifier,
             }
             drawCircle(road, dp(11), Offset(dp(300), dp(34))); drawCircle(route, dp(8), Offset(dp(300), dp(34)))
         }
-        Column(Modifier.padding(start = 12.dp, end = 12.dp, top = 122.dp).fillMaxWidth().height(200.dp)
-            .background(card, RoundedCornerShape(22.dp)).border(2.dp, ink, RoundedCornerShape(22.dp))
-            .padding(start = 16.dp, top = 14.dp, end = 14.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-                Text("Viaje", Modifier.background(ink, RoundedCornerShape(8.dp)).padding(horizontal = 11.dp, vertical = 4.dp),
-                    style = KomparaType.bodyStrong.copy(fontFamily = FontFamily.SansSerif, fontSize = 15.sp), color = card)
-                Spacer(Modifier.weight(1f))
-                Box(Modifier.size(46.dp, 44.dp).background(Color(0xFFF1F1F1), RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) {
-                    DrawnIcon(R.drawable.v3_close, Modifier.size(20.dp), tint = ink)
-                }
+        Column(Modifier.padding(horizontal = 12.dp)) {
+            // The chip sits 12 dp above the card's corner, as the overlay places it over a real offer.
+            Box(Modifier.heightIn(min = 110.dp).offset(x = (-2).dp), contentAlignment = Alignment.BottomStart) {
+                Regla(offer.model(), Modifier.testTag("demo-regla"))
             }
-            Text(Formatters.formatMxn(offer.fare), Modifier.offset(y = (-8).dp), style = TextStyle(fontFamily = FontFamily.SansSerif,
-                fontWeight = FontWeight.Bold, fontSize = 42.sp, lineHeight = 46.sp, letterSpacing = (-1).sp), color = ink)
-            Text("${offer.minutes.toInt()} min · ${offer.km} km", Modifier.offset(y = (-6).dp),
-                style = TextStyle(fontFamily = FontFamily.SansSerif, fontSize = 15.5.sp, lineHeight = 21.sp), color = Color(0xFF5B5B5B))
+            Spacer(Modifier.height(12.dp))
+            // The demo's lower edge cuts the card, as the kit draws it; a larger font grows the demo instead of the cut.
+            Column(Modifier.fillMaxWidth()
+                .layout { measurable, constraints ->
+                    val card = measurable.measure(constraints.copy(maxHeight = Constraints.Infinity))
+                    layout(card.width, card.height - 60.dp.roundToPx()) { card.place(0, 0) }
+                }
+                .heightIn(min = 200.dp).background(card, RoundedCornerShape(22.dp)).border(2.dp, ink, RoundedCornerShape(22.dp))
+                .padding(start = 16.dp, top = 14.dp, end = 14.dp, bottom = 60.dp)) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+                    Text("Viaje", Modifier.background(ink, RoundedCornerShape(8.dp)).padding(horizontal = 11.dp, vertical = 4.dp),
+                        style = KomparaType.bodyStrong.copy(fontFamily = FontFamily.SansSerif, fontSize = 15.sp), color = card)
+                    Spacer(Modifier.weight(1f))
+                    Box(Modifier.size(46.dp, 44.dp).background(Color(0xFFF1F1F1), RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) {
+                        DrawnIcon(R.drawable.v3_close, Modifier.size(20.dp), tint = ink)
+                    }
+                }
+                Text(Formatters.formatMxn(offer.fare), Modifier.offset(y = (-8).dp), style = TextStyle(fontFamily = FontFamily.SansSerif,
+                    fontWeight = FontWeight.Bold, fontSize = 42.sp, lineHeight = 46.sp, letterSpacing = (-1).sp), color = ink)
+                Text("${offer.minutes.toInt()} min · ${offer.km} km", Modifier.offset(y = (-6).dp),
+                    style = TextStyle(fontFamily = FontFamily.SansSerif, fontSize = 15.5.sp, lineHeight = 21.sp), color = Color(0xFF5B5B5B))
+            }
         }
-        // The chip sits 12 dp above the card's corner, as the overlay places it over a real offer.
-        Box(Modifier.padding(start = 10.dp).height(110.dp), contentAlignment = Alignment.BottomStart) {
-            Regla(offer.model(), Modifier.testTag("demo-regla"))
-        }
+    }
     }
 }
 
@@ -201,7 +218,7 @@ private val Small = KomparaType.small.copy(fontSize = 14.sp, lineHeight = 20.sp)
 /** The kit's `.steps`: the number in a 22 dp column, 16 sp text, a 14 sp detail under it. */
 @Composable private fun NumberedStep(number: Int, text: androidx.compose.ui.text.AnnotatedString, detail: String? = null) {
     Row {
-        Text("$number.", Modifier.width(22.dp), style = KomparaType.body, color = KomparaTheme.colors.inkSecondary)
+        Text("$number.", Modifier.widthIn(min = 22.dp).padding(end = 2.dp), style = KomparaType.body, color = KomparaTheme.colors.inkSecondary, softWrap = false)
         Column(Modifier.weight(1f)) {
             Text(text, style = KomparaType.body)
             if (detail != null) Text(detail, Modifier.padding(top = 2.dp), style = Small, color = KomparaTheme.colors.inkSecondary)

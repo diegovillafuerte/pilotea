@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.platform.LocalContext
 import mx.kompara.data.accounting.RunningCostInputs
 import mx.kompara.data.accounting.RunningCostMode
+import mx.kompara.data.model.City
 import mx.kompara.data.service.*
 import mx.kompara.data.settings.PlatformThreshold
 import mx.kompara.data.settings.PreferredMetric
@@ -61,7 +62,7 @@ class SettingsFixture(context: Context) {
 
     fun ajustes(): AjustesState = readiness().let { reader ->
         AjustesState(ThresholdEditor.summary(LimitDraft.from(threshold, PreferredMetric.IPK)), costsSummary(cost, car),
-            settingsReaderText(reader), reader.statusGlyph(), "Entrar con WhatsApp · ${raw.getString("city")}")
+            settingsReaderText(reader), reader.statusGlyph(), accountSummary(null, City.entries.single { it.key == raw.getString("city").lowercase() }))
     }
 
     /** J2 is drawn after raising the mínimo to $6.50; J7 is the staged switch to bruto. */
@@ -92,7 +93,11 @@ fun SettingsFixtureHost(frame: String) {
     val f = remember(context) { SettingsFixture(context) }
     Surface(Modifier.fillMaxSize(), color = KomparaTheme.colors.paper, contentColor = KomparaTheme.colors.ink) {
         when (frame) {
-            "J1" -> AjustesContent(state = f.ajustes())
+            // The shell draws Ajustes' header; the fixture draws the same one so the frame reads as the kit's.
+            "J1" -> androidx.compose.foundation.layout.Column {
+                mx.kompara.ui.nav.NavigationHeader("Ajustes", onBack = {}, onSettings = null)
+                AjustesContent(state = f.ajustes())
+            }
             "J2", "J7", "hour" -> ThresholdsContent(f.limits(frame), { _, _ -> }, { _, _ -> }, {}, {}, {}, {}, {})
             "J3", "electric", "direct" -> CostProfileContent(f.costs(frame), {}, {})
             "J4", "off", "prepared" -> SemaforoContent(semaforoState(f.readiness(if (frame == "J4") "working" else frame), f.zone), {}, {}, {})

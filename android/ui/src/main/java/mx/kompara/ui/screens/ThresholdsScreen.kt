@@ -5,6 +5,8 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -31,6 +33,7 @@ import androidx.compose.ui.semantics.error
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
@@ -109,7 +112,10 @@ fun ThresholdsContent(state: ThresholdsUiState, edit: (LimitField, String) -> Un
             horizontalAlignment = Alignment.CenterHorizontally) {
             Text(if (draft.metric == PreferredMetric.IPK) "Ejemplo · $148 · 12 km" else "Ejemplo · $148 · 12 km · 24 min",
                 Modifier.align(Alignment.Start).padding(start = 12.dp, top = 9.dp), style = KomparaType.small, color = KomparaTheme.colors.inkSecondary)
-            Box(Modifier.padding(start = 12.dp, end = 12.dp, top = 0.dp, bottom = 18.dp)) { state.preview?.let { Regla(it) } }
+            // At the largest font the real chip is wider than the phone; it scrolls inside the example rather than shrink.
+            Box(Modifier.horizontalScroll(rememberScrollState()).padding(start = 12.dp, end = 12.dp, top = 0.dp, bottom = 18.dp)) {
+                state.preview?.let { Regla(it) }
+            }
         }
         state.shown?.let { shown -> LimitsBand(ThresholdEditor.parse(shown.goal)!!, ThresholdEditor.parse(shown.minimum)!!, draft.unit, Modifier.padding(top = 20.dp)) }
         LimitField.entries.forEach { field ->
@@ -213,6 +219,10 @@ private fun LimitRow(label: String, value: String, unit: String, onValueChange: 
         }
     }
     val spoken = label.replaceFirstChar { it.lowercase() }
+    val figure = KomparaType.number.copy(fontWeight = FontWeight.Bold, color = c.ink)
+    // A text field fills its width; the figure hugs what is typed so the unit sits right after it, as drawn.
+    val measurer = rememberTextMeasurer()
+    val typed = with(LocalDensity.current) { measurer.measure(input.text.ifEmpty { "0" }, figure).size.width.toDp() } + 2.dp
     Column(Modifier.fillMaxWidth()) {
         FlowRow(Modifier.fillMaxWidth().padding(vertical = 14.dp), horizontalArrangement = Arrangement.SpaceBetween,
             verticalArrangement = Arrangement.spacedBy(8.dp), itemVerticalAlignment = Alignment.CenterVertically) {
@@ -226,7 +236,7 @@ private fun LimitRow(label: String, value: String, unit: String, onValueChange: 
                 CompositionLocalProvider(LocalTextSelectionColors provides TextSelectionColors(
                     handleColor = c.ink, backgroundColor = c.ink.copy(alpha = .14f))) {
                     BasicTextField(input, { input = it; onValueChange(it.text) }, enabled = enabled, singleLine = true,
-                        textStyle = KomparaType.number.copy(fontWeight = FontWeight.Bold, color = c.ink), cursorBrush = SolidColor(c.brand),
+                        textStyle = figure, cursorBrush = SolidColor(c.brand),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
                         modifier = Modifier.padding(top = 3.dp).heightIn(min = 48.dp)
                             .onFocusChanged { focused = it.isFocused; onFocus(it.isFocused) }
@@ -234,8 +244,8 @@ private fun LimitRow(label: String, value: String, unit: String, onValueChange: 
                             .padding(horizontal = if (focused) 6.dp else 0.dp)
                             .semantics { contentDescription = label; if (error != null) error(error) },
                         decorationBox = { content -> Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("$", style = KomparaType.number.copy(fontWeight = FontWeight.Bold))
-                            Box(Modifier.widthIn(min = 12.dp)) { content() }
+                            Text("$", style = figure)
+                            Box(Modifier.width(typed)) { content() }
                             Text(unit, Modifier.padding(start = 4.dp, top = 6.dp), style = RowDetail, color = c.inkSecondary)
                         } })
                 }

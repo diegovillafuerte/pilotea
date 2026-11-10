@@ -40,7 +40,7 @@ class AjustesViewModelTest {
         var vmJob: Job? = null
         try {
             val zone = ZoneId.of("America/Mexico_City")
-            var now = LocalDate.parse("2026-10-19").atTime(7, 30).atZone(zone).toInstant()
+            val now = LocalDate.parse("2026-10-19").atTime(7, 30).atZone(zone).toInstant()
             val running = CostProfileRepository(db.costProfileDao()); val car = CarCostRepository(db.carCostDao())
             running.saveRunningCosts(RunningCostInputs.TYPICAL, now.toEpochMilli(), now.toEpochMilli(), CostConfirmation.TYPICAL)
             val prefs = SettingsRepository(Memory())
@@ -59,7 +59,7 @@ class AjustesViewModelTest {
             assertEquals("$2.84 por km", first.costs)
             assertEquals("$8.00 · $6.00 por km, neto", first.limits)
             prefs.setCity(mx.kompara.data.model.City.CDMX)
-            assertEquals("Entrar con WhatsApp · CDMX", await { it.account.endsWith("CDMX") }.account)
+            assertEquals("Entrar con WhatsApp · CDMX y Edomex", await { it.account.endsWith("Edomex") }.account)
             running.saveRunningCosts(RunningCostInputs(RunningCostMode.DIRECT, directPerKm = BigDecimal("3.75")), now.toEpochMilli(), now.toEpochMilli())
             assertEquals("$3.75 por km", await { it.costs.startsWith("$3.75") }.costs)
             car.save(BigDecimal("1500"), now.atZone(zone).toLocalDate(), now.toEpochMilli())
@@ -68,8 +68,8 @@ class AjustesViewModelTest {
             assertEquals("$8.00 · $6.50 por km, neto", await { it.limits.contains("6.50") }.limits)
             reader.observeEnvironment(true, false)
             assertEquals("Preparado · permiso listo", await { it.reader.startsWith("Preparado") }.reader)
-            // A car amount that starts later is not in force today.
-            now = now.minusSeconds(3 * 86400)
+            // A car removed from today is no longer in force.
+            car.remove(now.atZone(zone).toLocalDate(), now.toEpochMilli())
             assertEquals("$3.75 por km", await { !it.costs.contains("coche") }.costs)
         } finally { collecting?.cancelAndJoin(); store.clear(); vmJob?.join(); http.close(); db.close() }
     }
@@ -84,5 +84,7 @@ class AjustesViewModelTest {
         assertEquals("$315.25 · $150 por hora, neto", ThresholdEditor.summary(LimitDraft.from(km.copy(minPerHourMxn = 315.25), PreferredMetric.IPH)))
         assertEquals("$2.84 por km", costsSummary(BigDecimal("2.8417"), null))
         assertEquals("Sin confirmar · coche $1,500 a la semana", costsSummary(null, BigDecimal("1500")))
+        assertEquals("+52 55 1234 5678 · CDMX y Edomex", accountSummary("+525512345678", mx.kompara.data.model.City.CDMX))
+        assertEquals("Entrar con WhatsApp", accountSummary(null, null))
     }
 }

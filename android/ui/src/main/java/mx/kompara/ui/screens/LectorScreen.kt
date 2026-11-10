@@ -100,7 +100,7 @@ fun SemaforoContent(state: SemaforoState?, back: () -> Unit, help: () -> Unit, p
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Box(Modifier.width(20.dp), contentAlignment = Alignment.Center) { StatusIcon(app.glyph) }
                 Column(Modifier.weight(1f)) {
-                    Text(app.name, style = KomparaType.body, color = if (app.unavailable) KomparaTheme.colors.inkSecondary else KomparaTheme.colors.ink)
+                    Text(app.name, style = KomparaType.body)
                     Text(app.detail, Modifier.padding(top = 2.dp), style = RowDetail, color = KomparaTheme.colors.inkSecondary)
                 }
             }
