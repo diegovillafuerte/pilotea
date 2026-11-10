@@ -21,7 +21,4 @@ object ImssTracker {
 
 /** An observed payment is not evidence of enrollment or a legally defined income base. */
 data class RecordedAppPayment(val app: String, val amount: java.math.BigDecimal?, val estimated: Boolean,
-    val unconfirmed: Boolean, val undatedScopes: List<mx.kompara.data.accounting.Coverage>) {
-    val sourceNote: String? get() = if (!unconfirmed) null else
-        if (estimated) "No confirmamos que sea tu pago" else "Pago leído del resumen · sin confirmar"
-}
+    val unconfirmed: Boolean, val undatedScopes: List<mx.kompara.data.accounting.Coverage>)

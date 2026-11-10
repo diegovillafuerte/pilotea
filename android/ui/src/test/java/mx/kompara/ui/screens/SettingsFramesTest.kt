@@ -11,7 +11,7 @@ import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import mx.kompara.ui.contract.v4.V4Snapshot
-import mx.kompara.ui.contract.v4.WpF
+import mx.kompara.ui.contract.v4.V4Contract
 import mx.kompara.ui.fixtures.SettingsFixtureHost
 import mx.kompara.ui.theme.KomparaTheme
 import org.junit.Rule
@@ -32,7 +32,7 @@ class SettingsFramesTest {
         "J5" to "datos", "J6" to "ayuda", "P1" to "firstrun", "P2" to "firstrun", "P3" to "firstrun", "P4" to "firstrun")
     /** States the kit does not draw, kept from 0.2.20 and restyled: one day baseline each, named without a frame id. */
     private val states = mapOf("hour" to "limits", "electric" to "costs", "direct" to "costs", "off" to "semaforo",
-        "prepared" to "semaforo", "signed-out" to "datos", "erased" to "datos", "missing" to "firstrun",
+        "prepared" to "semaforo", "stopped" to "semaforo", "signed-out" to "datos", "erased" to "datos", "missing" to "firstrun",
         "granted" to "firstrun", "battery-first" to "firstrun")
 
     private data class Case(val frame: String, val screen: String, val dark: Boolean, val scale: Float, val width: Int)
@@ -50,7 +50,7 @@ class SettingsFramesTest {
             compose.runOnIdle { case = next }
             compose.waitForIdle()
             val name = V4Snapshot.name(next.screen, next.frame, next.dark, next.width, next.scale)
-            if (contract && !next.dark && next.scale == 1f) WpF.assertFrame(compose, next.frame)
+            if (contract && !next.dark && next.scale == 1f) V4Contract.assertFrame(compose, next.frame)
             V4Snapshot.assertNothingClipped(compose, name)
             V4Snapshot.assertMatchesBaseline(name, compose.runOnIdle { V4Snapshot.capture(compose.activity, next.width) })
         }

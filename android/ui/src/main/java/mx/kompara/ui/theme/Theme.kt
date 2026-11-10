@@ -7,21 +7,22 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
-import mx.kompara.data.settings.ThemePreference
 
 private val LocalKomparaColors = staticCompositionLocalOf { DayColors }
 object KomparaTheme {
     val colors: KomparaColors @Composable get() = LocalKomparaColors.current
 }
 
-/** Paper/ink also owns errors and text actions. Only brand actions and verdicts carry colour. */
+/**
+ * Paper/ink also owns errors and text actions. Only brand actions and verdicts carry colour. The theme follows the
+ * system; a LIGHT/DARK choice stored by 0.2.x is ignored (docs/v4-simple-launch-plan.md §3).
+ */
 @Composable
 fun KomparaTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    preference: ThemePreference = ThemePreference.AUTOMATIC,
     content: @Composable () -> Unit,
 ) {
-    val dark = preference.isDark(darkTheme)
+    val dark = darkTheme
     val c = if (dark) NightColors else DayColors
     val base = if (dark) darkColorScheme() else lightColorScheme()
     val scheme = base.copy(

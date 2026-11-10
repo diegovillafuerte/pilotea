@@ -30,13 +30,4 @@ class WeekClockTest {
     fun `day iso is the local calendar day`() {
         assertEquals("2026-06-10", clock.dayIso(at(2026, 6, 10)))
     }
-
-    @Test
-    fun `day window brackets the local day exactly`() {
-        val start = clock.dayStartMs("2026-06-10")
-        val end = clock.dayEndMs("2026-06-10")
-        assertEquals(at(2026, 6, 10, 0), start)
-        assertEquals(at(2026, 6, 11, 0), end)
-        assertEquals(24L * 3600_000L, end - start)
-    }
 }

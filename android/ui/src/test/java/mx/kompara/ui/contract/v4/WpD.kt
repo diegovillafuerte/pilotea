@@ -1,6 +1,6 @@
 package mx.kompara.ui.contract.v4
 
-/** WP-D, Ganancias (plan §4.5). Only WP-D edits this file. */
+/** WP-D, Ganancias (plan §4.5). */
 internal object WpD : V4Package {
     // L1–L8: ui/src/test/java/mx/kompara/ui/screens/GananciasScreenTest.kt records ganancias_L*_{day,night}_*.png.
     override val sections = mapOf(

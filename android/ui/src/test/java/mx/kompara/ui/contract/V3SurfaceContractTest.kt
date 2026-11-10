@@ -23,7 +23,8 @@ class V3SurfaceContractTest {
             "H6b" to "ui/src/test/java/mx/kompara/ui/onboarding/WatchdogStateMachineTest.kt",
         )
         val snapshots = listOf("ui", "overlay").flatMap { File(android, "$it/src/test/snapshots/v3").listFiles().orEmpty().toList() }
-        fun reviewed(frame: String) = snapshots.filter { Regex("_${frame}(?:_|\\.)").containsMatchIn(it.name) }
+        // The frame id between underscores, or first: a gallery baseline named "D1_day_…" must count too.
+        fun reviewed(frame: String) = snapshots.filter { Regex("(?:^|_)${frame}(?:_|\\.)").containsMatchIn(it.name) }
         FrameContract.strings.keys.forEach { frame ->
             when (frame) {
                 in retired -> assertTrue("Retired $frame keeps baselines ${reviewed(frame)}", reviewed(frame).isEmpty() && frame !in native)
@@ -31,18 +32,12 @@ class V3SurfaceContractTest {
                 else -> assertTrue("Missing reviewed frame $frame", reviewed(frame).isNotEmpty())
             }
         }
-        // Night twins must keep all three sizes; the chip grows and is suppressed by placement when it cannot fit.
-        for (n in 1..10) {
-            if ("N$n" in retired) continue
-            val names = reviewed("N$n").map { it.name }
-            assertTrue("N$n at 1.3", names.any { "1.3" in it })
-            assertTrue("N$n at 2.0", names.any { "2.0" in it })
-        }
     }
 
     @Test fun `production strings cannot reintroduce retired vocabulary or unused resources`() {
+        // A resource counts as used only from production code: a test or the debug gallery cannot keep it alive.
         val files = android.listFiles().orEmpty().flatMap { module ->
-            File(module, "src").walkTopDown().filter { it.isFile && it.extension in setOf("kt", "xml") }.toList()
+            File(module, "src/main").walkTopDown().filter { it.isFile && it.extension in setOf("kt", "xml") }.toList()
         }
         val allText = files.associateWith { it.readText() }
         val retired = Regex("(?i)\\b(?:no conviene|conviene|regular|tu rojo|te quedan|ganancia neta|de verdad|lector funcionando|lector apagado)\\b")

@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.launch
 import mx.kompara.data.accounting.*
 import mx.kompara.data.model.City
 import mx.kompara.data.service.*
@@ -38,7 +37,7 @@ fun settingsReaderText(reader: ReaderReadiness): String = when (reader.phase) {
     ReaderPhase.PREPARED -> if (reader.permission == true) "Preparado · permiso listo" else "Comprobando el permiso"
     ReaderPhase.WORKING -> "Funcionando"
     ReaderPhase.ATTENTION -> "Batería restringida · aún funciona"
-    ReaderPhase.PAUSED -> "En pausa · se reanuda mañana"
+    ReaderPhase.PAUSED -> "Apagado · lo detuviste"
 }
 
 @HiltViewModel
@@ -73,14 +72,4 @@ class AjustesViewModel @Inject constructor(
         error.value = "No pudimos cargar tus ajustes. Inténtalo otra vez."; emit(null)
     } }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
     fun retry() { error.value = null; refresh.value++ }
-    val preferences = settingsRepository.settings.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Settings.DEFAULT)
-    private fun persist(action: suspend () -> Unit) { viewModelScope.launch {
-        try { action(); error.value = null } catch (e: Exception) {
-            if (e is kotlinx.coroutines.CancellationException) throw e
-            error.value = "No pudimos guardar el ajuste. Inténtalo otra vez."
-        }
-    } }
-    fun setFiscalMonthlySummaryEnabled(value: Boolean) = persist { settingsRepository.setFiscalMonthlySummaryEnabled(value) }
-    fun setShareWeeklyReminderEnabled(value: Boolean) = persist { settingsRepository.setShareWeeklyReminderEnabled(value) }
-    fun setDebugPremium(value: Boolean) = persist { settingsRepository.setDebugPremium(value) }
 }

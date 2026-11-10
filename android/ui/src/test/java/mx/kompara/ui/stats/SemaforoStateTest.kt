@@ -25,17 +25,28 @@ class SemaforoStateTest {
         assertEquals(listOf(StatusGlyph.DONE, StatusGlyph.DONE, StatusGlyph.OFF), working.apps.map { it.glyph })
         assertNull(working.primary); assertNull(working.detail)
     }
-    @Test fun `prepared history and paused keep 0_2_20 proof wording`() {
+    @Test fun `prepared and history keep 0_2_20 proof wording`() {
         val prepared = state(f.readiness("prepared"))
         assertEquals("Esperando una oferta", prepared.apps[0].detail)
         assertEquals("Tu primera oferta lo confirma", prepared.detail)
         val yesterday = f.readiness("prepared").let { r -> r.copy(apps = r.apps + (ReaderReadinessReducer.UBER to AppReadiness(true, f.at(f.date.minusDays(1), "20:10"), false))) }
         assertEquals("Última lectura ayer 20:10", state(yesterday).apps[0].detail)
         assertEquals("Tu primera oferta de hoy lo confirma", state(yesterday).detail)
-        // A pause can only come from the capture fallback's stop now; it has no button here.
-        val paused = state(phase(ReaderPhase.PAUSED))
-        assertNull(paused.primary)
-        assertEquals("Leyó tu última oferta · 14:32", paused.apps[0].detail)
+    }
+    @Test fun `a stored pause is a stopped reader with one button that turns it back on and no mañana`() {
+        // A pause can only come from the screen-capture fallback's own stop (below Android 11).
+        val stopped = state(f.readiness("stopped"))
+        assertEquals("Semáforo apagado", stopped.title)
+        assertEquals(StatusGlyph.OFF, stopped.glyph)
+        assertEquals("Detuviste el semáforo", stopped.detail)
+        assertEquals("Enciéndelo cuando quieras; mientras tanto no leemos tus ofertas.", stopped.consequence)
+        assertEquals(SemaforoAction.RESUME, stopped.primary)
+        assertEquals("Encender el semáforo", stopped.primaryLabel)
+        assertNull(stopped.since)
+        assertEquals(listOf("Sin lectura de ofertas", "Sin lectura de ofertas", "Aún no disponible"), stopped.apps.map { it.detail })
+        val words = listOfNotNull(stopped.title, stopped.detail, stopped.consequence, stopped.primaryLabel) + stopped.apps.map { it.detail }
+        assertFalse(words.toString(), words.any { "mañana" in it || "pausa" in it })
+        assertEquals("Apagado · lo detuviste", settingsReaderText(f.readiness("stopped")))
     }
     @Test fun `off states carry the cause and one button, the same as Ganancias`() {
         val off = state(f.readiness("off"))

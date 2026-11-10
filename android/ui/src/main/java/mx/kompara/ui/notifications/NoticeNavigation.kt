@@ -23,7 +23,9 @@ class NoticeNavigation @Inject constructor(private val selection: SelectedPeriod
             NoticeKind.DAY -> KomparaDestination.dayRoute(target.period)
             NoticeKind.WEEK -> "${KomparaDestination.WEEK_SUMMARY_ROUTE}/${target.period}"
             NoticeKind.MONTH -> KomparaDestination.IMSS.route
-            NoticeKind.IMPORT -> KomparaDestination.IMPORT_ROUTE
+            // Statement import waits until after launch (plan §3): a 0.2.x import reminder still in the shade opens
+            // Ganancias instead. Restore KomparaDestination.IMPORT_ROUTE when import returns.
+            NoticeKind.IMPORT -> KomparaDestination.GANANCIAS.route
         }
     }
 }

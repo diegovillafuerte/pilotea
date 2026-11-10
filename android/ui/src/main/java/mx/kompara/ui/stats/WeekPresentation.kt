@@ -8,7 +8,6 @@ import java.math.RoundingMode
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
-import java.time.temporal.ChronoUnit
 import java.util.Locale
 
 private val weekSpanish = Locale.forLanguageTag("es-MX")
@@ -17,10 +16,6 @@ fun weekRange(start: LocalDate, today: LocalDate = start): String {
     val month = DateTimeFormatter.ofPattern("MMM", weekSpanish)
     val first = if (start.month == end.month && start.year == end.year) "${start.dayOfMonth}" else "${start.dayOfMonth} ${start.format(month)}" + if (start.year != end.year) " ${start.year}" else ""
     return "$first – ${end.dayOfMonth} ${end.format(month)}" + if (end.year != today.year || start.year != end.year) " ${end.year}" else ""
-}
-fun weekSelectorLabel(start: LocalDate, today: LocalDate): String {
-    val ago = ChronoUnit.WEEKS.between(start, today.monday())
-    return weekRange(start, today) + when (ago) { 0L -> " · en curso"; 1L -> " · semana pasada"; else -> " · hace $ago semanas" }
 }
 fun appName(app: String): String = when (app.uppercase()) { "UBER" -> "Uber"; "DIDI" -> "DiDi"; "INDRIVE" -> "inDrive"; else -> app }
 

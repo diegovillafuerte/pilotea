@@ -33,8 +33,8 @@ class GananciasStatsTest {
         fun with(phase: ReaderPhase, permission: Boolean? = true, incident: ReaderIncident? = null) =
             GananciasStats.of(f.today("L1"), f.readiness("L1").copy(phase = phase, permission = permission, incident = incident), Settings.DEFAULT)
         assertEquals("Batería restringida · aún funciona", with(ReaderPhase.ATTENTION).status!!.title)
-        // A 0.2.x pause is cleared at startup; nothing says "en pausa".
-        assertEquals("Semáforo preparado", with(ReaderPhase.PAUSED).status!!.title)
+        // A stored pause is a stopped reader: off, and the tab already shows how to turn it back on.
+        assertEquals(GananciasStatus("Semáforo apagado", null, StatusGlyph.OFF, false), with(ReaderPhase.PAUSED).status)
         assertEquals("falta el permiso", with(ReaderPhase.OFF, permission = false).status!!.detail)
         assertNull(with(ReaderPhase.OFF).status!!.detail)
         val older = ReaderIncident(ReaderIncidentCause.SERVICE_DISCONNECTED, f.at(f.date.minusDays(3), "9:15").toEpochMilli())
@@ -48,18 +48,35 @@ class GananciasStatsTest {
         val off = fixture.ganancias("L3")
         assertEquals(HoyMode.OFF, off.mode)
         assertEquals(ReaderOff("Falta el permiso de Accesibilidad",
-            "Android a veces lo apaga, por ejemplo al ahorrar batería. Sin él, Kompara no ve tus ofertas.", "Volver a dar el permiso", true), off.off)
+            "Android a veces lo apaga, por ejemplo al ahorrar batería. Sin él, Kompara no ve tus ofertas.", "Volver a dar el permiso", OffAction.RECOVERY), off.off)
         assertEquals("Ayer, lunes 19 oct, ganaste $1,240.", off.yesterday!!.text); assertEquals(fixture.date, off.yesterday!!.day)
         assertNull(off.today); assertTrue(off.todayUnread)
         assertEquals("Que no se vuelva a apagar", GananciasStats.SECONDARY)
         val f = fixture
         val first = GananciasStats.of(f.today("L2"), f.readiness("L3").copy(apps = f.readiness("L2").apps), Settings.DEFAULT)
-        assertEquals(ReaderOff("Activa el semáforo", "Sin el permiso de Accesibilidad, Kompara no ve tus ofertas.", "Activar el semáforo", true), first.off)
+        assertEquals(ReaderOff("Activa el semáforo", "Sin el permiso de Accesibilidad, Kompara no ve tus ofertas.", "Activar el semáforo", OffAction.RECOVERY), first.off)
         val stopped = GananciasStats.of(f.today("L1"), f.readiness("L1").copy(phase = ReaderPhase.OFF,
             incident = ReaderIncident(ReaderIncidentCause.CAPTURE_STOPPED, f.at(f.date, "13:02").toEpochMilli())), Settings.DEFAULT)
-        assertEquals(ReaderOff("Dejamos de leer tus ofertas", "Revisa el estado del semáforo para volver a leer tus ofertas.", "Revisar el semáforo", false), stopped.off)
+        assertEquals(ReaderOff("Dejamos de leer tus ofertas", "Revisa el estado del semáforo para volver a leer tus ofertas.", "Revisar el semáforo", OffAction.SEMAFORO), stopped.off)
         // Read offers today: the cause still leads, with what today has kept.
         assertEquals("Hoy llevas $762.", stopped.today!!.text); assertFalse(stopped.todayUnread)
+        assertTrue(off.off!!.secondary); assertTrue(stopped.off!!.secondary)
+    }
+
+    @Test fun `a stored pause is a stopped reader with one button that turns it back on and no mañana`() {
+        val f = fixture
+        val stopped = f.ganancias("stopped")
+        assertEquals(HoyMode.OFF, stopped.mode)
+        assertEquals(ReaderOff("Detuviste el semáforo", "Enciéndelo cuando quieras; mientras tanto no leemos tus ofertas.",
+            "Encender el semáforo", OffAction.RESUME), stopped.off)
+        assertFalse("The driver stopped it; Android did not", stopped.off!!.secondary)
+        assertEquals(GananciasStatus("Semáforo apagado", null, StatusGlyph.OFF, false), stopped.status)
+        assertEquals("Ayer, lunes 19 oct, ganaste $1,240.", stopped.yesterday!!.text)
+        // A pause that also lost the permission still offers to turn the reader on first.
+        val both = GananciasStats.of(f.today("stopped"), f.readiness("stopped").copy(permission = false), Settings.DEFAULT)
+        assertEquals(OffAction.RESUME, both.off!!.action)
+        assertFalse(listOf(stopped.off!!.headline, stopped.off!!.body, stopped.off!!.primary, stopped.status!!.title)
+            .any { "mañana" in it || "pausa" in it })
     }
 
     @Test fun `L2 the first day shows the two defaults and the example until an offer has ever been read`() {

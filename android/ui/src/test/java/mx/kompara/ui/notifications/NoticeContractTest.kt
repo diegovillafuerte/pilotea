@@ -67,7 +67,9 @@ class NoticeContractTest {
         assertEquals("ganancias", NoticeNavigation.destination(NoticeTarget(NoticeKind.READER)))
         assertEquals("day/2026-10-19", NoticeNavigation.destination(NoticeTarget(NoticeKind.DAY, "2026-10-19")))
         assertEquals("week/2026-10-12", NoticeNavigation.destination(NoticeTarget(NoticeKind.WEEK, "2026-10-12")))
-        assertEquals("import", NoticeNavigation.destination(NoticeTarget(NoticeKind.IMPORT, "2026-10-12")))
+        // Statement import waits until after launch: a 0.2.x import reminder still in the shade opens Ganancias.
+        assertEquals("ganancias", NoticeNavigation.destination(NoticeTarget(NoticeKind.IMPORT, "2026-10-12")))
+        assertEquals("imss", NoticeNavigation.destination(NoticeTarget(NoticeKind.MONTH, "2026-09")))
     }
     @Test fun `channel migration renames in place and preserves blocks and disabled monthly preference`() = runTest {
         manager.createNotificationChannel(NotificationChannel(NoticeChannels.READER, "Estado del lector", NotificationManager.IMPORTANCE_NONE))

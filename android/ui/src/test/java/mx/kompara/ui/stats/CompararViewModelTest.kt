@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.viewModelScope
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.*
@@ -62,8 +63,11 @@ class CompararViewModelTest {
             costs.saveRunningCosts(RunningCostInputs.TYPICAL, effectiveFrom = 0, recordedAt = 0) // $2.84 per km
             repeat(trips) { i -> taken(if (i % 2 == 0) "UBER" else "DIDI", "2026-10-%02dT%02d:00".format(5 + i % 10, 8 + i % 12), 150.0, 12.0) }
         }
-        fun vm(handle: SavedStateHandle = SavedStateHandle()) = CompararViewModel(handle, repo, settings, clock, zone).also { store.put("${vms++}", it) }
-        override fun close() { store.clear(); db.close() }
+        fun vm(handle: SavedStateHandle = SavedStateHandle()) = CompararViewModel(handle, repo, settings, clock, zone).also { store.put("${vms++}", it); jobs += it.viewModelScope.coroutineContext[Job]!! }
+        private val jobs = mutableListOf<Job>()
+        // Wait for the cleared ViewModels' Room work to finish before @After resets Dispatchers.Main (a concurrent
+        // resume on Main while it is reset fails the test under load).
+        override fun close() { store.clear(); runBlocking { jobs.joinAll() }; db.close() }
     }
     private suspend fun CompararViewModel.await(predicate: (CompararUiState) -> Boolean) = withTimeout(15_000) { uiState.first(predicate) }
 

@@ -1,6 +1,6 @@
 package mx.kompara.ui.contract.v4
 
-/** WP-C, the app shell. Only WP-C (and, at the end, the integration sweep) edits this file. */
+/** WP-C, the app shell. */
 internal object WpC : V4Package {
     override val sections = mapOf(
         "V" to Section(native = mapOf("V1" to "ui/src/test/java/mx/kompara/ui/notifications/LaunchNoticesTest.kt")),
@@ -24,7 +24,5 @@ internal object WpC : V4Package {
         "ui/src/main/java/mx/kompara/ui/share/ShareCardComposer.kt",
         // The month the IMSS PDF still prints.
         "ui/src/main/java/mx/kompara/ui/stats/MonthPresentation.kt",
-        // v3_rate_basis, read only by the debug component gallery (V3ComponentHost D1); the integration sweep drops it.
-        "ui/src/main/res/values/strings.xml",
     )
 }

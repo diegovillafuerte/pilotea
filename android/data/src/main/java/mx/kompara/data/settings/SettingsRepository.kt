@@ -75,10 +75,6 @@ class SettingsRepository @Inject constructor(
         dataStore.edit { it[booleanPreferencesKey("import_reminder_enabled")] = enabled }
     }
 
-    suspend fun setThemePreference(preference: ThemePreference) {
-        dataStore.edit { it[stringPreferencesKey(SettingsSerialization.KEY_THEME)] = preference.name }
-    }
-
     val settings: Flow<Settings> = dataStore.data.map { prefs -> prefs.toSettings() }
 
     /** Shared Ganancias/Comparar selection; null follows the current calendar week. */

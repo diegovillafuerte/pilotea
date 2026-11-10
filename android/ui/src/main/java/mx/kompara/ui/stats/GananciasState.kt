@@ -23,8 +23,13 @@ enum class HoyMode { LOADING, ERROR, OFF, FIRST_DAY, DAY }
 /** The one status line at the top of the tab; it opens the Semáforo screen unless the tab already shows the cause. */
 data class GananciasStatus(val title: String, val detail: String?, val glyph: StatusGlyph, val opens: Boolean)
 
-/** L3: the cause and its primary button; [recovery] opens the permission flow, otherwise the Semáforo screen. */
-data class ReaderOff(val headline: String, val body: String, val primary: String, val recovery: Boolean)
+/** What L3's primary button does: open the permission flow, open the Semáforo screen, or turn a stopped reader back on. */
+enum class OffAction { RECOVERY, SEMAFORO, RESUME }
+
+/** L3: the cause and its primary button. A reader the driver stopped has no secondary: Android did not turn it off. */
+data class ReaderOff(val headline: String, val body: String, val primary: String, val action: OffAction) {
+    val secondary get() = action != OffAction.RESUME
+}
 
 /** "Ayer, lunes 19 oct, ganaste $1,240." — a dated line that opens that day; [amount] is drawn strong. */
 data class DayLine(val prefix: String, val amount: String, val suffix: String, val day: LocalDate) {
@@ -67,20 +72,22 @@ object GananciasStats {
                 ?: "falta el permiso".takeIf { reader.permission == false }, StatusGlyph.OFF, opens = false)
             ReaderPhase.WORKING -> GananciasStatus("Semáforo funcionando", null, StatusGlyph.HEALTHY, true)
             ReaderPhase.ATTENTION -> GananciasStatus(reader.statusLabel(), null, StatusGlyph.ATTENTION, true)
-            // A 0.2.x pause is cleared at startup and nothing sets one any more (plan §3).
-            ReaderPhase.PREPARED, ReaderPhase.PAUSED -> GananciasStatus("Semáforo preparado", "permiso listo", StatusGlyph.WAITING, true)
+            ReaderPhase.PREPARED -> GananciasStatus("Semáforo preparado", "permiso listo", StatusGlyph.WAITING, true)
+            // A 0.2.x pause is cleared at startup; the screen-capture fallback's own stop can still store one (below Android 11).
+            ReaderPhase.PAUSED -> GananciasStatus("Semáforo apagado", null, StatusGlyph.OFF, opens = false)
         }
         val yesterday = snapshot.yesterday.money.takeIf { it.trips > 0 }?.tripContribution?.let { value ->
             DayLine("${Formatters.formatDatedRelativeLabel(date.minusDays(1), date)}, ganaste ", Formatters.formatMxnWhole(value), ".", date.minusDays(1))
         }
-        if (reader.phase == ReaderPhase.OFF) {
+        if (reader.phase == ReaderPhase.OFF || reader.paused) {
             val off = when {
+                reader.paused -> ReaderOff(STOPPED_TITLE, STOPPED_LINE, "Encender el semáforo", OffAction.RESUME)
                 reader.permission == false && !hasHistory -> ReaderOff("Activa el semáforo",
-                    "Sin el permiso de Accesibilidad, Kompara no ve tus ofertas.", "Activar el semáforo", true)
+                    "Sin el permiso de Accesibilidad, Kompara no ve tus ofertas.", "Activar el semáforo", OffAction.RECOVERY)
                 reader.permission == false -> ReaderOff("Falta el permiso de Accesibilidad",
-                    "Android a veces lo apaga, por ejemplo al ahorrar batería. Sin él, Kompara no ve tus ofertas.", "Volver a dar el permiso", true)
+                    "Android a veces lo apaga, por ejemplo al ahorrar batería. Sin él, Kompara no ve tus ofertas.", "Volver a dar el permiso", OffAction.RECOVERY)
                 else -> ReaderOff("Dejamos de leer tus ofertas",
-                    "Revisa el estado del semáforo para volver a leer tus ofertas.", "Revisar el semáforo", false)
+                    "Revisa el estado del semáforo para volver a leer tus ofertas.", "Revisar el semáforo", OffAction.SEMAFORO)
             }
             val unread = snapshot.today.offers.isEmpty()
             return GananciasUiState(HoyMode.OFF, status, off, yesterday,

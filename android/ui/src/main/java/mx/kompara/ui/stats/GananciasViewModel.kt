@@ -26,7 +26,7 @@ class GananciasViewModel @Inject constructor(
     private val savedStateHandle: SavedStateHandle,
     private val selectedPeriod: SelectedPeriod,
     private val snapshots: TodaySnapshots,
-    reader: ReaderReadinessRepository,
+    private val reader: ReaderReadinessRepository,
     settings: SettingsRepository,
     repository: PeriodMoneyRepository,
     clock: AppClock,
@@ -71,6 +71,8 @@ class GananciasViewModel @Inject constructor(
     }
     fun showWeekCalculation(show: Boolean) { savedStateHandle[WEEK_SHEET] = show }
     fun retry() = snapshots.retry()
+    /** L3's "Encender el semáforo": clears a stored pause (the screen-capture fallback's own stop). */
+    fun resume() = reader.resume()
 
     companion object {
         const val ARG_WEEK_START = "weekStart"

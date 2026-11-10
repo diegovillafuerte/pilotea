@@ -13,8 +13,7 @@ import mx.kompara.ui.onboarding.*
 
 /** Local onboarding and the three-tab shell do not depend on account/session availability. */
 @Composable
-fun KomparaRoot(modifier: Modifier = Modifier, navigateToShareCard: Boolean = false,
-    navigateToImport: Boolean = false,
+fun KomparaRoot(modifier: Modifier = Modifier,
     notification: mx.kompara.ui.notifications.NoticeTarget? = null,
     onNotificationConsumed: () -> Unit = {},
     registerExtraDestinations: NavGraphBuilder.(NavController) -> Unit = {},
@@ -25,8 +24,8 @@ fun KomparaRoot(modifier: Modifier = Modifier, navigateToShareCard: Boolean = fa
             RootRoute.LOADING -> Box(Modifier.fillMaxSize())
             RootRoute.ONBOARDING -> OnboardingNavGraph(onComplete = {})
             // Auth is contextual in the navigation stack, never a root gate.
-            RootRoute.MAIN, RootRoute.AUTH -> KomparaApp(navigateToShareCard = navigateToShareCard,
-                navigateToImport = navigateToImport, notification = notification, onNotificationConsumed = onNotificationConsumed, registerExtraDestinations = registerExtraDestinations)
+            RootRoute.MAIN, RootRoute.AUTH -> KomparaApp(notification = notification, onNotificationConsumed = onNotificationConsumed,
+                registerExtraDestinations = registerExtraDestinations)
         }
     }
 }

@@ -20,8 +20,10 @@ class ShareCardRenderer @Inject constructor(@ApplicationContext context: Context
     }
     private fun paragraph(text: String, width: Float, size: Float, line: Float, face: Typeface = fonts.body, color: Int = ink): StaticLayout {
         val p = paint(size, face, color)
+        // Simple line breaking is StaticLayout.Builder's default; Layout.BREAK_STRATEGY_SIMPLE is not the
+        // LineBreaker constant setBreakStrategy declares (lint WrongConstant), and LineBreaker needs API 29.
         return StaticLayout.Builder.obtain(text, 0, text.length, p, width.toInt())
-            .setIncludePad(false).setBreakStrategy(Layout.BREAK_STRATEGY_SIMPLE)
+            .setIncludePad(false)
             .setLineSpacing(line - (p.fontMetrics.descent - p.fontMetrics.ascent), 1f).build()
     }
     fun render(data: ShareCardData): Bitmap {

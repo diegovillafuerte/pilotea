@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.viewModelScope
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.*
@@ -69,8 +70,11 @@ class GananciasViewModelTest {
             day.shifts.forEach { db.shiftDao().insert(it) }
         }
         fun vm(handle: SavedStateHandle = SavedStateHandle()) = GananciasViewModel(handle, selected, snapshots, reader, prefs, repo, clock, zone)
-            .also { store.put("${id++}", it) }
-        override fun close() { store.clear(); db.close() }
+            .also { store.put("${id++}", it); jobs += it.viewModelScope.coroutineContext[Job]!! }
+        private val jobs = mutableListOf<Job>()
+        // Wait for the cleared ViewModels' Room work to finish before @After resets Dispatchers.Main (a concurrent
+        // resume on Main while it is reset fails the test under load).
+        override fun close() { store.clear(); runBlocking { jobs.joinAll() }; db.close() }
     }
     private suspend fun GananciasViewModel.await(predicate: (GananciasUiState) -> Boolean) = withTimeout(15_000) { uiState.first(predicate) }
     private suspend fun GananciasViewModel.awaitWeek(predicate: (WeekPresentation) -> Boolean = { true }) =
@@ -95,6 +99,28 @@ class GananciasViewModelTest {
                 assertEquals(GananciasStatus("Semáforo apagado", "desde 14:40", StatusGlyph.OFF, false), off.status)
                 assertEquals("Volver a dar el permiso", off.off!!.primary)
                 assertEquals("Hoy llevas $762.", off.today!!.text)
+            } finally { job.cancel() }
+        }
+    }
+
+    @Test fun `a stored pause shows the stopped reader and turning it on clears the pause`() = runBlocking {
+        Harness().use { h ->
+            h.seed()
+            h.reader.observeEnvironment(true, false); h.reader.supportedApps(setOf(ReaderReadinessReducer.UBER, ReaderReadinessReducer.DIDI))
+            h.reader.bound(); h.reader.captureRunning(true)
+            h.reader.readOffer(ReaderReadinessReducer.UBER, "live", h.fixture.at(h.fixture.date, "14:32").toEpochMilli(), h.reader.captureToken())
+            val vm = h.vm()
+            val job = launch { vm.uiState.collect() }
+            try {
+                assertEquals(HoyMode.DAY, vm.await { it.mode == HoyMode.DAY }.mode)
+                // Below Android 11 the screen-capture service's own "Detener" stores a pause.
+                h.reader.pauseUntilTomorrow()
+                val stopped = vm.await { it.mode == HoyMode.OFF }
+                assertEquals(OffAction.RESUME, stopped.off!!.action)
+                assertEquals("Detuviste el semáforo", stopped.off!!.headline)
+                vm.resume()
+                assertEquals(HoyMode.DAY, vm.await { it.mode == HoyMode.DAY }.mode)
+                assertFalse(h.reader.state.value.paused)
             } finally { job.cancel() }
         }
     }

@@ -12,7 +12,6 @@ data class Settings(
     val dailySummaryEnabled: Boolean = true,
     val importReminderEnabled: Boolean = true,
     val cityChosen: Boolean = false,
-    val themePreference: ThemePreference = ThemePreference.AUTOMATIC,
     /** Platforms the driver has enabled for capture/verdicts. */
     val enabledPlatforms: Set<Platform>,
     /**

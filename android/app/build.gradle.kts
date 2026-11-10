@@ -13,11 +13,21 @@ android {
         applicationId = "mx.kompara.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 22
-        versionName = "0.2.20"
+        // 0.3.0 is the v4 launch set; codes 23–29 are left for the 0.2.x line that continues on another branch.
+        versionCode = 30
+        versionName = "0.3.0"
+        manifestPlaceholders["appLabel"] = "@string/app_name"
     }
 
     buildTypes {
+        // Side by side with 0.2.x on one phone: `-Pkompara.appIdSuffix=.v4` gives the debug build its own
+        // application id and the label "Kompara v4". Without the property nothing changes.
+        debug {
+            providers.gradleProperty("kompara.appIdSuffix").orNull?.let { suffix ->
+                applicationIdSuffix = suffix
+                manifestPlaceholders["appLabel"] = "Kompara v4"
+            }
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(

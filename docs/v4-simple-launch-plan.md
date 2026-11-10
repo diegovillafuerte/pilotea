@@ -69,7 +69,7 @@ past day (L6).
 
 ### Routes that stay
 
-`ganancias`, `day/{day}` (L6, a past day), `comparar`, `imss`, `ajustes`, `thresholds` (J2/J7),
+`ganancias`, `day/{day}` (L6, a past day), `week/{weekStart}` (Semana alone, opened by the Monday notice), `comparar`, `imss`, `ajustes`, `thresholds` (J2/J7),
 `cost-profile` and its editors (J3), `semaforo` (J4, was `lector`), `account`, `settings-signin`,
 `your-data` (J5), `help?answer=` (J6), `reader-recovery`, `reader-battery`.
 
@@ -94,7 +94,9 @@ statement import (and "Cuadrar con tu resumen"), the share card, referrals, the 
 
 **Upgrade safety (testers come from 0.2.x):**
 - If the reader was paused when the app updates, clear the pause once at startup. There is no
-  pause control any more.
+  pause control any more. Below Android 11 the screen-capture service's own "Detener" can still
+  store one: Ganancias (L3) and the Semáforo screen (J4) then show "Detuviste el semáforo" and one
+  button, "Encender el semáforo", which clears it.
 - The theme follows the system. Ignore a stored LIGHT/DARK preference.
 - Daily summaries, the import reminder and the month-end IMSS notice are not scheduled, and any
   already-enqueued work for them is cancelled at startup. Two notices remain (section 4.9).
@@ -105,7 +107,7 @@ statement import (and "Cuadrar con tu resumen"), the share card, referrals, the 
 
 Every peso figure in the app is what the trips paid minus gasoline and wear: the sum, over taken
 trips in the period, of fare − cost per km × km, with the cost in force when the offer was seen
-(`PeriodMoney.contribution`). **No figure subtracts the car.** The words "sin el coche",
+(`PeriodMoney.tripContribution`). **No figure subtracts the car.** The words "sin el coche",
 "con el coche", "te quedan", "te quedaron", "aprox." are retired; add them to the
 retired-vocabulary test. A trip under way counts.
 
@@ -288,7 +290,9 @@ is the founder's decision 1 (section 8). Build one honest state and nothing that
   - No trips in the month: "Aún no hay viajes en octubre."
 - Rows: "¿Qué cambia si lo alcanzas?" (M3) and, once an app is over, "Ver mi vigencia en el IMSS"
   (external; reuse 0.2.20's link).
-- **No screen says "cubierto" or "ya te toca".** Only the app and the IMSS can certify coverage.
+- **No IMSS screen says "cubierto" or "ya te toca".** Only the app and the IMSS can certify coverage.
+  (Semana's car bill, "El coche, cubierto el martes" in L4, is not about IMSS. One rule in code:
+  `V4Contract.coverage`, refused in the M frames and in the IMSS sources.)
 - M3 and M4 are sheets; their copy is in `part-m.html`. M4 takes one whole-peso amount per app
   and month, with Guardar and Quitar.
 - The percentages appear only in M3's last paragraph.
@@ -352,8 +356,8 @@ its checks pass, and never pushes.
   upgrade safety, notices, the v4 frame contract and snapshot scaffolding.
 - **WP-B Chip** (`:ui` chip composable, `:overlay`). Section 4.3 and 4.4.
 - **WP-D Ganancias**, **WP-E Comparar and IMSS**, **WP-F Ajustes and first run** (`:ui`).
-- **Integration.** Merge, vocabulary and unused-string sweep, lint to green, version 0.3.0 (23),
-  `techdebt.md`, `docs/v4-progress.md`.
+- **Integration.** Merge, vocabulary and unused-string sweep, lint to green, version 0.3.0 (30; 23–29
+  are left for the 0.2.x line), `techdebt.md`, `docs/v4-progress.md`.
 
 ## 7. Invariants
 

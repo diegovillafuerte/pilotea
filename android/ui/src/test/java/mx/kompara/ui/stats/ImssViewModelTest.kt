@@ -2,6 +2,7 @@ package mx.kompara.ui.stats
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.viewModelScope
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.*
@@ -61,8 +62,11 @@ class ImssViewModelTest {
             taken("UBER", "2026-09-12T10:00", 12_287.0, 900.0)
             incentives.set("UBER", YearMonth.of(2026, 10), 1_800, 0)
         }
-        fun vm(handle: SavedStateHandle = SavedStateHandle()) = ImssViewModel(handle, months, incentives, clock, zone).also { store.put("${vms++}", it) }
-        override fun close() { store.clear(); db.close() }
+        fun vm(handle: SavedStateHandle = SavedStateHandle()) = ImssViewModel(handle, months, incentives, clock, zone).also { store.put("${vms++}", it); jobs += it.viewModelScope.coroutineContext[Job]!! }
+        private val jobs = mutableListOf<Job>()
+        // Wait for the cleared ViewModels' Room work to finish before @After resets Dispatchers.Main (a concurrent
+        // resume on Main while it is reset fails the test under load).
+        override fun close() { store.clear(); runBlocking { jobs.joinAll() }; db.close() }
     }
     private suspend fun ImssViewModel.await(predicate: (ImssUiState) -> Boolean) = withTimeout(15_000) { uiState.first { it.view != null && predicate(it) } }
 

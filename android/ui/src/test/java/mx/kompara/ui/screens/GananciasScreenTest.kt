@@ -134,6 +134,30 @@ class GananciasScreenTest {
         assertEquals(listOf("recovery", "battery", "day:2026-10-19"), opened)
     }
 
+    @Test fun `a stopped reader shows its cause and one button that turns it back on`() {
+        val f = fixture
+        val opened = mutableListOf<String>()
+        compose.setContent { KomparaTheme { Box(Modifier.width(393.dp).height(852.dp)) {
+            GananciasContent(f.ganancias("stopped"), 0, DayDetailUiState.Loading(""), f.weekState("L5"),
+                GananciasActions(semaforo = { opened += "semaforo" }, recovery = { opened += "primary" }, battery = { opened += "battery" }))
+        } } }
+        compose.onNodeWithText("Semáforo apagado", substring = true).assertHasNoClickAction()
+        compose.onNodeWithText("Detuviste el semáforo").assertExists()
+        compose.onNodeWithText("Enciéndelo cuando quieras; mientras tanto no leemos tus ofertas.").assertExists()
+        compose.onNodeWithText("Que no se vuelva a apagar").assertDoesNotExist()
+        compose.onAllNodesWithText("mañana", substring = true).assertCountEquals(0)
+        compose.onNodeWithText("Encender el semáforo").performClick()
+        assertEquals(listOf("primary"), opened)
+    }
+
+    @Test fun `a stopped reader matches its reviewed baseline`() {
+        compose.setContent { KomparaTheme { Box(Modifier.width(393.dp).height(852.dp)) { GananciasFixtureHost("stopped", Modifier.fillMaxSize()) } } }
+        compose.waitForIdle()
+        val name = V4Snapshot.name("ganancias", "stopped", false, 393, 1f)
+        V4Snapshot.assertNothingClipped(compose, name)
+        V4Snapshot.assertMatchesBaseline(name, compose.runOnIdle { V4Snapshot.capture(compose.activity, 393) })
+    }
+
     @Test fun `a report shows its text before sharing and removing a trip asks first`() {
         val day = fixture.dayPresentation("L1")
         val model = day.offer(day.rows.first { day.clock(it) == "14:32" }.offerId)!!

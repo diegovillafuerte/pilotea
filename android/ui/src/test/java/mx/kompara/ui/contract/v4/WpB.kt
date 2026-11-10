@@ -1,7 +1,7 @@
 package mx.kompara.ui.contract.v4
 
 /**
- * WP-B, the chip (plan §4.3, §4.4). Only WP-B edits this file. S1–S5, S7, S9 and S10 have their
+ * WP-B, the chip (plan §4.3, §4.4). S1–S5, S7, S9 and S10 have their
  * baselines in `snapshots/v4` (ui `regla_*` from ReglaTest, overlay `placement*_*` from MeasuredVerdictChipTest).
  */
 internal object WpB : V4Package {

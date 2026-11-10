@@ -65,18 +65,19 @@ class GananciasFixture(context: Context) {
 
     fun today(frame: String): TodayMoneySnapshot = when (frame) {
         "L2" -> TodayMoneySnapshot(empty(date, afternoon, typical = true), empty(date.minusDays(1), afternoon, typical = true), false)
-        "L3", "empty" -> {
-            val now = if (frame == "L3") nextMorning else at(date.plusDays(1), "7:10")
+        "L3", "stopped", "empty" -> {
+            val now = if (frame == "empty") at(date.plusDays(1), "7:10") else nextMorning
             TodayMoneySnapshot(empty(date.plusDays(1), now), day(now), true)
         }
         else -> TodayMoneySnapshot(day(afternoon), empty(date.minusDays(1), afternoon), true)
     }
 
+    /** "stopped": the next morning with a stored pause, the screen-capture fallback's own stop (below Android 11). */
     fun readiness(frame: String): ReaderReadiness {
-        val phase = when (frame) { "L2", "empty" -> ReaderPhase.PREPARED; "L3" -> ReaderPhase.OFF; else -> ReaderPhase.WORKING }
-        val readerDate = if (frame in setOf("L3", "empty")) date.plusDays(1) else date
-        val proof = when (frame) { "L2" -> null; "L3", "empty" -> at(date, "20:10").toEpochMilli(); else -> at(date, "14:32").toEpochMilli() }
-        return ReaderReadiness(phase, phase != ReaderPhase.OFF, phase != ReaderPhase.OFF, phase != ReaderPhase.OFF, false,
+        val phase = when (frame) { "L2", "empty" -> ReaderPhase.PREPARED; "L3" -> ReaderPhase.OFF; "stopped" -> ReaderPhase.PAUSED; else -> ReaderPhase.WORKING }
+        val readerDate = if (frame in setOf("L3", "stopped", "empty")) date.plusDays(1) else date
+        val proof = when (frame) { "L2" -> null; "L3", "stopped", "empty" -> at(date, "20:10").toEpochMilli(); else -> at(date, "14:32").toEpochMilli() }
+        return ReaderReadiness(phase, phase != ReaderPhase.OFF, phase != ReaderPhase.OFF, phase !in setOf(ReaderPhase.OFF, ReaderPhase.PAUSED), false,
             linkedMapOf(ReaderReadinessReducer.UBER to AppReadiness(true, proof, phase == ReaderPhase.WORKING),
                 ReaderReadinessReducer.DIDI to AppReadiness(true, at(date, "12:25").toEpochMilli().takeIf { phase == ReaderPhase.WORKING }, phase == ReaderPhase.WORKING),
                 ReaderReadinessReducer.INDRIVE to AppReadiness(false, null, false)),

@@ -1,14 +1,12 @@
 # V3 shared-component renders
 
-S1 owns component scenarios inspired by B1/D1 (day hero and offer rows), E1 (figure and period bars), F1 (comparison bars), G2 (controls and legend), G4 (six status glyphs and save notice), and H5 (import ledger). These are **component hosts**, not completed screen migrations. S4 adds the shared Regla scenarios below; live screen migrations and safe host placement belong to their later slices.
+S1's component gallery (`V3ComponentHost`: D1, E1, F1, G2, G4 and H5 scenes and their 24 PNGs) was retired in the v4 integration: every scene drew a v3 frame the v4 contract retired, with retired copy, and the components only it used (`PeriodHero`, `PeriodBars`, `OfferRow`, `LimitControl`, `TextTabs`, `PeriodSelector`, `GreyButton`) went with it. `V3ComponentTest` keeps its unit checks of the live components.
 
-`ui/src/debug/assets/v3/` contains the unmodified fixture and frame contract from design reference `2bb61fedd5bb63c9afc987a0add7455fbc78f5f9`. `V3Fixture` calculates displayed values from those raw inputs, with a fixed Mexico City clock. Nothing seeds a production repository. The debug Activity can be opened explicitly:
+`ui/src/debug/assets/v3/` contains the unmodified fixture and frame contract from design reference `2bb61fedd5bb63c9afc987a0add7455fbc78f5f9`. `V3Fixture` calculates displayed values from those raw inputs, with a fixed Mexico City clock. Nothing seeds a production repository. The debug Activity opens one fixture screen by intent extra (with no extra, Ganancias L1):
 
 ```sh
-adb shell am start -n mx.kompara.app/mx.kompara.ui.fixtures.V3ComponentActivity --es frame E1 --ez dark true
+adb shell am start -n mx.kompara.app/mx.kompara.ui.fixtures.V3ComponentActivity --es gananciasFrame L4 --ez dark true
 ```
-
-`V3ComponentTest` uses Compose semantics and Robolectric API 34 native graphics. It draws the Android content view to PNG (PixelCopy is not available in this JVM environment). The viewport is 393×852dp, plus a 320dp narrow case. Each scenario has day/night 1×, day 1.3×, and night 2× text. Android font scaling is applied by Compose once; labels scroll with the content. Native OS chrome is excluded rather than copied from the HTML illustration.
 
 Normal `testDebugUnitTest` compares every pixel with the reviewed PNGs in `v3/`, writes current images to `ui/build/outputs/v3-screenshots/`, and checks text overflow independently (1px tolerance for native subpixel glyph measurement). Failures point to the actual image. Baselines are declared Gradle test inputs. Explicitly regenerate only after reviewing the change:
 
@@ -56,7 +54,9 @@ The existing S1 component baselines stay unchanged. Physical permission return, 
 ./gradlew :ui:testDebugUnitTest --tests '*GananciasScreenTest' -Pv4.recordScreenshots=true --console=plain
 ```
 
-For manual debug inspection, `V3ComponentActivity` accepts `--es gananciasFrame L4` (L1–L8, `empty`, `short`) plus `--ez dark true`; it never seeds production storage.
+For manual debug inspection, `V3ComponentActivity` accepts `--es gananciasFrame L4` (L1–L8, `empty`, `short`, `stopped`) plus `--ez dark true`; it never seeds production storage.
+
+`ganancias_stopped_day_393_1.0` and `semaforo_stopped_day_393_1.0` (SettingsFramesTest) draw a stored pause, which only the screen-capture fallback's own "Detener" can still set below Android 11: "Detuviste el semáforo" and one button, "Encender el semáforo". The kit draws no such state.
 
 ## S10 — Ganancias Mes and factual IMSS (retired)
 

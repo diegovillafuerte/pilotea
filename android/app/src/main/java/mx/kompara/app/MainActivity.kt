@@ -29,13 +29,14 @@ import mx.kompara.ui.theme.KomparaSystemBars
 class MainActivity : ComponentActivity() {
     @Inject lateinit var summaryDelivery: mx.kompara.ui.notifications.SummaryDelivery
     private var notice by mutableStateOf<NoticeTarget?>(null)
-    private var openShareCard by mutableStateOf(false)
-    private var openImport by mutableStateOf(false)
 
+    /**
+     * Only a notice target is read from a launch intent. MainActivity is exported (it is the launcher), so any app
+     * can start it: the 0.2.x share-card and share-target extras are no longer read, so no intent opens an
+     * after-launch surface (docs/v4-simple-launch-plan.md §3).
+     */
     private fun readLaunch(source: android.content.Intent?) {
         notice = NoticeTarget.parse(source?.data)
-        openShareCard = source?.getBooleanExtra("mx.kompara.OPEN_SHARE_CARD", false) ?: false
-        openImport = source?.getBooleanExtra(EXTRA_OPEN_IMPORT, false) ?: false
     }
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
@@ -76,8 +77,6 @@ class MainActivity : ComponentActivity() {
             KomparaTheme {
                 KomparaSystemBars(window)
                 KomparaRoot(
-                    navigateToShareCard = openShareCard,
-                    navigateToImport = openImport,
                     notification = notice,
                     onNotificationConsumed = { notice = null; intent?.data = null },
                 )
@@ -86,7 +85,10 @@ class MainActivity : ComponentActivity() {
     }
 
     companion object {
-        /** Set by [ShareImportActivity] to deep-link the import flow for a shared earnings file (PR-D3). */
+        /**
+         * Set by [ShareImportActivity] to deep-link the import flow for a shared earnings file (PR-D3). After launch:
+         * the activity is disabled and MainActivity ignores the extra (see [readLaunch]).
+         */
         const val EXTRA_OPEN_IMPORT = "mx.kompara.extra.OPEN_IMPORT"
     }
 }

@@ -24,9 +24,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
@@ -42,8 +39,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import mx.kompara.ui.imports.importDestination
-import mx.kompara.ui.paywall.GateSurface
-import mx.kompara.ui.paywall.PaywallScreen
+import mx.kompara.ui.paywall.paywallDestinations
 import mx.kompara.ui.referral.referralDestination
 import mx.kompara.ui.screens.AccountScreen
 import mx.kompara.ui.screens.AjustesScreen
@@ -67,44 +63,20 @@ import mx.kompara.ui.theme.KomparaTheme
  * keeping the app module thin.
  *
  * [registerExtraDestinations] lets modules outside :ui supply optional routes.
- * The legacy onboarding trial entry now opens the single limits editor and its labelled example;
- * S15 owns the short first-run demo. No separate simulator can persist a competing rule.
+ *
+ * The after-launch surfaces (premium, statement import, the share card, referrals, the IMSS PDF; plan §3) keep
+ * their registrations below but have no entry point: no launch-set screen links them, and no intent can open
+ * them. The share-card and share-target launch flags 0.2.x read here are gone; to bring one back, restore its
+ * one-shot `LaunchedEffect` and the extra in MainActivity.
  */
 @Composable
 fun KomparaApp(
     modifier: Modifier = Modifier,
-    navigateToReaderTrial: Boolean = false,
-    navigateToShareCard: Boolean = false,
-    navigateToImport: Boolean = false,
     notification: mx.kompara.ui.notifications.NoticeTarget? = null,
     onNotificationConsumed: () -> Unit = {},
     registerExtraDestinations: NavGraphBuilder.(NavController) -> Unit = {},
 ) {
     val navController = rememberNavController()
-
-    var readerDeepLinkConsumed by rememberSaveable { mutableStateOf(false) }
-    if (navigateToReaderTrial && !readerDeepLinkConsumed) {
-        LaunchedEffect(Unit) { navController.navigateToReaderTrial(); readerDeepLinkConsumed = true }
-    }
-
-    // Week-close notification deep link (B-055): jump straight to the share-card preview.
-    var shareDeepLinkConsumed by rememberSaveable { mutableStateOf(false) }
-    if (navigateToShareCard && !shareDeepLinkConsumed) {
-        LaunchedEffect(Unit) { navController.navigate(KomparaDestination.SHARE_CARD_ROUTE); shareDeepLinkConsumed = true }
-    }
-
-    // Share-target deep link (PR-D3): jump to the import flow; the shared file is already staged in
-    // SharedImportBuffer, so the import screen opens on the SharedReady confirmation. One-shot: a config
-    // change/recreation re-enters this composition with navigateToImport still true (the intent extra
-    // persists), so a saved "consumed" flag stops it re-pushing import with an already-taken (empty)
-    // buffer (codex review).
-    var importDeepLinkConsumed by rememberSaveable { mutableStateOf(false) }
-    if (navigateToImport && !importDeepLinkConsumed) {
-        LaunchedEffect(Unit) {
-            navController.navigate(KomparaDestination.IMPORT_ROUTE)
-            importDeepLinkConsumed = true
-        }
-    }
 
     if (notification != null) {
         val dispatcher = hiltViewModel<mx.kompara.ui.notifications.NoticeNavigation>()
@@ -200,22 +172,7 @@ internal fun NavigationHeader(title: String, onBack: (() -> Unit)?, onSettings: 
     }
 }
 
-/** Legacy onboarding entry, kept until S15 migrates its demo. */
-private fun NavHostController.navigateToReaderTrial() {
-    val target = KomparaDestination.THRESHOLDS_ROUTE
-    navigate(target) {
-        popUpTo(KomparaDestination.START.route) { saveState = true }
-        launchSingleTop = true
-        restoreState = true
-    }
-}
-
-/** Navigate to the paywall screen, carrying the originating [GateSurface] for analytics bucketing. */
-private fun NavController.navigateToPaywall(surface: GateSurface) {
-    navigate(KomparaDestination.paywallRoute(surface.name))
-}
-
-/** Registers the screen for every top-level destination. WP-D, WP-E and WP-F replace these screens. */
+/** Registers the three tab roots, the Semáforo screen and Ajustes. */
 private fun NavGraphBuilder.tabScreens(navController: NavController) {
     composable(KomparaDestination.GANANCIAS.route) {
         GananciasScreen(
@@ -281,29 +238,9 @@ private fun NavGraphBuilder.statsScreens(navController: NavController, snackbar:
     composable(KomparaDestination.DATA_ROUTE) {
         mx.kompara.ui.screens.TusDatosScreen(onBack = { navController.popBackStack() }, onSignIn = { navController.navigate("settings-signin") })
     }
-    // B-050 paywall screen, reached from any PaywallGate CTA. The surface path arg buckets analytics.
-    composable(
-        route = "${KomparaDestination.PAYWALL_ROUTE}/{${KomparaDestination.ARG_PAYWALL_SURFACE}}",
-        arguments = listOf(
-            navArgument(KomparaDestination.ARG_PAYWALL_SURFACE) { type = NavType.StringType },
-        ),
-    ) { entry ->
-        val surfaceName = entry.arguments?.getString(KomparaDestination.ARG_PAYWALL_SURFACE)
-        val surface = runCatching { GateSurface.valueOf(surfaceName ?: "") }
-            .getOrDefault(GateSurface.GENERIC)
-        PaywallScreen(surface = surface, onClose = { navController.popBackStack() }, onPlan = {
-            navController.navigate(KomparaDestination.PLAN_ROUTE) { popUpTo(entry.destination.id) { inclusive = true }; launchSingleTop = true }
-        })
-    }
-    composable(KomparaDestination.PLAN_ROUTE) {
-        mx.kompara.ui.paywall.TuPlanScreen(onBack = { navController.popBackStack() }, onSubscribe = { navController.navigate("plan-subscribe") })
-    }
-    composable("plan-subscribe") {
-        PaywallScreen(onClose = { navController.popBackStack() }, purchaseExplanation = true,
-            onPlan = { navController.popBackStack(KomparaDestination.PLAN_ROUTE, false) })
-    }
+    // After launch (plan §3): registered, unreachable. V4ContractTest fails on a launch-set link to them.
+    paywallDestinations(navController)
     importDestination(navController)
-    // B-056 referral / "Invita y gana" flow.
     referralDestination(navController)
     // A day (L6); with no arg, today.
     composable(KomparaDestination.DAY_DETAIL_ROUTE) { DayDetailScreen(onBack = { navController.popBackStack() }) }
@@ -318,7 +255,7 @@ private fun NavGraphBuilder.statsScreens(navController: NavController, snackbar:
         route = "${KomparaDestination.WEEK_SUMMARY_ROUTE}/{${GananciasViewModel.ARG_WEEK_START}}",
         arguments = listOf(navArgument(GananciasViewModel.ARG_WEEK_START) { type = NavType.StringType }),
     ) { WeekScreen(onDay = { navController.navigate(KomparaDestination.dayRoute(it.toString())) }) }
-    // One share task retains the opener's period and comparison context. S19 migrates notification payloads.
+    // The share card (after launch): registered, unreachable.
     composable("${KomparaDestination.SHARE_CARD_ROUTE}?weekStart={weekStart}&month={month}&app={app}&city={city}&metric={metric}",
         arguments = listOf(navArgument("weekStart") { type = NavType.StringType; defaultValue = "" },
             navArgument("month") { type = NavType.StringType; defaultValue = "" },

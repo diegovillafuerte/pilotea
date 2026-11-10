@@ -79,8 +79,8 @@ enum class KomparaDestination(val route: String) {
         const val DAY_DETAIL_ROUTE: String = "day"
 
         /**
-         * Week-summary route (B-040 req 3). Carries the ISO Monday in
-         * [mx.kompara.ui.stats.WeekSummaryViewModel.ARG_WEEK_START].
+         * A week on its own (Ganancias › Semana, L4/L5), opened by the Monday notice "Tu semana está lista". Carries
+         * the ISO Monday in [mx.kompara.ui.stats.GananciasViewModel.ARG_WEEK_START].
          */
         const val WEEK_SUMMARY_ROUTE: String = "week"
 

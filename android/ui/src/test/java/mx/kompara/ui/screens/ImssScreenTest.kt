@@ -87,7 +87,7 @@ class ImssScreenTest {
             for ((night, scale, size) in listOf(Triple(false, 1f, 393), Triple(true, 1f, 393), Triple(false, 1.3f, 393), Triple(true, 2f, 320))) {
                 compose.runOnIdle { frame = id; dark = night; font = scale; width = size }
                 compose.waitForIdle()
-                V4Contract.assertFrame(compose, id) // also fails on "cubierto" and "ya te toca"
+                V4Contract.assertFrame(compose, id) // also fails on a coverage claim (V4Contract.coverage)
                 val name = V4Snapshot.name("imss", id, night, size, scale)
                 V4Snapshot.assertNothingClipped(compose, name)
                 V4Snapshot.assertMatchesBaseline(name, compose.runOnIdle { V4Snapshot.capture(compose.activity, size) })
@@ -158,12 +158,10 @@ class ImssScreenTest {
 
     @Test fun `the IMSS sources never certify coverage`() {
         val main = File("src/main/java/mx/kompara/ui")
-        val files = listOf("screens/ImssScreen.kt", "stats/ImssViewModel.kt", "stats/ImssPresentation.kt").map { File(main, it) }
-        val certifies = Regex("(?i)\\b(?:cubierto|cubierta|ya te toca)\\b")
-        for (file in files) {
+        for (file in V4Contract.imssSources.map { File(main, it) }) {
             assertTrue("$file is gone", file.isFile)
             Regex("\"([^\"\\\\]|\\\\.)*\"").findAll(file.readText()).map { it.value }.forEach {
-                assertFalse("${file.name} certifies coverage: $it", certifies.containsMatchIn(it))
+                assertFalse("${file.name} certifies coverage: $it", V4Contract.coverage.containsMatchIn(it))
             }
         }
     }

@@ -9,12 +9,13 @@ fun ReaderReadiness.statusLabel(): String = when (phase) {
     ReaderPhase.PREPARED -> "Semáforo preparado"
     ReaderPhase.WORKING -> "Semáforo funcionando"
     ReaderPhase.ATTENTION -> "Batería restringida · aún funciona"
-    ReaderPhase.PAUSED -> "Semáforo en pausa"
+    // A pause can still come from the screen-capture fallback's own stop; the driver turned it off.
+    ReaderPhase.PAUSED -> "Semáforo apagado"
 }
 fun ReaderReadiness.statusGlyph(): StatusGlyph = when (phase) {
     ReaderPhase.OFF -> StatusGlyph.OFF
     ReaderPhase.PREPARED -> StatusGlyph.WAITING
     ReaderPhase.WORKING -> StatusGlyph.HEALTHY
     ReaderPhase.ATTENTION -> StatusGlyph.ATTENTION
-    ReaderPhase.PAUSED -> StatusGlyph.PAUSED
+    ReaderPhase.PAUSED -> StatusGlyph.OFF
 }

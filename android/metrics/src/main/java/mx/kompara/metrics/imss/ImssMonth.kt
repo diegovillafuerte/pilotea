@@ -67,8 +67,6 @@ data class ImssMonth(
     val apps: List<ImssApp>,
 ) {
     val current: Boolean get() = YearMonth.from(today) == month
-    /** Days after today in the current month ("quedan 12 días"; 0 is "último día"); null for another month. */
-    val daysLeft: Int? get() = if (current) month.lengthOfMonth() - today.dayOfMonth else null
     val hasTrips: Boolean get() = apps.any { it.trips.signum() > 0 }
     /** What all apps counted together: "Entre las dos llevas $22,229". */
     val combined: BigDecimal get() = apps.fold(BigDecimal.ZERO) { sum, app -> sum.add(app.counted) }

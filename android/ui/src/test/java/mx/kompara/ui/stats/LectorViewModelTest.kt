@@ -21,7 +21,7 @@ import java.time.*
 class LectorViewModelTest {
     @Before fun before() { Dispatchers.setMain(Dispatchers.Unconfined); ScreenReaderState.setSilentLaneFailed(false); ScreenReaderState.setRunning(false) }
     @After fun after() { Dispatchers.resetMain(); ScreenReaderState.setSilentLaneFailed(false); ScreenReaderState.setRunning(false) }
-    @Test fun `live readiness and the capture fallback share real sources and nothing pauses`() = runBlocking {
+    @Test fun `live readiness and the capture fallback share real sources and a stored pause turns back on`() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val f = DayFixture(context); val day = f.day()
         fun at(time: String) = day.date.atTime(LocalTime.parse(time)).atZone(f.fixture.zone).toInstant().toEpochMilli()
@@ -51,6 +51,12 @@ class LectorViewModelTest {
             assertEquals(SemaforoAction.CAPTURE, await { it.primary == SemaforoAction.CAPTURE }.primary)
             reader.observeEnvironment(false, false)
             assertEquals("Sin permiso, no leemos ofertas", await { it.primary == SemaforoAction.PERMISSION }.apps.first().detail)
+            // The screen-capture fallback's own stop stores a pause; "Encender el semáforo" clears it.
+            reader.observeEnvironment(true, false); reader.pauseUntilTomorrow()
+            assertEquals("Detuviste el semáforo", await { it.primary == SemaforoAction.RESUME }.detail)
+            vm.resume()
+            assertNotEquals(SemaforoAction.RESUME, await { it.primary != SemaforoAction.RESUME }.primary)
+            assertFalse(reader.state.value.paused)
         } finally { collect.cancelAndJoin(); val job = vm.viewModelScope.coroutineContext[Job]!!; store.clear(); job.join() }
     }
 }

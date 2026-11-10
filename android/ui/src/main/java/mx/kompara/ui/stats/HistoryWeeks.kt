@@ -1,7 +1,5 @@
 package mx.kompara.ui.stats
 
-import mx.kompara.data.db.entity.AggregateSource
-import mx.kompara.data.db.entity.WeeklyAggregateEntity
 
 /** Where a week's numbers came from, as the history badge reads it. */
 enum class WeekSourceBadge {
@@ -21,14 +19,6 @@ data class HistoryWeek(
 
 /** Legacy list adapter: selection is per app, captured stays selected until explicit reconciliation. */
 object HistoryWeeks {
-    fun build(rows: List<WeeklyAggregateEntity>): List<HistoryWeek> = rows.groupBy { it.weekStart }.map { (week, candidates) ->
-        val selected = candidates.groupBy { it.platform }.values.map { app ->
-            app.firstOrNull { it.source == AggregateSource.CAPTURED.name } ?: app.first()
-        }
-        HistoryWeek(week, if (selected.all { it.source == AggregateSource.IMPORTED.name }) WeekSourceBadge.IMPORTADO else WeekSourceBadge.CAPTURADO,
-            PeriodStats.fromWeekly(selected, null))
-    }.sortedByDescending { it.weekStart }
-
     const val FREE_WEEKS = 4
     fun isFree(week: java.time.LocalDate, today: java.time.LocalDate): Boolean =
         mx.kompara.billing.FreeDetailWindow.week(week, today)

@@ -810,3 +810,63 @@ Conscious deferrals. Each entry: date, severity, context, why deferred, when to 
 - **Design notes (private, in the main checkout, not in the repository):** `.session-captures/0220-fix/design-4-floating.md`, `critique-4-floating.md` (six corrections to that design) and section 4 of `out-codex-design.md`. They differ on capture: a whole-display screenshot cropped to the panel before OCR, or `takeScreenshotOfWindow` on API 34+.
 - **Compliance:** reading an Uber panel while an unrelated app such as Waze is on screen changes the documented foreground-only capture rule (`docs/play-compliance.md`) and needs a revised disclosure and Play review first.
 - **When to fix:** next feature after 0.2.20. Before building, observe on the phone whether Uber floats over Waze at all (never seen), and how the window behaves.
+
+## TD-V4-01: after-launch surfaces are dormant, not dead (0.3.0, v4 launch set)
+
+- **Date / severity:** 2026-11-09 / Medium (nothing is broken; the trap is reading this code as live, or deleting it as dead).
+- **Context:** the v4 launch set (`docs/v4-simple-launch-plan.md` §3, `docs/v4-progress.md`) keeps five surfaces' code and tests but gives them no entry point: premium (paywall, Tu plan, subscribe: `ui/paywall`, registered by `paywallDestinations`), statement import (`ui/imports`, `:sync` import), the share card (`ui/share`), referrals (`ui/referral`) and the IMSS PDF (`ui/fiscal`: `FiscalReportExporter`, `FiscalReportComposer`, `FiscalPdfRenderer`). Their NavHost routes stay registered; `V4ContractTest` fails if any other code `navigate(`s to one of them, if a nav deep link is declared, or if the manifest switches are undone. The daily summary, import reminder and month-end IMSS notice workers stay too; nothing schedules them and `LaunchNotices.schedule` cancels what 0.2.x enqueued. The dormant month (`MonthPresentation`, `MonthLedger`, the PDF composer) and the share card still print the per-day car and "te quedaron" (allowlisted in `contract/v4/WpC.kt`, `WpD.kt`), so `PeriodAccounting`'s per-day car arithmetic stays for them.
+- **Two manifest switches:** (1) `ShareImportActivity` has `android:enabled="false"`, and `MainActivity` no longer reads `EXTRA_OPEN_IMPORT` (the constant stays for the activity). (2) The `kompara://referral` intent filter is gone from `MainActivity`, and so is the referral route's `navDeepLink`: with the filter gone the NavHost still matched an explicit intent's data against it, and `MainActivity` is exported.
+- **How to switch each back on:**
+  - *Premium:* link a v4 screen to `KomparaDestination.paywallRoute(surface)` (or `PLAN_ROUTE`), drop those routes from the dormant list in `V4ContractTest`, consult `TierGatekeeper` again, and reword its copy ("Premium" is retired in the v4 frames).
+  - *Statement import:* set `ShareImportActivity` `android:enabled="true"`; restore `MainActivity`'s read of `EXTRA_OPEN_IMPORT` and `KomparaApp`'s one-shot import `LaunchedEffect` (0.2.20, `c63bad3`); point `NoticeNavigation`'s `IMPORT` back to `IMPORT_ROUTE`; start `ImportReminderScheduler` and drop its work names from `LaunchNotices.waitingWork`; rebuild "Cuadrar con tu resumen" in Semana (`statementDifferences` and `WeekMoneySnapshot.importedWeeks`/`selectedStatements` are kept for it).
+  - *Share card:* link it from Semana; if a notice should open it, restore the `OPEN_SHARE_CARD` extra in `MainActivity` and its `LaunchedEffect`.
+  - *Referrals:* restore the intent filter and the `navDeepLink` in `ReferralNav.kt` (both, together); link it from Ajustes.
+  - *IMSS PDF:* add an M1 row that calls `FiscalReportExporter.exportRecorded`; restart `FiscalMonthEndScheduler`. Before any of the dormant month or share copy returns, reword it to §4.1 (no figure subtracts the car).
+- **When to fix:** when each surface is scheduled after launch.
+
+## TD-V4-02: Tu ciudad waits on founder decision 1 and server work; K3/K4 are drawn, not built
+
+- **Date / severity:** 2026-11-09 / Medium (a launch tab shows one "todavía no abre" state).
+- **Context:** the city comparison needs drivers to share averages by app, weekday and hour block. That is founder decision 1 (plan §8): it needs the privacy policy, the Play data-safety form and counsel, then server work (cohorts, a minimum count per city, the opt-in). 0.3.0 builds one honest state ("Tu ciudad todavía no abre") and sends nothing; K3 (the open state) and K4 (count and button) are not built, and neither is J5's second switch "Sumar mis promedios a mi ciudad" (`V4Contract.notBuiltStrings`). Kept for it: `TusDatosViewModel.contribution`, `BenchmarksRepository.observeComparisonCohorts` (`:sync`). P2 keeps 0.2.20's disclosure word for word (B-038).
+- **When to fix:** after decision 1; then build K3/K4 and the J5 switch, and revise P2 and `docs/play-compliance.md` with counsel.
+
+## TD-V4-03: IMSS numbers are 2026 constants in code; the old fiscal config still says $8,364
+
+- **Date / severity:** 2026-11-09 / Medium (correct for 2026; wrong on 1 January 2027 unless updated).
+- **Context:** the IMSS rule (minimum monthly wage CDMX $9,582.47, 48 % deduction, 16 % IVA, need $21,938) lives in `ImssRule.Y2026` (`:metrics`). Separately, `FiscalDefaults` and the `fiscal_config` cache that `:sync` fills from `/v1/config/fiscal` still hold the old $8,364 threshold; nothing in the launch set reads them (`FiscalConfigRepository.regulatoryEnabled` lost its `:ui` reader).
+- **Why deferred:** serving the rule needs a backend change and a cache migration; the launch set needs only 2026.
+- **When to fix:** before 2027, or before any server-side change to the IMSS rule: serve the three numbers and the year from `/v1/config/fiscal`, cache them, fall back to `ImssRule.Y2026`, and retire the $8,364 defaults.
+
+## TD-V4-04: two IMSS details the founder has not confirmed
+
+- **Date / severity:** 2026-11-09 / Medium (each changes what M1 tells a driver).
+- **Context:** (1) IVA is applied as × 0.84 (built, as the founder wrote it: need $21,938) instead of ÷ 1.16 (need $21,376). (2) Each app counts on its own (built: "Cada app cuenta por separado"; M1's combined line only says "En una sola app ya lo habrías alcanzado") instead of the apps added together.
+- **When to fix:** when the founder confirms; both are one constant or one branch in `ImssRule`/`ImssMonth` plus the M1/M3 copy and their tests.
+
+## TD-V4-05: no device run of 0.3.0 yet
+
+- **Date / severity:** 2026-11-09 / High until the run (every check so far is JVM: Robolectric renders, replays of recorded frames, unit tests).
+- **Exit criteria (S25, side-by-side build `-Pkompara.appIdSuffix=.v4`, see `docs/v4-progress.md`):** (1) the pill on live Uber and DiDi offers, colour, rate and neto/bruto right; (2) a DiDi Pon Tu Precio card with its tray ("Desde ◆ $… ▲ $…") below "Rechazo permitido", never covering it; (3) every tap on an Uber chip passes through to Uber; (4) an upgrade install over 0.2.20 with a real ledger, through the Room 9 → 10 migration: history, costs and limits intact, offer rows judged NET, a stored pause cleared once, a stored LIGHT/DARK theme ignored; (5) the two notices: "Se apagó el semáforo" opens Ganancias with its cause, and Monday's "Tu semana está lista" opens Semana on that week.
+- **Side-by-side caveat:** the v4 debug build has its own Accessibility service; with 0.2.20's also on, both draw a chip. Turn one off while testing the other. Pull 0.2.20's ledger before any install (the WAL-mode `kompara.db` with its `-wal` file).
+- **When to fix:** before any tester gets 0.3.0.
+
+## TD-V4-06: the v4 kit has no night frames
+
+- **Date / severity:** 2026-11-09 / Low.
+- **Context:** the kit draws every frame in day colours only. The night baselines in `snapshots/v4` follow the day design with the existing night tokens (`NightColors`); nobody has reviewed them against a night design.
+- **When to fix:** when the design adds night frames; re-record the `_night_` baselines after review.
+
+## TD-V4-07: a stopped reader can still come from the screen-capture fallback
+
+- **Date / severity:** 2026-11-09 / Low (below Android 11 only; the driver can turn it back on).
+- **Context:** the launch set has no pause, but `OcrCaptureService`'s own notification action "Detener" (`:ocr`, the MediaProjection lane below Android 11) still calls `pauseUntilTomorrow`. 0.3.0 shows any stored pause as a stopped reader: Ganancias (L3) and the Semáforo screen (J4) say "Detuviste el semáforo", "Enciéndelo cuando quieras; mientras tanto no leemos tus ofertas." and one button, "Encender el semáforo", which clears it (`ReaderReadinessRepository.resume`). After that the MediaProjection consent is needed again (J4 then offers "Continuar"; Ganancias shows "Semáforo preparado"). Not verified on a device below Android 11.
+- **Why deferred:** the build does not change `:ocr` or `:capture`.
+- **When to fix:** the next time `:ocr` is open: make "Detener" a plain stop (no pause stored), then remove `ReaderPhase.PAUSED`, `pauseUntilTomorrow`, `ReaderPauseUpgrade` and the stopped state.
+
+## TD-V4-08: code the v4 integration kept because it may be dormant rather than dead
+
+- **Date / severity:** 2026-11-09 / Low.
+- **Kept, possibly needed when a dormant surface returns:** `statementDifferences` (Cuadrar), `WeekMoneySnapshot.importedWeeks`/`selectedStatements` (import weeks), `SettingsRepository.setDailySummaryEnabled`/`setImportReminderEnabled`/`setShareWeeklyReminderEnabled` (only the dormant workers' tests set them), `SettingsRepository.setDebugPremium` (its Ajustes row is gone), `SelectedPeriod.month`/`selectMonth` (read by the dormant premium's `LocalPremiumSales`), `ReaderReadiness.noRoomCount` (fed by `:capture`'s suppression count; the Semáforo screen no longer shows it).
+- **Dead before the rebuild, left alone:** `CompareBars`, `StepperField`, `StatusDoor`, `RootScaffold`, `DrillScaffold`, `Observation`, `MaskedValue`, `StateLegend`, drawables `v3_clock`, `v3_more`, `v3_person`, `mipmap/ic_launcher_round`, `app` string `share_import_needs_account`.
+- **Contract gap:** `V4ContractTest` proves a reviewed PNG exists for each frame, not that a test still compares it; a stale baseline whose test stopped rendering it would pass.
+- **When to fix:** decide with each surface's return; delete the pre-rebuild dead code in a cleanup pass.

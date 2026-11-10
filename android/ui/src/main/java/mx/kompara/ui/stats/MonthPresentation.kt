@@ -38,7 +38,6 @@ data class MonthPresentation(val snapshot: MonthMoneySnapshot, val premium: Bool
     val quietLine get() = if (importOnly) (if (paymentScopes.all { it.tripsKnown }) "${paymentScopes.sumOf { it.trips }} viajes según tu resumen, sin km" else "Sin número de viajes ni kilómetros en tu resumen") else
         money.tripCount() + (if (money.inProgress > 0) " (${money.inProgress} en curso)" else "") + ",\n" +
             if (money.periodResult == null) "faltan datos para calcular lo que te quedó" else basis
-    val imssLabel get() = if (open) "IMSS del mes" else "IMSS de ${monthName(month)}"
     val choices get() = (snapshot.history + month + YearMonth.from(today)).distinct().filter { it <= YearMonth.from(today) }.sortedDescending()
     // Empty pre-reader calendar intervals are gaps, not invented net bars for a statement.
     val weeks get() = snapshot.weeks.filter { it.contributions.isNotEmpty() || it.carConfigured && !importOnly }
@@ -54,15 +53,6 @@ data class MonthPresentation(val snapshot: MonthMoneySnapshot, val premium: Bool
         val sum = weeks.fold(BigDecimal.ZERO) { total, it -> total + (it.periodResult ?: return null) }
         if (money.periodResult == null || sum.subtract(money.periodResult).abs() > BigDecimal("0.000000000001") || residual.signum() == 0) return null
         return "El total se calcula antes de redondear cada semana."
-    }
-    fun weekLabel(week: PeriodMoney) = monthRange(week.window.start, week.window.endInclusive) +
-        (if (week.window.start == today && week.window.endInclusive == today) " · hoy" else "") + " · ${week.trips} viajes"
-    fun weekNote(week: PeriodMoney): String? = when {
-        !week.carConfigured -> null
-        week.carCharges.size == 1 -> "1 día del coche"
-        week.carCharges.size < 7 -> "${week.carCharges.size} de 7 días del coche"
-        week.trips == 0 -> "Sin viajes; lo del coche corre igual"
-        else -> null
     }
 }
 

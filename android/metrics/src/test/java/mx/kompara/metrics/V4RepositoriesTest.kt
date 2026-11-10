@@ -105,7 +105,7 @@ class V4RepositoriesTest {
         taken("DIDI", "2026-10-06T10:00", 300.0, 20.0, accepted = false) // not taken: out
         MonthlyIncentiveRepository(db.monthlyIncentiveDao()).set("UBER", YearMonth.of(2026, 10), 1_800, 0)
         val month = ImssMonthRepository(db, periods).observe(YearMonth.of(2026, 10), asOf, zone).first()
-        assertEquals(BigDecimal("21938"), month.need); assertEquals(12, month.daysLeft)
+        assertEquals(BigDecimal("21938"), month.need)
         val (uber, didi) = month.apps
         assertEquals("UBER", uber.platform); assertEquals(0, BigDecimal(12_487).compareTo(uber.trips))
         assertEquals(0, BigDecimal(14_287).compareTo(uber.counted)); assertEquals(ImssState.WILL_REACH, uber.state)

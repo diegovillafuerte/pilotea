@@ -25,7 +25,6 @@ class ImssTrackerTest {
         val raw = month.money.contributions.first().record.copy(paymentBasis = mx.kompara.data.accounting.PaymentBasis.UNCONFIRMED)
         val payment = ImssTracker.payments(month.money.copy(contributions = listOf(month.money.contributions.first().copy(record = raw)), paymentOnly = emptyList())).single()
         assertTrue(payment.unconfirmed)
-        assertEquals("No confirmamos que sea tu pago", payment.sourceNote)
         assertNotNull(payment.amount)
     }
 }

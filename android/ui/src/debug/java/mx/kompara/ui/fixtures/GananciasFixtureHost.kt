@@ -23,7 +23,7 @@ import mx.kompara.ui.stats.DayDetailUiState
 import mx.kompara.ui.theme.KomparaTheme
 
 /**
- * One Ganancias frame (L1–L8, "empty", "short") in the real shell, from [GananciasFixture]. The offer and
+ * One Ganancias frame (L1–L8, "empty", "short", "stopped") in the real shell, from [GananciasFixture]. The offer and
  * calculation sheets are drawn in the window over the shell, as the OS sheet would sit; the explicit
  * `gananciasFrame` debug intent only.
  */

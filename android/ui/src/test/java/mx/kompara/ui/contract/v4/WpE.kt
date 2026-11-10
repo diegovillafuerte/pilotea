@@ -1,6 +1,6 @@
 package mx.kompara.ui.contract.v4
 
-/** WP-E, Comparar and IMSS (plan §4.6, §4.7). Only WP-E edits this file. K3 and K4 are not built (V4Contract.notBuilt). */
+/** WP-E, Comparar and IMSS (plan §4.6, §4.7). K3 and K4 are not built (V4Contract.notBuilt). */
 internal object WpE : V4Package {
     // K1, K2 and M1–M4 have day and night baselines (CompararScreenTest, ImssScreenTest); so does Tu ciudad's
     // "todavía no abre" state, which has no kit frame (comparar_ciudad_*).

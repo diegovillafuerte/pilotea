@@ -102,6 +102,5 @@ class WeekPresentationTest {
         assertEquals(today, SelectedPeriod.resolve("bad", today))
         assertEquals("28 sep – 4 oct", weekRange(LocalDate.parse("2026-09-28"), today))
         assertEquals("29 dic 2025 – 4 ene 2026", weekRange(LocalDate.parse("2025-12-29"), today))
-        assertEquals("5 – 11 oct · semana pasada", weekSelectorLabel(LocalDate.parse("2026-10-05"), LocalDate.parse("2026-10-14")))
     }
 }

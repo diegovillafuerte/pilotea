@@ -14,9 +14,7 @@ class FormattersTest {
         assertEquals("9:51", Formatters.formatClock(java.time.Instant.parse("2026-10-19T15:51:00Z").toEpochMilli(), zone))
     }
 
-    @Test fun `hourly limits preserve saved cents while hourly earnings still round to pesos`() {
-        assertEquals("$315.25/h", Formatters.formatLimit("315.25".toBigDecimal(), perHour = true))
-        assertEquals("$200/h", Formatters.formatLimit("200.00".toBigDecimal(), perHour = true))
+    @Test fun `hourly earnings round to pesos`() {
         assertEquals("$315/h", Formatters.formatPerHourWhole("315.25".toBigDecimal()))
     }
 
@@ -108,8 +106,6 @@ class FormattersTest {
         assertEquals("−$1.05/km", Formatters.formatPerKm(java.math.BigDecimal("-1.053")))
         assertEquals("−$1,234", Formatters.formatMxnWhole(-1234.4))
         assertEquals("$0", Formatters.formatMxnWhole(-0.1))
-        assertEquals("$6.50/km", Formatters.formatLimit(java.math.BigDecimal("6.5")))
-        assertEquals("$200/h", Formatters.formatLimit(java.math.BigDecimal("200"), perHour = true))
         assertEquals("$1,235", Formatters.formatMxnWhole(java.math.BigDecimal("1234.5")))
     }
 

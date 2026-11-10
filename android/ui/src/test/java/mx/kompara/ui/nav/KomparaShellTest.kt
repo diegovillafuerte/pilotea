@@ -60,6 +60,9 @@ class KomparaShellTest {
                 navArgument("offerId") { type = NavType.LongType; defaultValue = -1L }, navArgument("ledger") { type = NavType.BoolType; defaultValue = false })) {
                 Text("Pantalla del día")
             }
+            composable("week/{weekStart}", arguments = listOf(navArgument("weekStart") { type = NavType.StringType })) { entry ->
+                Text("Semana del ${entry.arguments!!.getString("weekStart")}")
+            }
         }
     }
     private fun tab(label: String) = compose.onNode(isSelectable() and hasText(label))
@@ -107,6 +110,31 @@ class KomparaShellTest {
         compose.onNodeWithContentDescription("Ajustes").assertDoesNotExist()
         tab("Ganancias").assertIsSelected().performClick()
         assertEquals("ganancias", route())
+    }
+
+    /** As KomparaApp opens a tapped notice: the destination over the start root, single top. */
+    private fun openNotice(target: mx.kompara.ui.notifications.NoticeTarget) = compose.runOnIdle {
+        val destination = mx.kompara.ui.notifications.NoticeNavigation.destination(target)
+        nav.navigate(destination) {
+            popUpTo(nav.graph.startDestinationId) { inclusive = destination == KomparaDestination.START.route }
+            launchSingleTop = true
+        }
+    }
+
+    @Test fun `the two notices land on registered routes - the week on Semana alone and the reader on Ganancias`() {
+        compose.setContent { KomparaTheme { Shell() } }
+        tab("IMSS").performClick()
+        openNotice(mx.kompara.ui.notifications.NoticeTarget(mx.kompara.ui.notifications.NoticeKind.WEEK, "2026-10-12"))
+        assertEquals("week/{weekStart}", route())
+        compose.onNodeWithText("Semana del 2026-10-12").assertExists()
+        compose.onNodeWithText("Ganancias").assertExists() // The shell's header title, under a back arrow, with no bar.
+        compose.onNodeWithContentDescription("Volver").assertExists()
+        compose.onAllNodes(isSelectable()).assertCountEquals(0)
+        compose.onNodeWithContentDescription("Volver").performClick()
+        assertEquals("ganancias", route())
+        openNotice(mx.kompara.ui.notifications.NoticeTarget(mx.kompara.ui.notifications.NoticeKind.READER))
+        assertEquals("ganancias", route())
+        tab("Ganancias").assertIsSelected()
     }
 
     @Test fun `tab switch and process restore retain the selected period`() {

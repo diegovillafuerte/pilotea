@@ -32,13 +32,15 @@ import javax.inject.Inject
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class LectorViewModel @Inject constructor(
-    reader: ReaderReadinessRepository,
+    private val reader: ReaderReadinessRepository,
     private val weekClock: WeekClock,
 ) : ViewModel() {
     private val refresh = MutableStateFlow(0)
     private val failure = MutableStateFlow<String?>(null)
     val error = failure.asStateFlow()
     fun retry() { failure.value = null; refresh.value++ }
+    /** "Encender el semáforo": clears a stored pause (the screen-capture fallback's own stop). */
+    fun resume() = reader.resume()
     val state = refresh.flatMapLatest { combine(reader.state, ScreenReaderState.running) { readiness, running ->
         semaforoState(readiness, weekClock.zone, !running && readiness.permission == true)
     }.map<SemaforoState, SemaforoState?> { it }.catch { e ->
@@ -60,6 +62,7 @@ fun LectorScreen(onBack: () -> Unit, onHelp: () -> Unit, onPermission: () -> Uni
         SemaforoAction.BATTERY -> onBattery()
         SemaforoAction.CAPTURE -> consent = true
         SemaforoAction.SETTINGS -> mx.kompara.ui.onboarding.AccessibilitySettings.open(context)
+        SemaforoAction.RESUME -> viewModel.resume()
     } }, modifier, error = error, retry = viewModel::retry)
     if (consent) AlertDialog(onDismissRequest = { consent = false },
         title = { Text(androidx.compose.ui.res.stringResource(R.string.lector_ocr_disclosure_title)) },

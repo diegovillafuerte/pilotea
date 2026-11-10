@@ -48,11 +48,6 @@ object Formatters {
     fun unbroken(value: String): String = value.replace(WORD_JOINER, "")
         .replace(" ", NBSP).replace("/", WORD_JOINER + "/" + WORD_JOINER)
 
-    /** Km limits retain two decimals; saved hourly cents must survive outside the editor too. */
-    fun formatLimit(value: java.math.BigDecimal, perHour: Boolean = false): String =
-        if (perHour) (if (value.stripTrailingZeros().scale() > 0) formatMxn(value) else formatMxnWhole(value)) + "/h"
-        else formatPerKm(value)
-
     fun formatDuration(minutes: Long): String {
         require(minutes >= 0)
         return unbroken(if (minutes < 60) "$minutes min" else "${minutes / 60} h ${minutes % 60} min")

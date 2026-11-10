@@ -75,7 +75,11 @@ fun GananciasScreen(onSemaforo: () -> Unit, onDay: (LocalDate) -> Unit, onLimits
     val context = LocalContext.current
     GananciasContent(state, period, day, week, GananciasActions(viewModel::selectPeriod, onSemaforo, today::openOffer,
         { today.showLedger(true) }, onDay, { viewModel.step(-1) }, { viewModel.step(1) }, { viewModel.showWeekCalculation(true) },
-        onLimits, onCosts, { HoyHostLinks.openUber(context) }, { if (state.off?.recovery == false) onSemaforo() else onRecovery() },
+        onLimits, onCosts, { HoyHostLinks.openUber(context) }, { when (state.off?.action) {
+            OffAction.SEMAFORO -> onSemaforo()
+            OffAction.RESUME -> viewModel.resume()
+            else -> onRecovery()
+        } },
         onBattery, { viewModel.retry(); today.retry() }), modifier, message.takeIf { selected == null })
     if (state.mode == HoyMode.DAY) DaySheets(today, loaded, message)
     val drawn = week.week
@@ -201,7 +205,7 @@ private fun FirstDayRow(label: String, detail: String?, action: String?, onClick
     Rule()
 }
 
-/** L3: the tab's body becomes the cause, one primary button and one secondary. */
+/** L3: the tab's body becomes the cause, one primary button and, unless the driver stopped it, one secondary. */
 @Composable
 private fun ColumnScope.ReaderOffBody(state: GananciasUiState, actions: GananciasActions, message: (@Composable () -> Unit)?) {
     val off = requireNotNull(state.off)
@@ -218,7 +222,7 @@ private fun ColumnScope.ReaderOffBody(state: GananciasUiState, actions: Ganancia
     }
     Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 18.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         PrimaryButton(off.primary, actions.recovery)
-        KomparaButton(GananciasStats.SECONDARY, actions.battery, variant = ButtonVariant.TEXT, fullWidth = true, contentColor = c.ink)
+        if (off.secondary) KomparaButton(GananciasStats.SECONDARY, actions.battery, variant = ButtonVariant.TEXT, fullWidth = true, contentColor = c.ink)
     }
 }
 

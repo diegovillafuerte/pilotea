@@ -42,14 +42,6 @@ class PeriodMoneyRepository @Inject constructor(
             captured.offers.isNotEmpty(), database.importDao().selections().map { it.domain() })
     }
 
-    /** Both comparison periods use one Room transaction/as-of; no old-week/current-week mixture. */
-    fun observeComparison(window: PeriodWindow): kotlinx.coroutines.flow.Flow<Pair<WeekMoneySnapshot, WeekMoneySnapshot>> =
-        database.invalidationTracker.createFlow("offers", "trips", "shifts", "running_cost_versions",
-            "car_cost_versions", "weekly_aggregates", "import_statements", "import_selections").map {
-            database.withTransaction { weekSnapshot(window) to weekSnapshot(window.copy(
-                start = window.start.minusWeeks(1), endInclusive = window.endInclusive.minusWeeks(1))) }
-        }
-
     /** Week, days, source records and cost versions are read atomically, at the caller's clock. */
     fun observeWeek(window: PeriodWindow): kotlinx.coroutines.flow.Flow<WeekMoneySnapshot> =
         database.invalidationTracker.createFlow("offers", "trips", "shifts", "running_cost_versions",

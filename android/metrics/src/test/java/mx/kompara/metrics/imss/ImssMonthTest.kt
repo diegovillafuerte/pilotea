@@ -28,7 +28,6 @@ class ImssMonthTest {
 
     @Test fun `M1 — Uber reaches with its incentives, DiDi falls short, together they are there`() {
         val m = ImssMonth.of(october, day19, mapOf("UBER" to pesos(12_487), "DIDI" to pesos(7_942)), mapOf("UBER" to 1_800))
-        assertEquals(12, m.daysLeft) // "quedan 12 días"
         assertEquals(listOf("UBER", "DIDI"), m.apps.map { it.platform })
         val (uber, didi) = m.apps
         assertEquals(pesos(14_287), uber.counted); assertEquals(1_800, uber.incentives)
@@ -48,7 +47,6 @@ class ImssMonthTest {
 
     @Test fun `M2 — 20,610 plus 1,800 is over`() {
         val m = ImssMonth.of(october, LocalDate.of(2026, 10, 27), mapOf("UBER" to pesos(20_610)), mapOf("UBER" to 1_800))
-        assertEquals(4, m.daysLeft)
         val uber = m.apps.single()
         assertEquals(pesos(22_410), uber.counted); assertEquals(ImssState.OVER, uber.state); assertNull(uber.shortBy)
         assertFalse(m.combinedReaches) // one app only
@@ -69,7 +67,6 @@ class ImssMonthTest {
 
     @Test fun `a past month has no pace and says what was missing`() {
         val m = ImssMonth.of(YearMonth.of(2026, 9), day19, mapOf("DIDI" to pesos(12_287)), emptyMap())
-        assertNull(m.daysLeft)
         val didi = m.apps.single()
         assertNull(didi.pace); assertEquals(ImssState.FELL_SHORT, didi.state)
         assertEquals(pesos(9_651), didi.shortBy) // "Te faltaron $9,651": 21,938 − 12,287
@@ -79,7 +76,7 @@ class ImssMonthTest {
 
     @Test fun `the last day, incentives without trips, and an empty month`() {
         val last = ImssMonth.of(october, LocalDate.of(2026, 10, 31), mapOf("UBER" to pesos(1_000)), emptyMap())
-        assertEquals(0, last.daysLeft) // "último día"
+        assertTrue(last.current) // the screen says "último día" (ImssPresentation.title)
         val typedOnly = ImssMonth.of(october, day19, emptyMap(), mapOf("DIDI" to 500))
         assertEquals(listOf("DIDI"), typedOnly.apps.map { it.platform }); assertFalse(typedOnly.hasTrips)
         assertEquals(BigDecimal.ZERO, typedOnly.apps.single().trips)

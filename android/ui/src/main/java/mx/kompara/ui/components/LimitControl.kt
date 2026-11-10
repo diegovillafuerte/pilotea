@@ -74,51 +74,6 @@ internal fun RingStep(increase: Boolean, description: String, onClick: () -> Uni
     }
 }
 
-/** Stateless input: parsing, validation, stepping and draft persistence belong to S12's editor. */
-@Composable
-fun LimitControl(label: String, value: String, unit: String, onValueChange: (String) -> Unit,
-    onDecrease: () -> Unit, onIncrease: () -> Unit, modifier: Modifier = Modifier,
-    cue: OfferMarkState = OfferMarkState.ABOVE, helper: String? = null, error: String? = null,
-    stepLabel: String = stringResource(R.string.v3_limit_step), stepAmount: String = "$0.50", enabled: Boolean = true) {
-    val c = KomparaTheme.colors
-    var focused by remember { mutableStateOf(false) }
-    val spokenLimit = label.removeSuffix(" ·").replaceFirstChar { it.lowercase() }
-    Column(modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(label, style = KomparaType.bodyStrong)
-            VerdictCue(cue)
-            Text(stringResource(if (cue == OfferMarkState.ABOVE) R.string.v3_from else R.string.v3_below_from), style = KomparaType.body)
-        }
-        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
-            verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            BasicTextField(value, onValueChange, enabled = enabled, singleLine = true,
-                textStyle = KomparaType.number.copy(color = c.ink), cursorBrush = SolidColor(c.brand),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                modifier = Modifier.widthIn(min = 160.dp, max = 220.dp).heightIn(min = 48.dp)
-                    .onFocusChanged { focused = it.isFocused }.clip(RoundedCornerShape(8.dp))
-                    .background(c.paperSecondary).border(if (focused) 2.dp else 0.dp,
-                        if (focused) c.brand else c.paperSecondary, RoundedCornerShape(8.dp))
-                    .padding(horizontal = 12.dp, vertical = 6.dp)
-                    .semantics { contentDescription = label; if (error != null) error(error) },
-                decorationBox = { input ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("$", style = KomparaType.number)
-                        Box(Modifier.weight(1f)) { input() }
-                        Text(unit, style = KomparaType.body, color = c.inkSecondary)
-                    }
-                })
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    RingStep(false, stringResource(R.string.v3_decrease, "$spokenLimit $stepAmount"), onDecrease, 48.dp, enabled)
-                    RingStep(true, stringResource(R.string.v3_increase, "$spokenLimit $stepAmount"), onIncrease, 48.dp, enabled)
-                }
-                Text(stepLabel, style = KomparaType.small, color = c.inkSecondary)
-            }
-        }
-        if (error != null) InkNotice(error) else if (helper != null) Text(helper, style = KomparaType.small, color = c.inkSecondary)
-    }
-}
-
 @Composable
 fun StepperField(value: String, unit: String, label: String, onDecrease: () -> Unit, onIncrease: () -> Unit,
     modifier: Modifier = Modifier) {

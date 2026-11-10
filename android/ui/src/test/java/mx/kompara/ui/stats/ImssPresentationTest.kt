@@ -21,7 +21,7 @@ class ImssPresentationTest {
     private val october = YearMonth.of(2026, 10)
     private fun month(today: LocalDate, trips: Map<String, Int>, incentives: Map<String, Int> = emptyMap(), month: YearMonth = october) =
         ImssPresentation.of(ImssMonth.of(month, today, trips.mapValues { BigDecimal(it.value) }, incentives))
-    private val certifies = Regex("(?i)cubiert|ya te toca")
+    private val certifies = mx.kompara.ui.contract.v4.V4Contract.coverage
     private fun ImssPresentation.everything() = listOf(title, rule.text, empty.orEmpty(), combined?.text.orEmpty()) +
         blocks.flatMap { listOf(it.amount, it.parts, it.said?.text.orEmpty()) }
 

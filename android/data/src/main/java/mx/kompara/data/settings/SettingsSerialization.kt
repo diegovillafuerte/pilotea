@@ -13,8 +13,6 @@ import mx.kompara.data.model.Platform
  *  - each platform's thresholds → two doubles keyed [perKmKey]/[perHourKey]
  */
 object SettingsSerialization {
-    const val KEY_THEME = "theme_preference"
-
     const val KEY_ENABLED_PLATFORMS = "enabled_platforms"
 
     /** Boolean key for the anonymous-telemetry consent toggle (B-034). */
@@ -114,7 +112,6 @@ object SettingsSerialization {
             dailySummaryEnabled = lookupBoolean("daily_summary_enabled") ?: true,
             importReminderEnabled = lookupBoolean("import_reminder_enabled") ?: true,
             cityChosen = lookupBoolean("city_chosen") ?: false,
-            themePreference = ThemePreference.fromName(lookupString(KEY_THEME)),
             enabledPlatforms = decodeEnabledPlatforms(enabledNames),
             threshold = decodeThreshold(lookupDouble),
             telemetryEnabled = lookupBoolean(KEY_TELEMETRY_ENABLED)
