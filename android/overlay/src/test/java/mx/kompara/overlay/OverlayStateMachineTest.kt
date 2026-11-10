@@ -162,7 +162,7 @@ class OverlayStateMachineTest {
         assertTrue(run.seen.none { it is OverlayVisibility.Showing })
     }
 
-    @Test fun `same offer changing judgement is one atomic state with its limits`() = runTest {
+    @Test fun `same offer changing judgement is one atomic state`() = runTest {
         var count = 0
         val run = observe { state(if (count++ == 0) 100.0 else 20.0) }
         run.events.emit(parsed()); testScheduler.runCurrent()
@@ -170,7 +170,6 @@ class OverlayStateMachineTest {
         assertEquals(1, run.seen.filterIsInstance<OverlayVisibility.Reading>().size)
         val states = run.seen.filterIsInstance<OverlayVisibility.Showing>().map { it.state.regla }
         assertEquals(listOf(ReglaPosition.ABOVE, ReglaPosition.BELOW), states.map { (it.band as ReglaBand.Rated).position })
-        assertEquals(listOf("tu meta $8", "tu meta $8"), states.map { it.goalLabel })
     }
 
     @Test fun `offer returning during exit cancels detach`() = runTest {

@@ -22,7 +22,7 @@ enum class DemoOffer(val fare: Double?, val km: Double, val minutes: Double, val
             VerdictLevel.RED -> ReglaPosition.BELOW; else -> null
         }
         return ReglaModel(if (position == null) ReglaBand.Unavailable(ReglaUnavailable.FARE)
-            else ReglaBand.Rated(position, result.perKmDecimal!!.toBigDecimal()), BigDecimal(8), BigDecimal(6))
+            else ReglaBand.Rated(position, result.perKmDecimal!!.toBigDecimal()))
     }
 }
 

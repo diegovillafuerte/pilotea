@@ -46,10 +46,10 @@ object FrameContract {
             list.performScrollToIndex(0)
         }
         val expected = strings.getValue(twins[id] ?: id) + strings.getValue(id)
-        val semanticRates = mapOf("$9.49/km" to "9.49 pesos netos por km", "$7.16/km" to "7.16 pesos netos por km",
-            "$2.20/km" to "2.20 pesos netos por km", "−$1.05/km" to "menos 1.05 pesos netos por km")
+        val semanticRates = mapOf("$9.49/km" to "9.49 pesos por kilómetro", "$7.16/km" to "7.16 pesos por kilómetro",
+            "$2.20/km" to "2.20 pesos por kilómetro", "−$1.05/km" to "menos 1.05 pesos por kilómetro")
         fun nativeEquivalent(value: String): Boolean = when {
-            // The band is one phrase-first accessible image; its visual text and drawn cues are decorative.
+            // The chip is one accessible image; its painted words are hidden from accessibility.
             value in semanticRates -> semanticRates.getValue(value) in text
             value == "▲ desde" -> "Tu meta" in text && "desde" in text
             value == "▼ abajo de" -> "Tu mínimo" in text && "abajo de" in text

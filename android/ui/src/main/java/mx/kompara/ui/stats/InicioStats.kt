@@ -9,6 +9,7 @@ import mx.kompara.metrics.TodayMoneySnapshot
 import mx.kompara.metrics.VerdictLevel
 import mx.kompara.ui.components.*
 import mx.kompara.ui.format.Formatters
+import java.math.BigDecimal
 import java.time.Instant
 
 enum class HoyMode { MONEY, FIRST_OFF, RECOVERY, FIRST_PREPARED, PREPARED, COSTS, EMPTY }
@@ -28,10 +29,19 @@ data class InicioUiState(
     val offers: List<HoyOffer> = emptyList(),
     val partialDidi: Boolean = false,
     val typicalCost: RunningCostVersion? = null,
-    val limits: ReglaModel? = null,
+    val limits: HoyLimits? = null,
     val example: ReglaModel? = null,
 ) {
     val dayIso: String? get() = snapshot?.today?.money?.window?.start?.toString()
+}
+
+/** The saved pair for Hoy's status line and setup row; the limits share cents when either needs them. */
+data class HoyLimits(val goal: BigDecimal, val minimum: BigDecimal, val unit: ReglaUnit) {
+    private val cents: Boolean get() = listOf(goal, minimum).any { it.stripTrailingZeros().scale() > 0 }
+    private fun limit(value: BigDecimal): String =
+        (if (cents) Formatters.formatMxn(value) else Formatters.formatMxnWhole(value)) + if (unit == ReglaUnit.HOUR) unit.suffix else ""
+    val goalLabel: String get() = "tu meta ${limit(goal)}"
+    val minimumLabel: String get() = "tu mínimo ${limit(minimum)}"
 }
 
 /** Projection only. All money, dates and lifecycle evidence belong to the shared snapshot. */
@@ -47,8 +57,7 @@ object InicioStats {
         val typical = day.activeCost?.takeIf { it.confirmation == CostConfirmation.TYPICAL }
         val threshold = settings.effectiveThreshold
         val hour = settings.preferredMetric == PreferredMetric.IPH
-        val limits = ReglaModel(ReglaBand.Unavailable(ReglaUnavailable.READING),
-            (if (hour) threshold.minPerHourMxn else threshold.minPerKmMxn).toBigDecimal(),
+        val limits = HoyLimits((if (hour) threshold.minPerHourMxn else threshold.minPerKmMxn).toBigDecimal(),
             (if (hour) threshold.redPerHourMxn else threshold.redPerKmMxn).toBigDecimal(),
             if (hour) ReglaUnit.HOUR else ReglaUnit.KM)
         // Explicitly labelled teaching offer. Reuse the engine so edited costs/limits/unit remain true.
@@ -62,8 +71,8 @@ object InicioStats {
             VerdictLevel.RED -> ReglaPosition.BELOW
             else -> null
         }
-        val example = limits.copy(band = if (sampleRate != null && samplePosition != null) ReglaBand.Rated(samplePosition, sampleRate)
-            else ReglaBand.Unavailable(ReglaUnavailable.UNCONFIRMED))
+        val example = ReglaModel(if (sampleRate != null && samplePosition != null) ReglaBand.Rated(samplePosition, sampleRate)
+            else ReglaBand.Unavailable(ReglaUnavailable.UNCONFIRMED), limits.unit)
         fun clock(at: Long) = Formatters.formatClock(at, zone)
         fun relative(at: Long): String {
             val atDate = Instant.ofEpochMilli(at).atZone(zone).toLocalDate()

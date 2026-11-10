@@ -29,12 +29,8 @@ data class KomparaColors(
     val rojo: Color = VerdictRed,
     val chipInk: Color = Color(0xFF0E0F10),
     val onChip: Color = Color(0xFFEDEDEA),
-    val chipGrey: Color = Color(0xFF2A2C2F),
-    val trayGreen: Color = Color(0xFF2FB35A),
-    val trayYellow: Color = Color(0xFFF2B705),
-    val trayRed: Color = Color(0xFFFF5C5C),
-    val chipEdge: Color = Color.White.copy(alpha = .12f),
-    val chipGreyEdge: Color = Color.White.copy(alpha = .20f),
+    /** Kompara's K on ink (v4 kit `--k-on-dark`): the chip's head and its tray's ▲. */
+    val kOnDark: Color = Color(0xFF58C47A),
 )
 
 val DayColors = KomparaColors(

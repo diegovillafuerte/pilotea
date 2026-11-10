@@ -87,12 +87,7 @@ class NightThemeTest {
             assertEquals(Color(0xFFD32F2F), colors.rojo)
             assertEquals(Color(0xFF0E0F10), colors.chipInk)
             assertEquals(Color(0xFFEDEDEA), colors.onChip)
-            assertEquals(Color(0xFF2A2C2F), colors.chipGrey)
-            assertEquals(Color(0xFF2FB35A), colors.trayGreen)
-            assertEquals(Color(0xFFF2B705), colors.trayYellow)
-            assertEquals(Color(0xFFFF5C5C), colors.trayRed)
-            assertEquals(Color.White.copy(alpha = .12f), colors.chipEdge)
-            assertEquals(Color.White.copy(alpha = .20f), colors.chipGreyEdge)
+            assertEquals(Color(0xFF58C47A), colors.kOnDark)
         }
         assertEquals(Color(0xFF3FB565), NightColors.activeNavigation)
         assertNotEquals(NightColors.brand, NightColors.activeNavigation)

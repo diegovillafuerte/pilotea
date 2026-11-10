@@ -49,11 +49,11 @@ class LiveOfferIntegrationTest {
         }
     }
 
-    @Test fun `C5 missing time renders Falta tiempo in hourly unit while km stays computable`() {
+    @Test fun `C5 missing time renders Sin lectura in hourly unit while km stays computable`() {
         for (card in listOf(UberOcrParser().parse(uber(time = false))!!, DidiOcrParser().parse(didi(time = false))!!)) {
             val state = VerdictChipState.from(metrics(card, PreferredMetric.IPH), limits)
             assertEquals(ReglaUnavailable.TIME, (state.regla.band as ReglaBand.Unavailable).input)
-            assertEquals("Falta tiempo", state.heroRate)
+            assertEquals("Sin lectura", state.heroRate)
             assertNull(state.regla.rateText)
             assertTrue(VerdictChipState.from(metrics(card), limits).regla.band is ReglaBand.Rated)
         }
