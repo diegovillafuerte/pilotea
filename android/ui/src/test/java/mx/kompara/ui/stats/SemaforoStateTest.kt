@@ -49,6 +49,24 @@ class SemaforoStateTest {
         assertFalse(words.toString(), words.any { "mañana" in it || "pausa" in it })
         assertEquals("Apagado · lo detuviste", settingsReaderText(f.readiness("stopped")))
     }
+    @Test fun `a phone that can pause the reader says so and offers the battery step without calling it off`() {
+        val attention = state(f.readiness("attention"))
+        assertEquals("Batería con restricciones · aún funciona", attention.title)
+        assertEquals(StatusGlyph.ATTENTION, attention.glyph)
+        assertEquals("Tu teléfono puede apagar el semáforo", attention.detail)
+        assertEquals(SemaforoAction.BATTERY, attention.primary); assertEquals("Quitar restricción de batería", attention.primaryLabel)
+        assertEquals(listOf("Leyó tu última oferta · 14:32", "Leyó tu última oferta · 12:25", "Aún no disponible"), attention.apps.map { it.detail })
+        assertNull(attention.consequence); assertNull(attention.since)
+        // Before the first offer it is prepared, and the battery button still has its cause.
+        val prepared = state(f.readiness("prepared").copy(batteryRestricted = true))
+        assertEquals("Semáforo preparado", prepared.title)
+        assertEquals("Tu teléfono puede apagar el semáforo", prepared.detail)
+        assertEquals(SemaforoAction.BATTERY, prepared.primary)
+        assertEquals("Esperando una oferta", prepared.apps[0].detail)
+        val words = listOfNotNull(attention.title, attention.detail, prepared.title, prepared.detail) + (attention.apps + prepared.apps).map { it.detail }
+        assertFalse(words.toString(), words.any { "apagado" in it || "Sin lectura" in it })
+        assertEquals("Batería con restricciones · aún funciona", settingsReaderText(f.readiness("attention")))
+    }
     @Test fun `off states carry the cause and one button, the same as Ganancias`() {
         val off = state(f.readiness("off"))
         assertEquals("Semáforo apagado", off.title)

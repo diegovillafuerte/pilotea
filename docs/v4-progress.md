@@ -154,3 +154,23 @@ for f in kompara.db kompara.db-wal kompara.db-shm; do adb exec-out run-as mx.kom
    Semana on that week.
 6. Below Android 11, if a phone is at hand: "Detener" on the capture notification, then "Encender el
    semáforo" on Ganancias, then the capture consent again from the Semáforo screen.
+
+**Found on the S25, 2026-11-10 (WP-Z):** a fresh install sits in Samsung's default "Optimizada" battery mode,
+and Samsung's freezer froze the process about 6 s after each accessibility event: the reader's 0.8 s loop
+stopped for 73 s to 12 min with Uber in front, while the app reported nothing wrong and the first run skipped
+its battery page. `ReaderDeviceEnvironment.batteryRestricted` only saw the "Restringida" mode. It now also
+answers yes on a Samsung (`OemDetector`, moved to `:data` with `OemProfile`) when the app is not exempt from
+battery optimization. So on a Samsung the first run shows its battery page, and with the reader on the
+Semáforo screen says "Tu teléfono puede apagar el semáforo" with "Quitar restricción de batería"; the status
+reads "Batería con restricciones · aún funciona" once an offer is read. Choosing "Sin restricciones" puts the
+app on the exemption list and clears all of it on return (confirmed on the S25: freezer `stop trying to
+freeze`). No notice fires for it. Every other maker keeps the restricted-only rule until it is measured, so
+there the app still cannot see a pause: TD-V4-11.
+
+**Also found there:** 0.3.0 never asked for `POST_NOTIFICATIONS` (API 33+), so a new install showed
+"Notificaciones: Bloqueado" and neither notice could ever arrive; 0.2.20 asked from Hoy's "Avisarme si se
+apaga", which the launch set removed. Ganancias now asks (`NotificationPermissionRequest`, from
+`GananciasScreen`): the system's own dialog, once per install, the first time the tab shows after the first
+run with the reader on (permission given, not off or stopped), on API 33+ and only if not granted. The
+stored `notifications_asked` flag keeps it from asking again, a decline included. No screen of its own. With
+no Avisos row, a decline cannot be undone inside the app: TD-V4-12.

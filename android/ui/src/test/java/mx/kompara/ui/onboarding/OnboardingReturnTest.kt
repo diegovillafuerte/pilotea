@@ -4,6 +4,7 @@ import android.app.ActivityManager
 import android.content.*
 import android.content.pm.ActivityInfo
 import android.content.pm.ResolveInfo
+import android.os.PowerManager
 import android.provider.Settings
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
@@ -21,6 +22,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowBuild
 import org.robolectric.shadows.ShadowToast
 import java.time.*
 
@@ -53,6 +55,8 @@ class OnboardingReturnTest {
         Settings.Secure.putString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
             if (value) ReaderDeviceEnvironment.component(context).flattenToString() else "")
     }
+    private fun exempt(value: Boolean) =
+        shadowOf(context.getSystemService(PowerManager::class.java)).setIgnoringBatteryOptimizations(context.packageName, value)
     private fun support(intent: Intent) {
         shadowOf(context.packageManager).addResolveInfoForIntent(intent, ResolveInfo().apply {
             activityInfo = ActivityInfo().apply { packageName = "com.android.settings"; name = "Settings"; exported = true }
@@ -130,6 +134,29 @@ class OnboardingReturnTest {
         grant(false); vm.onResume(); runCurrent()
         assertEquals(OnboardingPage.DONE, vm.page.value)
         assertEquals(false, reader.state.value.permission)
+    }
+    @Test fun `a maker that freezes apps gets the battery step and the exemption updates the reader on return`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        ShadowBuild.setManufacturer("samsung"); exempt(false); grant(true)
+        val vm = vm(); vm.start(OnboardingEntry.FIRST_RUN); vm.onResume(); runCurrent()
+        vm.begin(); vm.consent(true); runCurrent(); advanceTimeBy(800); runCurrent()
+        assertEquals(OnboardingPage.BATTERY, vm.page.value); assertTrue(reader.state.value.batteryRestricted)
+        assertTrue(records.contains(OnboardingStep.OEM))
+        support(BatterySettings.candidates(context).first()); vm.openSettings(); vm.onPause()
+        exempt(true); vm.onResume(); runCurrent()
+        assertEquals(OnboardingPage.DONE, vm.page.value); assertFalse(reader.state.value.batteryRestricted)
+        assertTrue(settings.isOnboardingCompleted())
+    }
+    @Test fun `an exempt samsung or another maker finishes the first run without the battery step`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        grant(true)
+        for ((maker, isExempt) in listOf("samsung" to true, "Xiaomi" to false, "Google" to false)) {
+            ShadowBuild.setManufacturer(maker); exempt(isExempt)
+            val vm = vm(); vm.start(OnboardingEntry.FIRST_RUN); vm.onResume(); runCurrent()
+            vm.begin(); vm.consent(true); runCurrent(); advanceTimeBy(800); runCurrent()
+            assertEquals(maker, OnboardingPage.DONE, vm.page.value)
+        }
+        assertFalse(records.contains(OnboardingStep.OEM))
     }
     @Test fun `battery only entry preserves off state and exits to its opener`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))

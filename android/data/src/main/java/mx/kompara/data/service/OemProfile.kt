@@ -1,4 +1,4 @@
-package mx.kompara.ui.onboarding
+package mx.kompara.data.service
 
 /**
  * The set of OEM "survival kit" profiles. Xiaomi/Oppo/Vivo task killers dominate Mexican driver

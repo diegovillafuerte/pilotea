@@ -127,6 +127,30 @@ on-device service survival; passing parser tests cannot prove platform permissio
 
 ---
 
+### 11. A process that is alive, bound and silent may be frozen by the maker
+
+On a fresh 0.3.0 install on the Galaxy S25 (2026-11-10) the reader's 0.8 s loop stopped for 73 s to
+12 minutes with Uber in front and the screen on. The process was alive, the Accessibility service
+enabled and bound, and the app logged nothing at all, then on thaw a frame line with `gapMs=139318`
+and an `OCR_TIMEOUT`. Samsung's freezer had frozen it ~6 s after the last binder call; each
+accessibility event thawed it for ~6 s, so offers still got a chip and the gaps looked like idle time.
+The cause was the default "Optimizada" battery mode, which `isBackgroundRestricted` does not report.
+
+```bash
+adb logcat -d -v time -b main,system | grep -E "Freecess(Controller|Handler)" | grep kompara
+```
+
+`FZ : <package>` is a freeze, `UFZ : … reason: Binder(…IAccessibility…)` the thaw; zero lines for a
+package means it was never frozen. `adb shell dumpsys deviceidle whitelist` shows whether the app is
+exempt (`user,<package>` after "Sin restricciones").
+
+**Apply:** When a loop that runs on its own clock goes silent without an error, check whether the
+process ran at all before debugging the loop. Don't trust `isBackgroundRestricted` alone on a
+Samsung; there the battery exemption (`isIgnoringBatteryOptimizations`) is what keeps it running. On
+other makers, measure before assuming the same holds.
+
+---
+
 ## What worked — keep doing
 
 - **Adversarial review (codex / multi-agent) before shipping** caught real regressions unit tests

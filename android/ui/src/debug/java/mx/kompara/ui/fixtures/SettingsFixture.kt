@@ -49,13 +49,15 @@ class SettingsFixture(context: Context) {
 
     /**
      * J4: Uber read the 14:32 offer, DiDi the 12:25 one (the kit's second-app offer); inDrive is not read. "stopped" is a
-     * stored pause, the screen-capture fallback's own stop (below Android 11).
+     * stored pause, the screen-capture fallback's own stop (below Android 11). "attention" is J4 on a phone that can pause
+     * the reader (battery restricted, or a Samsung without the battery exemption).
      */
     fun readiness(state: String = "working"): ReaderReadiness {
         val didi = raw.getJSONObject("v4").getJSONObject("today_second_app_offers").keys().asSequence().first { !it.startsWith("_") }
-        val phase = when (state) { "off" -> ReaderPhase.OFF; "prepared" -> ReaderPhase.PREPARED; "stopped" -> ReaderPhase.PAUSED; else -> ReaderPhase.WORKING }
-        val read = phase == ReaderPhase.WORKING
-        return ReaderReadiness(phase, phase != ReaderPhase.OFF, phase != ReaderPhase.OFF, phase != ReaderPhase.OFF, false,
+        val phase = when (state) { "off" -> ReaderPhase.OFF; "prepared" -> ReaderPhase.PREPARED; "stopped" -> ReaderPhase.PAUSED
+            "attention" -> ReaderPhase.ATTENTION; else -> ReaderPhase.WORKING }
+        val read = phase == ReaderPhase.WORKING || phase == ReaderPhase.ATTENTION
+        return ReaderReadiness(phase, phase != ReaderPhase.OFF, phase != ReaderPhase.OFF, phase != ReaderPhase.OFF, phase == ReaderPhase.ATTENTION,
             linkedMapOf(ReaderReadinessReducer.UBER to AppReadiness(true, if (read) at(date, "14:32") else null, read),
                 ReaderReadinessReducer.DIDI to AppReadiness(true, if (read) at(date, didi) else null, read),
                 ReaderReadinessReducer.INDRIVE to AppReadiness(false, null, false)),
@@ -103,7 +105,7 @@ fun SettingsFixtureHost(frame: String) {
             }
             "J2", "J7", "hour" -> ThresholdsContent(f.limits(frame), { _, _ -> }, { _, _ -> }, {}, {}, {}, {}, {})
             "J3", "electric", "direct" -> CostProfileContent(f.costs(frame), {}, {})
-            "J4", "off", "prepared", "stopped" -> SemaforoContent(semaforoState(f.readiness(if (frame == "J4") "working" else frame), f.zone), {}, {}, {})
+            "J4", "off", "prepared", "stopped", "attention" -> SemaforoContent(semaforoState(f.readiness(if (frame == "J4") "working" else frame), f.zone), {}, {}, {})
             "J5", "signed-out" -> TusDatosContent(TusDatosState(loaded = true, signedIn = frame == "J5"), externalDeletion = "https://kompara.mx/borrar")
             "erased" -> TusDatosContent(TusDatosState(loaded = true, signedIn = true, result = "Datos del teléfono borrados"))
             "J6" -> HelpContent(supportAvailable = true)

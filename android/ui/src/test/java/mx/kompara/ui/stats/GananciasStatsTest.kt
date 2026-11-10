@@ -32,7 +32,8 @@ class GananciasStatsTest {
         val f = fixture
         fun with(phase: ReaderPhase, permission: Boolean? = true, incident: ReaderIncident? = null) =
             GananciasStats.of(f.today("L1"), f.readiness("L1").copy(phase = phase, permission = permission, incident = incident), Settings.DEFAULT)
-        assertEquals("Batería restringida · aún funciona", with(ReaderPhase.ATTENTION).status!!.title)
+        assertEquals(GananciasStatus("Batería con restricciones · aún funciona", null, StatusGlyph.ATTENTION, true), with(ReaderPhase.ATTENTION).status)
+        assertEquals(HoyMode.DAY, with(ReaderPhase.ATTENTION).mode); assertNull(with(ReaderPhase.ATTENTION).off)
         // A stored pause is a stopped reader: off, and the tab already shows how to turn it back on.
         assertEquals(GananciasStatus("Semáforo apagado", null, StatusGlyph.OFF, false), with(ReaderPhase.PAUSED).status)
         assertEquals("falta el permiso", with(ReaderPhase.OFF, permission = false).status!!.detail)

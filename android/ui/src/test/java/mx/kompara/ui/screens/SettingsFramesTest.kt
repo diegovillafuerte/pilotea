@@ -33,7 +33,7 @@ class SettingsFramesTest {
     /** States the kit does not draw, kept from 0.2.20 and restyled: one day baseline each, named without a frame id. */
     private val states = mapOf("hour" to "limits", "electric" to "costs", "direct" to "costs", "off" to "semaforo",
         "prepared" to "semaforo", "stopped" to "semaforo", "signed-out" to "datos", "erased" to "datos", "missing" to "firstrun",
-        "granted" to "firstrun", "battery-first" to "firstrun")
+        "granted" to "firstrun", "battery-first" to "firstrun", "attention" to "semaforo")
 
     private data class Case(val frame: String, val screen: String, val dark: Boolean, val scale: Float, val width: Int)
 
@@ -62,5 +62,5 @@ class SettingsFramesTest {
     }, contract = true)
 
     @Test fun `undrawn states keep their reviewed look`() = render(states.map { (state, screen) -> Case(state, screen, false, 1f, 393) } +
-        Case("off", "semaforo", true, 2f, 320), contract = false)
+        Case("off", "semaforo", true, 2f, 320) + Case("attention", "semaforo", true, 2f, 320), contract = false)
 }

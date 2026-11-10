@@ -206,6 +206,26 @@ class GananciasViewModelTest {
         }
     }
 
+    @Test fun `the notification dialog is due once a first run left the reader on and never after it was shown`() = runBlocking {
+        Harness().use { h ->
+            val vm = h.vm()
+            val job = launch { vm.askNotifications.collect() }
+            try {
+                suspend fun due() = withTimeout(15_000) { vm.askNotifications.first { it } }
+                h.prefs.setOnboardingCompleted(true); h.reader.observeEnvironment(false, false)
+                assertNull("the first run left the reader off", withTimeoutOrNull(300) { vm.askNotifications.first { it } })
+                h.reader.observeEnvironment(true, false); due()
+                vm.notificationsAsked()
+                withTimeout(15_000) { vm.askNotifications.first { !it } }
+                assertTrue(h.prefs.notificationsAsked.first())
+                val again = h.vm()
+                val second = launch { again.askNotifications.collect() }
+                assertNull("the next visit does not ask again", withTimeoutOrNull(300) { again.askNotifications.first { it } })
+                second.cancel()
+            } finally { job.cancel() }
+        }
+    }
+
     @Test fun `selected week survives closing and reopening the disk preferences store`() = runBlocking {
         val file = java.io.File.createTempFile("s9-period", ".preferences_pb").also { it.delete() }
         fun dataStore(scope: CoroutineScope) = androidx.datastore.preferences.core.PreferenceDataStoreFactory.create(scope = scope, produceFile = { file })

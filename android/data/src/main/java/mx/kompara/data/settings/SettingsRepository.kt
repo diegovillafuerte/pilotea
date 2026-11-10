@@ -77,6 +77,13 @@ class SettingsRepository @Inject constructor(
 
     val settings: Flow<Settings> = dataStore.data.map { prefs -> prefs.toSettings() }
 
+    /** Whether the system's notification dialog was shown on this install (asked once, never again automatically). */
+    val notificationsAsked: Flow<Boolean> = dataStore.data.map { it[booleanPreferencesKey("notifications_asked")] == true }
+
+    suspend fun setNotificationsAsked() {
+        dataStore.edit { it[booleanPreferencesKey("notifications_asked")] = true }
+    }
+
     /** Shared Ganancias/Comparar selection; null follows the current calendar week. */
     val selectedWeekStart: Flow<String?> = dataStore.data.map { it[stringPreferencesKey("selected_week_start")] }
 

@@ -35,7 +35,7 @@ fun settingsReaderText(reader: ReaderReadiness): String = when (reader.phase) {
     ReaderPhase.OFF -> if (reader.permission == false) "Apagado · falta el permiso" else "Apagado · sin lectura"
     ReaderPhase.PREPARED -> if (reader.permission == true) "Preparado · permiso listo" else "Comprobando el permiso"
     ReaderPhase.WORKING -> "Funcionando"
-    ReaderPhase.ATTENTION -> "Batería restringida · aún funciona"
+    ReaderPhase.ATTENTION -> "Batería con restricciones · aún funciona"
     ReaderPhase.PAUSED -> "Apagado · lo detuviste"
 }
 

@@ -58,7 +58,8 @@ fun semaforoState(reader: ReaderReadiness, zone: ZoneId, needsCaptureConsent: Bo
         reader.permission == false -> "Falta el permiso de Accesibilidad"
         needsCaptureConsent -> "Este teléfono necesita otro permiso"
         off -> "Dejamos de leer tus ofertas"
-        reader.phase == ReaderPhase.ATTENTION -> "Tu teléfono puede apagar el semáforo"
+        // Also before the first offer: the battery button needs its cause (prepared on a phone that pauses apps).
+        reader.batteryRestricted -> "Tu teléfono puede apagar el semáforo"
         reader.phase == ReaderPhase.PREPARED -> if (hasHistory) "Tu primera oferta de hoy lo confirma" else "Tu primera oferta lo confirma"
         else -> null
     }

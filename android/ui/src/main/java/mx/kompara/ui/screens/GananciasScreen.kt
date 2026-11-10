@@ -36,6 +36,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import mx.kompara.ui.R
 import mx.kompara.ui.components.*
+import mx.kompara.ui.notifications.NotificationPermissionRequest
 import mx.kompara.ui.stats.*
 import mx.kompara.ui.theme.KomparaTheme
 import mx.kompara.ui.theme.KomparaType
@@ -73,6 +74,8 @@ fun GananciasScreen(onSemaforo: () -> Unit, onDay: (LocalDate) -> Unit, onLimits
     val loaded = (day as? DayDetailUiState.Loaded)?.day
     val message = dayMessage(today)
     val context = LocalContext.current
+    val askNotifications by viewModel.askNotifications.collectAsStateWithLifecycle()
+    NotificationPermissionRequest(askNotifications, viewModel::notificationsAsked)
     GananciasContent(state, period, day, week, GananciasActions(viewModel::selectPeriod, onSemaforo, today::openOffer,
         { today.showLedger(true) }, onDay, { viewModel.step(-1) }, { viewModel.step(1) }, { viewModel.showWeekCalculation(true) },
         onLimits, onCosts, { HoyHostLinks.openUber(context) }, { when (state.off?.action) {

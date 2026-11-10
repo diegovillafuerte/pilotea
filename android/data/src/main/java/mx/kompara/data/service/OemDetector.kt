@@ -1,10 +1,11 @@
-package mx.kompara.ui.onboarding
+package mx.kompara.data.service
 
 import android.os.Build
 
 /**
  * Maps a device's `Build.MANUFACTURER` to the matching [OemProfile] so the survival-kit screen can
- * show per-OEM autostart/battery steps only on devices that need them.
+ * show per-OEM autostart/battery steps only on devices that need them. It lives in `:data` because the battery
+ * step also asks it for the maker ([ReaderDeviceEnvironment.batteryRestricted], Samsung only so far).
  *
  * The brand families follow dontkillmyapp.com groupings: Xiaomi's sub-brands (Redmi, Poco) share
  * MIUI/HyperOS settings; Oppo, Realme and OnePlus share ColorOS; Vivo and iQOO share Funtouch/OriginOS.

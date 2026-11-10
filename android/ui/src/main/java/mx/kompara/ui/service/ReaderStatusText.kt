@@ -8,7 +8,7 @@ fun ReaderReadiness.statusLabel(): String = when (phase) {
     ReaderPhase.OFF -> "Semáforo apagado"
     ReaderPhase.PREPARED -> "Semáforo preparado"
     ReaderPhase.WORKING -> "Semáforo funcionando"
-    ReaderPhase.ATTENTION -> "Batería restringida · aún funciona"
+    ReaderPhase.ATTENTION -> "Batería con restricciones · aún funciona"
     // A pause can still come from the screen-capture fallback's own stop; the driver turned it off.
     ReaderPhase.PAUSED -> "Semáforo apagado"
 }

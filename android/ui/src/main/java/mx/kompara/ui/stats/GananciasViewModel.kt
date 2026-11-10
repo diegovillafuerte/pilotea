@@ -11,6 +11,7 @@ import mx.kompara.data.accounting.PeriodWindow
 import mx.kompara.data.service.ReaderReadinessRepository
 import mx.kompara.data.settings.SettingsRepository
 import mx.kompara.metrics.PeriodMoneyRepository
+import mx.kompara.ui.notifications.NotificationAsk
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -27,7 +28,7 @@ class GananciasViewModel @Inject constructor(
     private val selectedPeriod: SelectedPeriod,
     private val snapshots: TodaySnapshots,
     private val reader: ReaderReadinessRepository,
-    settings: SettingsRepository,
+    private val settings: SettingsRepository,
     repository: PeriodMoneyRepository,
     clock: AppClock,
     zone: ZoneId,
@@ -61,6 +62,12 @@ class GananciasViewModel @Inject constructor(
     val week: StateFlow<WeekUiState> = weekData.scan(WeekUiState(initialWeek)) { previous, next ->
         if (next.loading && previous.weekStart == next.weekStart && previous.week != null) previous else next
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), WeekUiState(initialWeek))
+
+    /** The launch notices' permission: asked once per install, after a first run that left the reader on. */
+    val askNotifications: StateFlow<Boolean> = combine(settings.settings, settings.notificationsAsked, reader.state) { prefs, asked, readiness ->
+        NotificationAsk.eligible(prefs.onboardingCompleted, asked, readiness)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+    fun notificationsAsked() { viewModelScope.launch { settings.setNotificationsAsked() } }
 
     fun selectPeriod(index: Int) { savedStateHandle[PERIOD] = index }
     /** One week back or forward; never past the current week. */
