@@ -38,6 +38,22 @@ jobs:
       - name: Lint
         run: ./gradlew lintDebug
 
+      # A red run keeps what is needed to see why: each failed assertion's message, the lint
+      # report, and the screenshots the tests rendered on this runner.
+      - name: Upload reports and rendered screenshots (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: failure-reports
+          path: |
+            android/*/build/reports/tests/testDebugUnitTest
+            android/*/build/test-results/testDebugUnitTest
+            android/*/build/reports/lint-results-debug.*
+            android/*/build/outputs/v3-screenshots
+            android/*/build/outputs/v4-screenshots
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
