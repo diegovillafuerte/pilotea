@@ -82,8 +82,10 @@ fun OfferEntity.recordedMetrics(): OfferMetrics {
     val verdict = Verdict(VerdictLevel.valueOf(requireNotNull(verdict)), km, hour, net, grossKm,
         missing, preferredMetric = PreferredMetric.valueOf(saved.unit), unavailableReason = saved.unavailableReason,
         rateBasis = RateBasis.fromName(saved.rateBasis))
+    // The legs' decimal sum, as the engine added them; the Double total only for rows without both legs.
+    fun legs(a: Double?, b: Double?, total: Double?) = (a?.toBigDecimal()?.let { b?.toBigDecimal()?.add(it) } ?: total?.toBigDecimal())?.toPlainString()
     return OfferMetrics(fareMxn, net, distanceKm, durationMin, grossKm, grossMin, km, hour?.div(60), hour, verdict,
-        saved.contribution, saved.perKm, saved.perHour, grossHour)
+        saved.contribution, saved.perKm, saved.perHour, grossHour, legs(pickupKm, tripKm, distanceKm), legs(pickupMin, tripMin, durationMin))
 }
 
 /**

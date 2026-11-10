@@ -117,6 +117,21 @@ class CounterOffersTest {
         assertEquals(true, checked > 1000)
     }
 
+    @Test fun `the check uses the engine's own decimal minutes, live and from the row`() {
+        // 0.16666666666666666 + 20 min: the engine adds the decimals (20.16666666666666666) and rates $121 at 360.00…/h;
+        // the Double sum 20.166666666666668 would rate it 359.99…/h and recommend $122. Goal: 500 × 20.1667 / 60 = 168.06 → 169.
+        val offer = TripOffer("DIDI", 120.0, 0.0, 0.16666666666666666, 10.0, 20.0)
+        val limits = PlatformThreshold(11.0, 500.0, 9.0, 360.0)
+        assertEquals(VerdictLevel.YELLOW, engine.evaluate(offer.copy(fareMxn = 121.0), cost, limits, PreferredMetric.IPH, RateBasis.GROSS).verdict.level)
+        assertEquals(VerdictLevel.RED to CounterOffers(121, 169), counters(offer, limits, PreferredMetric.IPH, RateBasis.GROSS))
+        val m = engine.evaluate(offer, cost, limits, PreferredMetric.IPH, RateBasis.GROSS)
+        val row = OfferEntity(seenAt = 1, platform = "DIDI", fareMxn = 120.0, distanceKm = m.totalKm, durationMin = m.totalMin,
+            pickupKm = 0.0, tripKm = 10.0, pickupMin = 0.16666666666666666, tripMin = 20.0, verdict = m.verdict.level.name,
+            evaluation = OfferEvaluation(1, "IPH", "500", "360", 1, "OCR", "DRIVER_PAYMENT", m.contributionDecimal, m.perKmDecimal,
+                m.perHourDecimal, null).copy(rateBasis = "GROSS"))
+        assertEquals(CounterOffers(121, 169), row.counterOffers())
+    }
+
     @Test fun `unknown inputs give no counter-offers`() {
         val noCost = engine.evaluate(bid(90.05, 22.9, 40.0), null, neto)
         assertNull(CounterOffers.of(noCost, BigDecimal(8), BigDecimal(6), PreferredMetric.IPK, RateBasis.NET))

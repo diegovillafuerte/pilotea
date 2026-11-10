@@ -41,6 +41,9 @@ data class OfferMetrics(
     val perKmDecimal: String? = netPerKm?.toString(),
     val perHourDecimal: String? = netPerHour?.toString(),
     val grossPerHour: Double? = grossPerMin?.times(60),
+    /** The engine's exact decimal pickup + trip km and minutes, the denominators it judged with. */
+    val totalKmDecimal: String? = totalKm?.toString(),
+    val totalMinDecimal: String? = totalMin?.toString(),
 )
 
 /**

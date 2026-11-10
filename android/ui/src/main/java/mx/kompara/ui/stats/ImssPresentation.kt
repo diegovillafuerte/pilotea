@@ -35,9 +35,9 @@ data class ImssPresentation(
         fun of(month: ImssMonth): ImssPresentation {
             val need = Formatters.formatMxnWhole(month.need)
             val blocks = month.apps.map { app -> block(app, need, month.need) }
-            // The sum of the amounts printed above it, so it never reads a peso off them.
+            // The sum of the amounts printed above it, so it never reads a peso off them; claimed only when that sum reaches the need.
             val printed = month.apps.fold(BigDecimal.ZERO) { sum, app -> sum.add(app.counted.setScale(0, RoundingMode.HALF_UP)) }
-            val combined = if (!month.combinedReaches) null else Emphasis("Entre las ${count(month.apps.size)} ${if (month.current) "llevas" else "juntaste"} ",
+            val combined = if (!month.combinedReaches || printed < month.need) null else Emphasis("Entre las ${count(month.apps.size)} ${if (month.current) "llevas" else "juntaste"} ",
                 Formatters.formatMxnWhole(printed), ". En una sola app ya lo habrías alcanzado.")
             val empty = when {
                 month.apps.isNotEmpty() -> null

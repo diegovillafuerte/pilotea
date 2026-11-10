@@ -66,7 +66,7 @@ class NetProfitEngine @Inject constructor() {
         return OfferMetrics(gross?.toDouble(), net?.toDouble(), km?.toDouble(), minutes?.toDouble(),
             grossPerKm?.toDouble(), rate(gross, minutes)?.toDouble(), perKm?.toDouble(), perMin?.toDouble(),
             perHour?.toDouble(), verdict, net?.toPlainString(), perKm?.toPlainString(), perHour?.toPlainString(),
-            grossPerHour?.toDouble())
+            grossPerHour?.toDouble(), km?.toPlainString(), minutes?.toPlainString())
     }
 
     private fun classify(value: BigDecimal?, goal: Double, minimum: Double): VerdictLevel? {

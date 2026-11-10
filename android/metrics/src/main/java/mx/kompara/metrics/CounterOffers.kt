@@ -21,8 +21,8 @@ data class CounterOffers(val toMinimum: Int?, val toGoal: Int?) {
             val fare = metrics.grossMxn?.toBigDecimal() ?: return null
             val expense = if (basis == RateBasis.GROSS) BigDecimal.ZERO
                 else fare.subtract(metrics.contributionDecimal?.toBigDecimalOrNull() ?: return null)
-            val denominator = (if (unit == PreferredMetric.IPK) metrics.totalKm else metrics.totalMin)
-                ?.toBigDecimal()?.takeIf { it.signum() > 0 } ?: return null
+            val denominator = (if (unit == PreferredMetric.IPK) metrics.totalKmDecimal else metrics.totalMinDecimal)
+                ?.toBigDecimalOrNull()?.takeIf { it.signum() > 0 } ?: return null
             fun reaches(at: BigDecimal, limit: BigDecimal) = judgedRate(at.subtract(expense), denominator, unit) >= limit
             fun reach(limit: BigDecimal): Int? {
                 if (reaches(fare, limit)) return null

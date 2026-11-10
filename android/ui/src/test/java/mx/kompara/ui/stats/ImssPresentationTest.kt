@@ -112,6 +112,13 @@ class ImssPresentationTest {
         assertEquals("A este ritmo cierras en unos \$21,900. Te faltarían \$100.", said(21_900, ImssState.WILL_FALL_SHORT, 38))
     }
 
+    @Test fun `the combined line is claimed only when the sum it prints reaches the amount`() {
+        fun combined(indrive: String) = ImssPresentation.of(ImssMonth.of(october, LocalDate.of(2026, 10, 19),
+            mapOf("UBER" to BigDecimal("10000.40"), "DIDI" to BigDecimal("10000.40"), "INDRIVE" to BigDecimal(indrive)), emptyMap())).combined
+        assertNull(combined("1937.40")) // 21,938.20 raw, but the blocks print 10,000 + 10,000 + 1,937 = 21,937 under "de $21,938"
+        assertEquals("Entre las tres llevas \$21,938. En una sola app ya lo habrías alcanzado.", combined("1938.40")!!.text)
+    }
+
     @Test fun `the combined line adds the printed amounts and a closed month says juntaste`() {
         val trips = mapOf("UBER" to BigDecimal("11000.4"), "DIDI" to BigDecimal("10999.4")) // 21,999.8 raw; printed 11,000 + 10,999
         val open = ImssPresentation.of(ImssMonth.of(october, LocalDate.of(2026, 10, 19), trips, emptyMap()))
