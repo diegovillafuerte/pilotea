@@ -68,25 +68,23 @@ The large-text test also scrolls a 420dp viewport to its last action, with a sav
 
 For manual debug inspection, `V3ComponentActivity` accepts `--es weekFrame E1f` (and the other S9 IDs) plus the existing `--ez dark true`; it never seeds production storage. S1 component baselines remain separate and unchanged. Actual native window/Back/TalkBack/process-death checks remain TD-049/S21.
 
-## S10 — Ganancias Mes and factual IMSS
+## S10 — Ganancias Mes and factual IMSS (retired)
 
-`MonthScreenTest` renders E3/E3b/E3c/E3d/D3b/E4/E5/N5 and the month picker from `MonthFixture` and the production screen/sheet components. Fifteen `month_*.png` baselines include 1.3× and 320dp/2×. It checks the sheet/ledger/IMSS doors, restored sheet identity, partial-week navigation, disabled future steps, factual-payment semantics and the official action's large-text scrolling/bottom inset. The week sheet follows the measured basis-line boundary so it cannot slice that sentence at 1.3×. All preceding baselines remain unchanged.
+Replaced in v4 by the IMSS tab (see "v4 — Comparar and IMSS" below); its `month_*.png` baselines are gone. The dormant IMSS PDF keeps its own tests: `FiscalPdfRendererTest` still writes `build/outputs/v3-screenshots/month_factual_pdf.png` from `MonthFixture`.
 
-```sh
-./gradlew :ui:testDebugUnitTest --tests '*MonthScreenTest' -Pv3.recordScreenshots=true --console=plain
-```
+## S11 — Comparar (retired)
 
-The debug-only `V3ComponentActivity` accepts `--es monthFrame E3d` (or another S10 ID) and `--ez dark true`. E5's labelled pending rule can only be supplied from the debug source set; it has no production route or toggle. `FiscalPdfRendererTest` additionally writes `build/outputs/v3-screenshots/month_factual_pdf.png` from the same factual lines used by the PDF export and verifies pagination. Physical Android/browser/PDF hand-offs remain TD-049/S21.
+Replaced in v4 by Comparar · Tú and Tu ciudad's one state (see below); its `compare_*.png` baselines are gone.
 
-## S11 — Comparar
+## v4 — Comparar and IMSS
 
-`CompareScreenTest` renders the production comparison and selector/provenance/contribution contents using `CompareFixture`. Sixteen `compare_*.png` baselines cover F1–F5/N6/N7, all five day states at 1.3× and four 320dp/2× states. Tests check context/restoration, source counts, consent independent of viewing, free own values and rank, no average leakage through bar scale or accessibility, no-cohort/unconfirmed actions and large-text scroll/insets. F3 uses `Ver Premium` until S17 has a supported promotional-trial contract.
+`CompararScreenTest` renders K1, K2 and Tu ciudad's "todavía no abre" state (`comparar_ciudad_*`, no kit frame) from `TuFixture`; `ImssScreenTest` renders M1–M4 from `ImssFixture`, with M3 and M4 drawing their sheet over M1. Both read the pinned `src/debug/assets/v4` kit and assert each frame's contract strings. Every state has day and night baselines at 1×, a day one at 1.3× and a night one at 320dp/2× in `snapshots/v4`.
 
 ```sh
-./gradlew :ui:testDebugUnitTest --tests '*CompareScreenTest' -Pv3.recordScreenshots=true --console=plain
+./gradlew :ui:testDebugUnitTest --tests '*CompararScreenTest' --tests '*ImssScreenTest' -Pv4.recordScreenshots=true --console=plain
 ```
 
-The explicit debug Activity accepts `--es compareFrame F2` (or another F/N ID), with `--ez dark true` for night. Fixture certification is supplied only in the debug source set. Current server/cache metadata is insufficient for live F2/F3; own-data F4/F5 remain available. Physical TalkBack, system Back/insets and process-death checks remain TD-049/S21.
+The explicit debug Activity accepts `--es compareFrame K1` (K2, ciudad) and `--es imssFrame M1` (M2–M4), with `--ez dark true` for night; it never seeds production storage.
 
 
 ## S12 — Limits and Semáforo

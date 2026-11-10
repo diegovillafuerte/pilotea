@@ -29,8 +29,8 @@ class V3ComponentActivity : ComponentActivity() {
             else if (intent.hasExtra("privacyFrame")) PrivacyFixtureHost(intent.getStringExtra("privacyFrame") ?: "G6")
             else if (intent.hasExtra("costsFrame")) CostsFixtureHost(intent.getStringExtra("costsFrame") ?: "G1")
             else if (intent.hasExtra("limitsFrame")) LimitsFixtureHost(intent.getStringExtra("limitsFrame") ?: "G2b")
-            else if (intent.hasExtra("compareFrame")) CompareFixtureHost(intent.getStringExtra("compareFrame") ?: "F1")
-            else if (intent.hasExtra("monthFrame")) MonthFixtureHost(intent.getStringExtra("monthFrame") ?: "E4")
+            else if (intent.hasExtra("compareFrame")) CompareFixtureHost(intent.getStringExtra("compareFrame") ?: "K1")
+            else if (intent.hasExtra("imssFrame")) ImssFixtureHost(intent.getStringExtra("imssFrame") ?: "M1")
             else if (intent.hasExtra("weekFrame")) WeekFixtureHost(intent.getStringExtra("weekFrame") ?: "E1")
             else V3ComponentHost(intent.getStringExtra("frame") ?: "D1")
         } }
