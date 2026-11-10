@@ -113,6 +113,53 @@ class OfferFramePipelineValidationTest {
         assertTrue(diag, "grade=1" in diag && "recoveryOperands=${(1 shl 2) or (1 shl 4)}" in diag && "minuteEval=false" in diag)
     }
 
+    @Test fun `a whole-peso $109 card publishes its payment from the first frame and keeps it`() {
+        // WP-AC, the S25 offer of 2026-11-10: all 17 frames were PARSED_CONTRADICTORY and no chip was drawn.
+        val phone = UberWholePesoFrame.blocks
+        val frames = listOf(phone) + UberWholePesoFrame.totalVariants.map { phone.retext(UberWholePesoFrame.TOTAL, it) } + listOf(phone)
+        val result = run(frames)
+        val first = requireNotNull(result.parsed(0)) { result.diag(0) }.card
+        assertTrue("$first", first.fare == 109.0 && first.sessionId != null && first.paymentBasis == "DRIVER_PAYMENT" &&
+            first.pickupEtaMin == 4.0 && first.pickupDistanceKm == 0.8 && first.tripDurationMin == 47.0 && first.tripDistanceKm == 7.8)
+        for (i in frames.indices) {
+            val diag = result.diag(i)
+            assertFalse(diag, "rejection=PARSED_CONTRADICTORY" in diag)
+            assertTrue(diag, "grade=0" in diag && "moneyEval=true" in diag && "moneyWithinBound=true" in diag)
+            val card = result.parsed(i)?.card
+            assertTrue("f$i keeps the payment in the first frame's session: $card",
+                card != null && card.fare == 109.0 && card.sessionId == first.sessionId)
+        }
+        for (line in result.logs) assertFalse("an amount logged: $line", "109.0" in line || "12.67" in line || "\$109" in line)
+    }
+
+    /** WP-AC round 2: the phone's card with the last digit of the headline and of the rate lost (`$10`, `$12.6`). */
+    private val truncated get() = UberWholePesoFrame.blocks.retext(UberWholePesoFrame.HEADLINE, "\$10")
+        .retext(UberWholePesoFrame.TOTAL, "51 min 8.6 km \$12.6/km est.")
+
+    @Test fun `a truncated whole headline as a session's first frame shows no payment`() {
+        val phone = UberWholePesoFrame.blocks
+        val result = run(listOf(truncated, phone, phone))
+        val first = requireNotNull(result.parsed(0)) { result.diag(0) }.card
+        assertTrue("$first", first.fare == null && first.sessionId != null && first.tripDistanceKm == 7.8)
+        assertTrue(result.diag(0), "shownPayment=false" in result.diag(0) && "paymentRead=false" in result.diag(0))
+        for (i in 1..2) {
+            val card = result.parsed(i)?.card
+            assertTrue("f$i reveals the validated fare in the same session: $card",
+                card != null && card.fare == 109.0 && card.sessionId == first.sessionId)
+        }
+    }
+
+    @Test fun `a truncated whole headline in the middle of a session never replaces its payment`() {
+        val phone = UberWholePesoFrame.blocks
+        val result = run(listOf(phone, phone, truncated, phone))
+        val sid = requireNotNull(result.parsed(0)) { result.diag(0) }.card.sessionId
+        for (i in 0..3) {
+            val card = result.parsed(i)?.card
+            assertTrue("f$i keeps 109.00 in its session, never 10.00: $card", card != null && card.fare == 109.0 && card.sessionId == sid)
+        }
+        assertTrue(result.diag(2), "paymentRead=false" in result.diag(2))
+    }
+
     private val g0 = UberS25RealCorpus.groups[0].frames
     private fun List<OcrBlock>.retext(from: String, to: String) = also { require(any { it.text == from }) { from } }
         .map { if (it.text == from) it.copy(text = to) else it }

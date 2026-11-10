@@ -239,3 +239,39 @@ own confirming traversal meets it, and a lapse replaces the window like an undra
 in the line. A window attached while the chip is leaving arms none. Replays cover the exit that ends before
 Hidden, the window attached while leaving, and a window whose traversals stop at its attach; each failed
 before its fix. The draw check stays a plain message (TD-V4-13).
+
+**Found on the S25, 2026-11-10 (WP-AC): an Uber fare printed without decimals got no chip.** An UberX
+Exclusivo stayed 15 s on screen; all 17 frames were read cleanly and all 17 were rejected as
+`PARSED_CONTRADICTORY` (`grade=3 repairBits=2 provenanceBits=4374 distanceEval=false moneyEval=false`). Uber
+printed the fare `$109` (109.00 / 8.6 km = `$12.67/km`), and `UberCardChecksum.money` read a separatorless
+amount only as a lost decimal: 1.09. The money identity failed for it, no distance assignment was admissible,
+and a contradictory card publishes nothing. Uber drops `.00` on the rate too (`$11/km`, 2026-11-08), which
+left that offer's rate unread and its fare unvalidated. The rule now: a separatorless amount is whole units
+(`$109` is 109.00, `$11/km` is 11.00); with three or more digits it may instead be a two-decimal amount whose
+separator OCR lost (`$17756` is 177.56, REPAIRED with the decimal bit), so the slot has two readings. A whole
+amount with thousands separators and no decimals (`1,320`) is one whole reading. No reading of a token without
+decimals is "as printed", even a slot's only one (round 2, Codex): every prefix of a whole number's digits is
+another whole number, so `$109` read `$10` beside a rate read `$12.6/km` (malformed, unread) published 10.00 in
+round 1. Such a reading (`Candidate.noDecimals`, modelled on `hourOnly`) is established only by the money
+identity, evaluated with exactly that reading and holding; with the fare, the rate or TOTAL km unread its slot
+is withheld as unread and the legs still publish. `solve` enumerates fare and rate with the three distances, so
+the identity also chooses between two readings; two readings that both satisfy it are competing values
+(contradictory). A validated whole amount is no repair (READ), so the phone's frame is CONSISTENT; two-decimal
+amounts keep being published as printed. The legacy path (no TOTAL row) keeps its two-decimal grammar: it has no
+arithmetic to choose with, so a whole-peso fare there stays unread (TD-V4-14). On the modern headline `$0` now
+reads zero and is no price (it used to compete as unreadable); `$5` reads 5.00 and still competes for the
+headline, though it could never be published without the identity. The sanitized phone frame reproduces the
+phone's codes on the old code and now reads 109.00, 4 min / 0.8 km, 47 min / 7.8 km, CONSISTENT; through the
+pipeline its first frame publishes the payment and the next frames keep it, and the truncated `$10` frame shows
+no payment as a session's first frame and leaves 109.00 in place mid-session (`UberWholePesoFareTest`,
+`OfferFramePipelineValidationTest`). `UberCardChecksumMoneyTest` runs the solver over 275,899 generated cards
+(plausible and adversarial, fixed seed) against an independent oracle: no fare while contradictory; a fare
+from a token without decimals (one or two digits, three or more, whole thousands) only with its identity
+holding for exactly that reading, and none at all with the rate unread; competing readings always
+contradictory. The 190-frame f8aaab8 golden and every corpus test pass unchanged: the repo corpus has no
+two-digit rate, and its `$17756`/`$3730` headlines resolve as before. The old and the new reader were also
+replayed over 31,611 distinct saved device frames (June to 2026-11-10, kept outside the repository): 31,577
+results are identical in every field; the 17 `$109` frames now publish; the 17 `$11/km` frames publish the same
+fare and legs and now have the rate read and the identity holding; no frame publishes less. Only another
+whole-peso offer on the phone will show the chip appearing for it live, and the `$11/km` rate now validating
+its fare.
