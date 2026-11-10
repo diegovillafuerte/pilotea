@@ -145,6 +145,9 @@ data class Settings(
      * other rate renders as secondary context on the chip. Default [PreferredMetric.IPK].
      */
     val preferredMetric: PreferredMetric = PreferredMetric.DEFAULT,
+
+    /** Whether the semáforo judges net or gross rates; [threshold] is kept in this basis (v4 4.2). */
+    val rateBasis: RateBasis = RateBasis.DEFAULT,
 ) {
     /** The shared acceptance floors, or the conservative default when never tuned (B-076). */
     val effectiveThreshold: PlatformThreshold

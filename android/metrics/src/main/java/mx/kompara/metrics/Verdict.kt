@@ -1,6 +1,7 @@
 package mx.kompara.metrics
 
 import mx.kompara.data.settings.PreferredMetric
+import mx.kompara.data.settings.RateBasis
 
 /**
  * The engine's full judgment on an offer: the traffic-light [level] plus the numbers behind it.
@@ -20,11 +21,14 @@ import mx.kompara.data.settings.PreferredMetric
  *   null if the fare was missing
  * @property grossPerKm gross MXN per total km, before costs; null if total distance was unknown
  * @property missingInputs names of the inputs that were absent from the [TripOffer]
- * @property netPerKmLevel how the km metric alone classified against its two floors; null when
- *   the rate was untestable. Lets the UI explain *why* the overall light landed where it did.
+ * @property netPerKmLevel how the km metric alone classified against its two floors, in
+ *   [rateBasis]; null when the rate was untestable. Lets the UI explain *why* the overall light
+ *   landed where it did.
  * @property netPerHourLevel same for the hour metric
  * @property preferredMetric which metric's floors decided [level] (B-079). Stamped here so the UI
  *   can never pair the light with the wrong hero figure.
+ * @property rateBasis whether [level] judged the net or the gross rate (v4); the limits it was
+ *   compared with are in the same basis.
  */
 data class Verdict(
     val level: VerdictLevel,
@@ -37,4 +41,5 @@ data class Verdict(
     val netPerHourLevel: VerdictLevel? = null,
     val preferredMetric: PreferredMetric = PreferredMetric.DEFAULT,
     val unavailableReason: String? = null,
+    val rateBasis: RateBasis = RateBasis.DEFAULT,
 )

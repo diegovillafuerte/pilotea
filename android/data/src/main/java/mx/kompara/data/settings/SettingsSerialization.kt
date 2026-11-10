@@ -62,6 +62,9 @@ object SettingsSerialization {
     /** String key for which metric decides the semáforo (B-079), stored as [PreferredMetric.name]. */
     const val KEY_PREFERRED_METRIC = "preferred_metric"
 
+    /** String key for the basis the limits are kept and judged in (v4), stored as [RateBasis.name]. */
+    const val KEY_RATE_BASIS = "rate_basis"
+
     /** The single shared semáforo (B-076): green + red floors for $/km and $/hr, platform-less. */
     const val KEY_THRESHOLD_PER_KM = "threshold_per_km"
     const val KEY_THRESHOLD_PER_HOUR = "threshold_per_hour"
@@ -137,6 +140,7 @@ object SettingsSerialization {
             shareCount = lookupInt(KEY_SHARE_COUNT) ?: 0,
             fiscalExportCount = lookupInt(KEY_FISCAL_EXPORT_COUNT) ?: 0,
             preferredMetric = PreferredMetric.fromName(lookupString(KEY_PREFERRED_METRIC)),
+            rateBasis = RateBasis.fromName(lookupString(KEY_RATE_BASIS)),
         )
     }
 

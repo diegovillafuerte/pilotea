@@ -3,8 +3,8 @@ package mx.kompara.ui.fiscal
 import mx.kompara.metrics.fiscal.FiscalMonthSummary
 import mx.kompara.metrics.fiscal.FiscalTotals
 import mx.kompara.metrics.fiscal.PlatformFiscalSummary
-import mx.kompara.metrics.imss.CoverageStatus
-import mx.kompara.metrics.imss.PlatformImssStatus
+import mx.kompara.metrics.imss.ImssApp
+import mx.kompara.metrics.imss.ImssState
 import mx.kompara.ui.format.Formatters
 
 /**
@@ -64,7 +64,7 @@ object FiscalReportComposer {
     fun compose(
         summary: FiscalMonthSummary,
         monthLabel: String,
-        imssStatuses: List<PlatformImssStatus>,
+        imssStatuses: List<ImssApp>,
         driverName: String?,
         generatedOnLabel: String,
         strings: ReportStrings,
@@ -109,10 +109,10 @@ object FiscalReportComposer {
      * platforms covered this month, or note none were. Pure string assembly off the same data the
      * Fiscal tab shows, so the PDF and the tab never disagree.
      */
-    private fun imssLine(statuses: List<PlatformImssStatus>, strings: ReportStrings): String {
-        val active = statuses.filter { it.netSoFarMxn > 0.0 }
+    private fun imssLine(statuses: List<ImssApp>, strings: ReportStrings): String {
+        val active = statuses.filter { it.counted.signum() > 0 }
         if (active.isEmpty()) return strings.imssNoData
-        val covered = active.filter { it.status == CoverageStatus.COVERED }.map { platformLabel(it.platform) }
+        val covered = active.filter { it.state == ImssState.OVER }.map { platformLabel(it.platform) }
         return if (covered.isEmpty()) {
             strings.imssNoneCovered
         } else {

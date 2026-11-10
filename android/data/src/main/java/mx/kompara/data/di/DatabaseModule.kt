@@ -72,4 +72,7 @@ object DatabaseModule {
 
     @Provides
     fun provideFiscalConfigDao(db: KomparaDatabase): FiscalConfigDao = db.fiscalConfigDao()
+
+    @Provides
+    fun provideMonthlyIncentiveDao(db: KomparaDatabase): mx.kompara.data.db.dao.MonthlyIncentiveDao = db.monthlyIncentiveDao()
 }

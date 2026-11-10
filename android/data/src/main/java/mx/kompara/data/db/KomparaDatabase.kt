@@ -54,6 +54,7 @@ import mx.kompara.data.db.entity.WeeklyAggregateEntity
         DailyAggregateEntity::class,
         PopulationStatEntity::class,
         FiscalConfigEntity::class,
+        mx.kompara.data.db.entity.MonthlyIncentiveEntity::class,
     ],
     // v2 (B-043): adds weekly_aggregates.lastSyncedAt (consented sync watermark) + the
     // population_stats benchmark cache table. See KomparaMigrations.MIGRATION_1_2.
@@ -62,7 +63,8 @@ import mx.kompara.data.db.entity.WeeklyAggregateEntity
     // v4 (B-081): DATA-ONLY repair — purges phantom zero-value trips + uptime-dated (1970) rows the
     // pre-fix node path wrote. No schema change. See KomparaMigrations.MIGRATION_3_4.
     // v5 (S2): effective cost versions and exact contribution/provenance on rollups.
-    version = 9,
+    // v10 (v4 launch): offers freeze the rate basis they were judged in; monthly_incentives table.
+    version = 10,
     exportSchema = true,
 )
 abstract class KomparaDatabase : RoomDatabase() {
@@ -79,6 +81,7 @@ abstract class KomparaDatabase : RoomDatabase() {
     abstract fun aggregateDao(): AggregateDao
     abstract fun populationStatDao(): PopulationStatDao
     abstract fun fiscalConfigDao(): FiscalConfigDao
+    abstract fun monthlyIncentiveDao(): mx.kompara.data.db.dao.MonthlyIncentiveDao
 
     companion object {
         const val NAME = "kompara.db"

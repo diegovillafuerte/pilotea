@@ -58,6 +58,8 @@ class SettingsRepository @Inject constructor(
         intPreferencesKey(SettingsSerialization.KEY_FISCAL_EXPORT_COUNT)
     private val preferredMetricKey =
         stringPreferencesKey(SettingsSerialization.KEY_PREFERRED_METRIC)
+    private val rateBasisKey =
+        stringPreferencesKey(SettingsSerialization.KEY_RATE_BASIS)
 
     suspend fun setReaderDisclosureAccepted(accepted: Boolean) {
         dataStore.edit { it[booleanPreferencesKey("reader_disclosure_v3")] = accepted }
@@ -267,18 +269,46 @@ class SettingsRepository @Inject constructor(
         dataStore.edit { prefs -> prefs[preferredMetricKey] = metric.name }
     }
 
-    /** One DataStore transaction: capture can never observe a new pair with the old unit. */
-    suspend fun saveLimits(threshold: PlatformThreshold, metric: PreferredMetric) {
+    /**
+     * One DataStore transaction: capture can never observe a new pair with the old unit or basis.
+     * A null [basis] keeps the stored one; pass it when the limits were converted to a new basis.
+     */
+    suspend fun saveLimits(threshold: PlatformThreshold, metric: PreferredMetric, basis: RateBasis? = null) {
+        requireValidLimits(threshold)
+        dataStore.edit { prefs ->
+            writeLimits(prefs, threshold)
+            prefs[preferredMetricKey] = metric.name
+            if (basis != null) prefs[rateBasisKey] = basis.name
+        }
+    }
+
+    /**
+     * Switch the basis and save the limits converted with [LimitConversion] in the same transaction,
+     * read from the stored values. [hourStep] is the per-hour limit editor's step. No-op when [basis]
+     * is already the stored one.
+     */
+    suspend fun switchRateBasis(basis: RateBasis, costPerKm: java.math.BigDecimal, hourStep: java.math.BigDecimal) {
+        dataStore.edit { prefs ->
+            val current = prefs.toSettings()
+            if (current.rateBasis == basis) return@edit
+            val converted = LimitConversion.convert(current.effectiveThreshold, current.rateBasis, basis, costPerKm, hourStep)
+            requireValidLimits(converted)
+            writeLimits(prefs, converted)
+            prefs[rateBasisKey] = basis.name
+        }
+    }
+
+    private fun requireValidLimits(threshold: PlatformThreshold) {
         require(listOf(threshold.minPerKmMxn, threshold.redPerKmMxn, threshold.minPerHourMxn, threshold.redPerHourMxn).all { it.isFinite() && it >= 0 })
         require(threshold.minPerKmMxn > threshold.redPerKmMxn && threshold.minPerKmMxn <= 99.99)
         require(threshold.minPerHourMxn > threshold.redPerHourMxn)
-        dataStore.edit { prefs ->
-            prefs[doublePreferencesKey(SettingsSerialization.KEY_THRESHOLD_PER_KM)] = threshold.minPerKmMxn
-            prefs[doublePreferencesKey(SettingsSerialization.KEY_THRESHOLD_PER_KM_RED)] = threshold.redPerKmMxn
-            prefs[doublePreferencesKey(SettingsSerialization.KEY_THRESHOLD_PER_HOUR)] = threshold.minPerHourMxn
-            prefs[doublePreferencesKey(SettingsSerialization.KEY_THRESHOLD_PER_HOUR_RED)] = threshold.redPerHourMxn
-            prefs[preferredMetricKey] = metric.name
-        }
+    }
+
+    private fun writeLimits(prefs: androidx.datastore.preferences.core.MutablePreferences, threshold: PlatformThreshold) {
+        prefs[doublePreferencesKey(SettingsSerialization.KEY_THRESHOLD_PER_KM)] = threshold.minPerKmMxn
+        prefs[doublePreferencesKey(SettingsSerialization.KEY_THRESHOLD_PER_KM_RED)] = threshold.redPerKmMxn
+        prefs[doublePreferencesKey(SettingsSerialization.KEY_THRESHOLD_PER_HOUR)] = threshold.minPerHourMxn
+        prefs[doublePreferencesKey(SettingsSerialization.KEY_THRESHOLD_PER_HOUR_RED)] = threshold.redPerHourMxn
     }
 
     /** Set the shared acceptance thresholds (B-076: one semáforo for every platform). */

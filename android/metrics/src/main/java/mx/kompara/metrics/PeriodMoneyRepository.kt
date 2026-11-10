@@ -81,7 +81,8 @@ class PeriodMoneyRepository @Inject constructor(
             database.importDao().statements().map { java.time.LocalDate.parse(it.start) }, captured.money,
             database.importDao().selections().map { "statement:${it.statementId}" }.filter { id ->
                 (week.contributions + week.paymentOnly).any { it.record.id == id }
-            }.toSet(), localStatements.mapNotNull { it.confirmedStatement() })
+            }.toSet(), localStatements.mapNotNull { it.confirmedStatement() },
+            CarWeek.of(costs.car, window, days.map { it?.tripContribution }))
     }
 
     /** Rows, presentations and money come from one transaction and one as-of instant. */
@@ -98,6 +99,14 @@ class PeriodMoneyRepository @Inject constructor(
             shifts.map { TimeInterval(it.startedAt, it.endedAt) }), visibleOffers, trips, shifts,
             database.offerPresentationDao().seenBetween(from, until), costs.runningAt(window.asOf.toEpochMilli()), costs.running)
     }
+
+    /** Comparar · Tú: the ledger's taken trips of the 28 days before [asOf]'s day, by app, weekday and hour block. */
+    fun observeSlices(asOf: java.time.Instant, zone: java.time.ZoneId): kotlinx.coroutines.flow.Flow<DriverSlices> =
+        database.invalidationTracker.createFlow("offers", "trips", "running_cost_versions").map {
+            val window = DriverSlices.window(asOf.atZone(zone).toLocalDate())
+            val money = daySnapshot(PeriodWindow(window.start, window.endInclusive, asOf, zone)).money
+            DriverSlices.of(window.start, window.endInclusive, money.contributions, zone)
+        }
 
     fun observeToday(asOf: java.time.Instant, zone: java.time.ZoneId): kotlinx.coroutines.flow.Flow<TodayMoneySnapshot> =
         database.invalidationTracker.createFlow(
@@ -146,6 +155,8 @@ data class WeekMoneySnapshot(
     val selectedStatements: Set<String> = emptySet(),
     /** Authoritative proof read in the same transaction as the period's money. */
     val confirmedStatements: List<ConfirmedStatement> = emptyList(),
+    /** The week's car bill against its per-day contribution (v4 Semana); bill null when no car cost. */
+    val car: CarWeek = CarWeek(null, days.map { it?.tripContribution }),
 )
 
 data class MonthMoneySnapshot(
