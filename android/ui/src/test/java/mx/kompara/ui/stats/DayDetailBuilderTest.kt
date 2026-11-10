@@ -88,9 +88,9 @@ class DayDetailBuilderTest {
             mx.kompara.data.db.entity.TripLifecycle.ACCEPTED_ESTIMATE,
             evaluation = mx.kompara.data.db.entity.OfferEvaluation(1, "IPK", "8", "6", 1, "OCR", "DRIVER_PAYMENT", "114", "9.49", "285", null))
         assertEquals("En curso", row.outcomeLabel)
-        assertEquals("Te deja · aprox.", row.contributionLabel)
-        assertEquals("Te dejó · aprox.", row.copy(lifecycle = mx.kompara.data.db.entity.TripLifecycle.FINISHED).contributionLabel)
-        assertEquals("Te habría dejado · aprox.", row.copy(lifecycle = null, outcome = OfferOutcome.NOT_TAKEN).contributionLabel)
+        assertEquals("Te deja", row.contributionLabel)
+        assertEquals("Te dejó", row.copy(lifecycle = mx.kompara.data.db.entity.TripLifecycle.FINISHED).contributionLabel)
+        assertEquals("Te habría dejado", row.copy(lifecycle = null, outcome = OfferOutcome.NOT_TAKEN).contributionLabel)
         assertEquals("Sin confirmar", row.copy(lifecycle = mx.kompara.data.db.entity.TripLifecycle.UNKNOWN).outcomeLabel)
         assertEquals("Se canceló", row.copy(lifecycle = mx.kompara.data.db.entity.TripLifecycle.CANCELLED).outcomeLabel)
         org.junit.Assert.assertNull(row.copy(lifecycle = mx.kompara.data.db.entity.TripLifecycle.CANCELLED).contributionLabel)

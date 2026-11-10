@@ -2,61 +2,89 @@ package mx.kompara.ui.stats
 
 import androidx.test.core.app.ApplicationProvider
 import mx.kompara.data.accounting.*
+import mx.kompara.metrics.CarWeek
+import mx.kompara.ui.fixtures.GananciasFixture
 import mx.kompara.ui.fixtures.WeekFixture
-import mx.kompara.ui.format.Formatters
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import java.math.BigDecimal
 import java.time.LocalDate
 
+/** Plan 4.5 Semana (L4, L5): the week's figure, seven bars, the car as one weekly bill. */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class WeekPresentationTest {
-    private val fixture get() = WeekFixture(ApplicationProvider.getApplicationContext())
-    @Test fun `closed week ledger app rates and days have one basis and truthful rounding`() {
-        val week = fixture.week()
-        assertEquals("$4,980", week.amount)
-        assertEquals(62, week.money.trips)
-        assertEquals("$1,166", week.bars[4].display)
-        assertEquals("Redondeado una vez · los días suman $4,979", week.roundingNote)
-        assertEquals("DiDi te dejó $1.21 más por km", week.finding)
-        assertEquals(listOf("$10.34/km", "$9.13/km"), week.apps.map { Formatters.formatPerKm(it.value.ratePerKm!!) })
-        val ledger = weekCalculation(week)
-        assertEquals(listOf("$8,400", "−$1,920", "−$1,500", "$4,980"), ledger.rows.map { it.value })
-        assertEquals("Uber $5,028 · DiDi $3,372", ledger.rows.first().detail)
-        assertEquals(listOf("El pago final lo confirma tu resumen de la app. Antes de impuestos."), ledger.notes)
+    private val fixture get() = GananciasFixture(ApplicationProvider.getApplicationContext())
+    private fun visible(text: String?) = text?.replace(' ', ' ')
+
+    @Test fun `L4 a closed week its best day and the car covered on Tuesday`() {
+        val week = fixture.week("L4")
+        assertFalse(week.open)
+        assertEquals("12 – 18 oct", week.title); assertEquals("Ganaste", week.label); assertEquals("$6,480", week.amount)
+        assertEquals("62 viajes · ya restamos gasolina y desgaste", week.quietLine)
+        assertEquals(listOf(58.6f, 68.9f, 65.9f, 75.5f, 100f, 64.6f, 36.1f), week.bars.map { Math.round(it.fraction * 1000) / 10f })
+        assertEquals(listOf(4), week.bars.indices.filter { week.bars[it].best })
+        assertEquals(listOf(null, null, null, null, "$1,380", null, null), week.bars.map { it.label })
+        assertEquals(listOf("L", "M", "M", "J", "V", "S", "D"), week.bars.map { it.letter })
+        assertTrue(week.bars.all { it.elapsed })
+        val car = week.car!!
+        assertTrue(car.covered); assertEquals(23.1f, Math.round(car.hatched * 1000) / 10f)
+        assertEquals("El coche, cubierto el martes", car.label); assertEquals("$1,500", car.amount)
+        assertEquals("Tuyo", car.restLabel); assertEquals("$4,980", car.rest)
+        val calculation = week.calculation
+        assertEquals("Cómo se calculó · semana", calculation.title)
+        assertEquals(listOf("$8,400", "−$1,920", "$6,480"), calculation.rows.map { it.value })
+        assertEquals(listOf("62 viajes", "Gasolina y desgaste", "Ganaste"), calculation.rows.map { it.label })
+        assertEquals("675.8 km × $2.84", visible(calculation.rows[1].detail))
     }
-    @Test fun `no trip Sunday is a negative calendar day without a false rounding note`() {
-        val week = fixture.week("E1c")
-        assertEquals("$4,481", week.amount)
-        assertEquals("−$214", week.bars.last().display)
-        assertEquals("Sin viajes; lo del coche corre igual", week.dayNote(6))
-        assertNull(week.roundingNote)
+
+    @Test fun `L5 the week under way counts toward the car until it is covered`() {
+        val week = fixture.week("L5")
+        assertTrue(week.open)
+        assertEquals("19 – 25 oct · en curso", week.title); assertEquals("Esta semana llevas", week.label); assertEquals("$762", week.amount)
+        assertEquals("6 viajes · ya restamos gasolina y desgaste", week.quietLine)
+        assertEquals(listOf(1f, 0f, 0f, 0f, 0f, 0f, 0f), week.bars.map { it.fraction })
+        assertEquals("$762", week.bars.first().label); assertEquals(listOf(true, false, false, false, false, false, false), week.bars.map { it.elapsed })
+        val car = week.car!!
+        assertFalse(car.covered); assertEquals(50.8f, Math.round(car.hatched * 1000) / 10f)
+        assertEquals("El coche", car.label); assertEquals("$762 de $1,500", car.amount)
+        assertEquals("Te faltan", car.restLabel); assertEquals("$738", car.rest)
+        assertEquals("Esta semana llevas", week.calculation.rows.last().label)
     }
-    @Test fun `open Monday agrees with Hoy including live trip and no future charges`() {
-        val week = fixture.week("E8")
-        assertEquals("$548", week.amount)
-        assertTrue(week.quietLine.contains("6 viajes tomados (1 en curso)"))
-        assertEquals("Llevas esta semana · aprox.", week.label)
-        assertEquals(1, week.money.carCharges.size)
-        assertEquals(6, week.days.count { it == null })
+
+    @Test fun `a closed week short of the car says what was missing`() {
+        val car = fixture.week("short").car!!
+        assertFalse(car.covered)
+        assertEquals("$808 de $1,500", car.amount); assertEquals("Te faltaron", car.restLabel); assertEquals("$692", car.rest)
     }
-    @Test fun `four calendar weeks keep totals visible and never sell missing breakdowns`() {
-        val week = fixture.week("E2")
-        assertTrue(week.locked); assertEquals("$4,747", week.amount)
-        assertEquals("5 – 11 oct · hace 4 semanas", weekSelectorLabel(week.start, week.today))
-        assertFalse(week.copy(premium = true).locked)
-        assertTrue(HistoryWeeks.isFree(LocalDate.parse("2026-10-12"), week.today))
-        val empty = week.money.copy(contributions = emptyList(), byApp = emptyMap())
-        assertFalse(WeekPresentation(week.snapshot.copy(money = empty)).locked)
+
+    @Test fun `no car bill draws no car and a slow day is never a negative bar`() {
+        val week = fixture.week("L4")
+        assertNull(week.copy(snapshot = week.snapshot.copy(car = CarWeek(null, week.snapshot.car.days))).car)
+        val days = week.snapshot.car.days.toMutableList().also { it[6] = BigDecimal("-40") }
+        val slow = week.copy(snapshot = week.snapshot.copy(car = week.snapshot.car.copy(days = days)))
+        assertEquals(0f, slow.bars[6].fraction); assertFalse(slow.bars[6].best)
+        assertEquals("−$40", slow.bars[6].value)
     }
+
+    @Test fun `a week without trips says so and opens no calculation`() {
+        val week = fixture.week("L5")
+        val empty = PeriodAccounting.calculate(week.money.window, emptyList(), fixture.fixture.schedule)
+        val state = WeekPresentation(week.snapshot.copy(money = empty, days = List(7) { null }, car = CarWeek(BigDecimal(1500), List(7) { null })))
+        assertEquals("$0", state.amount); assertEquals("Todavía no hay viajes esta semana", state.quietLine); assertFalse(state.calculable)
+        assertTrue(state.bars.none { it.best || it.label != null })
+        assertEquals("$0 de $1,500", state.car!!.amount); assertEquals("$1,500", state.car!!.rest)
+        val unknown = week.copy(snapshot = week.snapshot.copy(money = week.money.copy(tripContribution = null)))
+        assertNull(unknown.amount); assertEquals("6 viajes\nFaltan datos para calcular lo que llevas", unknown.quietLine)
+    }
+
     @Test fun `statement difference is same app same week payment before costs only`() {
-        val week = fixture.week()
-        assertEquals("+$34", week.differences.single().display)
-        assertEquals("UBER", week.differences.single().app)
+        val week = WeekFixture(ApplicationProvider.getApplicationContext()).week()
         val source = week.snapshot.statements.single()
+        assertEquals("+$34", statementDifferences(week.money, listOf(source)).single().display)
         listOf(source.copy(paymentBasis = PaymentBasis.UNCONFIRMED), source.copy(app = "DIDI"),
             source.copy(trips = 35), source.copy(coverage = source.coverage.copy(start = source.coverage.start.minusDays(7))),
             source.copy(payment = null), source.copy(source = MoneySource.CAPTURED_ESTIMATE)).forEach {
@@ -65,6 +93,7 @@ class WeekPresentationTest {
         assertEquals("−$28", statementDifferences(week.money, listOf(source.copy(payment = "5000".toBigDecimal()))).single().display)
         assertEquals("$0", statementDifferences(week.money, listOf(source.copy(payment = "5028".toBigDecimal()))).single().display)
     }
+
     @Test fun `selected period and Spanish labels normalize Mondays clamp future and retain years`() {
         val today = LocalDate.parse("2026-10-19")
         assertEquals(today, SelectedPeriod.resolve(null, today))
@@ -73,38 +102,6 @@ class WeekPresentationTest {
         assertEquals(today, SelectedPeriod.resolve("bad", today))
         assertEquals("28 sep – 4 oct", weekRange(LocalDate.parse("2026-09-28"), today))
         assertEquals("29 dic 2025 – 4 ene 2026", weekRange(LocalDate.parse("2025-12-29"), today))
+        assertEquals("5 – 11 oct · semana pasada", weekSelectorLabel(LocalDate.parse("2026-10-05"), LocalDate.parse("2026-10-14")))
     }
-    @Test fun `coverage gaps and missing costs never become rounding notes or optimistic zero`() {
-        val week = fixture.week()
-        val changed = week.copy(snapshot = week.snapshot.copy(money = week.money.copy(periodResult = week.money.periodResult!! + 34.toBigDecimal())))
-        assertNull(changed.roundingNote)
-        val unknown = week.copy(snapshot = week.snapshot.copy(money = week.money.copy(periodResult = null)))
-        assertNull(unknown.amount)
-        assertTrue(unknown.quietLine.contains("faltan datos"))
-        assertNull(unknown.roundingNote)
-    }
-
-    @Test fun `week basis follows its dated cost evidence including costs later confirmed`() {
-        val f = fixture.fixture
-        val week = fixture.week()
-        val original = f.schedule.running.single()
-        val confirmedNow = original.copy(id = 2, effectiveFrom = f.date.atStartOfDay(f.zone).toInstant().toEpochMilli())
-        val typicalHistory = CostSchedule(listOf(original.copy(confirmation = CostConfirmation.TYPICAL), confirmedNow), f.schedule.car)
-        val money = PeriodAccounting.calculate(week.money.window, f.weekRecords, typicalHistory)
-        val state = week.copy(snapshot = week.snapshot.copy(money = money))
-        assertEquals("62 viajes tomados,\ncon costos típicos", state.quietLine)
-        assertEquals(week.amount, state.amount)
-        assertTrue(weekCalculation(state).notes.contains("Con costos típicos"))
-        assertEquals("62 viajes tomados,\nya restamos gasolina, desgaste y coche", week.quietLine)
-        val mixed = money.copy(contributions = money.contributions.mapIndexed { index, value ->
-            if (index == 0) value.copy(runningCostVersion = confirmedNow) else value
-        })
-        assertEquals(state.quietLine, week.copy(snapshot = week.snapshot.copy(money = mixed)).quietLine)
-        val withoutCar = money.copy(carCharges = emptyList(), carCost = java.math.BigDecimal.ZERO)
-        assertEquals(state.quietLine, week.copy(snapshot = week.snapshot.copy(money = withoutCar)).quietLine)
-        val open = fixture.week("E8")
-        val openMoney = PeriodAccounting.calculate(open.money.window, open.money.contributions.map { it.record }, typicalHistory)
-        assertEquals("6 viajes tomados (1 en curso),\ncon costos típicos", open.copy(snapshot = open.snapshot.copy(money = openMoney)).quietLine)
-    }
-
 }

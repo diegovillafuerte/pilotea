@@ -32,7 +32,6 @@ class CompararViewModel @Inject constructor(
     private val selectedPeriod: SelectedPeriod,
     private val clock: AppClock,
     private val zone: ZoneId,
-    connectivity: EarningsConnectivity,
     private val scheduler: AggregateSyncScheduler,
 ) : ViewModel() {
     val sheet = saved.getStateFlow<String?>("compareSheet", null)
@@ -65,8 +64,8 @@ class CompararViewModel @Inject constructor(
         }
     val uiState: StateFlow<CompareUiState> = combine(data.scan(initial) { old, next ->
         if (next.loading && old.weekStart == next.weekStart && (old.choice == next.choice || old.comparison?.singleApp != null && next.choice.scope == CompareScope.APPS && old.choice.city == next.choice.city && old.choice.appsMetric == next.choice.appsMetric && old.choice.cityMetric == next.choice.cityMetric) && old.comparison != null) old else next
-    }, connectivity.offline, settings.settings, saveError) { state, offline, prefs, failed ->
-        state.copy(offline = offline, contributing = prefs.shareAggregates, saveError = failed,
+    }, settings.settings, saveError) { state, prefs, failed ->
+        state.copy(contributing = prefs.shareAggregates, saveError = failed,
             contributionAvailable = mx.kompara.sync.aggregate.StatementContributionContract.canUpload(true))
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), initial)
 

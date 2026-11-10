@@ -68,9 +68,9 @@ data class OfferRowModel(
     }
     val contributionLabel: String? get() = when {
         evaluation?.contribution == null -> null
-        inProgress -> "Te deja · aprox."
-        lifecycle == TripLifecycle.FINISHED && outcome == OfferOutcome.ACCEPTED -> "Te dejó · aprox."
-        outcome in setOf(OfferOutcome.NOT_TAKEN, OfferOutcome.DECLINED, OfferOutcome.EXPIRED) -> "Te habría dejado · aprox."
+        inProgress -> "Te deja"
+        lifecycle == TripLifecycle.FINISHED && outcome == OfferOutcome.ACCEPTED -> "Te dejó"
+        outcome in setOf(OfferOutcome.NOT_TAKEN, OfferOutcome.DECLINED, OfferOutcome.EXPIRED) -> "Te habría dejado"
         else -> null
     }
 

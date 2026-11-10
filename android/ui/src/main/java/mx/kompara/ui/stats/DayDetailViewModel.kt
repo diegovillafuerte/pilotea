@@ -15,7 +15,7 @@ import mx.kompara.metrics.PeriodMoneyRepository
 import java.time.LocalDate
 import javax.inject.Inject
 
-/** Keeps the date, row identity and sheet stack through navigation and recreation. */
+/** One day's money and sheets (Hoy without a date, or a past day): row identity and sheet stack survive recreation. */
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class DayDetailViewModel @Inject constructor(
@@ -26,10 +26,9 @@ class DayDetailViewModel @Inject constructor(
     private val corrections: OfferCorrections,
     private val clock: AppClock,
 ) : ViewModel() {
-    private val selectedDay = savedStateHandle.getStateFlow<String?>(SELECTED_DAY, savedStateHandle[ARG_DAY])
+    private val selectedDay = savedStateHandle.getStateFlow<String?>(ARG_DAY, null)
     val selectedOffer = savedStateHandle.getStateFlow<Long?>(SELECTED_OFFER, savedStateHandle.get<Long>("offerId")?.takeIf { it >= 0 })
     val ledger = savedStateHandle.getStateFlow(LEDGER, savedStateHandle.get<Boolean>("ledger") ?: false)
-    val filtered = savedStateHandle.getStateFlow(FILTER, false)
     val undoReceipt = savedStateHandle.getStateFlow<CancellationReceipt?>(UNDO, null)
     private val _actionError = MutableStateFlow<String?>(null)
     val actionError = _actionError.asStateFlow()
@@ -50,16 +49,9 @@ class DayDetailViewModel @Inject constructor(
             catch (_: Exception) { DayDetailUiState.Error(date.toString()) }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DayDetailUiState.Loading(selectedDay.value.orEmpty()))
 
-    fun selectDay(date: LocalDate) {
-        savedStateHandle[SELECTED_DAY] = date.toString()
-        savedStateHandle[SELECTED_OFFER] = null
-        savedStateHandle[LEDGER] = false
-        savedStateHandle[FILTER] = false
-    }
     fun openOffer(id: Long) { savedStateHandle[SELECTED_OFFER] = id }
     fun closeOffer() { savedStateHandle[SELECTED_OFFER] = null }
     fun showLedger(show: Boolean) { savedStateHandle[LEDGER] = show }
-    fun filter(show: Boolean) { savedStateHandle[FILTER] = show }
     fun retry() = snapshots.retry()
     fun dismissMessage() { savedStateHandle[UNDO] = null; _actionError.value = null }
     fun cancelOffer() {
@@ -87,21 +79,10 @@ class DayDetailViewModel @Inject constructor(
     }
     companion object {
         const val ARG_DAY = "day"
-        private const val SELECTED_DAY = "selectedDay"
         private const val SELECTED_OFFER = "selectedOffer"
         private const val LEDGER = "showLedger"
-        private const val FILTER = "missedAbove"
         private const val UNDO = "cancellationUndo"
     }
-}
-
-internal fun PeriodMoney.toPeriodStats(): PeriodStats {
-    val km = contributions.mapNotNull { it.record.km }.fold(java.math.BigDecimal.ZERO, java.math.BigDecimal::add)
-    val net = periodResult
-    val contribution = tripContribution
-    return PeriodStats(net?.toDouble() ?: 0.0, payment?.toDouble() ?: 0.0, trips, km.toDouble(), hoursOnline.toDouble(),
-        contribution?.per(trips.toBigDecimal())?.toDouble(), contribution?.per(km)?.toDouble(),
-        net?.per(hoursOnline)?.toDouble(), trips.toBigDecimal().per(hoursOnline)?.toDouble(), null, net != null)
 }
 
 sealed interface DayDetailUiState {

@@ -73,18 +73,18 @@ class DayDetailViewModelTest {
             val vm = h.vm(SavedStateHandle(mapOf("day" to "2026-10-19")))
             val collecting = launch { vm.uiState.collect() }
             try {
-                assertEquals("$548", vm.await().amount)
+                assertEquals("$762", vm.await().amount)
                 h.db.offerPresentationDao().record(OfferPresentationEntity("fixture-12:10", "SUPPRESSED", h.now, "NAVIGATION"))
                 assertNotNull(vm.await { it.offer(h.id("12:10"))?.suppression != null }.offer(h.id("12:10"))!!.suppression)
                 h.preferences.setThreshold(h.initial.settings.effectiveThreshold.copy(redPerKmMxn = 6.5))
                 val changed = vm.await { it.offer(h.id("12:10"))!!.why.endsWith("a esa hora") }
-                assertEquals("$548", changed.amount)
+                assertEquals("$762", changed.amount)
                 assertFalse(changed.offer(h.id("11:20"))!!.why.contains("a esa hora"))
                 h.now = h.initial.date.plusDays(2).atTime(8, 0).atZone(h.initial.money.window.zone).toInstant().toEpochMilli()
                 h.snapshots.retry()
                 val past = vm.await { it.today == h.initial.date.plusDays(2) }
                 assertEquals(h.initial.date, past.date)
-                assertTrue(past.offer(h.id("11:20"))!!.dayLine.startsWith("Ese día, lunes 19 oct"))
+                assertEquals("Ganaste", past.label); assertEquals("Lunes 19 oct", past.title)
                 h.db.tripDao().cancel(h.id("11:20"), h.now)
                 val cancelled = vm.await { it.rows.first { row -> row.offerId == h.id("11:20") }.outcomeLabel == "Se canceló" }
                 assertEquals(5, cancelled.money.trips)
@@ -93,22 +93,22 @@ class DayDetailViewModelTest {
         }
     }
 
-    @Test fun `selected date row sheet and filter survive recreation and changing date resets drill stack`() = runBlocking {
+    @Test fun `selected row and sheet survive recreation and a route can open the calculation`() = runBlocking {
         Harness().use { h ->
             h.seed()
             val handle = SavedStateHandle(mapOf("day" to "2026-10-19", "offerId" to h.id("11:20")))
             val vm = h.vm(handle)
             vm.await()
             assertEquals(h.id("11:20"), vm.selectedOffer.value)
-            vm.showLedger(true); vm.filter(true)
+            vm.showLedger(true)
             val restored = h.vm(SavedStateHandle(handle.keys().associateWith { handle.get<Any?>(it) }))
-            assertTrue(restored.ledger.value); assertTrue(restored.filtered.value)
+            assertTrue(restored.ledger.value)
             assertEquals(h.id("11:20"), restored.selectedOffer.value)
             restored.showLedger(false)
             assertEquals(h.id("11:20"), restored.selectedOffer.value)
-            restored.selectDay(h.initial.date.minusDays(1))
-            assertFalse(restored.ledger.value); assertFalse(restored.filtered.value); assertNull(restored.selectedOffer.value)
-            assertEquals(h.initial.date.minusDays(1), restored.await { it.date == h.initial.date.minusDays(1) }.date)
+            restored.closeOffer(); assertNull(restored.selectedOffer.value)
+            val yesterday = h.vm(SavedStateHandle(mapOf("day" to h.initial.date.minusDays(1).toString())))
+            assertEquals(h.initial.date.minusDays(1), yesterday.await().date)
             val fromHero = h.vm(SavedStateHandle(mapOf("day" to "2026-10-19", "ledger" to true)))
             assertTrue(fromHero.ledger.value)
         }
@@ -130,7 +130,7 @@ class DayDetailViewModelTest {
                 val cancelled = vm.await { it.money.trips == 5 }
                 assertEquals(10, cancelled.rows.size)
                 assertEquals(1, cancelled.money.inProgress)
-                assertEquals("$415", cancelled.amount)
+                assertEquals("$629", cancelled.amount)
                 assertEquals("Se canceló", cancelled.rows.first { it.offerId == id }.outcomeLabel)
                 assertEquals("172.0", h.db.offerDao().findById(id)!!.fareMxn.toString())
                 assertEquals(h.initial.snapshot.offers.first { it.id == id }.evaluation, h.db.offerDao().findById(id)!!.evaluation)
@@ -140,7 +140,7 @@ class DayDetailViewModelTest {
                 assertNull(h.corrections.cancel(h.id("11:48"), h.now))
                 assertTrue(h.corrections.undo(receipt))
                 assertFalse(h.corrections.undo(receipt))
-                assertEquals("$548", vm.await { it.money.trips == 6 }.amount)
+                assertEquals("$762", vm.await { it.money.trips == 6 }.amount)
                 assertEquals(6, h.db.aggregateDao().capturedDay("2026-10-19").single().totalTrips)
                 val second = h.corrections.cancel(id, h.now + 1)!!
                 val trip = h.db.tripDao().findById(id)!!
@@ -160,7 +160,7 @@ class DayDetailViewModelTest {
                 h.now = h.initial.date.plusDays(1).atStartOfDay(h.initial.money.window.zone).toInstant().toEpochMilli()
                 h.snapshots.retry()
                 val next = vm.await { it.date == h.initial.date.plusDays(1) }
-                assertNull(next.amount); assertTrue(next.rows.isEmpty())
+                assertEquals("$0", next.amount); assertEquals("Aún no hay viajes hoy", next.quietLine); assertTrue(next.rows.isEmpty())
                 val future = h.vm(SavedStateHandle(mapOf("day" to "2099-01-01")))
                 assertEquals(next.date, future.await().date)
             } finally { collecting.cancel() }

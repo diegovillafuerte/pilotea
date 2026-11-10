@@ -50,7 +50,7 @@ class LimitsScreenTest {
                     else -> {
                         val changed = DayPresentation(day.snapshot, settings)
                         val model = changed.offer(day.rows.first { day.clock(it) == "11:20" }.offerId)!!
-                        SheetContent(model.title) { OfferDetailContent(model, {}, {}, {}, {}) }
+                        SheetContent(model.title) { OfferDetailContent(model, {}, {}) }
                     }
                 }
             }
@@ -62,7 +62,7 @@ class LimitsScreenTest {
                 compose.runOnIdle { opener = i }
                 val expected = when (i) {
                     0, 2 -> ThresholdEditor.pairLabel(newDraft)
-                    else -> "$9.81/km · arriba de tu meta de $8.00/km" + if (newDraft.km.goal != saved.km.goal) " a esa hora" else ""
+                    else -> "$9.81 por km neto · arriba de tu meta de $8.00" + if (newDraft.km.goal != saved.km.goal) " a esa hora" else ""
                 }
                 compose.onNode(SemanticsMatcher("opener $i: $expected") { node ->
                     node.config.getOrNull(androidx.compose.ui.semantics.SemanticsProperties.Text).orEmpty().any {
@@ -199,7 +199,7 @@ class LimitsScreenTest {
                         else -> {
                             val day = mx.kompara.ui.fixtures.DayFixture(context).day()
                             val model = day.offer(day.rows.first { day.clock(it) == "11:20" }.offerId)!!
-                            SheetContent(model.title) { OfferDetailContent(model, {}, {}, {}, {}, {
+                            SheetContent(model.title) { OfferDetailContent(model, {}, {}, {
                                 Spacer(Modifier.height(8.dp)); SaveSnackbar(snackbar); Spacer(Modifier.height(8.dp))
                             }) }
                         }
@@ -211,7 +211,7 @@ class LimitsScreenTest {
             compose.runOnIdle { opener = i }
             compose.onNodeWithText(message).assertIsDisplayed()
             val toast = compose.onNodeWithText(message).fetchSemanticsNode().boundsInRoot
-            val action = when (i) { 0 -> "Pausar el semáforo hasta mañana"; 2 -> null; else -> "Cambiar tu meta y tu mínimo" }
+            val action = when (i) { 0 -> "Pausar el semáforo hasta mañana"; 2 -> null; else -> "Tarifa" }
             if (action != null) {
                 val bounds = compose.onNodeWithText(action).fetchSemanticsNode().boundsInRoot
                 assertTrue("opener $i has clearance", toast.bottom + 8 <= bounds.top)

@@ -69,7 +69,7 @@ class CompararViewModelTest {
             day.snapshot.shifts.forEach { db.shiftDao().insert(it) }
         }
         fun vm(handle: SavedStateHandle = SavedStateHandle()) = CompararViewModel(handle, repo, benchmarks, prefs, gate,
-            selected, clock, fixture.fixture.zone, EarningsConnectivity(context), AggregateSyncScheduler(context)).also { store.put("${id++}", it); jobs += it.viewModelScope.coroutineContext[Job]!! }
+            selected, clock, fixture.fixture.zone, AggregateSyncScheduler(context)).also { store.put("${id++}", it); jobs += it.viewModelScope.coroutineContext[Job]!! }
         override fun close() { store.clear(); runBlocking { jobs.forEach { it.join() } }; http.close(); db.close() }
     }
     private suspend fun CompararViewModel.await(predicate: (CompareUiState) -> Boolean = { true }) =

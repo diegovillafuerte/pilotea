@@ -31,7 +31,6 @@ class FiscalViewModel @Inject constructor(
     clock: AppClock,
     zone: ZoneId,
     private val exporter: FiscalReportExporter,
-    connectivity: EarningsConnectivity,
 ) : ViewModel() {
     val sheet = saved.getStateFlow<String?>("monthSheet", null)
     private val exporting = MutableStateFlow(false)
@@ -52,8 +51,8 @@ class FiscalViewModel @Inject constructor(
         }.scan(FiscalUiState(initial)) { previous, next ->
             if (next.loading && previous.month == next.month && previous.period != null) previous else next
         }
-    val uiState = combine(data, connectivity.offline, exporting, exportError) { state, offline, busy, failed ->
-        state.copy(offline = offline, exporting = busy, exportError = failed)
+    val uiState = combine(data, exporting, exportError) { state, busy, failed ->
+        state.copy(exporting = busy, exportError = failed)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), FiscalUiState(initial))
 
     fun selectMonth(month: YearMonth) {

@@ -67,7 +67,7 @@ class FiscalViewModelTest {
         val exporter = mx.kompara.ui.fiscal.FiscalReportExporter(context, mx.kompara.ui.fiscal.FiscalPdfWriter(context, mx.kompara.ui.export.ExportHarness().cache),
             mx.kompara.ui.fiscal.FiscalPdfSharer(context, prefs))
         fun vm(handle: SavedStateHandle = SavedStateHandle()) = FiscalViewModel(handle, selected, snapshots, repo, gate, config, clock,
-            fixture.fixture.zone, exporter, EarningsConnectivity(context)).also { store.put("${id++}", it) }
+            fixture.fixture.zone, exporter).also { store.put("${id++}", it) }
         override fun close() { store.clear(); http.close(); db.close() }
     }
     private suspend fun FiscalViewModel.await(predicate: (MonthPresentation) -> Boolean = { true }) =

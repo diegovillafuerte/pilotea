@@ -1,7 +1,9 @@
 package mx.kompara.ui.stats
 
-import mx.kompara.data.accounting.*
+import mx.kompara.data.accounting.RunningCostMode
 import mx.kompara.data.db.entity.*
+import mx.kompara.data.settings.PreferredMetric
+import mx.kompara.data.settings.RateBasis
 import mx.kompara.data.settings.Settings
 import mx.kompara.metrics.DayMoneySnapshot
 import mx.kompara.metrics.VerdictLevel
@@ -9,102 +11,118 @@ import mx.kompara.ui.components.CalculationRow
 import mx.kompara.ui.components.OfferMarkState
 import mx.kompara.ui.format.Formatters
 import java.math.BigDecimal
+import java.math.MathContext
 import java.math.RoundingMode
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 private val spanish = Locale.forLanguageTag("es-MX")
-internal fun LocalDate.dated(today: LocalDate): String = format(DateTimeFormatter.ofPattern(
-    if (year == today.year) "EEEE d MMM" else "EEEE d MMM yyyy", spanish))
-internal fun PeriodMoney.isToday() = window.start == window.asOf.atZone(window.zone).toLocalDate()
-internal fun PeriodMoney.dayLabel() = if (isToday()) "Llevas hoy · aprox."
-    else "Te quedaron el ${window.start.dated(window.asOf.atZone(window.zone).toLocalDate())} · aprox."
-internal fun PeriodMoney.tripCount() = if (trips == 1) "1 viaje tomado" else "$trips viajes tomados"
-internal fun PeriodMoney.energy() = if (contributions.any { it.runningCostVersion?.inputs?.mode == RunningCostMode.ELECTRIC }) "energía" else "gasolina"
-internal fun PeriodMoney.typical() = contributions.any { it.runningCostVersion?.confirmation == CostConfirmation.TYPICAL }
-internal fun PeriodMoney.basis() = if (typical()) "con costos típicos" else if (carConfigured) "ya restamos ${energy()}, desgaste y coche" else "ya restamos ${energy()} y desgaste"
 
-/** A projection of one transaction. Detail and ledger never independently reload money. */
+internal fun basisWord(basis: RateBasis) = if (basis == RateBasis.GROSS) "bruto" else "neto"
+/** The words every list of rates carries: "por km, neto" (plan 4.2). */
+internal fun unitWords(metric: PreferredMetric, basis: RateBasis) = "${if (metric == PreferredMetric.IPH) "por hora" else "por km"}, ${basisWord(basis)}"
+internal fun formatRate(value: BigDecimal, metric: PreferredMetric) =
+    if (metric == PreferredMetric.IPH) Formatters.formatPerHourWhole(value) else Formatters.formatPerKm(value)
+/** "Lunes 19 oct", the title of a past day (L6). */
+internal fun LocalDate.dayTitle(today: LocalDate): String = format(DateTimeFormatter.ofPattern(
+    if (year == today.year) "EEEE d MMM" else "EEEE d MMM yyyy", spanish)).replaceFirstChar { it.titlecase(spanish) }
+
+/**
+ * One day as Ganancias shows it (v4 L1, L6): what the day's taken trips kept, its offers newest first,
+ * and the offer sheet and calculation. A projection of one snapshot; nothing reloads money.
+ */
 data class DayPresentation(val snapshot: DayMoneySnapshot, val settings: Settings) {
     val money = snapshot.money
-    val date = money.window.start
-    val today = money.window.asOf.atZone(money.window.zone).toLocalDate()
-    val rows = DayDetailBuilder.build(date.toString(), money.toPeriodStats(), snapshot.shifts, snapshot.trips, snapshot.offers, emptyList()).offers.rows
-    val missedAbove = rows.filter { it.notTaken && it.verdict == VerdictLevel.GREEN }
-    val title = if (date == today) "Hoy · ${date.format(DateTimeFormatter.ofPattern("d MMM", spanish))}"
-        else date.dated(today).replaceFirstChar { it.titlecase(spanish) }
-    val label = money.dayLabel()
-    val amount = money.periodResult?.takeUnless { money.isToday() && money.trips == 0 }?.let(Formatters::formatMxnWhole)
-    val quietLine = if (!money.isToday() && money.trips == 0 && money.carConfigured) "Sin viajes; lo del coche corre igual" else money.tripCount() +
-        (if (money.hoursOnline.signum() > 0) " en ${Formatters.formatDuration(money.hoursOnline.multiply(BigDecimal(60)).setScale(0, RoundingMode.HALF_UP).toLong())}" else "") +
-        (if (money.inProgress > 0) " " + Formatters.unbroken("(${money.inProgress} en curso)") else "") + ",\n${money.basis()}"
-    val emptyMessage = when {
-        rows.isEmpty() -> if (date == today) "Aún no registramos ofertas hoy" else "No registramos ofertas este día"
-        money.trips == 0 -> if (date == today) "No tomaste ofertas hoy" else "No tomaste ofertas este día"
-        money.periodResult == null -> if (date == today) "Aún no podemos calcular cuánto llevas" else "Aún no podemos calcular cuánto te quedó"
-        else -> null
+    val date: LocalDate = money.window.start
+    val today: LocalDate = money.window.asOf.atZone(money.window.zone).toLocalDate()
+    val isToday = date == today
+    val rows = DayDetailBuilder.build(date.toString(), PeriodStats.EMPTY, snapshot.shifts, snapshot.trips, snapshot.offers, emptyList()).offers.rows
+    val title = date.dayTitle(today)
+    val label = if (isToday) "Hoy llevas" else "Ganaste"
+    val amount: String? = money.tripContribution?.let(Formatters::formatMxnWhole)
+    /** Only a day with taken trips opens Cómo se calculó. */
+    val calculable = money.trips > 0
+    val quietLine: String = when {
+        money.trips == 0 -> if (isToday) "Aún no hay viajes hoy" else if (rows.isEmpty()) "No registramos ofertas este día" else "No tomaste ofertas este día"
+        amount == null -> "${tripsLabel(money.trips)}\nFaltan datos para calcular lo que ${if (isToday) "llevas" else "ganaste"}"
+        else -> tripsLabel(money.trips) + (money.hoursOnline.takeIf { it.signum() > 0 }?.let {
+            " · " + Formatters.formatDuration(it.multiply(BigDecimal(60)).setScale(0, RoundingMode.HALF_UP).toLong())
+        } ?: "") + "\nYa restamos ${if (money.electric()) "energía" else "gasolina"} y desgaste"
     }
-    val section = if (date == today) "Ofertas de hoy · ${rows.size}" else "Ofertas del día · ${rows.size}"
-    // A driver can change units during a day. A mixed column must not label hourly values as km.
-    val column = when (rows.mapNotNull { it.evaluation?.unit }.distinct().singleOrNull()) {
-        "IPK" -> "te deja por km, sin el coche"
-        "IPH" -> "te deja por hora, sin el coche"
-        else -> "te deja, sin el coche"
-    }
+    val section = if (isToday) "Ofertas de hoy" else "Ofertas del día"
+    val column = unitWords(settings.preferredMetric, settings.rateBasis)
+    val calculation get() = periodCalculation(money, if (isToday) "hoy" else Formatters.formatDayLabel(date.toString()), label)
+
     fun clock(row: OfferRowModel) = Formatters.formatClock(row.seenAt, money.window.zone)
-    fun suppressed(row: OfferRowModel): OfferPresentationEntity? {
-        val session = snapshot.offers.firstOrNull { it.id == row.offerId }?.sessionId ?: return null
+    fun detail(row: OfferRowModel) = "${clock(row)} · ${row.outcomeLabel}"
+    /** Offers that did not become a counted trip are dimmed. */
+    fun dim(row: OfferRowModel) = !row.counts
+    private fun raw(row: OfferRowModel) = snapshot.offers.first { it.id == row.offerId }
+    /** The row's rate in the driver's current unit and basis; none for an unread offer. */
+    fun rate(row: OfferRowModel): String? =
+        row.rate(raw(row), settings.preferredMetric, settings.rateBasis)?.let { formatRate(it, settings.preferredMetric) }
+    private fun suppressed(row: OfferRowModel): OfferPresentationEntity? {
+        val session = raw(row).sessionId ?: return null
         return snapshot.presentations.firstOrNull { it.sessionId == session && it.outcome == "SUPPRESSED" }
     }
-    fun meaning(row: OfferRowModel) = if (suppressed(row) != null) "sin semáforo en pantalla" else row.meaning
+
+    /** The offer sheet (L7): its rates and limits in the basis and unit it was judged in. */
     fun offer(id: Long): OfferDetailModel? {
         val row = rows.firstOrNull { it.offerId == id } ?: return null
-        val raw = snapshot.offers.first { it.id == id }
+        val raw = raw(row)
         val evaluation = row.evaluation
+        val metric = if (evaluation?.unit == PreferredMetric.IPH.name) PreferredMetric.IPH else PreferredMetric.IPK
+        val basis = RateBasis.fromName(evaluation?.rateBasis)
+        val legacy = raw.inputProvenance == "LEGACY_UNSPECIFIED"
         val cost = snapshot.runningCosts.firstOrNull { it.id == evaluation?.costVersionId }
-        val historical = row.historicalLimitSuffix(settings.effectiveThreshold)
-        val why = if (row.rate != null && historical != null && evaluation != null) {
-            val goal = row.verdict == VerdictLevel.GREEN
-            "${row.rate} · ${row.meaning.replaceFirstChar { it.lowercase(spanish) }} de " +
-                Formatters.formatLimit((if (goal) evaluation.goal else evaluation.minimum).toBigDecimal(), evaluation.unit == "IPH") + historical
-        } else if (evaluation == null && row.verdict != null && row.verdict != VerdictLevel.UNKNOWN) "No conservamos tus límites de ese día" else row.meaning
-        val contribution = evaluation?.contribution?.toBigDecimalOrNull()?.takeIf { row.contributionLabel != null }
-        // Never recompute a historical offer using today's cost. Even cancelled/unknown records keep the raw read.
-        val expense = raw.distanceKm?.toBigDecimal()?.let { km -> cost?.inputs?.costPerKm?.multiply(km) }
-        val arithmetic = if (raw.distanceKm != null && cost?.inputs?.costPerKm != null && raw.inputProvenance != "LEGACY_UNSPECIFIED") {
-            Formatters.formatKm(raw.distanceKm!!) + (raw.pickupKm?.let { " (${String.format(Locale.US, "%.1f", it)} para recoger)" } ?: "") +
-                " × ${Formatters.formatMxn(cost.inputs.costPerKm!!)}"
-        } else "No conservamos todos los datos del cálculo"
-        val carBasis = if (money.carConfigured) ", con el coche" else ""
-        val dayText = if (money.isToday()) "Llevas hoy$carBasis" else "Ese día, ${date.dated(today)}, te quedaron$carBasis"
-        val suppressed = suppressed(row)?.let {
-            "Sin semáforo: no cupo en la pantalla" + when (it.cause) {
-                "NAVIGATION", "NO_ROOM_NAVIGATION" -> " (navegación)"
-                "TALL_OFFER", "NO_ROOM_TALL_OFFER" -> " (oferta alta)"
-                else -> ""
+        val rate = row.rate(raw, metric, basis)?.let {
+            (if (metric == PreferredMetric.IPH) Formatters.formatMxnWhole(it) + " por hora" else Formatters.formatMxn(it) + " por km") + " " + basisWord(basis)
+        }
+        val suffix = row.historicalLimitSuffix(settings.effectiveThreshold)
+        val why = if (rate != null && suffix != null && evaluation != null) {
+            fun limit(value: String) = value.toBigDecimal().let { if (metric == PreferredMetric.IPH && it.stripTrailingZeros().scale() <= 0) Formatters.formatMxnWhole(it) else Formatters.formatMxn(it) }
+            val phrase = when (row.mark) {
+                OfferMarkState.ABOVE -> "arriba de tu meta de ${limit(evaluation.goal)}"
+                OfferMarkState.MEETS -> "entre tu mínimo de ${limit(evaluation.minimum)} y tu meta de ${limit(evaluation.goal)}"
+                else -> "abajo de tu mínimo de ${limit(evaluation.minimum)}"
             }
+            "$rate · $phrase$suffix"
+        } else if (evaluation == null && row.verdict != null && row.verdict != VerdictLevel.UNKNOWN) "No conservamos tus límites de ese día" else row.meaning
+        val km = raw.distanceKm?.takeUnless { legacy }
+        val minutes = raw.durationMin?.takeIf { it > 0 && !legacy }
+        val expense = km?.toBigDecimal()?.let { cost?.inputs?.costPerKm?.multiply(it) }
+        val running = CalculationRow(if (cost?.inputs?.mode == RunningCostMode.ELECTRIC) "Energía y desgaste" else "Gasolina y desgaste",
+            expense?.negate()?.let(Formatters::formatMxnWhole) ?: "—",
+            if (km != null && cost?.inputs?.costPerKm != null) "${Formatters.formatKm(km)} × ${Formatters.formatMxn(cost.inputs.costPerKm!!)}"
+            else "No conservamos todos los datos del cálculo")
+        val otherMetric = if (metric == PreferredMetric.IPK) PreferredMetric.IPH else PreferredMetric.IPK
+        val other = row.takeIf { it.mark != OfferMarkState.UNKNOWN }?.rate(raw, otherMetric, basis)?.let { value ->
+            if (otherMetric == PreferredMetric.IPH) minutes?.let {
+                CalculationRow("Por hora, ${basisWord(basis)}", Formatters.formatMxnWhole(value), "${BigDecimal.valueOf(it).stripTrailingZeros().toPlainString()} min")
+            } else km?.let { CalculationRow("Por km, ${basisWord(basis)}", Formatters.formatMxn(value), Formatters.formatKm(it)) }
         }
         val trip = snapshot.trips.firstOrNull { it.offerId == id }
-        return OfferDetailModel(id, row.mark, "Oferta de las ${clock(row)} · ${if (row.inProgress) "en curso" else row.outcomeLabel}",
-            row.contributionLabel, contribution?.let(Formatters::formatMxnWhole), why,
-            raw.durationMin?.takeIf { it > 0 && raw.inputProvenance != "LEGACY_UNSPECIFIED" }?.let { minutes ->
-                listOfNotNull(evaluation?.perHour?.toBigDecimalOrNull()?.let(Formatters::formatPerHourWhole),
-                    "${BigDecimal.valueOf(minutes).stripTrailingZeros().toPlainString()} min").joinToString(" · ")
-            }, suppressed,
-            CalculationRow("Tarifa de la oferta", raw.fareMxn?.takeUnless { raw.inputProvenance == "LEGACY_UNSPECIFIED" }?.let(Formatters::formatMxnWhole) ?: "—",
-                if (row.notTaken) "lo que ofrecía la app" else if (raw.paymentBasis != "DRIVER_PAYMENT") "No confirmamos que sea tu pago" else "el pago final puede cambiar"),
-            CalculationRow(if (cost?.inputs?.mode == RunningCostMode.ELECTRIC) "Energía y desgaste" else "Gasolina y desgaste",
-                expense?.negate()?.let(Formatters::formatMxnWhole) ?: "—", arithmetic),
-            "$dayText: ${amount ?: "—"}",
-            if (money.carConfigured) "Se resta por día (${Formatters.formatMxnWhole(money.carCost)}), no por viaje" else "Ya restamos ${money.energy()} y desgaste",
-            trip?.id?.takeIf { row.outcome == OfferOutcome.ACCEPTED && trip.lifecycle in ELIGIBLE_TRIP_LIFECYCLES },
-            cost?.confirmation == CostConfirmation.TYPICAL)
+        return OfferDetailModel(id, row.mark, "${clock(row)} · ${appName(raw.platform)} · ${row.outcomeLabel.replaceFirstChar { it.lowercase(spanish) }}",
+            row.contributionLabel, evaluation?.contribution?.toBigDecimalOrNull()?.takeIf { row.contributionLabel != null }?.let(Formatters::formatMxnWhole),
+            rate?.takeIf { why.startsWith(it) }, why,
+            suppressed(row)?.let {
+                "Sin semáforo: no cupo en la pantalla" + when (it.cause) {
+                    "NAVIGATION", "NO_ROOM_NAVIGATION" -> " (navegación)"
+                    "TALL_OFFER", "NO_ROOM_TALL_OFFER" -> " (oferta alta)"
+                    else -> ""
+                }
+            },
+            CalculationRow("Tarifa", raw.fareMxn?.takeUnless { legacy }?.let(Formatters::formatMxnWhole) ?: "—",
+                if (raw.paymentBasis != "DRIVER_PAYMENT") "No confirmamos que sea tu pago" else null),
+            running, other,
+            trip?.id?.takeIf { row.outcome == OfferOutcome.ACCEPTED && trip.lifecycle in ELIGIBLE_TRIP_LIFECYCLES })
     }
 }
 
 internal val ELIGIBLE_TRIP_LIFECYCLES = setOf("ACCEPTED_ESTIMATE", "IN_PROGRESS", "FINISHED")
-internal val OfferRowModel.notTaken get() = outcome in setOf(OfferOutcome.NOT_TAKEN, OfferOutcome.DECLINED, OfferOutcome.EXPIRED)
+/** The trip counts in the day's money: under way, or taken and finished. */
+internal val OfferRowModel.counts get() = inProgress || lifecycle == TripLifecycle.FINISHED && outcome == OfferOutcome.ACCEPTED
 internal val OfferRowModel.mark get() = when (verdict) {
     VerdictLevel.GREEN -> OfferMarkState.ABOVE
     VerdictLevel.YELLOW -> OfferMarkState.MEETS
@@ -114,43 +132,32 @@ internal val OfferRowModel.mark get() = when (verdict) {
 internal val OfferRowModel.meaning get() = when {
     evaluation?.unavailableReason == "FARE" -> "No pudimos leer la tarifa"
     mark == OfferMarkState.ABOVE -> "Arriba de tu meta"
-    mark == OfferMarkState.MEETS -> "Cumple tu mínimo"
+    mark == OfferMarkState.MEETS -> "Entre tu mínimo y tu meta"
     mark == OfferMarkState.BELOW -> "Abajo de tu mínimo"
     evaluation?.unavailableReason == "TIME" -> "Falta tiempo"
     evaluation?.unavailableReason == "DISTANCE" -> "Falta distancia"
     else -> "Sin confirmar"
 }
-internal val OfferRowModel.rate: String? get() = evaluation?.let { e ->
-    (if (e.unit == "IPH") e.perHour else e.perKm)?.toBigDecimalOrNull()?.takeIf { mark != OfferMarkState.UNKNOWN }?.let {
-        if (e.unit == "IPH") Formatters.formatPerHourWhole(it) else Formatters.formatPerKm(it)
+
+/**
+ * Any row's rate in either unit and basis: NET from its frozen judgement (fare − cost per km × km over
+ * the same km or minutes), GROSS as its fare over the total km or hours. Null for an unrated offer.
+ */
+internal fun OfferRowModel.rate(raw: OfferEntity, metric: PreferredMetric, basis: RateBasis): BigDecimal? {
+    val e = evaluation?.takeIf { mark != OfferMarkState.UNKNOWN } ?: return null
+    return when (basis) {
+        RateBasis.NET -> (if (metric == PreferredMetric.IPH) e.perHour else e.perKm)?.toBigDecimalOrNull()
+        RateBasis.GROSS -> {
+            val fare = fareMxn?.toBigDecimal() ?: return null
+            if (metric == PreferredMetric.IPH) raw.durationMin?.takeIf { it > 0 }?.let { fare.multiply(BigDecimal(60)).divide(it.toBigDecimal(), MathContext.DECIMAL64) }
+            else raw.distanceKm?.takeIf { it > 0 }?.let { fare.divide(it.toBigDecimal(), MathContext.DECIMAL64) }
+        }
     }
 }
 
+/** The offer sheet (L7). [rate] is the bold start of [why] when the offer was rated. */
 data class OfferDetailModel(
     val offerId: Long, val mark: OfferMarkState, val title: String, val label: String?, val amount: String?,
-    val why: String, val timeRate: String?, val suppression: String?, val fare: CalculationRow, val running: CalculationRow,
-    val dayLine: String, val carLine: String, val cancellableTripId: Long?, val typical: Boolean,
+    val rate: String?, val why: String, val suppression: String?,
+    val fare: CalculationRow, val running: CalculationRow, val other: CalculationRow?, val cancellableTripId: Long?,
 )
-
-data class DayCalculation(val title: String, val rows: List<CalculationRow>, val notes: List<String>)
-fun dayCalculation(money: PeriodMoney): DayCalculation {
-    val before = if (money.carConfigured) "antes de ${money.energy()}, desgaste y coche" else "antes de ${money.energy()} y desgaste"
-    val km = money.contributions.map { it.record.km }.let { values -> if (values.any { it == null }) null else values.filterNotNull().fold(BigDecimal.ZERO, BigDecimal::add) }
-    val rows = buildList {
-        add(CalculationRow(money.tripCount(), money.payment?.let(Formatters::formatMxnWhole) ?: "—", (if (money.inProgress > 0) "${money.inProgress} en curso · " else "") + before))
-        add(CalculationRow(money.energy().replaceFirstChar { it.titlecase() } + " y desgaste", money.runningExpense?.negate()?.let(Formatters::formatMxnWhole) ?: "—", km?.let { Formatters.formatKm(it.toDouble()) } ?: "Faltan kilómetros"))
-        if (money.carConfigured) add(CalculationRow("Lo del coche", Formatters.formatMxnWhole(money.carCost.negate()), "${Formatters.formatMxnWhole(money.carCost.multiply(BigDecimal(7)))} ÷ 7 días"))
-        add(CalculationRow(money.dayLabel(), money.periodResult?.let(Formatters::formatMxnWhole) ?: "—", total = true))
-    }
-    val roundedParts = if (money.payment != null && money.runningExpense != null) money.payment!!.setScale(0, RoundingMode.HALF_UP)
-        .subtract(money.runningExpense!!.setScale(0, RoundingMode.HALF_UP)).subtract(money.carCost.setScale(0, RoundingMode.HALF_UP)) else null
-    return DayCalculation("Cómo se calculó · ${if (money.isToday()) "hoy" else Formatters.formatDayLabel(money.window.start.toString())}", rows, buildList {
-        if (roundedParts != null && money.periodResult != null && roundedParts.compareTo(money.periodResult!!.setScale(0, RoundingMode.HALF_UP)) != 0)
-            add("El total se calcula antes de redondear cada cifra.")
-        if (money.typical()) add("Con costos típicos")
-        if (money.contributions.any { it.runningCostVersion?.correctsVersionId != null })
-            add("Aplicaste el rendimiento corregido a estos viajes. Conservamos el precio de cada fecha.")
-        if (money.unknownHistoricalCost) add("No conservamos tus costos de ese día")
-        add("El pago final lo confirma tu resumen de la app. Antes de impuestos.")
-    })
-}

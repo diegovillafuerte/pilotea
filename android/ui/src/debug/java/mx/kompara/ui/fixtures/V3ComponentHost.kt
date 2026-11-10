@@ -31,7 +31,7 @@ class V3ComponentActivity : ComponentActivity() {
             else if (intent.hasExtra("limitsFrame")) LimitsFixtureHost(intent.getStringExtra("limitsFrame") ?: "G2b")
             else if (intent.hasExtra("compareFrame")) CompareFixtureHost(intent.getStringExtra("compareFrame") ?: "F1")
             else if (intent.hasExtra("monthFrame")) MonthFixtureHost(intent.getStringExtra("monthFrame") ?: "E4")
-            else if (intent.hasExtra("weekFrame")) WeekFixtureHost(intent.getStringExtra("weekFrame") ?: "E1")
+            else if (intent.hasExtra("gananciasFrame")) GananciasFixtureHost(intent.getStringExtra("gananciasFrame") ?: "L1", Modifier.fillMaxSize())
             else V3ComponentHost(intent.getStringExtra("frame") ?: "D1")
         } }
     }

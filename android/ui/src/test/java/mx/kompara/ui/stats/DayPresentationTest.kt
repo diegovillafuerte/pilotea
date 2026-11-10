@@ -1,146 +1,184 @@
 package mx.kompara.ui.stats
 
 import androidx.test.core.app.ApplicationProvider
-import mx.kompara.ui.fixtures.DayFixture
-import mx.kompara.ui.format.Formatters
-import mx.kompara.ui.screens.offerReadingReport
-import mx.kompara.data.settings.PreferredMetric
+import mx.kompara.data.accounting.PeriodAccounting
+import mx.kompara.data.accounting.RunningCostMode
 import mx.kompara.data.db.entity.OfferPresentationEntity
+import mx.kompara.data.settings.PreferredMetric
+import mx.kompara.data.settings.RateBasis
+import mx.kompara.ui.fixtures.DayFixture
+import mx.kompara.ui.fixtures.GananciasFixture
+import mx.kompara.ui.screens.offerReadingReport
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
+/** Plan 4.5 Hoy, a past day, the offer sheet (L7) and Cómo se calculó (L8), on the kit's figures. */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class DayPresentationTest {
-    private val fixture get() = DayFixture(ApplicationProvider.getApplicationContext())
+    private val fixture get() = GananciasFixture(ApplicationProvider.getApplicationContext())
+    private val v3 get() = DayFixture(ApplicationProvider.getApplicationContext())
     private fun DayPresentation.at(time: String) = rows.first { clock(it) == time }.offerId
-    private fun visible(text: String) = text.replace('\u00a0', ' ').replace("\u2060", "")
+    private fun DayPresentation.row(time: String) = rows.first { clock(it) == time }
+    private fun visible(text: String?) = text?.replace(' ', ' ')?.replace("⁠", "")
 
-    @Test fun `ten and thirteen complete offers share money and clock with their day ledger`() {
-        val early = fixture.day()
-        val late = fixture.day(late = true)
-        assertEquals(10, early.rows.size); assertEquals(13, late.rows.size)
-        assertEquals("$548", early.amount); assertEquals("$1,026", late.amount)
-        assertEquals("6 viajes tomados en 4 h 50 min (1 en curso),\nya restamos gasolina, desgaste y coche", visible(early.quietLine))
-        assertEquals("9 viajes tomados en 8 h 10 min,\nya restamos gasolina, desgaste y coche", visible(late.quietLine))
-        assertEquals(listOf("14:32", "12:10", "11:48", "11:20", "10:41", "10:02", "9:51", "9:24", "8:40", "8:15"), early.rows.map(early::clock))
-        assertEquals(listOf("9:51", "8:40"), early.missedAbove.map(early::clock))
-        assertEquals("Oferta de las 9:51 · Se fue sin tomar", early.offer(early.at("9:51"))!!.title)
-        assertEquals(listOf("$979", "−$217", "−$214", "$548"), dayCalculation(early.money).rows.map { it.value })
-        assertEquals(listOf("$1,590", "−$350", "−$214", "$1,026"), dayCalculation(late.money).rows.map { it.value })
-        assertEquals(1, dayCalculation(early.money).notes.size)
-        assertEquals("1 en curso · antes de gasolina, desgaste y coche", dayCalculation(early.money).rows[0].detail)
+    @Test fun `L1 Hoy names each offer's app and outcome with the rate in the driver's unit and basis`() {
+        val day = fixture.dayPresentation("L1")
+        assertEquals("Hoy llevas", day.label); assertEquals("$762", day.amount)
+        assertEquals("6 viajes · 4 h 50 min\nYa restamos gasolina y desgaste", visible(day.quietLine))
+        assertTrue(day.calculable)
+        assertEquals("Ofertas de hoy", day.section); assertEquals(11, day.rows.size); assertEquals("por km, neto", day.column)
+        assertEquals(listOf("14:32", "12:25", "12:10", "11:48", "11:20", "10:41", "10:02", "9:51", "9:24", "8:40", "8:15"), day.rows.map(day::clock))
+        assertEquals(listOf("Uber", "DiDi", "Uber", "Uber"), day.rows.take(4).map { appName(it.platform) })
+        assertEquals(listOf("14:32 · En curso", "12:25 · Se fue sin tomar", "12:10 · Se fue sin tomar", "11:48 · Sin lectura", "11:20 · La tomaste"),
+            day.rows.take(5).map(day::detail))
+        assertEquals(listOf("$9.49/km", "$6.39/km", "$2.20/km", null, "$9.81/km", "$9.41/km"), day.rows.take(6).map(day::rate))
+        // Offers not taken are dimmed; the unread one too.
+        assertEquals(listOf(false, true, true, true, false, false), day.rows.take(6).map(day::dim))
     }
 
-    @Test fun `D2e is the last finished trip and D2 changes tense without changing its saved judgement`() {
-        val early = fixture.day()
-        val finished = early.offer(early.at("11:20"))!!
-        assertEquals("$133", finished.amount)
-        assertEquals("$9.81/km · arriba de tu meta de $8.00/km", finished.why)
-        assertEquals("$308/h · 26 min", finished.timeRate)
-        assertEquals("Te dejó · aprox.", finished.label)
-        assertEquals("$172", finished.fare.value); assertEquals("−$39", finished.running.value)
-        assertEquals("13.6 km (2.4 para recoger) × $2.84", visible(finished.running.detail!!))
-        assertEquals("Llevas hoy, con el coche: $548", finished.dayLine)
-        assertEquals("Se resta por día ($214), no por viaje", finished.carLine)
-        val progress = early.offer(early.at("14:32"))!!
-        val late = fixture.day(true).offer(early.at("14:32"))!!
-        assertEquals("Oferta de las 14:32 · en curso", progress.title)
-        assertEquals("Te deja · aprox.", progress.label)
-        assertEquals("$285/h · 24 min", progress.timeRate)
-        assertEquals("Te dejó · aprox.", late.label)
-        assertEquals(progress.why, late.why)
-        assertEquals("Llevas hoy, con el coche: $1,026", late.dayLine)
+    @Test fun `every rate follows the current unit and basis and says the word`() {
+        val day = fixture.dayPresentation("L1")
+        val gross = DayPresentation(day.snapshot, day.settings.copy(rateBasis = RateBasis.GROSS))
+        assertEquals("por km, bruto", gross.column); assertEquals("$12.33/km", gross.rate(gross.row("14:32")))
+        val hour = DayPresentation(day.snapshot, day.settings.copy(preferredMetric = PreferredMetric.IPH))
+        assertEquals("por hora, neto", hour.column); assertEquals("$285/h", hour.rate(hour.row("14:32"))); assertNull(hour.rate(hour.row("11:48")))
+        val grossHour = DayPresentation(day.snapshot, day.settings.copy(preferredMetric = PreferredMetric.IPH, rateBasis = RateBasis.GROSS))
+        assertEquals("por hora, bruto", grossHour.column); assertEquals("$370/h", grossHour.rate(grossHour.row("14:32")))
+        // Peso totals never change with the choice.
+        assertEquals(day.amount, gross.amount); assertEquals(day.amount, grossHour.amount)
     }
 
-    @Test fun `D2b D2c D2d each retain own arithmetic outcome and suppression evidence`() {
-        val day = fixture.day(true)
-        val red = day.offer(day.at("12:10"))!!
-        val yellow = day.offer(day.at("14:50"))!!
-        assertEquals("$27", red.amount); assertNull(red.cancellableTripId)
-        assertEquals("Te habría dejado · aprox.", red.label)
-        assertEquals("lo que ofrecía la app", red.fare.detail)
-        assertEquals("$54/h · 30 min", red.timeRate)
-        assertEquals("$86", yellow.amount); assertNotNull(yellow.cancellableTripId)
-        assertEquals("$7.16/km · cumple tu mínimo de $6.00/km", yellow.why)
-        assertEquals("$191/h · 27 min", yellow.timeRate)
-        val suppressed = fixture.day(suppressed = true)
+    @Test fun `no figure subtracts the car`() {
+        val day = fixture.dayPresentation("L1")
+        assertTrue(day.money.carConfigured)
+        assertEquals("$548", mx.kompara.ui.format.Formatters.formatMxnWhole(day.money.periodResult!!))
+        assertEquals("$762", day.amount)
+        assertEquals("$762", day.calculation.rows.last().value)
+    }
+
+    @Test fun `L6 a past day is Hoy's layout with the date and Ganaste`() {
+        val day = fixture.dayPresentation("L6")
+        assertFalse(day.isToday)
+        assertEquals("Lunes 19 oct", day.title); assertEquals("Ganaste", day.label); assertEquals("$1,240", day.amount)
+        assertEquals("9 viajes · 8 h 10 min\nYa restamos gasolina y desgaste", visible(day.quietLine))
+        assertEquals("Ofertas del día", day.section); assertEquals(14, day.rows.size)
+        assertEquals(listOf("$11.40/km", "$11.04/km", "$7.16/km", "$9.49/km", "$6.39/km", "$2.20/km", null), day.rows.take(7).map(day::rate))
+        assertEquals("DiDi", appName(day.row("12:25").platform)); assertEquals("12:25 · Se fue sin tomar", day.detail(day.row("12:25")))
+        val calculation = day.calculation
+        assertEquals("Cómo se calculó · lun 19 oct", calculation.title)
+        assertEquals(listOf("$1,590", "−$350", "$1,240"), calculation.rows.map { it.value })
+        assertEquals("Ganaste", calculation.rows.last().label)
+    }
+
+    @Test fun `L8 two lines a total and the one sentence about estimates`() {
+        val calculation = fixture.dayPresentation("L1").calculation
+        assertEquals("Cómo se calculó · hoy", calculation.title)
+        assertEquals(listOf("6 viajes", "Gasolina y desgaste", "Hoy llevas"), calculation.rows.map { it.label })
+        assertEquals(listOf("$979", "−$217", "$762"), calculation.rows.map { it.value })
+        assertEquals(listOf("Las tarifas de tus ofertas", "76.3 km × $2.84", null), calculation.rows.map { visible(it.detail) })
+        assertEquals(listOf("Es un estimado. El pago final lo confirma tu app de viajes."), calculation.notes)
+    }
+
+    @Test fun `a period spanning two costs shows its km without the multiplier`() {
+        val money = fixture.dayPresentation("L1").money
+        val other = money.contributions.first().runningCostVersion!!.copy(id = 9)
+        val mixed = money.copy(contributions = money.contributions.mapIndexed { i, it -> if (i == 0) it.copy(runningCostVersion = other) else it })
+        assertEquals("76.3 km", visible(periodCalculation(mixed, "hoy", "Hoy llevas").rows[1].detail))
+        val electric = money.copy(contributions = money.contributions.map { it.copy(runningCostVersion = it.runningCostVersion!!.copy(
+            inputs = it.runningCostVersion!!.inputs.copy(mode = RunningCostMode.ELECTRIC))) })
+        assertEquals("Energía y desgaste", periodCalculation(electric, "hoy", "Hoy llevas").rows[1].label)
+        val missing = money.copy(contributions = money.contributions.mapIndexed { i, it -> if (i == 0) it.copy(record = it.record.copy(km = null)) else it })
+        assertEquals("Faltan kilómetros", periodCalculation(missing, "hoy", "Hoy llevas").rows[1].detail)
+    }
+
+    @Test fun `L7 one offer in the basis and unit it was judged in`() {
+        val day = fixture.dayPresentation("L1")
+        val offer = day.offer(day.at("14:32"))!!
+        assertEquals("14:32 · Uber · en curso", offer.title)
+        assertEquals("Te deja", offer.label); assertEquals("$114", offer.amount)
+        assertEquals("$9.49 por km neto", offer.rate); assertEquals("$9.49 por km neto · arriba de tu meta de $8.00", offer.why)
+        assertEquals("Tarifa", offer.fare.label); assertEquals("$148", offer.fare.value); assertNull(offer.fare.detail)
+        assertEquals("Gasolina y desgaste", offer.running.label); assertEquals("−$34", offer.running.value)
+        assertEquals("12.0 km × $2.84", visible(offer.running.detail))
+        assertEquals(listOf("Por hora, neto", "$285", "24 min"), offer.other!!.let { listOf(it.label, it.value, it.detail) })
+        assertNotNull(offer.cancellableTripId)
+        val finished = day.offer(day.at("11:20"))!!
+        assertEquals("Te dejó", finished.label); assertEquals("$133", finished.amount)
+        assertEquals("$9.81 por km neto · arriba de tu meta de $8.00", finished.why)
+        assertEquals(listOf("Por hora, neto", "$308", "26 min"), finished.other!!.let { listOf(it.label, it.value, it.detail) })
+        val didi = day.offer(day.at("12:25"))!!
+        assertEquals("12:25 · DiDi · se fue sin tomar", didi.title); assertEquals("Te habría dejado", didi.label)
+        assertEquals("$6.39 por km neto · entre tu mínimo de $6.00 y tu meta de $8.00", didi.why)
+        assertNull(didi.other); assertNull(didi.cancellableTripId)
+        val late = fixture.dayPresentation("L6")
+        assertEquals("$2.20 por km neto · abajo de tu mínimo de $6.00", late.offer(late.at("12:10"))!!.why)
+        assertEquals("$7.16 por km neto · entre tu mínimo de $6.00 y tu meta de $8.00", late.offer(late.at("14:50"))!!.why)
+        // The sheet keeps the row's own judgement when the driver later shows bruto.
+        val gross = DayPresentation(day.snapshot, day.settings.copy(rateBasis = RateBasis.GROSS))
+        assertEquals(offer.why, gross.offer(day.at("14:32"))!!.why)
+    }
+
+    @Test fun `a row judged in bruto or per hour explains itself in that basis and unit`() {
+        val day = fixture.dayPresentation("L1")
+        val raw = day.snapshot.offers.first { it.id == day.at("14:32") }
+        fun judged(evaluation: mx.kompara.data.db.entity.OfferEvaluation) =
+            DayPresentation(day.snapshot.copy(offers = day.snapshot.offers.map { if (it.id == raw.id) it.copy(evaluation = evaluation) else it }), day.settings).offer(raw.id)!!
+        val gross = judged(raw.evaluation!!.copy(rateBasis = RateBasis.GROSS.name, goal = "11", minimum = "9"))
+        assertEquals("$12.33 por km bruto · arriba de tu meta de $11.00 a esa hora", gross.why)
+        assertEquals(listOf("Por hora, bruto", "$370"), gross.other!!.let { listOf(it.label, it.value) })
+        val hourly = judged(raw.evaluation!!.copy(unit = "IPH", goal = "200", minimum = "150"))
+        assertEquals("$285 por hora neto · arriba de tu meta de $200 a esa hora", hourly.why)
+        assertEquals(listOf("Por km, neto", "$9.49", "12.0 km"), hourly.other!!.let { listOf(it.label, it.value, visible(it.detail)) })
+    }
+
+    @Test fun `editing a limit later marks only the named one and never rewrites the offer`() {
+        val day = fixture.dayPresentation("L6")
+        val changed = DayPresentation(day.snapshot, day.settings.copy(threshold = day.settings.effectiveThreshold.copy(redPerKmMxn = 6.5)))
+        assertEquals(day.offer(day.at("11:20"))!!.why, changed.offer(day.at("11:20"))!!.why)
+        assertEquals("$2.20 por km neto · abajo de tu mínimo de $6.00 a esa hora", changed.offer(day.at("12:10"))!!.why)
+        assertEquals(day.offer(day.at("12:10"))!!.amount, changed.offer(day.at("12:10"))!!.amount)
+    }
+
+    @Test fun `unread legacy and suppressed offers keep 0_2_20's wording without borrowing money`() {
+        val day = fixture.dayPresentation("L1")
+        val unread = day.offer(day.at("11:48"))!!
+        assertEquals("11:48 · Uber · sin lectura", unread.title)
+        assertEquals("No pudimos leer la tarifa", unread.why); assertNull(unread.rate)
+        assertNull(unread.amount); assertNull(unread.other); assertEquals("—", unread.fare.value)
+        val raw = day.snapshot.offers.first { it.id == day.at("11:20") }
+        val legacy = DayPresentation(day.snapshot.copy(offers = listOf(raw.copy(evaluation = null, inputProvenance = "LEGACY_UNSPECIFIED"))), day.settings).offer(raw.id)!!
+        assertEquals("No conservamos tus límites de ese día", legacy.why)
+        assertNull(legacy.amount); assertNull(legacy.other); assertEquals("—", legacy.fare.value)
+        val suppressed = v3.day(suppressed = true)
         val row = suppressed.rows.first { suppressed.clock(it) == "12:10" }
-        assertEquals("sin semáforo en pantalla", suppressed.meaning(row))
-        assertEquals("$2.20/km", row.rate)
         assertEquals("Sin semáforo: no cupo en la pantalla (navegación)", suppressed.offer(row.offerId)!!.suppression)
-        assertEquals("$548", suppressed.amount)
         val unsupported = DayPresentation(suppressed.snapshot.copy(presentations = listOf(OfferPresentationEntity("fixture-12:10", "UNSUPPORTED", row.seenAt, "UNVALIDATED_GEOMETRY"))), suppressed.settings)
         assertNull(unsupported.offer(row.offerId)!!.suppression)
     }
 
-    @Test fun `editing the other limit or selected unit never rewrites an old offer`() {
-        val day = fixture.day()
-        val changed = DayPresentation(day.snapshot, day.settings.copy(threshold = day.settings.effectiveThreshold.copy(redPerKmMxn = 6.5), preferredMetric = PreferredMetric.IPH))
-        assertEquals(day.offer(day.at("11:20"))!!.why, changed.offer(day.at("11:20"))!!.why)
-        assertEquals("$2.20/km · abajo de tu mínimo de $6.00/km a esa hora", changed.offer(day.at("12:10"))!!.why)
-        assertEquals(day.offer(day.at("12:10"))!!.amount, changed.offer(day.at("12:10"))!!.amount)
-        val costChanged = DayPresentation(day.snapshot.copy(activeCost = null, runningCosts = day.snapshot.runningCosts + day.snapshot.runningCosts.single().copy(id = 2,
-            inputs = mx.kompara.data.accounting.RunningCostInputs(mx.kompara.data.accounting.RunningCostMode.DIRECT, directPerKm = "99".toBigDecimal()))), day.settings)
-        assertEquals(day.offer(day.at("11:20"))!!.running, costChanged.offer(day.at("11:20"))!!.running)
+    @Test fun `days without trips say so and open no calculation`() {
+        val morning = fixture.dayPresentation("empty")
+        assertEquals("Hoy llevas", morning.label); assertEquals("$0", morning.amount)
+        assertEquals("Aún no hay viajes hoy", morning.quietLine); assertFalse(morning.calculable); assertTrue(morning.rows.isEmpty())
+        val day = fixture.dayPresentation("L6")
+        val empty = PeriodAccounting.calculate(day.money.window, emptyList(), fixture.fixture.schedule)
+        val past = DayPresentation(day.snapshot.copy(money = empty, offers = emptyList(), trips = emptyList()), day.settings)
+        assertEquals("Ganaste", past.label); assertEquals("$0", past.amount); assertEquals("No registramos ofertas este día", past.quietLine)
+        val offersOnly = DayPresentation(day.snapshot.copy(money = empty, trips = emptyList(), offers = day.snapshot.offers.filter { !it.accepted }), day.settings)
+        assertEquals("No tomaste ofertas este día", offersOnly.quietLine)
+        val unknown = DayPresentation(day.snapshot.copy(money = day.money.copy(tripContribution = null)), day.settings)
+        assertNull(unknown.amount); assertEquals("9 viajes\nFaltan datos para calcular lo que ganaste", unknown.quietLine)
     }
 
-    @Test fun `unknown fields legacy and closed dates do not borrow current money or time`() {
-        val day = fixture.day()
-        val grey = day.offer(day.at("11:48"))!!
-        assertEquals("No pudimos leer la tarifa", grey.why)
-        assertNull(grey.amount); assertNull(grey.timeRate); assertEquals("—", grey.fare.value)
-        val raw = day.snapshot.offers.first { it.id == day.at("11:20") }
-        val legacy = DayPresentation(day.snapshot.copy(offers = listOf(raw.copy(evaluation = null, inputProvenance = "LEGACY_UNSPECIFIED"))), day.settings).offer(raw.id)!!
-        assertEquals("No conservamos tus límites de ese día", legacy.why)
-        assertNull(legacy.amount); assertNull(legacy.timeRate)
-        val past = DayPresentation(day.snapshot.copy(money = day.money.copy(window = day.money.window.copy(asOf = day.money.window.asOf.plusSeconds(86_400)))), day.settings)
-        assertEquals("Te quedaron el lunes 19 oct · aprox.", past.label)
-        assertEquals("Ese día, lunes 19 oct, te quedaron, con el coche: $548", past.offer(raw.id)!!.dayLine)
-        assertFalse(dayCalculation(past.money).title.contains("hoy"))
-    }
-
-    @Test fun `only today's no trip day hides accrued car money`() {
-        val day = fixture.day()
-        val empty = mx.kompara.data.accounting.PeriodAccounting.calculate(day.money.window, emptyList(), fixture.fixture.schedule)
-        val state = DayPresentation(day.snapshot.copy(money = empty, offers = emptyList(), trips = emptyList()), day.settings)
-        assertNull(state.amount); assertEquals("Aún no registramos ofertas hoy", state.emptyMessage)
-        assertEquals("−$214", Formatters.formatMxnWhole(empty.periodResult!!))
-        val pastMoney = empty.copy(window = empty.window.copy(asOf = empty.window.asOf.plusSeconds(86_400)))
-        val past = state.copy(snapshot = state.snapshot.copy(money = pastMoney))
-        assertEquals("−$214", past.amount)
-        assertEquals("Te quedaron el lunes 19 oct · aprox.", past.label)
-        assertEquals("Sin viajes; lo del coche corre igual", past.quietLine)
-        assertEquals(past.amount, dayCalculation(pastMoney).rows.last().value)
-        val withOffers = past.copy(snapshot = past.snapshot.copy(offers = day.snapshot.offers.filter { !it.accepted }))
-        assertEquals(past.amount, withOffers.amount)
-        assertEquals(past.quietLine, withOffers.quietLine)
-        val unknown = past.copy(snapshot = past.snapshot.copy(money = pastMoney.copy(periodResult = null)))
-        assertNull(unknown.amount)
-        val noCost = day.money.copy(carCharges = emptyList(), carCost = java.math.BigDecimal.ZERO)
-        assertEquals(3, dayCalculation(noCost).rows.size)
-        assertFalse(DayPresentation(day.snapshot.copy(money = noCost), day.settings).quietLine.contains("coche"))
-    }
-
-    @Test fun `past no trip zero cost remains visible without borrowing today's amount`() {
-        val day = fixture.day()
-        val pastWindow = day.money.window.copy(asOf = day.money.window.asOf.plusSeconds(86_400))
-        val schedule = fixture.fixture.schedule
-        val freeCar = mx.kompara.data.accounting.CostSchedule(schedule.running,
-            schedule.car.map { it.copy(weeklyMxn = java.math.BigDecimal.ZERO) })
-        val money = mx.kompara.data.accounting.PeriodAccounting.calculate(pastWindow, emptyList(), freeCar)
-        val past = day.copy(snapshot = day.snapshot.copy(money = money, offers = emptyList(), trips = emptyList()))
-        assertEquals("$0", past.amount)
-        assertEquals("Sin viajes; lo del coche corre igual", past.quietLine)
-    }
-
-    @Test fun `report contains only explicit derived reading fields not daily earnings or raw capture`() {
-        val day = fixture.day()
+    @Test fun `a report carries only the offer's derived reading`() {
+        val day = fixture.dayPresentation("L1")
         val report = offerReadingReport(day.offer(day.at("11:20"))!!, day.date.toString())
-        assertTrue(report.contains("2026-10-19")); assertTrue(report.contains("11:20")); assertTrue(report.contains("$133 sin el coche"))
-        assertFalse(report.contains("$548")); assertFalse(report.contains("fixture-")); assertFalse(report.contains("$172"))
+        assertTrue(report.contains("2026-10-19")); assertTrue(report.contains("11:20")); assertTrue(report.contains("Te dejó $133"))
+        assertTrue(report.contains("Por hora, neto: $308"))
+        assertFalse(report.contains("$762")); assertFalse(report.contains("fixture-")); assertFalse(report.contains("$172"))
     }
 }
