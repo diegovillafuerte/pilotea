@@ -38,7 +38,8 @@ class ReglaGalleryTest {
         compose.setContent { CompositionLocalProvider(LocalDensity provides Density(1f, scale)) {
             KomparaTheme(darkTheme = false) { V3ComponentHost(frame, Modifier.width(393.dp)) }
         } }
-        val cases = ((1..13).map { "C$it" } + listOf("N8", "N9", "N10")).map { it to 1f } +
+        // C5 is retired (contract/v4/WpB.kt): v4 draws a missing time as S4's "Sin lectura".
+        val cases = ((1..13).map { "C$it" }.filter { it != "C5" } + listOf("N8", "N9", "N10")).map { it to 1f } +
             listOf("N8", "N9", "N10").flatMap { listOf(it to 1.3f, it to 2f) }
         for ((id, fontScale) in cases) {
             compose.runOnIdle { frame = id; scale = fontScale }
@@ -62,9 +63,7 @@ class ReglaGalleryTest {
                 assertEquals(141f, bounds.left, .1f); assertEquals(243f, bounds.top, .1f)
             }
             if (id == "C10") compose.onNodeWithTag("regla").assertWidthIsEqualTo(C10_WIDTH.dp)
-            // C5's pinned v3 words (its own headline, its reason and the limit lines) are what the
-            // v4 pill no longer draws: a missing time reads "Sin lectura" (plan 4.3).
-            if (fontScale == 1f && id != "C5") FrameContract.assertFrame(compose, id)
+            if (fontScale == 1f) FrameContract.assertFrame(compose, id)
             val name = if (fontScale == 1f) id else "${id}_$fontScale"
             val bitmap = compose.runOnIdle {
                 val view = compose.activity.findViewById<android.view.View>(android.R.id.content)

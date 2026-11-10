@@ -48,7 +48,7 @@ class NightThemeTest {
                     Surface { Column {
                         TextTabs(listOf("Semana", "Mes"), selected, { selected = it })
                         PrimaryButton("Guardar", {})
-                        RootBottomBar(1, {})
+                        RootBottomBar(0, {})
                     } }
                 }
             }

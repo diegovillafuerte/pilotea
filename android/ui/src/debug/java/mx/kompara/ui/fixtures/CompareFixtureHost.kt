@@ -17,9 +17,9 @@ fun CompareFixtureHost(frame: String) {
     val fixture = remember { CompareFixture(context) }
     var state by remember { mutableStateOf(fixture.state(frame)) }
     var sheet by rememberSaveable { mutableStateOf<String?>(null) }
-    Scaffold(bottomBar = { RootBottomBar(2, {}) }) { padding ->
+    Scaffold(bottomBar = { RootBottomBar(1, {}) }) { padding ->
         Column(Modifier.padding(padding)) {
-            mx.kompara.ui.nav.NavigationHeader("Comparar", null, {}, showShare = state.comparison?.rank != null, onShare = {})
+            mx.kompara.ui.nav.NavigationHeader("Comparar", null, {})
             CompararContent(state, { state = fixture.state(if (it == CompareScope.APPS) "F1" else "F2") },
                 { sheet = it }, { state = fixture.state("F5") }, { state = fixture.state("F2") }, {}, {}, {})
         }

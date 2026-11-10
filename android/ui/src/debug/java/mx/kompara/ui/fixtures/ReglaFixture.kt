@@ -23,14 +23,13 @@ fun V3Fixture.regla(frame: String): ReglaModel {
     val rate = requireNotNull(chip(name).ratePerKm)
     val band = when (frame) {
         "C4", "N10" -> ReglaBand.Unavailable(ReglaUnavailable.FARE)
-        "C5" -> ReglaBand.Unavailable(ReglaUnavailable.TIME)
         else -> ReglaBand.Rated(when {
             rate >= goal -> ReglaPosition.ABOVE
             rate >= minimum -> ReglaPosition.MEETS
             else -> ReglaPosition.BELOW
         }, rate)
     }
-    return ReglaModel(band, if (frame == "C5") ReglaUnit.HOUR else ReglaUnit.KM)
+    return ReglaModel(band)
 }
 
 /**

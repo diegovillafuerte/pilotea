@@ -23,9 +23,9 @@
     <string name="share_channel_name">Resúmenes</string>
     <string name="share_channel_desc">Tus resúmenes de día, semana y mes. Sin montos.</string>
     <string name="share_week_close_notif_title">Tu semana está lista</string>
-    <string name="v3_today">Hoy</string>
     <string name="v3_earnings">Ganancias</string>
     <string name="v3_compare">Comparar</string>
+    <string name="v4_imss">IMSS</string>
     <string name="v3_save">Guardar</string>
     <string name="v3_rate_basis">te deja por km, sin el coche</string>
     <string name="v3_above">Arriba de tu meta</string>
@@ -46,8 +46,6 @@
     <string name="v3_close">Cerrar</string>
     <string name="v3_loading">Cargando</string>
     <string name="v3_share_title">Compartir</string>
-    <string name="v3_share_week">Compartir semana</string>
-    <string name="v3_share_month">Compartir mes</string>
     <string name="v3_share_preview">Así se verá</string>
     <string name="v3_share_hide">Ocultar montos y horas</string>
     <string name="v3_share_more">Más opciones</string>

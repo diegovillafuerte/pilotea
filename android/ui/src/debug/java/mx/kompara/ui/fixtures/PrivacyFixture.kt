@@ -11,7 +11,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import mx.kompara.data.model.City
-import mx.kompara.data.settings.Settings
 import mx.kompara.ui.components.*
 import mx.kompara.ui.screens.*
 import mx.kompara.ui.stats.*
@@ -24,7 +23,6 @@ fun PrivacyFixtureHost(frame: String) {
     val profile = AccountUiState(loaded = true, phone = "+525512345678", citySource = "por tu número",
         goal = "$${fixture.goal}/km", minimum = "$${fixture.minimum}/km", suggestedGoal = "$7.70/km")
     when (frame) {
-        "G7", "allowed" -> AvisosContent(AvisosState(Settings.DEFAULT.copy(fiscalMonthlySummaryEnabled = false), frame == "allowed", true))
         "G8" -> HelpContent(initialAnswer = "semaforo", supportAvailable = true)
         "support-gated" -> HelpContent(initialAnswer = "colores")
         "profile" -> AccountContent(profile, supportAvailable = true)

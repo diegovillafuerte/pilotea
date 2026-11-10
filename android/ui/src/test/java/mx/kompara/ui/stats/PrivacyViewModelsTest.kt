@@ -208,30 +208,6 @@ class PrivacyViewModelsTest {
         assertNotNull(db.offerDao().findById(id)); assertFalse(reader.state.value.paused)
         assertEquals(mx.kompara.ui.onboarding.RootRoute.MAIN, mx.kompara.ui.onboarding.RootRouter.route(true, false))
     }
-    @Test fun `notification OS return never rewrites saved preferences`() = runBlocking {
-        settings.setDailySummaryEnabled(false); settings.setReaderAlertsEnabled(false)
-        val manager = context.getSystemService(android.app.NotificationManager::class.java)
-        shadowOf(manager).setNotificationsEnabled(false)
-        val vm = AvisosViewModel(settings, context); observe(vm, vm.state); vm.refreshSystem()
-        vm.state.await { it.loaded }
-        vm.set(NoticePreference.DAY, true); assertFalse(settings.settings.first().dailySummaryEnabled)
-        shadowOf(manager).setNotificationsEnabled(true); vm.refreshSystem(); vm.state.await { it.allowed }
-        assertFalse(vm.state.value.settings.dailySummaryEnabled)
-        vm.set(NoticePreference.DAY, true); vm.state.await { it.settings.dailySummaryEnabled }
-        assertFalse(settings.settings.first().readerAlertsEnabled)
-    }
-    @Test fun `channel block is visible in Avisos and cannot be bypassed by a saved switch`() = runBlocking {
-        val manager = context.getSystemService(android.app.NotificationManager::class.java)
-        manager.createNotificationChannel(android.app.NotificationChannel(mx.kompara.ui.notifications.NoticeChannels.SUMMARIES,
-            "Resúmenes", android.app.NotificationManager.IMPORTANCE_NONE))
-        val vm = AvisosViewModel(settings, context); observe(vm, vm.state); vm.refreshSystem()
-        val state = vm.state.await { it.loaded && NoticePreference.DAY in it.blocked }
-        assertTrue(state.allowed)
-        assertFalse(NoticePreference.READER in state.blocked)
-        assertTrue(state.settings.dailySummaryEnabled)
-        vm.set(NoticePreference.DAY, false)
-        assertTrue(settings.settings.first().dailySummaryEnabled)
-    }
     @Test fun `free and promotional access cannot imply a Play subscription in deletion copy`() {
         assertFalse(deletionBody(false).contains("Google Play"))
         assertTrue(deletionBody(true).contains("borrar la cuenta no la cancela"))

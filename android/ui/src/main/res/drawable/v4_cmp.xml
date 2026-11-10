@@ -1,0 +1,4 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+    <!-- The v4 kit's i-cmp (_head.html): the Comparar tab. -->
+    <path android:fillColor="#FF000000" android:fillType="nonZero" android:pathData="M3 6h18v4H3zM3 14h11v4H3z" />
+</vector>

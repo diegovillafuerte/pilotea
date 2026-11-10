@@ -108,6 +108,10 @@ dependencies {
 // Explicit baseline recording only; normal tests compare reviewed, computed fixture PNGs.
 tasks.withType<Test>().configureEach {
     systemProperty("v3.recordScreenshots", providers.gradleProperty("v3.recordScreenshots").getOrElse("false"))
+    // v4 baselines record apart (docs/v4-simple-launch-plan.md §2), so recording one set never rewrites the other.
+    systemProperty("v4.recordScreenshots", providers.gradleProperty("v4.recordScreenshots").getOrElse("false"))
+    inputs.files(fileTree("src/test/snapshots/v4"))
     inputs.dir("src/test/snapshots/v3")
     outputs.dir(layout.buildDirectory.dir("outputs/v3-screenshots"))
+    outputs.dir(layout.buildDirectory.dir("outputs/v4-screenshots"))
 }

@@ -1,0 +1,4 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+    <!-- The v4 kit's i-imss (_head.html): a shield with a cross, the IMSS tab. -->
+    <path android:fillColor="#FF000000" android:fillType="evenOdd" android:pathData="M12 2.5l8 3v6.2c0 4.6-3.3 8.3-8 9.8-4.7-1.5-8-5.2-8-9.8V5.5zM10.8 8v2.8H8v2.4h2.8V16h2.4v-2.8H16v-2.4h-2.8V8z" />
+</vector>

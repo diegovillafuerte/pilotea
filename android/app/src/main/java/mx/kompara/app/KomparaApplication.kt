@@ -25,7 +25,6 @@ import mx.kompara.sync.spec.SpecConfigRefreshWorker
 import mx.kompara.sync.spec.SpecConfigRepository
 import mx.kompara.sync.verification.VerificationStatusRepository
 import mx.kompara.sync.telemetry.TelemetryScheduler
-import mx.kompara.ui.fiscal.FiscalMonthEndScheduler
 import mx.kompara.ui.onboarding.ServiceWatchdog
 import mx.kompara.ui.share.WeekCloseScheduler
 import javax.inject.Inject
@@ -75,9 +74,6 @@ class KomparaApplication : Application(), Configuration.Provider {
     // B-049 Play Billing entitlement. Hydrates last-known (offline grace) then tracks live purchases.
     @Inject lateinit var entitlementRepository: EntitlementRepository
 
-    // Factual month review: daily check plus catchup on app open.
-    @Inject lateinit var fiscalMonthEndScheduler: FiscalMonthEndScheduler
-
     // B-050 remote paywall kill switch: refresh the cached flag on app open (TTL-gated, best-effort).
     @Inject lateinit var paywallConfigRepository: PaywallConfigRepository
 
@@ -87,8 +83,8 @@ class KomparaApplication : Application(), Configuration.Provider {
     // Dated week summary: Monday-09:00 check plus catchup on app open.
     @Inject lateinit var weekCloseScheduler: WeekCloseScheduler
 
-    @Inject lateinit var dailySummaryScheduler: mx.kompara.ui.notifications.DailySummaryScheduler
-    @Inject lateinit var importReminderScheduler: mx.kompara.ui.notifications.ImportReminderScheduler
+    // 0.2.x testers may arrive with the reader paused; the launch set has no pause control.
+    @Inject lateinit var readerPauseUpgrade: mx.kompara.ui.service.ReaderPauseUpgrade
 
     // These collectors share the accessibility service's process. SupervisorJob alone only
     // isolates siblings; a handler is also required to contain an uncaught collector failure.
@@ -151,6 +147,7 @@ class KomparaApplication : Application(), Configuration.Provider {
 
         // Watch reader-service health once onboarding completes; alert (notification + in-app
         // banner) if an OEM task killer disables the accessibility service mid-shift (B-036).
+        readerPauseUpgrade.run()
         readerReadinessMonitor.start(componentScope("reader-readiness"))
         serviceWatchdog.start(componentScope("reader-watchdog"))
 
@@ -169,19 +166,10 @@ class KomparaApplication : Application(), Configuration.Provider {
         // (sticky-positive), so a transient blip never re-locks a verified driver's benchmarks/compare.
         appScope.launch { verificationStatusRepository.refresh() }
 
-        // Keep the factual month-review check enqueued, and run one now (the "next app open"
-        // path) so a just-ended month's summary fires promptly. Both are idempotent via the per-month
-        // watermark, so an extra run never double-posts.
-        fiscalMonthEndScheduler.ensureScheduled()
-        fiscalMonthEndScheduler.runNow()
-
-        // Keep the weekly Monday-09:00 summary enqueued, and run one now (the "next app
-        // open" path) so a just-closed week's reminder fires even if the device was off all Monday.
-        // Both are idempotent via the per-week watermark, so an extra run never double-posts.
-        weekCloseScheduler.ensureScheduled()
-        weekCloseScheduler.runNow()
-        dailySummaryScheduler.ensureScheduled()
-        dailySummaryScheduler.runNow()
-        importReminderScheduler.start(componentScope("import-reminder"))
+        // Two notices at launch (docs/v4-simple-launch-plan.md §4.9): the watchdog's reader incident
+        // and the weekly Monday-09:00 summary, kept enqueued and run now (the "next app open" path,
+        // idempotent via the per-week watermark). The daily, import and month-end summaries 0.2.x
+        // scheduled are cancelled.
+        mx.kompara.ui.notifications.LaunchNotices.schedule(workManager, weekCloseScheduler)
     }
 }

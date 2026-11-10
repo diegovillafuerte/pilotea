@@ -140,7 +140,7 @@ class V3ComponentTest {
     }
 
     @Test fun actualStringGoldensDayNightAndLargeFonts() {
-        var frame by mutableStateOf("B1")
+        var frame by mutableStateOf("D1")
         var dark by mutableStateOf(false)
         var fontScale by mutableFloatStateOf(1f)
         var width by mutableIntStateOf(393)
@@ -150,7 +150,7 @@ class V3ComponentTest {
             }
         }
         val cases = buildList {
-            for (id in listOf("B1", "D1", "E1", "F1", "G2", "G4", "H5")) {
+            for (id in listOf("D1", "E1", "F1", "G2", "G4", "H5")) {
                 add(RenderCase(id, false, 1f, 393)); add(RenderCase(id, true, 1f, 393))
                 add(RenderCase(id, false, 1.3f, 393)); add(RenderCase(id, true, 2f, 320))
             }
