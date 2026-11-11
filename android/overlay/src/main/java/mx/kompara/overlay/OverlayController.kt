@@ -7,16 +7,22 @@ import android.graphics.PixelFormat
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.Message
 import android.os.SystemClock
 import android.util.Log
+import android.view.Choreographer
 import android.view.Gravity
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowManager
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.runtime.Recomposer
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.compositionContext
 import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.lifecycle.setViewTreeViewModelStoreOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
@@ -47,7 +53,6 @@ import mx.kompara.capture.HostGeometryEvidence
 import mx.kompara.capture.OverlayPresenter
 import mx.kompara.data.service.ScreenReaderState
 import mx.kompara.data.service.ScreenRect
-import mx.kompara.data.settings.PlatformThreshold
 import mx.kompara.data.settings.PreferredMetric
 import mx.kompara.data.settings.SettingsRepository
 import mx.kompara.parsers.model.HostGeometry
@@ -56,6 +61,7 @@ import mx.kompara.parsers.model.HostOrientation
 import mx.kompara.parsers.model.HostRect
 import mx.kompara.ui.components.ReglaBand
 import mx.kompara.ui.components.ReglaModel
+import mx.kompara.ui.components.ReglaMotion
 import mx.kompara.ui.theme.KomparaTheme
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -87,8 +93,30 @@ class OverlayController @Inject constructor(
     private var revealedRect: HostRect? = null
     /** TEMP DIAG: decline rects latched for the current offer (count only). */
     private var latchedDeclines = 0
+    /**
+     * WP-AA: a reveal is the window's state, not the screen's: every chip state reaches the screen only through
+     * this window's traversals. [presence] and [composedState] are what the window's composition last applied;
+     * [drawnState] is the chip a revealed traversal of this window was seen drawing in full; [drawCheck] is the
+     * pending deadline for the window to show what the controller holds (see [armDrawCheck]). WP-AB: a new window
+     * waits for the verdict and its plate is present from its first composition, so the traversal that reveals it
+     * draws the final chip and meets the deadline itself; no later frame is needed for the driver to see it.
+     */
+    private var presence: MutableTransitionState<Boolean>? = null
+    private var composedState: ReglaModel? = null
+    private var drawnState: ReglaModel? = null
+    private var drawCheck: Runnable? = null
+    /** The pending deadline was armed at attach and only the window's first reveal, drawn, meets it. */
+    private var drawCheckAwaitsReveal = false
+    private var preDrawsSinceArm = 0
+    /** TEMP DIAG (debuggable builds only): the attached window's life, logged at detach. */
+    private var windowLife: WindowLife? = null
+    private val mainHandler by lazy { Handler(Looper.getMainLooper()) }
     private var event: OfferEvent.Parsed? = null
     private var evaluated = false
+    /** WP-AD: [event] is the reader's unread notice (its placement), not an offer: no presentation row. */
+    private var notice = false
+    /** WP-AD round 2: the notice's card (envelope and bands); its mask never touches them. Empty for an offer. */
+    private var keepClear by mutableStateOf<List<HostRect>>(emptyList())
     private var chipState by mutableStateOf<ReglaModel?>(null)
     private var chipVisible by mutableStateOf(false)
     private var geometry by mutableStateOf<HostGeometry?>(null)
@@ -152,16 +180,18 @@ class OverlayController @Inject constructor(
             readiness.state.map { reader ->
                 (reader.canRead && reader.captureRunning) to reader.apps.filterValues { it.supported }.keys
             }.distinctUntilChanged().flatMapLatest { (allowed, _) ->
-                if (allowed) OverlayStateMachine(evaluate = ::evaluate)
+                if (allowed) OverlayStateMachine(evaluate = ::evaluate,
+                    preferred = { settingsSnapshot?.preferredMetric ?: PreferredMetric.DEFAULT })
                     .visibility(events.filter {
                         val canRead = readiness.canRead(it.packageName)
-                        if (!canRead && it is OfferEvent.Parsed) diagnostic("READINESS", readinessDetails())
+                        if (!canRead && (it is OfferEvent.Parsed || it is OfferEvent.Unreadable)) diagnostic("READINESS", readinessDetails())
                         canRead
                     }.onEach {
                         when (it) {
                             is OfferEvent.NoCard -> diagnostic("NO_CARD_${it.reason}")
                             is OfferEvent.SpecDisabled -> diagnostic("SPEC_DISABLED")
-                            is OfferEvent.Parsed -> heartbeat(overlayScope, parsed = true, processed = true)
+                            // WP-AD: the unread notice is its own fresh evidence, like a parse.
+                            is OfferEvent.Parsed, is OfferEvent.Unreadable -> heartbeat(overlayScope, parsed = true, processed = true)
                             is OfferEvent.LayoutUncertain -> heartbeat(overlayScope, parsed = false,
                                 processed = it.processedFrame)
                         }
@@ -193,10 +223,9 @@ class OverlayController @Inject constructor(
 
     /** The ledger row's evaluation, shared with the replays (see [RowBackedVerdict]). */
     private suspend fun evaluate(event: OfferEvent.Parsed): VerdictChipState =
-        RowBackedVerdict.evaluate(recorder, event, thresholdSnapshot()).state
+        RowBackedVerdict.evaluate(recorder, event).state
 
     private fun sessionId(event: OfferEvent.Parsed) = event.card.sessionId ?: "${event.packageName}:${event.timestampMs}"
-    private fun thresholdSnapshot() = settingsSnapshot?.effectiveThreshold ?: PlatformThreshold.DEFAULT
 
     private suspend fun render(scope: CoroutineScope, visibility: OverlayVisibility) = withContext(Dispatchers.Main.immediate) {
         if (!readiness.state.value.canRead || !readiness.state.value.captureRunning) {
@@ -208,18 +237,18 @@ class OverlayController @Inject constructor(
                 // A new session swaps content in place: the window and a still-valid position
                 // stay (no blink between back-to-back offers); only this offer's placement
                 // evidence (ceiling, anchors) starts over.
-                evaluated = false; softHidden = false
+                evaluated = false; softHidden = false; notice = visibility.notice
                 placementEvidence.reset()
                 // This offer's frames are captured under the old plate: not touchable until seen clear.
                 forcePassThrough()
-                chipState = VerdictChipState.reading(thresholdSnapshot(), settingsSnapshot?.preferredMetric ?: PreferredMetric.DEFAULT)
+                chipState = VerdictChipState.reading(settingsSnapshot?.preferredMetric ?: PreferredMetric.DEFAULT)
                 chipVisible = true
                 show(visibility.event)
             }
             is OverlayVisibility.Showing -> {
                 // Content is swapped atomically. Its measured footprint decides whether a move is
                 // needed; changing the verdict alone must not blank an already verified window.
-                chipState = visibility.state.regla; evaluated = true; chipVisible = true
+                chipState = visibility.state.regla; evaluated = true; chipVisible = true; notice = visibility.notice
                 val reveal = softHidden
                 softHidden = false
                 show(visibility.event)
@@ -251,6 +280,7 @@ class OverlayController @Inject constructor(
         if (!readiness.canRead(next.packageName) || !readiness.state.value.captureRunning) {
             diagnostic("READINESS", readinessDetails()); detach(); return
         }
+        composeView?.let { view -> windowLife?.let { watchFrames(view, it, next.card.hostGeometry?.capturedAtMs) } }
         event = next
         // Set the flag, not merely refrain from clearing it: the window may be touchable right now.
         touchVouched = !next.identityUnresolved && next.packageName == foregroundHost &&
@@ -258,6 +288,14 @@ class OverlayController @Inject constructor(
         if (!touchVouched) forcePassThrough()
         val v = readViewport()
         val rawGeometry = next.card.hostGeometry
+        keepClear = if (notice) listOfNotNull(rawGeometry?.offerCard) + next.card.instanceEvidence?.cardBands.orEmpty() else emptyList()
+        // WP-AD round 3: the capture masks the reported rect, and a stopped composition never measures again. A notice
+        // whose reported or pending footprint is near this frame's card comes down now, mask and all; a fresh window then
+        // measures against this card. A settle can only report a footprint this check or place() has seen.
+        if (notice && listOfNotNull(ScreenReaderState.overlayChipRect?.let { HostRect(it.left, it.top, it.right, it.bottom) },
+                placement?.let { it.position.bounds(it.size) }).any { OverlayPositioning.nearKeepClear(it, keepClear, v) }) {
+            diagnostic("NOTICE_NEAR_CARD"); detach("NOTICE_NEAR_CARD")
+        }
         // Age never detaches a live chip; presence and the no-frame watchdog bound it.
         val problem = OverlayPositioning.geometryProblem(rawGeometry, next.packageName, v,
             System.currentTimeMillis(), checkAge = false)
@@ -296,7 +334,13 @@ class OverlayController @Inject constructor(
             "currentIsSafe=$currentIsSafe saved=$savedPosition savedDocked=$savedDocked " +
             "decline=${g.declineControls.diagList()} latched=${evidence.latched} " +
             "touch=${current?.let { currentIsSafe && touchable(it, g) }}")
-        attach()
+        // WP-AB: a new window waits for the verdict, so its first composition is the chip it keeps. Attached at Reading,
+        // it measured "Leyendo oferta" first (571 px on the S25) and needed later frames for the verdict; one window
+        // stopped there. A window already up still swaps to Leyendo in place, so an old verdict never stays over a new
+        // offer while it is evaluated.
+        if (evaluated) attach()
+        // A visible window that has not drawn this chip yet (a new verdict, a back-to-back offer) must draw it in time.
+        if (composeView?.alpha == 1f && chipState != drawnState) armDrawCheck()
     }
 
     /**
@@ -350,6 +394,8 @@ class OverlayController @Inject constructor(
         val context = requireNotNull(overlayContext)
         val owner = OverlayLifecycleOwner().apply { onCreate() }
         lifecycleOwner = owner
+        val life = if (debugDiag) WindowLife(SystemClock.uptimeMillis(), event?.card?.hostGeometry?.capturedAtMs) else null
+        windowLife = life
         var measuredPlacement: (() -> Unit)? = null
         val view = ComposeView(context).apply {
             alpha = 0f // measure invisibly; never flash at an unsafe provisional position
@@ -361,9 +407,11 @@ class OverlayController @Inject constructor(
                     val v = viewport ?: return@KomparaTheme
                     val reduced = android.provider.Settings.Global.getFloat(context.contentResolver,
                         android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
+                    SideEffect { if (composeView === this) composedState = state; life?.composed(compositionContext as? Recomposer) }
                     MeasuredVerdictChip(state, g, v, g.capturedAtMs, savedPosition, chipVisible, reduced,
                         g.appearance == HostAppearance.DARK, VerdictChipCallbacks(::onDrag) { onDragEnd() },
-                        dock = dockRequested, savedDocked = savedDocked) { decision ->
+                        dock = dockRequested, savedDocked = savedDocked,
+                        onPresence = { if (composeView === this) presence = it }, keepClear = keepClear) { decision ->
                         // Consume this measurement at pre-draw in the SAME traversal, after layout.
                         // No window/Compose mutation during measurement and no extra posted frame.
                         val frameGeneration = generation
@@ -405,14 +453,19 @@ class OverlayController @Inject constructor(
             insets
         }
         view.viewTreeObserver.addOnPreDrawListener {
+            life?.preDrawn()
             measuredPlacement?.also { measuredPlacement = null; it() }
-            settleWindow()
+            confirmDrawn(view, settled = settleWindow())
             true
         }
         owner.onResume()
         runCatching { windowManager.addView(view, params) }.onFailure {
             diagnostic("WINDOW_UNAVAILABLE", it.javaClass.simpleName)
             detach(); record(OverlayPlacement.Unsupported("WINDOW_UNAVAILABLE"))
+        }.onSuccess {
+            // WP-AB: the same deadline from attach, so a window that stops before its first reveal does not sit
+            // attached and transparent for the whole offer. A window attached with the chip leaving has no reveal due.
+            if (chipVisible) armDrawCheck(awaitReveal = true)
         }
     }
 
@@ -423,9 +476,10 @@ class OverlayController @Inject constructor(
             is OverlayPlacement.Suppressed -> "rule=C11 cause=${decision.cause}"
             is OverlayPlacement.Unsupported -> "rule=UNSUPPORTED cause=${decision.cause}"
         })
+        windowLife?.let { it.placed++ }
         if (decision !is OverlayPlacement.Displayed) {
-            // Only if the next measurement places without the reservation is it waived.
-            val trial = if (decision is OverlayPlacement.Suppressed) placementEvidence.withoutReservation() else null
+            // Only if the next measurement places without the reservation is it waived. Never for the notice (WP-AD).
+            val trial = if (decision is OverlayPlacement.Suppressed && !notice) placementEvidence.withoutReservation() else null
             if (trial != null) { geometry = trial; return }
             record(decision); detach("PLACEMENT_${decision.javaClass.simpleName}"); return
         }
@@ -463,26 +517,39 @@ class OverlayController @Inject constructor(
                 viewport.bounds.bottom - screen.y - size.height + windowOrigin.y)
         else screen.inWindow(windowOrigin)
 
-    /** Actual location/size must agree before visibility, touch or displayed history is published. */
-    private fun settleWindow() {
-        val view = composeView ?: return
-        val params = layoutParams ?: return
-        val shown = placement ?: return
+    /**
+     * Actual location/size must agree before visibility, touch or displayed history is published. True when this
+     * traversal verified the visible window: laid out with no layout pending, at the placed size and position, valid.
+     */
+    private fun settleWindow(): Boolean {
+        val view = composeView ?: return false
+        val params = layoutParams ?: return false
+        val shown = placement ?: return false
         // Layout-change listeners run before the root's screen transform is final. Only pre-draw
         // after a completed layout may read getLocationOnScreen or reveal the chip.
-        if (!view.isLaidOut || view.isLayoutRequested) return
+        if (!view.isLaidOut || view.isLayoutRequested) return false
         if (view.width != shown.size.width || view.height != shown.size.height) {
+            val sizes = "actual=${view.width}x${view.height} expected=${shown.size.width}x${shown.size.height}"
+            val p = presence
+            if (p != null && !p.currentState && !p.targetState) {
+                // No plate: composed hidden, or its exit has ended, so it is not laid out (MeasuredVerdictChip). The
+                // window holds no chip: hidden and pass-through, with no reader mask (the exit already took its pixels
+                // off the screen), until the plate returns at the placed size or the window detaches.
+                hideUntilSettled("PLATE_ABSENT", sizes)
+                ScreenReaderState.clearOverlayChipRect()
+                return false
+            }
             // A larger phrase/limit must not paint once at the old position.
-            hideUntilSettled("SIZE_CHANGED", "actual=${view.width}x${view.height} expected=${shown.size.width}x${shown.size.height}")
-            return
+            hideUntilSettled("SIZE_CHANGED", sizes)
+            return false
         }
-        val g = geometry ?: return
-        val v = viewport ?: return
+        val g = geometry ?: return false
+        val v = viewport ?: return false
         val problem = OverlayPositioning.geometryProblem(g, event?.packageName.orEmpty(), v,
             System.currentTimeMillis(), checkAge = false)
         if (problem != null) {
             diagnostic(problem, geometryDetails(g, v))
-            detach(problem); return
+            detach(problem); return false
         }
         val location = IntArray(2); view.getLocationOnScreen(location)
         val actual = OverlayPosition(location[0], location[1])
@@ -498,13 +565,13 @@ class OverlayController @Inject constructor(
             runCatching { windowManager.updateViewLayout(view, params) }.onFailure {
                 diagnostic("WINDOW_UPDATE_FAILED", it.javaClass.simpleName); detach()
             }
-            return
+            return false
         }
         if (!OverlayPositioning.valid(actual, shown.size, g, v, shown.overMarker, shown.docked, kept = true)) {
-            hideUntilSettled("SUPPRESSED_OCCLUSION", geometryDetails(g, v)); return
+            hideUntilSettled("SUPPRESSED_OCCLUSION", geometryDetails(g, v)); return false
         }
         // A soft-hidden chip stays settled but invisible until the next parsed frame.
-        if (softHidden) return
+        if (softHidden) return false
         // 0.2.17 (user decision 2026-11-07, "only in a clear slot"): draggable only in a strict tier
         // over no host control or soft chrome; docked or over host chrome, taps pass through.
         // 0.2.18: never on Uber; on DiDi only on a fresh frame of the current foreground with a settled
@@ -513,20 +580,143 @@ class OverlayController @Inject constructor(
         if (debugDiag && view.alpha != 1f) Log.d(TAG, "TEMP DIAG window reveal rect=${actual.bounds(shown.size).diag()} " +
             "touch=$touchable decline=${g.declineControls.diagList()} latched=$latchedDeclines")
         revealedRect = actual.bounds(shown.size)
+        val revealing = view.alpha != 1f
         view.alpha = 1f
+        // Revealed: an attach's deadline (same time) now asks what any reveal's does, counting pre-draws from here.
+        if (revealing && drawCheckAwaitsReveal) { drawCheckAwaitsReveal = false; preDrawsSinceArm = 0 }
+        if (revealing) armDrawCheck()
         val untouchable = params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE != 0
         if (untouchable == touchable) {
             params.flags = if (touchable) params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
                 else params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
             if (debugDiag) Log.d(TAG, "TEMP DIAG window touch=$touchable rect=${revealedRect?.diag()}")
+            // A flags-only update: it requests layout again, but this traversal already verified what it draws.
             runCatching { windowManager.updateViewLayout(view, params) }.onFailure {
-                diagnostic("WINDOW_UPDATE_FAILED", it.javaClass.simpleName); detach(); return
+                diagnostic("WINDOW_UPDATE_FAILED", it.javaClass.simpleName); detach(); return false
             }
         }
         val rect = actual.bounds(shown.size)
+        // The mask goes up with the reveal: the plate may be on screen from this frame on. It comes down with the
+        // window if this frame never draws it (armDrawCheck). Displayed history waits for the drawn plate.
         ScreenReaderState.setOverlayChipRect(ScreenRect(rect.left, rect.top, rect.right, rect.bottom))
-        record(shown)
+        if (drawCheck == null && drawnState == chipState) record(shown)
+        return true
     }
+
+    /**
+     * Arms the deadline for this window to show what the controller now holds: the plate fully present with the
+     * current chip after a reveal or a content change, or no plate after a hide. Only a later pre-draw of this
+     * window can meet it ([confirmDrawn]); a window that draws no further frame is taken down when it lapses, so
+     * the frame line, the reader's mask and displayed history never outlive the ink, and never keep an old verdict
+     * over a new offer. The next frame attaches a fresh window. One deadline at a time: later frames never extend it.
+     * [awaitReveal] (WP-AB, from attach): only the window's revealed, drawn chip meets it, not a hidden pre-draw, so a
+     * window that stops before its first reveal is replaced too; its line says `revealed=false`.
+     */
+    private fun armDrawCheck(awaitReveal: Boolean = false) {
+        val view = composeView ?: return
+        if (drawCheck != null) return
+        preDrawsSinceArm = 0
+        drawCheckAwaitsReveal = awaitReveal
+        val armed = generation
+        val check = Runnable {
+            if (composeView !== view || generation != armed) return@Runnable
+            drawCheck = null
+            drawCheckAwaitsReveal = false
+            val p = presence
+            val details = "revealed=${revealedRect != null} alpha=${view.alpha} presence=${p?.currentState}/${p?.isIdle} " +
+                "composed=${composedState == chipState} preDraws=$preDrawsSinceArm recomposer=${recomposerState(view)}"
+            diagnostic("UNDRAWN", details)
+            if (debugDiag) Log.d(TAG, "TEMP DIAG window undrawn rect=${revealedRect?.diag()} $details ${windowState(view)}")
+            detach("UNDRAWN")
+        }
+        drawCheck = check
+        mainHandler.postDelayed(check, drawConfirmMs())
+    }
+
+    /**
+     * Pre-draw: this traversal draws the window as the controller holds it. A visible window counts only when
+     * [settled] (settleWindow verified it this traversal), not by a pending-layout check: settleWindow's own
+     * flags-only touch update requests layout after verifying, and a DiDi drag repeats it on every frame.
+     */
+    private fun confirmDrawn(view: ComposeView, settled: Boolean) {
+        if (drawCheck == null || composeView !== view) return
+        preDrawsSinceArm++
+        val visible = view.alpha == 1f
+        if (visible) {
+            val p = presence
+            if (!settled || p == null || !p.isIdle || !p.currentState || composedState != chipState) return
+            drawnState = chipState
+        } else if (drawCheckAwaitsReveal) return
+        disarmDrawCheck()
+        if (!visible) return
+        if (debugDiag) Log.d(TAG, "TEMP DIAG window drawn rect=${revealedRect?.diag()} preDraws=$preDrawsSinceArm")
+        placement?.let(::record)
+    }
+
+    private fun disarmDrawCheck() {
+        drawCheck?.let(mainHandler::removeCallbacks)
+        drawCheck = null
+        drawCheckAwaitsReveal = false
+    }
+
+    /** The plate's own entrance ([ReglaMotion.enterMs] at the system's animator scale) plus a margin under one capture. */
+    private fun drawConfirmMs(): Long {
+        val scale = overlayContext?.let { android.provider.Settings.Global.getFloat(it.contentResolver,
+            android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) } ?: 1f
+        return DRAW_CONFIRM_MS + (ReglaMotion.enterMs(scale == 0f) * scale).toLong()
+    }
+
+    /**
+     * TEMP DIAG (WP-AB): every captured frame writes new geometry, so a revealed window that still runs re-measures,
+     * and pre-draws, before the next one. A captured frame that finds no pre-draw since the previous one suspects a
+     * stop and probes this window, once. Reading and Showing of one capture are one frame.
+     */
+    private fun watchFrames(view: ComposeView, life: WindowLife, capturedAtMs: Long?) {
+        if (capturedAtMs == null || capturedAtMs == life.frameAt) return
+        val stopped = life.frameAt != null && view.alpha == 1f && life.preDraws == life.preDrawsAtFrame
+        life.frameAt = capturedAtMs; life.preDrawsAtFrame = life.preDraws
+        if (stopped && !life.probed) probeStall(view, life)
+    }
+
+    /**
+     * TEMP DIAG (WP-AB): which of three things still work for a window suspected of having stopped, reported once,
+     * [STALL_PROBE_MS] later. A plain main-looper message; one Choreographer frame; and a pre-draw of this window after
+     * one invalidate. The probe observes: nothing re-posts, its callbacks are removed at the report, and the window's
+     * state in the line is read when the stop is suspected. The invalidate is part of the measurement: it is the one
+     * traversal request whose pre-draw the probe waits for, and the only thing it does to the window.
+     */
+    private fun probeStall(view: ComposeView, life: WindowLife) {
+        life.probed = true
+        val rect = revealedRect?.diag()
+        val state = "recomposer=${recomposerState(view)} ${windowState(view)}"
+        val preDraws = life.preDraws
+        val compositions = life.compositions
+        var handler = false
+        var choreographer = false
+        // A plain message, as most main-thread work is: a traversal barrier that is never lifted holds it back.
+        val message = Runnable { handler = true }
+        val frame = Choreographer.FrameCallback { choreographer = true }
+        mainHandler.post(message)
+        Choreographer.getInstance().postFrameCallback(frame)
+        view.invalidate()
+        val report = Runnable {
+            mainHandler.removeCallbacks(message)
+            Choreographer.getInstance().removeFrameCallback(frame)
+            Log.d(TAG, "TEMP DIAG window stall rect=$rect handler=$handler choreographer=$choreographer " +
+                "invalidatePreDraw=${life.preDraws > preDraws} recomposed=${life.compositions > compositions} $state " +
+                "kept=${composeView === view}")
+        }
+        // Asynchronous, so a barrier that holds back the plain message cannot also hold back the report.
+        mainHandler.sendMessageDelayed(Message.obtain(mainHandler, report).apply { isAsynchronous = true }, STALL_PROBE_MS)
+    }
+
+    /** The window's recomposer state; in debuggable builds also after Compose unset a recomposer that shut down. */
+    private fun recomposerState(view: ComposeView) =
+        ((view.compositionContext as? Recomposer) ?: windowLife?.recomposer)?.currentState?.value
+
+    /** TEMP DIAG: what Android says of this window (its lifecycle owner is the attached window's). */
+    private fun windowState(view: ComposeView) = "lifecycle=${lifecycleOwner?.lifecycle?.currentState} " +
+        "attached=${view.isAttachedToWindow} windowVisibility=${view.windowVisibility} shown=${view.isShown}"
 
     private fun touchable(shown: OverlayPlacement.Displayed, g: HostGeometry) =
         OverlayPositioning.touchable(shown, g, mayTakeTouches(shown.position.bounds(shown.size)))
@@ -542,6 +732,7 @@ class OverlayController @Inject constructor(
             is OverlayPlacement.Displayed -> Unit
         }
         if (!evaluated) return // Leyendo is transitional, never evidence that the judged offer was seen.
+        if (notice) return // WP-AD: the unread notice is no offer; nothing was presented to the ledger.
         val current = event ?: return
         val rated = chipState?.band is ReglaBand.Rated
         val key = Triple(sessionId(current), decision, rated)
@@ -553,8 +744,11 @@ class OverlayController @Inject constructor(
 
     private fun hideUntilSettled(reason: String = "LAYOUT_PENDING", details: String = "") {
         if (event != null) diagnostic(reason, details)
-        if (debugDiag && composeView?.alpha == 1f) Log.d(TAG, "TEMP DIAG window hide reason=$reason rect=${revealedRect?.diag()}")
+        val visible = composeView?.alpha == 1f
+        if (debugDiag && visible) Log.d(TAG, "TEMP DIAG window hide reason=$reason rect=${revealedRect?.diag()}")
         composeView?.alpha = 0f
+        // A hide is a claim too: only a later traversal takes the plate off the screen.
+        if (visible) armDrawCheck()
         forcePassThrough()
         // Keep the last visible footprint masked until the window settles or detaches. The
         // compositor may still contain those pixels while the transparent update is in flight.
@@ -573,11 +767,16 @@ class OverlayController @Inject constructor(
 
     private fun detach(reason: String = "") {
         generation++
-        if (debugDiag && composeView != null) Log.d(TAG, "TEMP DIAG window detach reason=$reason rect=${revealedRect?.diag()}")
+        if (debugDiag && composeView != null) {
+            Log.d(TAG, "TEMP DIAG window detach reason=$reason rect=${revealedRect?.diag()}")
+            windowLife?.let { Log.d(TAG, "TEMP DIAG window life ${it.line(SystemClock.uptimeMillis())}") }
+        }
+        windowLife = null
         revealedRect = null
         composeView?.let { runCatching { windowManager.removeView(it) } }
         lifecycleOwner?.onDestroy()
         composeView = null; lifecycleOwner = null; layoutParams = null; placement = null
+        disarmDrawCheck(); presence = null; composedState = null; drawnState = null
         ScreenReaderState.clearOverlayChipRect()
     }
 
@@ -788,6 +987,43 @@ class OverlayController @Inject constructor(
         const val FRAME_SILENCE_MS = 3_000L
         /** Main's ceiling without a successful parse: the window detaches. */
         const val PARSE_CEILING_MS = 15_000L
+        /**
+         * WP-AA: after the plate's entrance, how long a revealed, re-verdicted or hidden window has to draw that
+         * state before it is taken down. Below the S25's ~0.9 s capture gap less the ~70 ms to a reveal, so the next
+         * frame line never claims a chip this window did not draw.
+         */
+        const val DRAW_CONFIRM_MS = 400L
+        /** TEMP DIAG (WP-AB): how long a stall probe waits for its three checks. */
+        const val STALL_PROBE_MS = 500L
+    }
+
+    /**
+     * TEMP DIAG (WP-AB): one chip window's life on the uptime clock, logged at its detach, so a window that stopped
+     * shows it even while its chip was visible. [frameAt] is the last captured frame shown on it and [preDrawsAtFrame]
+     * its pre-draw count then ([watchFrames]).
+     */
+    private class WindowLife(private val attachedAtMs: Long, var frameAt: Long?) {
+        var preDraws = 0
+        private var lastPreDrawAtMs = -1L
+        var compositions = 0
+        private var lastCompositionAtMs = -1L
+        var placed = 0
+        var preDrawsAtFrame = 0
+        var probed = false
+        /** The window's recomposer, kept: Compose unsets it from the window once it shuts down. */
+        var recomposer: Recomposer? = null
+
+        fun preDrawn() { preDraws++; lastPreDrawAtMs = SystemClock.uptimeMillis() }
+        fun composed(by: Recomposer?) {
+            compositions++; lastCompositionAtMs = SystemClock.uptimeMillis()
+            if (by != null) recomposer = by
+        }
+
+        /** `-1` for a pre-draw or composition the window never had. */
+        fun line(nowMs: Long) = "ms=${nowMs - attachedAtMs} preDraws=$preDraws compositions=$compositions " +
+            "lastPreDrawMsAgo=${ago(lastPreDrawAtMs, nowMs)} lastCompositionMsAgo=${ago(lastCompositionAtMs, nowMs)} placed=$placed"
+
+        private fun ago(atMs: Long, nowMs: Long) = if (atMs < 0) -1 else nowMs - atMs
     }
 }
 

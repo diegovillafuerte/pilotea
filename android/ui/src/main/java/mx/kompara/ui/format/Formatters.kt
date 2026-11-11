@@ -48,11 +48,6 @@ object Formatters {
     fun unbroken(value: String): String = value.replace(WORD_JOINER, "")
         .replace(" ", NBSP).replace("/", WORD_JOINER + "/" + WORD_JOINER)
 
-    /** Km limits retain two decimals; saved hourly cents must survive outside the editor too. */
-    fun formatLimit(value: java.math.BigDecimal, perHour: Boolean = false): String =
-        if (perHour) (if (value.stripTrailingZeros().scale() > 0) formatMxn(value) else formatMxnWhole(value)) + "/h"
-        else formatPerKm(value)
-
     fun formatDuration(minutes: Long): String {
         require(minutes >= 0)
         return unbroken(if (minutes < 60) "$minutes min" else "${minutes / 60} h ${minutes % 60} min")
@@ -60,7 +55,7 @@ object Formatters {
 
     /** A relative money label always dates its evidence, including across year boundaries. */
     fun formatDatedRelativeLabel(date: LocalDate, today: LocalDate): String {
-        val dated = date.format(DateTimeFormatter.ofPattern(if (date.year == today.year) "EEEE d MMM" else "EEEE d MMM yyyy", MX))
+        val dated = date.format(spanishDate(if (date.year == today.year) "EEEE d MMM" else "EEEE d MMM yyyy"))
         return when (date) {
             today -> "Hoy, $dated"
             today.minusDays(1) -> "Ayer, $dated"
@@ -137,15 +132,25 @@ object Formatters {
     }
 
     /** The kit's 24-hour clock, without a leading hour zero, in the evidence's time zone. */
+    /** The semáforo's "desde …" line, one format on every screen: "desde 13:02", "desde ayer 20:31", "desde el sáb 17 oct, 20:31". */
+    fun formatSince(epochMs: Long, today: LocalDate, zone: java.time.ZoneId): String {
+        val clock = formatClock(epochMs, zone)
+        return "desde " + when (val date = java.time.Instant.ofEpochMilli(epochMs).atZone(zone).toLocalDate()) {
+            today -> clock
+            today.minusDays(1) -> "ayer $clock"
+            else -> "el ${date.format(DAY_LABEL)}, $clock"
+        }
+    }
+
     fun formatClock(epochMs: Long, zone: java.time.ZoneId = java.time.ZoneId.systemDefault()): String =
         java.time.Instant.ofEpochMilli(epochMs)
             .atZone(zone)
             .format(CLOCK)
 
     private val ISO: DateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE
-    private val DAY_LABEL: DateTimeFormatter = DateTimeFormatter.ofPattern("EEE d MMM", MX)
-    private val WEEK_LABEL: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM", MX)
-    private val MONTH_ABBREV: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM", MX)
+    private val DAY_LABEL: DateTimeFormatter = spanishDate("EEE d MMM")
+    private val WEEK_LABEL: DateTimeFormatter = spanishDate("d MMM")
+    private val MONTH_ABBREV: DateTimeFormatter = spanishDate("MMM")
     private val MONTH_YEAR: DateTimeFormatter = DateTimeFormatter.ofPattern("MMMM yyyy", MX)
     private val WEEKDAY: DateTimeFormatter = DateTimeFormatter.ofPattern("EEEE", MX)
     private val CLOCK: DateTimeFormatter = DateTimeFormatter.ofPattern("H:mm", MX)

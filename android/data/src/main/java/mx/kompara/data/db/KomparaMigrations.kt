@@ -198,5 +198,18 @@ object KomparaMigrations {
         }
     }
 
-    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
+    /**
+     * v10 (v4 launch): every judged offer so far was judged NET, so its frozen evaluation records
+     * NET; a row without an evaluation stays all-null (Room reads it as no evaluation). Adds the
+     * driver-typed `monthly_incentives` table. Nothing existing is rewritten otherwise.
+     */
+    val MIGRATION_9_10 = object : Migration(9, 10) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE `offers` ADD COLUMN `evaluation_rateBasis` TEXT")
+            db.execSQL("UPDATE `offers` SET `evaluation_rateBasis` = 'NET' WHERE `evaluation_evaluatedAt` IS NOT NULL OR `evaluation_unit` IS NOT NULL")
+            db.execSQL("CREATE TABLE IF NOT EXISTS `monthly_incentives` (`platform` TEXT NOT NULL, `month` TEXT NOT NULL, `amountMxn` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`platform`, `month`))")
+        }
+    }
+
+    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
 }

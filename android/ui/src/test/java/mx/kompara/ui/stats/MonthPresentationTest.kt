@@ -25,7 +25,6 @@ class MonthPresentationTest {
         assertEquals(155, month.money.trips)
         assertTrue(month.quietLine.contains("(1 en curso)"))
         assertEquals(listOf("$1,417", "$4,747", "$4,980", "$548"), month.bars.map { it.display })
-        assertEquals("4 de 7 días del coche", month.weekNote(month.weeks.first()))
         assertEquals(19, month.money.carCharges.size)
         assertNull(month.roundingNote)
         assertEquals(listOf("$20,429", "−$4,666", "−$4,071", "$11,692"), monthCalculation(month).rows.map { it.value })

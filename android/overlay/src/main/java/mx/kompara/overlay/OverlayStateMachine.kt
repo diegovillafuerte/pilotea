@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.transformLatest
 import mx.kompara.capture.OfferEvent
+import mx.kompara.data.settings.PreferredMetric
 import mx.kompara.ui.components.ReglaMotion
 
 sealed interface OverlayVisibility {
@@ -17,9 +18,13 @@ sealed interface OverlayVisibility {
      * verdict, session and position. The next Parsed of the same session reveals it again.
      */
     data object SoftHidden : OverlayVisibility
-    /** Clear the prior offer before any suspendable evaluation/persistence. */
-    data class Reading(val offerKey: String, val event: OfferEvent.Parsed) : OverlayVisibility
-    data class Showing(val state: VerdictChipState, val offerKey: String, val event: OfferEvent.Parsed) : OverlayVisibility
+    /**
+     * Clear the prior offer before any suspendable evaluation/persistence. [notice] (WP-AD): the reader's unread
+     * notice, not an offer; [event] is then its placement (the stripped card, identity-unresolved), never evaluated.
+     */
+    data class Reading(val offerKey: String, val event: OfferEvent.Parsed, val notice: Boolean = false) : OverlayVisibility
+    data class Showing(val state: VerdictChipState, val offerKey: String, val event: OfferEvent.Parsed,
+        val notice: Boolean = false) : OverlayVisibility
     /** Same-offer absence has survived the grace; fade before detaching the window. */
     data object Exiting : OverlayVisibility
 }
@@ -27,6 +32,8 @@ sealed interface OverlayVisibility {
 /** Same-offer reparses swap atomically; a new session/host can never inherit an old judgement. */
 class OverlayStateMachine(
     private val graceMs: Long = DEFAULT_GRACE_MS,
+    /** The driver's unit for the unread notice's pill (WP-AD); an offer's verdict carries its row's own. */
+    private val preferred: () -> PreferredMetric = { PreferredMetric.DEFAULT },
     private val evaluate: suspend (OfferEvent.Parsed) -> VerdictChipState,
 ) {
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -56,6 +63,19 @@ class OverlayStateMachine(
                         emit(OverlayVisibility.Showing(evaluate(event), next, event))
                     }
                     is OfferEvent.LayoutUncertain -> Unit
+                    is OfferEvent.Unreadable -> {
+                        // WP-AD: a notice under its own key, one per host, never a session's. Its pill is built
+                        // here, never by [evaluate] (no ledger row); as an identity-unresolved placement it takes
+                        // no touch. A Parsed that follows swaps in place under its own key.
+                        val next = "${event.packageName}:$UNREAD_KEY"
+                        val placement = OfferEvent.Parsed(event.packageName, event.timestampMs, event.card, identityUnresolved = true)
+                        if (key != next) {
+                            key = next
+                            host = event.packageName
+                            emit(OverlayVisibility.Reading(next, placement, notice = true))
+                        }
+                        emit(OverlayVisibility.Showing(VerdictChipState.unread(preferred()), next, placement, notice = true))
+                    }
                     is OfferEvent.NoCard -> {
                         if (event.packageName != host || event.reason in setOf(OfferEvent.Reason.NO_SPEC,
                                 OfferEvent.Reason.CONFIRMED_ABSENCE, OfferEvent.Reason.NOT_VISIBLE)) {
@@ -89,5 +109,9 @@ class OverlayStateMachine(
             .collect { emit(it) }
     }
 
-    companion object { const val DEFAULT_GRACE_MS: Long = 500L }
+    companion object {
+        const val DEFAULT_GRACE_MS: Long = 500L
+        /** WP-AD: the unread notice's key suffix; a session key is its UUID (or start time, or fare). */
+        private const val UNREAD_KEY = "unread"
+    }
 }

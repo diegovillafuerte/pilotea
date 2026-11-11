@@ -1,0 +1,7 @@
+Read-only reference for the v4 launch set (docs/v4-simple-launch-plan.md).
+Source: /Users/panama/pilotea/design-system/ui_kits/android-app-v4/ (fixture.json, _frame-contract.md)
+Copied 2026-11-09. The kit is untracked in the main checkout, on branch docs/ux-elevation-v3; these
+copies are the pinned version the tests read. Copied for debug/test only; never seed production data.
+
+sha256  fixture.json        94b7e8f03ead97030b15eae5a0928db99b09386f947a51a25e17534b06b253b9
+sha256  _frame-contract.md  0c24953a06c77e2f62462f8cd5a3db34fe65bb1d69eb71719421acb2e919f8e7

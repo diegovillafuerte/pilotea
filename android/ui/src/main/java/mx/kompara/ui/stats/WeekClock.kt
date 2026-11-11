@@ -45,14 +45,6 @@ class WeekClock(val zone: ZoneId) {
     /** ISO date (yyyy-MM-dd) of the local day [epochMs] falls in. */
     fun dayIso(epochMs: Long): String = localDate(epochMs).format(ISO_DATE)
 
-    /** Epoch millis at the start of the local day [dayIso] (yyyy-MM-dd). */
-    fun dayStartMs(dayIso: String): Long =
-        LocalDate.parse(dayIso, ISO_DATE).atStartOfDay(zone).toInstant().toEpochMilli()
-
-    /** Epoch millis at the start of the day *after* [dayIso] — the exclusive end of the day window. */
-    fun dayEndMs(dayIso: String): Long =
-        LocalDate.parse(dayIso, ISO_DATE).plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
-
     private fun localDate(epochMs: Long): LocalDate =
         Instant.ofEpochMilli(epochMs).atZone(zone).toLocalDate()
 

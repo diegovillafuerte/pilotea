@@ -248,4 +248,50 @@ class OverlayPositioningTest {
             }
         }
     }
+
+    // WP-AD round 2: the unread notice's keep-clear rects (its card envelope and bands).
+    private fun notice(g: HostGeometry, keepClear: List<HostRect>, dock: Boolean = true) =
+        OverlayPositioning.place(g, "uber", viewport, 1000, full, compact, dock = dock, keepClear = keepClear)
+
+    @Test fun `with nothing to keep clear placement is exactly the ordinary one`() {
+        for (g in listOf(geometry(), geometry(top = 300), geometry(markers = listOf(marker(MapMarkerKind.PICKUP, 250.0, 380.0, 300.0, 430.0))))) {
+            for (dock in listOf(false, true)) assertEquals(OverlayPositioning.place(g, "uber", viewport, 1000, full, compact, dock = dock),
+                notice(g, emptyList(), dock))
+        }
+    }
+
+    @Test fun `a slot whose mask would touch a kept-clear rect gives way to the next slot of its tier`() {
+        val g = geometry()
+        assertEquals(OverlayPosition(282, 288), (notice(g, emptyList()) as OverlayPlacement.Displayed).position)
+        val moved = notice(g, listOf(HostRect(600, 300, 786, 400))) as OverlayPlacement.Displayed
+        assertEquals("The left dock slot instead", OverlayPosition(24, 288), moved.position)
+        assertEquals(PlacementRule.DOCK, moved.rule)
+        // The strict foot is already clear of the card it sits above.
+        val foot = notice(g, listOf(g.offerCard), dock = false) as OverlayPlacement.Displayed
+        assertEquals(shown(g), foot)
+    }
+
+    @Test fun `the keep-clear distance is the capture's mask margin plus the OCR-jitter allowance, and with no clear slot the notice is not placed`() {
+        assertEquals(8, mx.kompara.data.service.ScreenReaderState.CHIP_MASK_MARGIN_PX)
+        val distance = 8 + viewport.dp(PlacementEvidence.CEILING_JITTER_DP)
+        assertEquals("16 px at this viewport's density 2", 16, distance)
+        val g = geometry()
+        // The right dock slot spans y 288-512 with the full plate, 288-448 with the compact one.
+        fun below(top: Int) = notice(g, listOf(HostRect(282, top, 762, 600)))
+        assertEquals("Exactly the distance away: clear", OverlayPlacement.Displayed(OverlayPosition(282, 288), full, PlateFormat.FULL,
+            rule = PlacementRule.DOCK), below(512 + distance))
+        assertEquals("One pixel closer: the compact plate", OverlayPlacement.Displayed(OverlayPosition(282, 288),
+            compact, PlateFormat.COMPACT, rule = PlacementRule.DOCK), below(512 + distance - 1))
+        assertEquals(PlateFormat.COMPACT, (below(448 + distance) as OverlayPlacement.Displayed).format)
+        assertEquals("One pixel closer than the compact plate's distance: no slot of the dock is clear",
+            OverlayPlacement.Suppressed(OverlayPositioning.CARD_KEEP_CLEAR), below(448 + distance - 1))
+        assertEquals("Not even a strict slot", OverlayPlacement.Suppressed(OverlayPositioning.CARD_KEEP_CLEAR),
+            notice(g, listOf(viewport.bounds), dock = false))
+        // Where nothing fits anyway the ordinary cause stands.
+        val cramped = geometry(top = 140)
+        assertEquals(OverlayPlacement.Suppressed("NO_SAFE_SPACE"), notice(cramped, listOf(viewport.bounds)))
+        assertEquals(OverlayPositioning.place(cramped, "uber", viewport, 1000, full, compact, dock = true),
+            notice(cramped, listOf(viewport.bounds)))
+    }
+
 }

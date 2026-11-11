@@ -123,6 +123,8 @@ subprojects {
     tasks.withType<Test>().configureEach {
         systemProperty("user.home", testHome.absolutePath)
         doFirst { testHome.mkdirs() }
+        // A failed test prints its assertion message, so a red CI run can be read from its log.
+        testLogging { exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL }
     }
 
     tasks.matching { it.name == "check" }.configureEach { dependsOn(verifyReadOnlyCapture) }

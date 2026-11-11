@@ -10,12 +10,14 @@ import kotlinx.coroutines.test.*
 import mx.kompara.data.service.*
 import mx.kompara.data.settings.SettingsRepository
 import mx.kompara.ui.onboarding.ServiceWatchdog
+import mx.kompara.ui.onboarding.WatchdogState
 import org.junit.*
 import org.junit.Assert.*
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.Shadows.shadowOf
+import org.robolectric.shadows.ShadowBuild
 import java.time.*
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -64,8 +66,21 @@ class IncidentDeliveryTest {
         restarted.observeEnvironment(true, true); runCurrent()
         assertTrue(shadowOf(manager).allNotifications.isEmpty())
         assertEquals(ReaderPhase.PREPARED, restarted.state.value.phase)
-        assertEquals("inicio", NoticeNavigation.destination(NoticeTarget.parse(staleTap.data)!!))
+        assertEquals("ganancias", NoticeNavigation.destination(NoticeTarget.parse(staleTap.data)!!))
         assertNull(restarted.state.value.incident)
+    }
+    @Test fun `a phone that can pause the reader posts no notice while the reader is on`() = runTest {
+        settings.setOnboardingCompleted(true)
+        ShadowBuild.setManufacturer("samsung") // Not exempt from battery optimization: Robolectric's default.
+        val reader = ReaderReadinessRepository(store, clock)
+        reader.supportedApps(setOf(ReaderReadinessReducer.UBER)); reader.bound(); reader.captureRunning(true)
+        reader.observeEnvironment(true, ReaderDeviceEnvironment.batteryRestricted(context))
+        reader.readOffer(ReaderReadinessReducer.UBER, "offer", now, reader.captureToken())
+        assertEquals(ReaderPhase.ATTENTION, reader.state.value.phase)
+        val watchdog = watchdog(reader)
+        watchdog.start(backgroundScope); runCurrent(); advanceTimeBy(5001); runCurrent()
+        assertTrue(shadowOf(manager).allNotifications.isEmpty())
+        assertEquals(WatchdogState.HEALTHY, watchdog.bannerState.value)
     }
     @Test fun `Android denial is not delivered and permission return retries same unresolved incident`() = runTest {
         settings.setOnboardingCompleted(true)

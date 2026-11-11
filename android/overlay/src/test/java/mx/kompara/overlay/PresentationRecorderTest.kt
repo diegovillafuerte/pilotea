@@ -9,7 +9,6 @@ import org.junit.Test
 class PresentationRecorderTest {
     private class Dao : OfferPresentationDao {
         val rows = mutableMapOf<String,OfferPresentationEntity>()
-        override fun observeSuppressedOffers(from: Long, until: Long) = kotlinx.coroutines.flow.flowOf(emptyList<mx.kompara.data.db.dao.SuppressedOffer>())
         override fun observeSuppressedCount(from: Long, until: Long) = kotlinx.coroutines.flow.flowOf(rows.values.count { it.outcome == "SUPPRESSED" })
         var writes = 0
         override suspend fun record(presentation: OfferPresentationEntity) { rows[presentation.sessionId]=presentation; writes++ }

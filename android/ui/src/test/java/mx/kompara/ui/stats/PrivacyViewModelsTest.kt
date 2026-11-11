@@ -145,7 +145,8 @@ class PrivacyViewModelsTest {
         eraser.erase()
         assertNull(db.offerDao().findById(id)); assertEquals(0, db.openHelper.readableDatabase.query("SELECT count(*) FROM trips").use { it.moveToFirst(); it.getInt(0) })
         assertEquals(token, auth.currentToken()); assertEquals(rule, settings.settings.first().threshold)
-        assertFalse(export.exists()); assertTrue(reader.state.value.paused); assertFalse(reader.canRead(token = oldGeneration))
+        // The erase leaves the reader as it was (no resume control in the launch set) but drops queued reads.
+        assertFalse(export.exists()); assertFalse(reader.state.value.paused); assertFalse(reader.canRead(token = oldGeneration))
         assertNull(reader.state.value.apps[ReaderReadinessReducer.UBER]?.lastReadAt)
         assertTrue(db.costProfileDao().observeVersions().first().isNotEmpty()); assertEquals(0, deletes)
     }
@@ -193,10 +194,18 @@ class PrivacyViewModelsTest {
         assertEquals(City.CDMX, settings.currentCity()); assertEquals(rule, settings.settings.first().threshold)
         profileFailure = false; city = "monterrey"; vm.chooseCity(City.MONTERREY)
         vm.state.await { it.pendingCity != null }; vm.confirmCity(); vm.state.await { it.city == City.MONTERREY && !it.busy }
-        assertEquals(rule, settings.settings.first().threshold); assertNull(vm.state.value.suggestedGoal)
+        assertEquals(rule, settings.settings.first().threshold)
         assertEquals("elegida por ti", vm.state.value.citySource)
         val recreated = AccountViewModel(auth, settings, SavedStateHandle()); observe(recreated, recreated.state)
         assertEquals(City.MONTERREY, recreated.state.await { it.loaded }.city)
+    }
+    @Test fun `the city confirmation says the city changes and prints the limits with their unit and basis`() = runBlocking {
+        seed()
+        settings.saveLimits(PlatformThreshold(11.0, 280.0, 9.0, 230.0), PreferredMetric.IPH, RateBasis.GROSS)
+        val vm = AccountViewModel(auth, settings, SavedStateHandle()); observe(vm, vm.state)
+        val state = vm.state.await { it.loaded && it.limits.endsWith("bruto") }
+        assertEquals("$280 · $230 por hora, bruto", state.limits)
+        assertEquals("Tu ciudad cambia a León. Tu meta y tu mínimo siguen en $280 · $230 por hora, bruto.", cityConfirmation(state, City.LEON))
     }
     @Test fun `logout keeps history and reader available and profile draft restores`() = runBlocking {
         val id = seed()
@@ -207,30 +216,6 @@ class PrivacyViewModelsTest {
         vm.logout(); vm.state.await { it.message == "Sesión cerrada" }
         assertNotNull(db.offerDao().findById(id)); assertFalse(reader.state.value.paused)
         assertEquals(mx.kompara.ui.onboarding.RootRoute.MAIN, mx.kompara.ui.onboarding.RootRouter.route(true, false))
-    }
-    @Test fun `notification OS return never rewrites saved preferences`() = runBlocking {
-        settings.setDailySummaryEnabled(false); settings.setReaderAlertsEnabled(false)
-        val manager = context.getSystemService(android.app.NotificationManager::class.java)
-        shadowOf(manager).setNotificationsEnabled(false)
-        val vm = AvisosViewModel(settings, context); observe(vm, vm.state); vm.refreshSystem()
-        vm.state.await { it.loaded }
-        vm.set(NoticePreference.DAY, true); assertFalse(settings.settings.first().dailySummaryEnabled)
-        shadowOf(manager).setNotificationsEnabled(true); vm.refreshSystem(); vm.state.await { it.allowed }
-        assertFalse(vm.state.value.settings.dailySummaryEnabled)
-        vm.set(NoticePreference.DAY, true); vm.state.await { it.settings.dailySummaryEnabled }
-        assertFalse(settings.settings.first().readerAlertsEnabled)
-    }
-    @Test fun `channel block is visible in Avisos and cannot be bypassed by a saved switch`() = runBlocking {
-        val manager = context.getSystemService(android.app.NotificationManager::class.java)
-        manager.createNotificationChannel(android.app.NotificationChannel(mx.kompara.ui.notifications.NoticeChannels.SUMMARIES,
-            "Resúmenes", android.app.NotificationManager.IMPORTANCE_NONE))
-        val vm = AvisosViewModel(settings, context); observe(vm, vm.state); vm.refreshSystem()
-        val state = vm.state.await { it.loaded && NoticePreference.DAY in it.blocked }
-        assertTrue(state.allowed)
-        assertFalse(NoticePreference.READER in state.blocked)
-        assertTrue(state.settings.dailySummaryEnabled)
-        vm.set(NoticePreference.DAY, false)
-        assertTrue(settings.settings.first().dailySummaryEnabled)
     }
     @Test fun `free and promotional access cannot imply a Play subscription in deletion copy`() {
         assertFalse(deletionBody(false).contains("Google Play"))

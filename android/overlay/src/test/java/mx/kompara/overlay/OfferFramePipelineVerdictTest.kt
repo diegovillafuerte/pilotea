@@ -69,7 +69,7 @@ class OfferFramePipelineVerdictTest {
                     rowAgreement.check(event)
                     NetProfitEngine().evaluate(OfferMapping.toTripOffer(event.card), "2.84".toBigDecimal(),
                         limits, PreferredMetric.IPK).also { evaluated = it }
-                        .let { VerdictChipState.from(it, limits) }
+                        .let { VerdictChipState.from(it) }
                 }).visibility(OfferEventBus.events).collect { seen += it }
             }
             OfferFramePipeline().processOwnedFrame(blocks, chip, fixtureDir = null,
@@ -138,7 +138,7 @@ class OfferFramePipelineVerdictTest {
                     rowAgreement.check(event)
                 parsed += event
                 VerdictChipState.from(NetProfitEngine().evaluate(OfferMapping.toTripOffer(event.card),
-                    "2.84".toBigDecimal(), limits, PreferredMetric.IPK), limits)
+                    "2.84".toBigDecimal(), limits, PreferredMetric.IPK))
             }).visibility(OfferEventBus.events).collect { seen += it }
         }
         val full = priority147()
@@ -156,8 +156,9 @@ class OfferFramePipelineVerdictTest {
             assertEquals(parsed.first().card.sessionId, showing.event.card.sessionId)
             assertEquals(parsed.first().card.hostGeometry!!.offerCard, showing.event.card.hostGeometry!!.offerCard)
             assertEquals(start + index * 300, showing.event.card.hostGeometry!!.capturedAtMs)
+            val (full, compact) = S25ChipSizes.of(showing.state.regla) // v4: what MeasuredVerdictChip measures
             val placement = OverlayPositioning.place(showing.event.card.hostGeometry, showing.event.packageName,
-                viewport, start + index * 300, ChipSize(715, 330), ChipSize(715, 200)) as OverlayPlacement.Displayed
+                viewport, start + index * 300, full, compact) as OverlayPlacement.Displayed
             if (firstPlacement == null) firstPlacement = placement
             assertEquals(firstPlacement, placement)
             assertTrue(OverlayPositioning.valid(firstPlacement.position, firstPlacement.size,
@@ -299,7 +300,7 @@ class OfferFramePipelineVerdictTest {
         assertEquals(79.45, parsed.single().card.fare!!, 0.000001)
         val metrics = NetProfitEngine().evaluate(OfferMapping.toTripOffer(parsed.single().card),
             "2.84".toBigDecimal(), limits, PreferredMetric.IPK)
-        assertTrue(VerdictChipState.from(metrics, limits).regla.band is ReglaBand.Rated)
+        assertTrue(VerdictChipState.from(metrics).regla.band is ReglaBand.Rated)
     }
 
     @Test fun `switching hosts into a masked first frame cannot cancel the departed chip hide`() = runTest {
@@ -310,7 +311,7 @@ class OfferFramePipelineVerdictTest {
                     rowAgreement.check(event)
                 evaluated += event
                 VerdictChipState.from(NetProfitEngine().evaluate(OfferMapping.toTripOffer(event.card),
-                    "2.84".toBigDecimal(), limits, PreferredMetric.IPK), limits)
+                    "2.84".toBigDecimal(), limits, PreferredMetric.IPK))
             }).visibility(OfferEventBus.events).collect { seen += it }
         }
         val pipeline = OfferFramePipeline()
@@ -385,7 +386,7 @@ class OfferFramePipelineVerdictTest {
                     "2.84".toBigDecimal(), limits, PreferredMetric.IPK)
                 assertEquals("FARE", evaluated.verdict.unavailableReason)
                 assertEquals(ReglaUnavailable.FARE,
-                    (VerdictChipState.from(evaluated, limits).regla.band as ReglaBand.Unavailable).input)
+                    (VerdictChipState.from(evaluated).regla.band as ReglaBand.Unavailable).input)
             }
         }
     }

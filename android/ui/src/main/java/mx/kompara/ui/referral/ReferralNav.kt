@@ -5,7 +5,6 @@ import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
-import androidx.navigation.navDeepLink
 import mx.kompara.ui.nav.KomparaDestination
 
 /**
@@ -16,10 +15,11 @@ import mx.kompara.ui.nav.KomparaDestination
  * and `:billing` (the entitlement refresh), so the screen resolves its [ReferralViewModel] directly.
  * The Ajustes "Invita y gana" entry navigates here by route key.
  *
- * **Deep link:** `kompara://referral?code=XXXXXXXX` is declared here via [navDeepLink], so the system
- * routes the manifest intent (registered in the app manifest) straight to this composable. The
- * optional `code` argument is read by [ReferralViewModel] (via SavedStateHandle) and prefilled into
- * the redeem field once the driver is signed in.
+ * **No deep link after launch** (docs/v4-simple-launch-plan.md §3): 0.2.x declared
+ * `kompara://referral?code=XXXXXXXX` here with a nav deep link. Removing the manifest filter alone was not enough:
+ * the NavHost matches the launch intent's data against every nav deep link, and MainActivity is exported, so any
+ * app could have opened this screen. To bring it back, restore the `navDeepLink { uriPattern = ... }` here and the
+ * intent filter. The optional `code` argument is still read by [ReferralViewModel] (via SavedStateHandle).
  *
  * [onClose] pops back; the [navController] is threaded through so the destination can `popBackStack()`.
  */
@@ -31,11 +31,6 @@ fun NavGraphBuilder.referralDestination(navController: NavController) {
                 type = NavType.StringType
                 nullable = true
                 defaultValue = null
-            },
-        ),
-        deepLinks = listOf(
-            navDeepLink {
-                uriPattern = "kompara://referral?code={${ReferralViewModel.ARG_CODE}}"
             },
         ),
     ) {

@@ -30,7 +30,7 @@ internal fun AccountContent(state: AccountUiState, onBack: () -> Unit = {}, open
     close: () -> Unit = {}, chooseCity: (City?) -> Unit = {}, confirmCity: () -> Unit = {},
     changeName: (String) -> Unit = {}, saveName: () -> Unit = {}, logout: () -> Unit = {},
     signIn: () -> Unit = {}, help: () -> Unit = {}, retry: () -> Unit = {}, supportAvailable: Boolean = false) {
-    ScreenScaffold("Tu perfil", kind = ScreenKind.DRILL, onNavigateUp = onBack,
+    ScreenScaffold("Tu cuenta", kind = ScreenKind.DRILL, onNavigateUp = onBack,
         footer = { TextButton(if (state.phone.isNotEmpty()) ({ open("logout") }) else signIn,
             Modifier.fillMaxWidth().heightIn(min = 48.dp), enabled = state.loaded && !state.busy) {
             Text(if (state.phone.isNotEmpty()) "Cerrar sesión" else "Entrar con WhatsApp", style = KomparaType.bodyStrong, color = KomparaTheme.colors.inkSecondary)

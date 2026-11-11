@@ -1,5 +1,7 @@
 package mx.kompara.ui.onboarding
 
+import mx.kompara.data.service.OemDetector
+import mx.kompara.data.service.OemProfile
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue

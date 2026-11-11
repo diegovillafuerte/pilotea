@@ -3,8 +3,8 @@ package mx.kompara.ui.fiscal
 import mx.kompara.metrics.fiscal.FiscalMonthSummary
 import mx.kompara.metrics.fiscal.FiscalTotals
 import mx.kompara.metrics.fiscal.PlatformFiscalSummary
-import mx.kompara.metrics.imss.CoverageStatus
-import mx.kompara.metrics.imss.PlatformImssStatus
+import mx.kompara.metrics.imss.ImssApp
+import mx.kompara.metrics.imss.ImssState
 import mx.kompara.ui.format.Formatters
 
 /**
@@ -37,7 +37,7 @@ object FiscalReportComposer {
                 })
             }
             if (month.open) add("Registros hasta el " + money.window.asOf.atZone(money.window.zone)
-                .format(java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy, HH:mm", java.util.Locale.forLanguageTag("es-MX"))))
+                .format(mx.kompara.ui.format.spanishDate("d MMM yyyy, HH:mm")))
             val calculationNotes = mx.kompara.ui.stats.monthCalculation(month).notes
             if (calculationNotes.any { it.startsWith("El total se calcula") }) add("El total se calcula antes de redondear cada cifra.")
             addAll(calculationNotes.filter { it == "Con costos típicos" || it == "No conservamos tus costos de ese día" })
@@ -64,7 +64,7 @@ object FiscalReportComposer {
     fun compose(
         summary: FiscalMonthSummary,
         monthLabel: String,
-        imssStatuses: List<PlatformImssStatus>,
+        imssStatuses: List<ImssApp>,
         driverName: String?,
         generatedOnLabel: String,
         strings: ReportStrings,
@@ -109,10 +109,10 @@ object FiscalReportComposer {
      * platforms covered this month, or note none were. Pure string assembly off the same data the
      * Fiscal tab shows, so the PDF and the tab never disagree.
      */
-    private fun imssLine(statuses: List<PlatformImssStatus>, strings: ReportStrings): String {
-        val active = statuses.filter { it.netSoFarMxn > 0.0 }
+    private fun imssLine(statuses: List<ImssApp>, strings: ReportStrings): String {
+        val active = statuses.filter { it.counted.signum() > 0 }
         if (active.isEmpty()) return strings.imssNoData
-        val covered = active.filter { it.status == CoverageStatus.COVERED }.map { platformLabel(it.platform) }
+        val covered = active.filter { it.state == ImssState.OVER }.map { platformLabel(it.platform) }
         return if (covered.isEmpty()) {
             strings.imssNoneCovered
         } else {

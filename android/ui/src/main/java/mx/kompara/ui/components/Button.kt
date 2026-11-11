@@ -12,7 +12,7 @@ import androidx.compose.ui.unit.dp
 import mx.kompara.ui.theme.KomparaTheme
 import mx.kompara.ui.theme.KomparaType
 
-/** Compatibility tiers; new screens use PrimaryButton, GreyButton or ink text actions. */
+/** Compatibility tiers; new screens use PrimaryButton or ink text actions. */
 enum class ButtonVariant { PRIMARY, SECONDARY, TONAL, TEXT }
 enum class ButtonSize { MD, SM }
 
@@ -55,7 +55,3 @@ fun KomparaButton(
         Text(text, style = KomparaType.bodyStrong)
     }
 }
-
-@Composable
-fun GreyButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) =
-    KomparaButton(text, onClick, modifier, variant = ButtonVariant.TONAL, fullWidth = true, enabled = enabled)

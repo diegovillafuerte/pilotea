@@ -20,8 +20,9 @@ abstract class LocalDataDao {
     @Query("DELETE FROM import_files") abstract suspend fun importFiles()
     @Query("DELETE FROM import_statements") abstract suspend fun importStatements()
     @Query("DELETE FROM import_selections") abstract suspend fun importSelections()
+    @Query("DELETE FROM monthly_incentives") abstract suspend fun incentives()
     @Transaction open suspend fun eraseHistory() {
         importSelections(); importStatements(); importFiles(); importDrafts();
-        presentations(); offers(); trips(); shifts(); days(); weeks(); benchmarks(); counters(); reports()
+        presentations(); offers(); trips(); shifts(); days(); weeks(); benchmarks(); counters(); reports(); incentives()
     }
 }

@@ -1,16 +1,14 @@
 # V3 shared-component renders
 
-S1 owns component scenarios inspired by B1/D1 (day hero and offer rows), E1 (figure and period bars), F1 (comparison bars), G2 (controls and legend), G4 (six status glyphs and save notice), and H5 (import ledger). These are **component hosts**, not completed screen migrations. S4 adds the shared Regla scenarios below; live screen migrations and safe host placement belong to their later slices.
+S1's component gallery (`V3ComponentHost`: D1, E1, F1, G2, G4 and H5 scenes and their 24 PNGs) was retired in the v4 integration: every scene drew a v3 frame the v4 contract retired, with retired copy, and the components only it used (`PeriodHero`, `PeriodBars`, `OfferRow`, `LimitControl`, `TextTabs`, `PeriodSelector`, `GreyButton`) went with it. `V3ComponentTest` keeps its unit checks of the live components.
 
-`ui/src/debug/assets/v3/` contains the unmodified fixture and frame contract from design reference `2bb61fedd5bb63c9afc987a0add7455fbc78f5f9`. `V3Fixture` calculates displayed values from those raw inputs, with a fixed Mexico City clock. Nothing seeds a production repository. The debug Activity can be opened explicitly:
+`ui/src/debug/assets/v3/` contains the unmodified fixture and frame contract from design reference `2bb61fedd5bb63c9afc987a0add7455fbc78f5f9`. `V3Fixture` calculates displayed values from those raw inputs, with a fixed Mexico City clock. Nothing seeds a production repository. The debug Activity opens one fixture screen by intent extra (with no extra, Ganancias L1):
 
 ```sh
-adb shell am start -n mx.kompara.app/mx.kompara.ui.fixtures.V3ComponentActivity --es frame E1 --ez dark true
+adb shell am start -n mx.kompara.app/mx.kompara.ui.fixtures.V3ComponentActivity --es gananciasFrame L4 --ez dark true
 ```
 
-`V3ComponentTest` uses Compose semantics and Robolectric API 34 native graphics. It draws the Android content view to PNG (PixelCopy is not available in this JVM environment). The viewport is 393×852dp, plus a 320dp narrow case. Each scenario has day/night 1×, day 1.3×, and night 2× text. Android font scaling is applied by Compose once; labels scroll with the content. Native OS chrome is excluded rather than copied from the HTML illustration.
-
-Normal `testDebugUnitTest` compares every pixel with the reviewed PNGs in `v3/`, writes current images to `ui/build/outputs/v3-screenshots/`, and checks text overflow independently (1px tolerance for native subpixel glyph measurement). Failures point to the actual image. Baselines are declared Gradle test inputs. Explicitly regenerate only after reviewing the change:
+Normal `testDebugUnitTest` compares each render with its reviewed PNG in `v3/` (and `v4/`) by one rule, `BaselineComparison` (`android/test-support`): identical passes; otherwise any number of pixels may differ by 1 level of 255, at most 0.1 % by more and none by more than 3, which is what the software rasterizer's differences between CPUs amount to (blend rounding, antialiased edges). A one-level change over any area passes too, so record the baselines after one made on purpose. It writes current images to `ui/build/outputs/v3-screenshots/`, and checks text overflow independently (1px tolerance for native subpixel glyph measurement). Failures point to the actual image. Baselines are declared Gradle test inputs. Explicitly regenerate only after reviewing the change:
 
 ```sh
 export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
@@ -22,16 +20,16 @@ The S1 repair supplies a writable Robolectric home in `android/.gradle/test-home
 The fonts come from the Google Fonts Barlow and Barlow Semi Condensed distributions; exact download URLs, weights and SHA-256 hashes are in `android/licenses/v3-fonts.json`, alongside both OFL notices. `FontContractTest` parses OS/2 and GSUB metadata, tests native `tnum` digit advances, peso/minus and Spanish glyph coverage. The fonts use lining digits by default; `lnum` is requested alongside `tnum` and needs no substitution table. No synthetic horizontal scaling or runtime download is used. Actual mounted-device 13sp legibility is still the S21 gate (TD-044).
 
 
-## S4 — Regla
+## Regla, the v4 pill (WP-B)
 
-`ReglaTest` adds 28 component PNGs prefixed `regla_`: C1–C5/C7/C12, N8–N10, C10's 1.3× full plate, 1.3× compact, 320dp width, 2× negative, cents/hour examples, and greyscale full/compact/status-family renders. Values come from the same `V3Fixture` calculator; no host-map bitmap or production coordinate is embedded. The 393×852dp viewport isolates the component from placement (S5). At 2× the plate is 480dp wide and is inspected in a 560dp viewport; it is never shrunk to fit a narrow host. The debug host allows horizontal inspection at such sizes, not a live-placement fallback.
+`ReglaTest` records 17 component PNGs in `v4/`, named `regla_<frame>_<day|night>_393_<fontScale>` after the v4 kit's chip frames: S1–S5, S9 and S10 on a day and a dark host at 1×, S7 at 1.3×, and S5 (the tray) at 2×. Values come from `reglaFrame`, which evaluates the kit's offers with `NetProfitEngine` and `CounterOffers`; no host-map bitmap or production coordinate is embedded. The v3 plate's `regla_*` and `gallery_*` renders were retired with its frames (contract/v4/WpB.kt).
 
-Both the native overlay and existing simulator now render `ui/components/Regla`. `V3ComponentActivity --es frame C1` (or C4/C5/C12/N8/N9/N10) opens the debug component host; use Android's font setting for C10. Pure/Compose tests check pair formatting, exact measured size, phrase-first band semantics followed by real limit text, all missing-input states without trip money, long labels, atomic swaps and presence/reduced-motion behavior. The 500ms disappearance grace and 160ms exit are also checked with coroutine virtual time. Native subpixel label overflow gets the same 1px tolerance as the S1 suite.
+Pure/Compose tests check the measured sizes (56 and 90 dp × font scale; widths hug the content), every drawn word, the one accessible name per chip, which counter-offers the verdict lets the tray show, long rates growing instead of truncating, atomic swaps and presence/reduced-motion behaviour.
 
 Record only this suite after a reviewed rendering change:
 
 ```sh
-./gradlew :ui:testDebugUnitTest --tests '*Regla*Test' -Pv3.recordScreenshots=true --console=plain
+./gradlew :ui:testDebugUnitTest --tests '*ReglaTest' -Pv4.recordScreenshots=true --console=plain
 ```
 
 Software View PNGs do not certify Android's hardware shadow, mounted legibility, actual host separation or parse-to-photon latency. Those device/driver checks remain S5/S21 gates (TD-047). No device result is inferred from these screenshots.
@@ -48,45 +46,35 @@ Software View PNGs do not certify Android's hardware shadow, mounted legibility,
 The existing S1 component baselines stay unchanged. Physical permission return, notification prompts, host launch, TalkBack and process death still require the authorized-device gate (TD-049/S21).
 
 
-## S8 — Tu día and its sheets
+## v4 — Ganancias (L1–L8; replaces S8 Tu día and S9 Ganancias Semana)
 
-`DayScreenTest` renders the production list, detail and ledger contents using `DayFixture`, which reads the checked-in raw fixture and runs the shared accounting calculator. Twenty `day_*.png` baselines cover D1/D1a/D1b/N3, D2–D2e, D3/D3a, live and gray detail, 1.3× and 320dp/2×. Sheet screenshots host the actual sheet contents in a deterministic native View; interaction tests exercise `ModalBottomSheet`, its accessible dismiss action, consent, navigation and restoration. Native system Back/IME/window placement still requires authorized hardware (TD-049/S21).
-
-```sh
-./gradlew :ui:testDebugUnitTest --tests '*DayScreenTest' -Pv3.recordScreenshots=true --console=plain
-```
-
-The large-text test also scrolls a 420dp viewport to its last action, with a save snackbar in a reserved slot, and verifies the 24dp content bottom inset. Physical status bars and keyboards are not HTML replicas. All prior baseline files remain unchanged.
-
-## S9 — Ganancias Semana
-
-`WeekScreenTest` renders the production week presentation and sheet contents with `WeekFixture` and the native header/navigation. Eighteen `week_*.png` baselines cover E1/E1b–E1f/E2/E6/E7/E7b/E8/N4, 1.3× and 320dp/2×. It checks all sheet/bar doors, restored sheet identity, dated day navigation, future-step disabling, offline totals and the large-text scroll-to-total/bottom inset. Sheet edges follow measured bar/row boundaries; narrow viewports scroll their content. The E2 preview is dated 2 Nov and uses the truthful `Ver Premium` entry until S17 can support promotional trials.
+`GananciasScreenTest` renders each frame in the real shell from `GananciasFixture` (the pinned v4 fixture's 19 Oct timeline, its second-app offer and weeks, through the production calculators). Thirty-two `v4/ganancias_L*` baselines: every frame in day and night at 393dp, at 1.3× and at 320dp/2×. Each case asserts the kit's frame contract and that no text is clipped. The offer sheet (L7) and Cómo se calculó (L8) are drawn in the window over the shell; interaction tests exercise the real `ModalBottomSheet`, report consent and the cancel confirmation.
 
 ```sh
-./gradlew :ui:testDebugUnitTest --tests '*WeekScreenTest' -Pv3.recordScreenshots=true --console=plain
+./gradlew :ui:testDebugUnitTest --tests '*GananciasScreenTest' -Pv4.recordScreenshots=true --console=plain
 ```
 
-For manual debug inspection, `V3ComponentActivity` accepts `--es weekFrame E1f` (and the other S9 IDs) plus the existing `--ez dark true`; it never seeds production storage. S1 component baselines remain separate and unchanged. Actual native window/Back/TalkBack/process-death checks remain TD-049/S21.
+For manual debug inspection, `V3ComponentActivity` accepts `--es gananciasFrame L4` (L1–L8, `empty`, `short`, `stopped`) plus `--ez dark true`; it never seeds production storage.
 
-## S10 — Ganancias Mes and factual IMSS
+`ganancias_stopped_day_393_1.0` and `semaforo_stopped_day_393_1.0` (SettingsFramesTest) draw a stored pause, which only the screen-capture fallback's own "Detener" can still set below Android 11: "Detuviste el semáforo" and one button, "Encender el semáforo". The kit draws no such state.
 
-`MonthScreenTest` renders E3/E3b/E3c/E3d/D3b/E4/E5/N5 and the month picker from `MonthFixture` and the production screen/sheet components. Fifteen `month_*.png` baselines include 1.3× and 320dp/2×. It checks the sheet/ledger/IMSS doors, restored sheet identity, partial-week navigation, disabled future steps, factual-payment semantics and the official action's large-text scrolling/bottom inset. The week sheet follows the measured basis-line boundary so it cannot slice that sentence at 1.3×. All preceding baselines remain unchanged.
+## S10 — Ganancias Mes and factual IMSS (retired)
+
+Replaced in v4 by the IMSS tab (see "v4 — Comparar and IMSS" below); its `month_*.png` baselines are gone. The dormant IMSS PDF keeps its own tests: `FiscalPdfRendererTest` still writes `build/outputs/v3-screenshots/month_factual_pdf.png` from `MonthFixture`.
+
+## S11 — Comparar (retired)
+
+Replaced in v4 by Comparar · Tú and Tu ciudad's one state (see below); its `compare_*.png` baselines are gone.
+
+## v4 — Comparar and IMSS
+
+`CompararScreenTest` renders K1, K2 and Tu ciudad's "todavía no abre" state (`comparar_ciudad_*`, no kit frame) from `TuFixture`; `ImssScreenTest` renders M1–M4 from `ImssFixture`, with M3 and M4 drawing their sheet over M1. Both read the pinned `src/debug/assets/v4` kit and assert each frame's contract strings. Every state has day and night baselines at 1×, a day one at 1.3× and a night one at 320dp/2× in `snapshots/v4`.
 
 ```sh
-./gradlew :ui:testDebugUnitTest --tests '*MonthScreenTest' -Pv3.recordScreenshots=true --console=plain
+./gradlew :ui:testDebugUnitTest --tests '*CompararScreenTest' --tests '*ImssScreenTest' -Pv4.recordScreenshots=true --console=plain
 ```
 
-The debug-only `V3ComponentActivity` accepts `--es monthFrame E3d` (or another S10 ID) and `--ez dark true`. E5's labelled pending rule can only be supplied from the debug source set; it has no production route or toggle. `FiscalPdfRendererTest` additionally writes `build/outputs/v3-screenshots/month_factual_pdf.png` from the same factual lines used by the PDF export and verifies pagination. Physical Android/browser/PDF hand-offs remain TD-049/S21.
-
-## S11 — Comparar
-
-`CompareScreenTest` renders the production comparison and selector/provenance/contribution contents using `CompareFixture`. Sixteen `compare_*.png` baselines cover F1–F5/N6/N7, all five day states at 1.3× and four 320dp/2× states. Tests check context/restoration, source counts, consent independent of viewing, free own values and rank, no average leakage through bar scale or accessibility, no-cohort/unconfirmed actions and large-text scroll/insets. F3 uses `Ver Premium` until S17 has a supported promotional-trial contract.
-
-```sh
-./gradlew :ui:testDebugUnitTest --tests '*CompareScreenTest' -Pv3.recordScreenshots=true --console=plain
-```
-
-The explicit debug Activity accepts `--es compareFrame F2` (or another F/N ID), with `--ez dark true` for night. Fixture certification is supplied only in the debug source set. Current server/cache metadata is insufficient for live F2/F3; own-data F4/F5 remain available. Physical TalkBack, system Back/insets and process-death checks remain TD-049/S21.
+The explicit debug Activity accepts `--es compareFrame K1` (K2, ciudad) and `--es imssFrame M1` (M2–M4), with `--ez dark true` for night; it never seeds production storage.
 
 
 ## S12 — Limits and Semáforo

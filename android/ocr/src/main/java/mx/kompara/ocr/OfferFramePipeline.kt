@@ -57,6 +57,8 @@ class OfferFramePipeline(
     }
     private val hosts = mutableMapOf<String, HostSession>()
     private var currentHost: String? = null
+    /** WP-AD: the current host's grey unread notice; every host change passes through [onCaptureEnd]. */
+    private val notice = UnreadCardNotice()
     private val active get() = hosts.getValue(requireNotNull(currentHost))
     private val fareStabilizer get() = active.fare
     private val frameOutlierGuard get() = active.outliers
@@ -102,6 +104,8 @@ class OfferFramePipeline(
         lastCapturedAtMs = capturedAtMs
         if (readiness?.canRead(token = token) == false) {
             diagnostics.blocked("pipeline readiness/canRead false or stale capture token")
+            // The frame's host is not resolved yet; a notice can only be the current host's (every host change ends it).
+            endNotice("READINESS", hideFor = currentHost, atMs = capturedAtMs)
             return
         }
         // Monotonic clock for presence/outlier math (a wall-clock jump must not hide a live card or pin
@@ -358,6 +362,61 @@ class OfferFramePipeline(
                 )
             }
         }
+        // WP-AD: a card on screen that no frame publishes, with no session, gets the grey unread notice when
+        // [UnreadCardNotice] says so. A notice, never an offer: its card carries placement only, it mints no
+        // session, payment or row, and this frame still reaches neither the lifecycle classifier nor the ledger.
+        if (shownCard != null || parsed != null && decision == null) {
+            // A publication takes the window over in place under its own key. A host the reader may no longer read
+            // gets the hide too (round 4): a stale token can leave the overlay's own readiness gate unchanged.
+            if (shownCard != null) endNotice("PUBLISHED") else endNotice("READINESS", hideFor = hostPackage, atMs = capturedAtMs)
+        } else {
+            // A session that reached its parse ceiling with the card still there has had its 15 s. A notice still on
+            // screen then (its session never published) is retired with an event that removes it (round 5).
+            if (disappeared && signature) {
+                val onScreen = notice.state == UnreadCardNotice.State.SHOWN
+                val shownMs = notice.shownForMs(now)
+                notice.retire()
+                if (onScreen) {
+                    diagnostics.blocked("UNREAD_NOTICE_ENDED", "cause=SESSION_CEILING shownMs=$shownMs")
+                    OfferEventBus.tryEmit(OfferEvent.NoCard(hostPackage, capturedAtMs, OfferEvent.Reason.CONFIRMED_ABSENCE))
+                }
+            }
+            val unread = signature && parsed?.hostGeometry != null && decision != null && !sessions.isPresent()
+            // Round 3b: with no session the only mask is the notice's own; a masked rejection means it is in the way.
+            val masked = decision?.rejection == OcrPublicationRejectionReason.PARSED_CARD_MASKED && !sessions.isPresent()
+            val frame = when {
+                masked -> UnreadCardNotice.Frame.MASKED
+                unread -> UnreadCardNotice.Frame.UNREAD
+                signature -> UnreadCardNotice.Frame.SIGNATURE
+                clearAbsence -> UnreadCardNotice.Frame.ABSENT_CLEAR
+                selfMasked -> UnreadCardNotice.Frame.ABSENT_UNDER_CHIP
+                else -> UnreadCardNotice.Frame.ABSENT
+            }
+            val wasShown = notice.state == UnreadCardNotice.State.SHOWN
+            val shownMs = notice.shownForMs(now)
+            when (notice.onFrame(frame, now)) {
+                UnreadCardNotice.Action.SHOW -> {
+                    if (!wasShown) diagnostics.blocked("UNREAD_NOTICE_SHOWN",
+                        "frames=${notice.shownAfterFrames} spanMs=${notice.shownAfterMs}")
+                    OfferEventBus.tryEmit(OfferEvent.Unreadable(hostPackage, capturedAtMs, placementOnly(requireNotNull(parsed))))
+                }
+                UnreadCardNotice.Action.HEARTBEAT ->
+                    OfferEventBus.tryEmit(OfferEvent.LayoutUncertain(hostPackage, capturedAtMs, processedFrame = true))
+                UnreadCardNotice.Action.SOFT_HIDE ->
+                    OfferEventBus.tryEmit(OfferEvent.NoCard(hostPackage, capturedAtMs, OfferEvent.Reason.SIGNATURE_ABSENT))
+                UnreadCardNotice.Action.HIDE -> {
+                    val cause = when {
+                        notice.state == UnreadCardNotice.State.RETIRED -> "CAP"
+                        frame == UnreadCardNotice.Frame.MASKED -> "MASKED"
+                        frame == UnreadCardNotice.Frame.ABSENT_CLEAR -> "CLEAR_ABSENCE"
+                        else -> "ABSENCE"
+                    }
+                    diagnostics.blocked("UNREAD_NOTICE_ENDED", "cause=$cause shownMs=$shownMs")
+                    OfferEventBus.tryEmit(OfferEvent.NoCard(hostPackage, capturedAtMs, OfferEvent.Reason.CONFIRMED_ABSENCE))
+                }
+                UnreadCardNotice.Action.NONE -> Unit
+            }
+        }
 
         // B-039 OCR ledger: drive the trip lifecycle (offer → accept → trip → close) from the same
         // frames. Transition-deduped inside the classifier, so this is a no-op on most frames. Never
@@ -379,7 +438,8 @@ class OfferFramePipeline(
         }
 
         diagnostics.diag(frameDiagnostic(capturedAtMs, gapMs, timing, blocks.size, ownUi, signature, parsed,
-            decision, shownCard, chipRect) + " " + validationDiagnostic(parsed, guardBypassed, contradictory && shownCard != null))
+            decision, shownCard, chipRect) + " " + validationDiagnostic(parsed, guardBypassed, contradictory && shownCard != null) +
+            " notice=${notice.state.code}")
         // TEMP DIAG: record offer frames for fixture building — debug builds only (never our own
         // UI). Release builds must store NO screen content, per the Play data-safety posture. The
         // files hold real addresses: pull them to .session-captures, never into the repository.
@@ -505,11 +565,30 @@ class OfferFramePipeline(
             sessions.suspendObservation()
             lifecycleClassifier.onObservationLost(nowWallMs)?.let { OcrLifecycleBus.tryEmit(it) }
         }
+        endNotice("CAPTURE_END") // the NOT_VISIBLE above already hides it
         lastOfferKey = null
         lastOfferPackage = null
         currentHost = null
         diagnostics.endBurst()
     }
+
+    /**
+     * WP-AD: a boundary ends the unread notice and its run. Every end of a notice that was on screen leaves the overlay
+     * an event that removes it (round 4): a publication's `Parsed` or the end of capture's `NOT_VISIBLE` already does;
+     * otherwise [hideFor] gets `NoCard(CONFIRMED_ABSENCE)`. If the overlay's gate drops it, its readiness flow hides.
+     * Codes and counts only.
+     */
+    private fun endNotice(cause: String, hideFor: String? = null, atMs: Long = 0L) {
+        val shownMs = notice.shownForMs(SystemClock.elapsedRealtime())
+        if (!notice.reset()) return
+        diagnostics.blocked("UNREAD_NOTICE_ENDED", "cause=$cause shownMs=$shownMs")
+        hideFor?.let { OfferEventBus.tryEmit(OfferEvent.NoCard(it, atMs, OfferEvent.Reason.CONFIRMED_ABSENCE)) }
+    }
+
+    /** WP-AD: what placement needs of an unpublished card, nothing else: no fare, legs, session, validation or raw text. */
+    private fun placementOnly(card: mx.kompara.parsers.model.OfferCard) = mx.kompara.parsers.model.OfferCard(
+        platform = card.platform, contentBounds = card.contentBounds, fareBounds = card.fareBounds,
+        captureSource = card.captureSource, hostGeometry = card.hostGeometry, instanceEvidence = card.instanceEvidence)
 
     private fun looksLikeOffer(text: String): Boolean =
         (text.contains("$") || text.contains("MXN", true)) &&

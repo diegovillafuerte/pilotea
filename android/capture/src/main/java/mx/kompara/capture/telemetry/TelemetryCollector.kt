@@ -34,6 +34,8 @@ import javax.inject.Singleton
  *  - [OfferEvent.NoCard] NOT_AN_OFFER     → attempt + failure (a spec matched but couldn't read it —
  *                                            the breakage signal)
  *  - [OfferEvent.NoCard] NO_SPEC          → ignored (no spec targets this screen; not a breakage)
+ *  - [OfferEvent.Unreadable]              → attempt + failure (WP-AD: a card on screen that could not be read;
+ *                                            the node-path stream collected here never carries it today)
  */
 @Singleton
 class TelemetryCollector @Inject constructor(
@@ -105,6 +107,18 @@ class TelemetryCollector @Inject constructor(
             // breakage. Recording it as a failure would pollute the alert rates (and could even
             // self-trigger an alert on a platform we deliberately turned off), so don't count it.
             is OfferEvent.SpecDisabled, is OfferEvent.LayoutUncertain -> Unit
+
+            // WP-AD: an offer card on screen that could not be read (the OCR reader's unread notice) is the
+            // same breakage signal as NOT_AN_OFFER: a failed read, never a success. Its card carries no variant.
+            is OfferEvent.Unreadable -> dao.increment(
+                hostPackage = packageName,
+                hostVersionCode = versionCode,
+                specVersion = specVersionFor(packageName, versionCode),
+                variant = TelemetryCounterEntity.TOTAL,
+                dayUtc = day,
+                attempts = 1,
+                failures = 1,
+            )
         }
     }
 

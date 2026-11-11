@@ -11,7 +11,6 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import mx.kompara.data.service.ScreenReaderState
-import mx.kompara.ui.auth.SignupFlowScreen
 
 /** Short first run and recovery share the same saved owner; returning always invokes the caller. */
 @Composable
@@ -36,10 +35,10 @@ fun OnboardingNavGraph(onComplete: () -> Unit, modifier: Modifier = Modifier,
         if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) viewModel.onResume()
         onDispose { lifecycle.removeObserver(observer); viewModel.onPause() }
     }
-    BackHandler(page != OnboardingPage.PITCH && page != OnboardingPage.SIGNIN) { viewModel.back() }
+    BackHandler(page != OnboardingPage.PITCH) { viewModel.back() }
     if (!loaded) return
     when (page) {
-        OnboardingPage.PITCH -> PitchScreen(viewModel::begin, viewModel::signIn, modifier)
+        OnboardingPage.PITCH, OnboardingPage.SIGNIN -> PitchScreen(viewModel::begin, modifier)
         OnboardingPage.DISCLOSURE -> DisclosureScreen({ viewModel.consent(true) }, { viewModel.consent(false) }, modifier, viewModel::back, error)
         OnboardingPage.ACCESSIBILITY -> AccessibilityGrantScreen(permission, viewModel::openSettings, viewModel::finish, modifier, viewModel::back, error)
         OnboardingPage.BATTERY -> OemSurvivalScreen(readiness.permission == true, viewModel::openSettings, viewModel::finish,
@@ -50,7 +49,6 @@ fun OnboardingNavGraph(onComplete: () -> Unit, modifier: Modifier = Modifier,
             runCatching { context.startActivity(Intent(ScreenReaderState.ACTION_START).setPackage(context.packageName)) }
                 .onFailure { viewModel.captureLaunchFailed() }
         }, viewModel::finish, error)
-        OnboardingPage.SIGNIN -> SignupFlowScreen(onComplete = viewModel::signedIn, onCancel = viewModel::cancelSignIn, modifier = modifier)
         OnboardingPage.DONE -> LaunchedEffect(Unit) { done() }
     }
 }

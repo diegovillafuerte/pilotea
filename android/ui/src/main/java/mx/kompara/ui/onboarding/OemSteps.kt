@@ -1,6 +1,7 @@
 package mx.kompara.ui.onboarding
 
 import androidx.annotation.StringRes
+import mx.kompara.data.service.OemProfile
 import mx.kompara.ui.R
 
 /**

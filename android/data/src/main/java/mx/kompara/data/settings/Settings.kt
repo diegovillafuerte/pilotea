@@ -12,7 +12,6 @@ data class Settings(
     val dailySummaryEnabled: Boolean = true,
     val importReminderEnabled: Boolean = true,
     val cityChosen: Boolean = false,
-    val themePreference: ThemePreference = ThemePreference.AUTOMATIC,
     /** Platforms the driver has enabled for capture/verdicts. */
     val enabledPlatforms: Set<Platform>,
     /**
@@ -145,6 +144,9 @@ data class Settings(
      * other rate renders as secondary context on the chip. Default [PreferredMetric.IPK].
      */
     val preferredMetric: PreferredMetric = PreferredMetric.DEFAULT,
+
+    /** Whether the semáforo judges net or gross rates; [threshold] is kept in this basis (v4 4.2). */
+    val rateBasis: RateBasis = RateBasis.DEFAULT,
 ) {
     /** The shared acceptance floors, or the conservative default when never tuned (B-076). */
     val effectiveThreshold: PlatformThreshold

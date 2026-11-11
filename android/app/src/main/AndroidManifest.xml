@@ -48,7 +48,7 @@
         android:name=".KomparaApplication"
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
-        android:label="@string/app_name"
+        android:label="${appLabel}"
         android:supportsRtl="true"
         android:theme="@style/Theme.Kompara">
 
@@ -60,16 +60,8 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!--
-              Referral deep link (B-056): kompara://referral?code=XXXXXXXX. Opens the "Invita y gana"
-              screen and prefills the code once the driver is signed in. Handled in MainActivity.
-            -->
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="kompara" android:host="referral" />
-            </intent-filter>
+            <!-- Referrals wait until after launch (docs/v4-simple-launch-plan.md §3): the
+                 kompara://referral intent filter (B-056) is removed; the screen and its code stay. -->
         </activity>
 
         <!-- Inbound earnings-file share-target (PR-D3): appears in the OS Share sheet as "Kompara —
@@ -79,8 +71,11 @@
              flow; it NEVER touches the MediaProjection/OcrConsent path. Translucent + no-history +
              excludeFromRecents + isolated task so it shows no UI of its own and never lingers in
              Recents. android:label is what the share sheet displays. -->
+        <!-- Statement import waits until after launch (docs/v4-simple-launch-plan.md §3): disabled,
+             so Kompara is not offered in the Share sheet. The code stays. -->
         <activity
             android:name=".ShareImportActivity"
+            android:enabled="false"
             android:exported="true"
             android:label="@string/share_import_label"
             android:taskAffinity=""

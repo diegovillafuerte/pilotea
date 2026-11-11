@@ -13,6 +13,7 @@ import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.*
 import androidx.test.core.app.ApplicationProvider
+import mx.kompara.testing.BaselineComparison
 import mx.kompara.ui.fixtures.ShareFixture
 import mx.kompara.ui.fixtures.ShareFixtureHost
 import mx.kompara.ui.theme.KomparaTheme
@@ -82,7 +83,7 @@ class ShareCardScreenTest {
             output.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
             val baseline = File("src/test/snapshots/v3/$name.png")
             if (System.getProperty("v3.recordScreenshots") == "true") output.copyTo(baseline, overwrite = true)
-            else { assertTrue("Missing $name", baseline.exists()); assertTrue("Changed $name", BitmapFactory.decodeFile(baseline.path).sameAs(bitmap)) }
+            else { assertTrue("Missing $name", baseline.exists()); BaselineComparison.assertMatches(BitmapFactory.decodeFile(baseline.path), bitmap, output) }
         }
     }
 }

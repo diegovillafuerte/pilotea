@@ -30,6 +30,12 @@ import kotlin.math.abs
  *   considering size. Ambiguous headlines yield no fare: OCR carries no strikethrough metadata.
  *   Bare `$` requires an Uber heading; terminal MXN and legacy MX prefixes remain supported.
  *   S-as-dollar recovery is deliberately disabled. The pipeline masks our chip before parsing.
+ *   What each path accepts as an amount: on the current card only [UberCardChecksum.money] reads the
+ *   headline and rate digits — two-decimal syntax, or (WP-AC) a separatorless amount, which Uber prints for
+ *   whole pesos (`$109`, `$11/km`) and which with three or more digits may instead have lost its separator
+ *   to OCR (`$17756`); only the card's money identity chooses, and only it establishes any reading without
+ *   decimals (a `$10` may be a truncated `$109`). The legacy path (no TOTAL row) accepts only
+ *   two-decimal amounts: it has no arithmetic to choose a reading with, so a whole-peso fare stays unread.
  * - **Pickup / trip**: the legacy pickup plus `Viaje:` pair, or two standalone `N min (X.X km)`
  *   lines in reading order on the current Uber card. The summary above them is not a route leg.
  * - **Durations (0.2.16)**: a duration slot is identified whole and decoded once — `1 h 18 min`, read
@@ -220,7 +226,8 @@ class UberOcrParser internal constructor(
         val amounts = currencyAmounts(below.filter { it.bounds.bottom <= total.bounds.top }, modernMoneyRegex)
         val candidates = amounts?.filter { amount ->
             val b = amount.block.bounds
-            // Like the legacy path, a zero amount is no price; an unreadable token still competes.
+            // Like the legacy path, a zero amount is no price; an unreadable token still competes. Since WP-AC
+            // every separatorless token reads: `$0` is zero (no price), `$5` is 5.00 and competes as before.
             val readings = headlineMoney(amount.block.text)
                 ?: amountOnlyRegex.matchEntire(amount.block.text.trim())?.let { UberCardChecksum.money(it.groupValues[1]) }
             b.left < total.bounds.right && b.right > total.bounds.left &&
@@ -571,8 +578,9 @@ class UberOcrParser internal constructor(
     private fun toLeg(m: MatchResult, bounds: OcrBounds?): Leg? {
         val min = cleanMinutes(m.groupValues[1]) ?: return null
         // Distances render with one decimal; reinsert a point OCR dropped ("130"→13.0, "L0"→1.0) so a
-        // separator-less leg can't read 10× high. Fares always keep their separator (the two-decimal
-        // fareRegex), so recovery is applied here on the leg, never on the fare.
+        // separator-less leg can't read 10× high. This recovery is for the leg, never the fare: the legacy
+        // fare grammar (fareRegex) accepts only two-decimal amounts. Uber does print whole fares without
+        // decimals (`$109`, WP-AC); only the modern path reads them, through the card's money identity.
         val km = recoverDroppedDistanceDecimal(cleanNumber(m.groupValues[2])).toDoubleOrNull() ?: return null
         return Leg(min = min, km = km, bounds = bounds)
     }

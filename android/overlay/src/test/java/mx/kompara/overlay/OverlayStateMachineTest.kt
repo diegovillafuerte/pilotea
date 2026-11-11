@@ -9,10 +9,13 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import mx.kompara.capture.OfferEvent
 import mx.kompara.data.settings.PlatformThreshold
+import mx.kompara.data.settings.PreferredMetric
 import mx.kompara.metrics.*
 import mx.kompara.parsers.model.OfferCard
 import mx.kompara.ui.components.ReglaBand
 import mx.kompara.ui.components.ReglaPosition
+import mx.kompara.ui.components.ReglaUnavailable
+import mx.kompara.ui.components.ReglaUnit
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -20,20 +23,27 @@ import org.junit.Test
 class OverlayStateMachineTest {
     private val threshold = PlatformThreshold(8.0, 200.0, 6.0, 150.0)
     private fun state(fare: Double = 100.0) = VerdictChipState.from(NetProfitEngine().evaluate(
-        TripOffer("uber", fare, 2.0, 5.0, 8.0, 15.0), CostProfile.ZERO, threshold), threshold)
+        TripOffer("uber", fare, 2.0, 5.0, 8.0, 15.0), CostProfile.ZERO, threshold))
     private fun parsed(ts: Long = 1, session: String = "one", host: String = "uber") = OfferEvent.Parsed(
         host, ts, OfferCard(host, fare = 100.0, sessionId = session))
     private fun noCard(ts: Long = 2, host: String = "uber", reason: OfferEvent.Reason = OfferEvent.Reason.NOT_AN_OFFER) =
         OfferEvent.NoCard(host, ts, reason)
     private class Run(val events: MutableSharedFlow<OfferEvent>, val seen: MutableList<OverlayVisibility>)
-    private fun TestScope.observe(evaluate: suspend (OfferEvent.Parsed) -> VerdictChipState = { state() }): Run {
+    private fun TestScope.observe(preferred: PreferredMetric = PreferredMetric.IPK,
+        evaluate: suspend (OfferEvent.Parsed) -> VerdictChipState = { state() }): Run {
         val events = MutableSharedFlow<OfferEvent>(extraBufferCapacity = 16)
         val seen = mutableListOf<OverlayVisibility>()
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
-            OverlayStateMachine(evaluate = evaluate).visibility(events).collect { seen += it }
+            OverlayStateMachine(preferred = { preferred }, evaluate = evaluate).visibility(events).collect { seen += it }
         }
         return Run(events, seen)
     }
+    /** WP-AD: the reader's unread notice, placement only. */
+    private fun unreadable(ts: Long = 1, host: String = "uber", top: Int = 545) = OfferEvent.Unreadable(host, ts,
+        OfferCard(host, captureSource = "OCR", hostGeometry = mx.kompara.parsers.model.HostGeometry(host, "test", ts,
+            mx.kompara.parsers.model.HostRect(0, 0, 393, 852), mx.kompara.parsers.model.HostOrientation.PORTRAIT,
+            mx.kompara.parsers.model.HostRect(0, 80, 393, 128), mx.kompara.parsers.model.HostRect(0, top, 393, 838),
+            emptyList(), emptyList())))
 
     @Test fun `Parsed clears stale content and shows without a debounce`() = runTest {
         val (events, seen) = observe().let { it.events to it.seen }
@@ -162,7 +172,7 @@ class OverlayStateMachineTest {
         assertTrue(run.seen.none { it is OverlayVisibility.Showing })
     }
 
-    @Test fun `same offer changing judgement is one atomic state with its limits`() = runTest {
+    @Test fun `same offer changing judgement is one atomic state`() = runTest {
         var count = 0
         val run = observe { state(if (count++ == 0) 100.0 else 20.0) }
         run.events.emit(parsed()); testScheduler.runCurrent()
@@ -170,7 +180,6 @@ class OverlayStateMachineTest {
         assertEquals(1, run.seen.filterIsInstance<OverlayVisibility.Reading>().size)
         val states = run.seen.filterIsInstance<OverlayVisibility.Showing>().map { it.state.regla }
         assertEquals(listOf(ReglaPosition.ABOVE, ReglaPosition.BELOW), states.map { (it.band as ReglaBand.Rated).position })
-        assertEquals(listOf("tu meta $8", "tu meta $8"), states.map { it.goalLabel })
     }
 
     @Test fun `offer returning during exit cancels detach`() = runTest {
@@ -209,6 +218,93 @@ class OverlayStateMachineTest {
         assertEquals(mx.kompara.parsers.model.HostAppearance.DARK,
             run.seen.filterIsInstance<OverlayVisibility.Showing>().last().event.card.hostGeometry?.appearance)
         assertTrue(OverlayPositioning.sameLayout(geometry, night))
+    }
+
+
+    // WP-AD: the reader's unread notice is a notice, not an offer.
+    @Test fun `an unreadable notice reads then shows the unread pill under its own key without evaluating`() = runTest {
+        var evaluations = 0
+        val run = observe { evaluations++; state() }
+        val notice = unreadable()
+        run.events.emit(notice); testScheduler.runCurrent()
+        val reading = run.seen[0] as OverlayVisibility.Reading
+        val showing = run.seen[1] as OverlayVisibility.Showing
+        assertEquals("uber:unread", reading.offerKey)
+        assertEquals(reading.offerKey, showing.offerKey)
+        assertTrue(reading.notice && showing.notice)
+        assertEquals("Never through the ledger", 0, evaluations)
+        assertEquals(ReglaBand.Unavailable(ReglaUnavailable.FARE), showing.state.regla.band)
+        assertEquals("On the driver's preferred unit", ReglaUnit.KM, showing.state.regla.unit)
+        assertEquals("As the row-backed verdict builds an unread payment", VerdictChipState.unread(PreferredMetric.IPK), showing.state)
+        assertTrue("Identity-unresolved: taps pass through", showing.event.identityUnresolved)
+        assertEquals("Its placement is the notice's own card", notice.card, showing.event.card)
+        assertEquals(notice.timestampMs, showing.event.timestampMs)
+        assertEquals(0, testScheduler.currentTime)
+    }
+
+    @Test fun `the notice's pill follows the driver's unit`() = runTest {
+        val run = observe(preferred = PreferredMetric.IPH)
+        run.events.emit(unreadable()); testScheduler.runCurrent()
+        assertEquals(VerdictChipState.unread(PreferredMetric.IPH), (run.seen.last() as OverlayVisibility.Showing).state)
+        assertEquals(ReglaUnit.HOUR, (run.seen.last() as OverlayVisibility.Showing).state.regla.unit)
+    }
+
+    @Test fun `later notices of the card refresh its geometry without another reading`() = runTest {
+        val run = observe()
+        run.events.emit(unreadable(1)); testScheduler.runCurrent()
+        run.events.emit(unreadable(2, top = 600)); testScheduler.runCurrent()
+        assertEquals(1, run.seen.filterIsInstance<OverlayVisibility.Reading>().size)
+        assertEquals(600, run.seen.filterIsInstance<OverlayVisibility.Showing>().last().event.card.hostGeometry?.offerCard?.top)
+    }
+
+    @Test fun `a Parsed after the notice swaps in its own reading and verdict without a hide`() = runTest {
+        var evaluations = 0
+        val run = observe { evaluations++; state() }
+        run.events.emit(unreadable()); testScheduler.runCurrent()
+        run.events.emit(parsed(2)); testScheduler.runCurrent()
+        assertEquals(listOf("uber:unread", "uber:one"), run.seen.filterIsInstance<OverlayVisibility.Reading>().map { it.offerKey })
+        val verdict = run.seen.last() as OverlayVisibility.Showing
+        assertEquals("uber:one", verdict.offerKey)
+        assertFalse(verdict.notice || (run.seen[2] as OverlayVisibility.Reading).notice)
+        assertEquals(state(), verdict.state)
+        assertEquals(1, evaluations)
+        assertFalse(run.seen.contains(OverlayVisibility.Hidden))
+    }
+
+    @Test fun `a notice after an offer of the same host is its own key`() = runTest {
+        val run = observe()
+        run.events.emit(parsed()); testScheduler.runCurrent()
+        run.events.emit(unreadable(2)); testScheduler.runCurrent()
+        assertEquals(listOf("uber:one", "uber:unread"), run.seen.filterIsInstance<OverlayVisibility.Reading>().map { it.offerKey })
+        val other = observe()
+        other.events.emit(unreadable(1, host = "didi")); testScheduler.runCurrent()
+        assertEquals("didi:unread", (other.seen.last() as OverlayVisibility.Showing).offerKey)
+    }
+
+    @Test fun `the notice soft-hides, returns at once and hides on confirmed absence`() = runTest {
+        val run = observe()
+        run.events.emit(unreadable()); testScheduler.runCurrent()
+        run.events.emit(noCard(2, reason = OfferEvent.Reason.SIGNATURE_ABSENT)); testScheduler.runCurrent()
+        assertEquals(OverlayVisibility.SoftHidden, run.seen.last())
+        run.events.emit(unreadable(3)); testScheduler.runCurrent()
+        assertTrue(run.seen.last() is OverlayVisibility.Showing)
+        assertEquals(1, run.seen.filterIsInstance<OverlayVisibility.Reading>().size)
+        run.events.emit(OfferEvent.LayoutUncertain("uber", 4, processedFrame = true)); testScheduler.runCurrent()
+        assertTrue("A heartbeat changes nothing", run.seen.last() is OverlayVisibility.Showing)
+        run.events.emit(noCard(5, reason = OfferEvent.Reason.CONFIRMED_ABSENCE)); testScheduler.runCurrent()
+        assertEquals(OverlayVisibility.Hidden, run.seen.last())
+        assertEquals(0, testScheduler.currentTime)
+        run.events.emit(unreadable(6)); testScheduler.runCurrent()
+        assertEquals("A later notice reads afresh", 2, run.seen.filterIsInstance<OverlayVisibility.Reading>().size)
+    }
+
+    @Test fun `the notice hides when the host leaves or its parser is disabled`() = runTest {
+        for (event in listOf(noCard(2, reason = OfferEvent.Reason.NOT_VISIBLE), noCard(2, host = "didi"), OfferEvent.SpecDisabled("uber", 2))) {
+            val run = observe()
+            run.events.emit(unreadable()); testScheduler.runCurrent()
+            run.events.emit(event); testScheduler.runCurrent()
+            assertEquals("$event", OverlayVisibility.Hidden, run.seen.last())
+        }
     }
 
 }

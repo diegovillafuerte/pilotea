@@ -8,7 +8,6 @@ import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.test.*
-import mx.kompara.billing.*
 import mx.kompara.data.accounting.*
 import mx.kompara.data.db.KomparaDatabase
 import mx.kompara.data.service.*
@@ -33,7 +32,7 @@ class AjustesViewModelTest {
         override val data = MutableStateFlow(emptyPreferences())
         override suspend fun updateData(transform: suspend (Preferences) -> Preferences) = transform(data.value).also { data.value = it }
     }
-    @Test fun `settings observes saved costs car limits theme and real readiness without reopening`() = runBlocking {
+    @Test fun `the six rows observe saved costs car limits basis account and real readiness without reopening`() = runBlocking {
         val db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), KomparaDatabase::class.java).build()
         val http = io.ktor.client.HttpClient(io.ktor.client.engine.mock.MockEngine { throw java.io.IOException("offline") })
         val store = ViewModelStore()
@@ -41,7 +40,7 @@ class AjustesViewModelTest {
         var vmJob: Job? = null
         try {
             val zone = ZoneId.of("America/Mexico_City")
-            var now = LocalDate.parse("2026-10-19").atTime(7, 30).atZone(zone).toInstant()
+            val now = LocalDate.parse("2026-10-19").atTime(7, 30).atZone(zone).toInstant()
             val running = CostProfileRepository(db.costProfileDao()); val car = CarCostRepository(db.carCostDao())
             running.saveRunningCosts(RunningCostInputs.TYPICAL, now.toEpochMilli(), now.toEpochMilli(), CostConfirmation.TYPICAL)
             val prefs = SettingsRepository(Memory())
@@ -51,28 +50,41 @@ class AjustesViewModelTest {
                 override fun save(memory: ReaderMemory) {}
             }, Clock.fixed(now, zone))
             reader.observeEnvironment(false, false)
-            val entitlement = EntitlementRepository(FakeBillingClient(), SubscriptionBackend.NONE,
-                object : EntitlementCache { override suspend fun read() = Entitlement.Free; override suspend fun write(entitlement: Entitlement) {} }, BillingLogger.NOOP)
-            val vm = AjustesViewModel(prefs, running, car, reader, auth, entitlement, AppClock { now.toEpochMilli() }, zone)
+            val vm = AjustesViewModel(prefs, running, car, reader, auth, AppClock { now.toEpochMilli() }, zone)
             store.put("vm", vm); vmJob = vm.viewModelScope.coroutineContext[Job]
             collecting = launch { vm.state.collect() }
             suspend fun await(predicate: (AjustesState) -> Boolean) = withTimeout(10000) { vm.state.filterNotNull().first(predicate) }
             val first = await { it.firstPermission }
-            assertEquals("Entrar con WhatsApp", first.account); assertNull(first.accountDetail)
-            assertEquals("Plan gratis", first.plan)
-            assertNull(first.planDetail); assertEquals("Sin agregar", first.car)
-            assertTrue(first.costs.endsWith("típicos, sin confirmar"))
+            assertEquals("Entrar con WhatsApp", first.account)
+            assertEquals("$2.84 por km", first.costs)
+            assertEquals("$8.00 · $6.00 por km, neto", first.limits)
+            prefs.setCity(mx.kompara.data.model.City.CDMX)
+            assertEquals("Entrar con WhatsApp · CDMX y Edomex", await { it.account.endsWith("Edomex") }.account)
             running.saveRunningCosts(RunningCostInputs(RunningCostMode.DIRECT, directPerKm = BigDecimal("3.75")), now.toEpochMilli(), now.toEpochMilli())
-            assertEquals("$3.75 por km · confirmados hoy", await { it.costs.startsWith("$3.75") }.costs)
+            assertEquals("$3.75 por km", await { it.costs.startsWith("$3.75") }.costs)
             car.save(BigDecimal("1500"), now.atZone(zone).toLocalDate(), now.toEpochMilli())
-            assertEquals("$1,500 a la semana", await { it.car.startsWith("$1,500") }.car)
+            assertEquals("$3.75 por km · coche $1,500 a la semana", await { it.costs.contains("coche") }.costs)
             prefs.saveLimits(PlatformThreshold.DEFAULT.copy(redPerKmMxn = 6.5), PreferredMetric.IPK)
-            assertTrue(await { it.limits.contains("6.50") }.limits.contains("8.00"))
-            vm.setThemePreference(ThemePreference.DARK); await { it.theme == ThemePreference.DARK }
+            assertEquals("$8.00 · $6.50 por km, neto", await { it.limits.contains("6.50") }.limits)
             reader.observeEnvironment(true, false)
             assertEquals("Preparado · permiso listo", await { it.reader.startsWith("Preparado") }.reader)
-            now = now.plusSeconds(86400)
-            assertTrue(await { it.costs.endsWith("confirmados ayer") }.costs.contains("3.75"))
+            // A car removed from today is no longer in force.
+            car.remove(now.atZone(zone).toLocalDate(), now.toEpochMilli())
+            assertEquals("$3.75 por km", await { !it.costs.contains("coche") }.costs)
         } finally { collecting?.cancelAndJoin(); store.clear(); vmJob?.join(); http.close(); db.close() }
+    }
+
+    @Test fun `the limits row says its unit and basis in every combination`() {
+        val km = PlatformThreshold(8.0, 200.0, 6.0, 150.0)
+        assertEquals("$8.00 · $6.00 por km, neto", ThresholdEditor.summary(LimitDraft.from(km, PreferredMetric.IPK, RateBasis.NET)))
+        assertEquals("$200 · $150 por hora, neto", ThresholdEditor.summary(LimitDraft.from(km, PreferredMetric.IPH, RateBasis.NET)))
+        val gross = PlatformThreshold(11.0, 280.0, 9.0, 230.0)
+        assertEquals("$11.00 · $9.00 por km, bruto", ThresholdEditor.summary(LimitDraft.from(gross, PreferredMetric.IPK, RateBasis.GROSS)))
+        assertEquals("$280 · $230 por hora, bruto", ThresholdEditor.summary(LimitDraft.from(gross, PreferredMetric.IPH, RateBasis.GROSS)))
+        assertEquals("$315.25 · $150 por hora, neto", ThresholdEditor.summary(LimitDraft.from(km.copy(minPerHourMxn = 315.25), PreferredMetric.IPH)))
+        assertEquals("$2.84 por km", costsSummary(BigDecimal("2.8417"), null))
+        assertEquals("Sin confirmar · coche $1,500 a la semana", costsSummary(null, BigDecimal("1500")))
+        assertEquals("+52 55 1234 5678 · CDMX y Edomex", accountSummary("+525512345678", mx.kompara.data.model.City.CDMX))
+        assertEquals("Entrar con WhatsApp", accountSummary(null, null))
     }
 }

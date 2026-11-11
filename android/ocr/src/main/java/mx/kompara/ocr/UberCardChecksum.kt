@@ -29,7 +29,9 @@ import kotlin.math.abs
  * Tokens reach this object only from slots that card geometry and unit/currency syntax already
  * established; letters become digits here and nowhere else (l, L, I, | -> 1; O, o -> 0). The
  * identities validate restricted textual candidates — a separatorless distance's literal and
- * one-decimal readings, a separatorless amount's fixed two decimals — and never generate money.
+ * one-decimal readings, a separatorless amount's whole and (three digits or more) lost-decimal
+ * readings (WP-AC: Uber prints `$109` and `$11/km` without `.00`; a money reading without decimals
+ * stands only through the money identity) — and never generate money.
  * A duration slot is decoded whole (0.2.16): `1 h 23` is 83 minutes, never its trailing 23; an
  * anchored hour-only `1 h` is 60 but ambiguous (lost minutes read the same): it stands only through an
  * evaluated minute identity and is never a recovery operand.
@@ -44,8 +46,11 @@ internal object UberCardChecksum {
      * One reading of a slot in integer units; [repairs] 0 means read as printed. [hourOnly]: an hour-only
      * duration (`1 h`), ambiguous whatever its repairs — Uber prints exactly 60 minutes so, but `1 h 5 min`
      * whose minutes OCR lost reads the same. It is no repair and not "as printed" either (round 3).
+     * [noDecimals]: a money reading of a token without decimals (`109`, `11`, `1,320`; WP-AC round 2).
+     * Uber prints whole amounts so, but every prefix of a whole number's digits is another whole number
+     * (`$109` read `$10`), so nothing in the token shows it is complete: no repair, not "as printed" either.
      */
-    data class Candidate(val units: Long, val repairs: Int = 0, val hourOnly: Boolean = false)
+    data class Candidate(val units: Long, val repairs: Int = 0, val hourOnly: Boolean = false, val noDecimals: Boolean = false)
 
     /** A slot's alternative readings (empty when unread) and the row it was read from. */
     data class Slot(val candidates: List<Candidate> = emptyList(), val bounds: OfferContentBounds? = null)
@@ -61,7 +66,8 @@ internal object UberCardChecksum {
     private val distanceToken = Regex("""([0-9lLI|Oo]{1,4})(?:([.,])([0-9lLI|Oo]))?""")
     private val thousands = Regex("""(\d{1,3}(?:,\d{3})+)\.(\d{2})""")
     private val decimal = Regex("""(\d+)[.,](\d{2})""")
-    private val separatorless = Regex("""\d{3,9}""")
+    private val wholeThousands = Regex("""\d{1,3}(?:,\d{3})+""")
+    private val separatorless = Regex("""\d{1,9}""")
 
     private fun digit(c: Char) = when (c) {
         'l', 'L', 'I', '|' -> '1'
@@ -133,9 +139,17 @@ internal object UberCardChecksum {
     }
 
     /**
-     * Cents (or cents per km). Two-decimal monetary syntax with a point or comma, unambiguous
-     * thousands separators, or a separatorless amount read with its fixed two decimals (a decimal
-     * repair). Malformed separators are unread, never cleaned.
+     * Cents (or cents per km). Two-decimal monetary syntax with a point or comma, with or without
+     * unambiguous thousands separators, is one reading, as printed. A token without decimals is read
+     * (WP-AC) as Uber prints whole amounts — `$109` is 109.00, `$11/km` is 11.00, `1,320` is 1,320.00 — and
+     * every such reading is [Candidate.noDecimals]: [solve] establishes it only through an evaluated money
+     * identity that holds with exactly that reading, never as printed (round 2: `$109` read `$10` is also a
+     * valid whole number). A whole amount with unambiguous thousands separators is one reading. A
+     * separatorless one is whole units and, with three or more digits, also a two-decimal amount whose
+     * separator OCR lost (`$17756` is 177.56, a decimal repair): two readings, whole first, and only the
+     * money identity chooses. One or two digits have only the whole reading (two-decimal money has at least
+     * three). Malformed separators are unread, never cleaned; a separatorless token of ten digits or more
+     * is unread; checked arithmetic only.
      */
     fun money(token: String?): List<Candidate> {
         if (token == null || token.any { it !in NUMERIC && it != '.' && it != ',' }) return emptyList()
@@ -147,8 +161,22 @@ internal object UberCardChecksum {
         decimal.matchEntire(normalized)?.let { m ->
             return listOfNotNull((m.groupValues[1] + m.groupValues[2]).toLongOrNull()?.let { Candidate(it, repairs) })
         }
-        if (separatorless.matches(normalized)) return listOf(Candidate(normalized.toLong(), repairs or REPAIR_DECIMAL))
-        return emptyList()
+        if (wholeThousands.matches(normalized)) {
+            return listOfNotNull(wholeCents(normalized.replace(",", ""))?.let { Candidate(it, repairs, noDecimals = true) })
+        }
+        if (!separatorless.matches(normalized)) return emptyList()
+        val whole = wholeCents(normalized)?.let { Candidate(it, repairs, noDecimals = true) } ?: return emptyList()
+        if (normalized.length < 3) return listOf(whole)
+        return listOf(whole, Candidate(normalized.toLong(), repairs or REPAIR_DECIMAL, noDecimals = true))
+    }
+
+    /** Whole units as cents; null when they do not fit a Long (never a silent overflow). */
+    private fun wholeCents(digits: String): Long? = digits.toLongOrNull()?.let { units ->
+        try {
+            Math.multiplyExact(units, 100L)
+        } catch (overflow: ArithmeticException) {
+            null
+        }
     }
 
     private enum class Check { HOLDS, FAILS, NOT_EVALUATED }
@@ -179,6 +207,20 @@ internal object UberCardChecksum {
      * Solve the card's [read] slots ([OfferValidationEvidence] order) jointly. [rowsIdentified]: exactly two
      * ordered route rows were found, so a missing trip dimension has a row to belong to.
      * [structuralConflict]: competing TOTAL rows in one card band.
+     *
+     * Fare, rate, TOTAL km and both leg distances are solved together (WP-AC): every assignment of one
+     * reading each is tried; it is admissible when no identity evaluated on it fails, and a slot is
+     * resolved when all admissible assignments agree on it. Two readings of a slot that each satisfy an
+     * evaluated identity are competing values (contradictory); no admissible assignment is contradictory.
+     * A money reading of a token without decimals ([Candidate.noDecimals]: `$109`, `$10`, `$11/km`, `$1,320`)
+     * is never "as printed", whether it is its slot's only reading or one of two (round 2): with the money
+     * identity unevaluable (fare, rate or TOTAL km unread) its slot is withheld as unread, never falling back
+     * to a reading; otherwise it is established only through that identity — the only one a fare or rate is
+     * in — evaluated with exactly the resolved reading and holding. A reading chosen among several is never
+     * "as printed" either (`readAsPrinted`/`established` below). So a fare without decimals is published only
+     * when the money identity was evaluated with it and holds; two-decimal fares keep being published as
+     * printed. Recovery is unchanged and money is never recovered. Provenance keeps its meaning: a whole
+     * amount validated as read is READ (no repair), a lost-decimal one REPAIRED.
      */
     fun solve(read: List<Slot>, rowsIdentified: Boolean, selectionCertain: Boolean, fareCandidates: Int,
         structuralConflict: Boolean = false): Result {
@@ -188,30 +230,43 @@ internal object UberCardChecksum {
         // contradiction); otherwise its slot is withheld as unread. Fare and distances are unaffected.
         val minuteSlots = listOf(TOTAL_MINUTES, PICKUP_MINUTES, TRIP_MINUTES)
         val minutesEvaluable = minuteSlots.all { read[it].candidates.size == 1 }
+        // Likewise a money reading without decimals (WP-AC round 2): it stands only when the money identity can
+        // be evaluated — fare, rate and TOTAL km all read — and is then established only by it; otherwise its
+        // slot is withheld as unread. Withholding changes no identity: without those three it is not evaluated.
+        val moneyEvaluable = listOf(FARE, RATE, TOTAL_KM).all { read[it].candidates.isNotEmpty() }
         val slots = read.mapIndexed { i, slot ->
-            val withheld = i in minuteSlots && !minutesEvaluable && slot.candidates.any { it.hourOnly }
+            val withheld = i in minuteSlots && !minutesEvaluable && slot.candidates.any { it.hourOnly } ||
+                !moneyEvaluable && slot.candidates.any { it.noDecimals }
             if (withheld) slot.copy(candidates = emptyList()) else slot
         }
         fun single(i: Int) = slots[i].candidates.singleOrNull()
-        val (f, r, tm) = listOf(single(FARE), single(RATE), single(TOTAL_MINUTES))
+        val tm = single(TOTAL_MINUTES)
         val (pm, qm) = single(PICKUP_MINUTES) to single(TRIP_MINUTES)
         val minuteCheck = sum(tm?.units, pm?.units, qm?.units)
-        // Every assignment of the shared total distance and both leg distances, one interpretation each.
+        // Every assignment of fare, rate, the shared total distance and both leg distances, one reading each.
         fun options(i: Int) = slots[i].candidates.ifEmpty { listOf(null) }
-        data class Assignment(val tk: Candidate?, val pk: Candidate?, val qk: Candidate?, val distance: Check, val money: Check)
-        val admissible = options(TOTAL_KM).flatMap { tk -> options(PICKUP_KM).flatMap { pk -> options(TRIP_KM).map { qk ->
-            Assignment(tk, pk, qk, sum(tk?.units, pk?.units, qk?.units), money(f?.units, r?.units, tk?.units))
+        data class Assignment(val f: Candidate?, val r: Candidate?, val tk: Candidate?, val pk: Candidate?, val qk: Candidate?,
+            val distance: Check, val money: Check)
+        val admissible = options(FARE).flatMap { f -> options(RATE).flatMap { r -> options(TOTAL_KM).flatMap { tk ->
+            options(PICKUP_KM).flatMap { pk -> options(TRIP_KM).map { qk ->
+                Assignment(f, r, tk, pk, qk, sum(tk?.units, pk?.units, qk?.units), money(f?.units, r?.units, tk?.units))
+            } }
         } } }.filter { it.distance != Check.FAILS && it.money != Check.FAILS }
         fun resolved(pick: (Assignment) -> Candidate?) = admissible.map(pick).distinct().singleOrNull()
+        val f = resolved { it.f }
+        val r = resolved { it.r }
         val tk = resolved { it.tk }
         val pk = resolved { it.pk }
         val qk = resolved { it.qk }
-        // Two assignments that both satisfy an identity they were evaluated by: competing values.
-        val contested = listOf<(Assignment) -> Candidate?>({ it.tk }, { it.pk }, { it.qk }).withIndex().any { (k, pick) ->
-            admissible.map(pick).distinct().size > 1 && admissible.any {
-                it.distance == Check.HOLDS || k == 0 && it.money == Check.HOLDS
-            }
-        }
+        // Two assignments that both satisfy an identity the slot is in and they were evaluated by: competing
+        // values. Fare and rate are only in the money identity, leg distances only in the distance identity.
+        val contested = listOf<Pair<(Assignment) -> Candidate?, (Assignment) -> Boolean>>(
+            Pair({ it.f }, { it.money == Check.HOLDS }),
+            Pair({ it.r }, { it.money == Check.HOLDS }),
+            Pair({ it.tk }, { it.distance == Check.HOLDS || it.money == Check.HOLDS }),
+            Pair({ it.pk }, { it.distance == Check.HOLDS }),
+            Pair({ it.qk }, { it.distance == Check.HOLDS }),
+        ).any { (pick, holds) -> admissible.map(pick).distinct().size > 1 && admissible.any(holds) }
         val contradictory = structuralConflict || minuteCheck == Check.FAILS || admissible.isEmpty() || contested
 
         val values = arrayOfNulls<Candidate>(8).also {
@@ -231,13 +286,18 @@ internal object UberCardChecksum {
             else -> minutesHold
         }
         // An hour-only reading is never "as printed" (round 3): only its evaluated minute identity establishes it.
-        fun asPrinted(i: Int) = values[i]?.let { it.repairs == 0 && !it.hourOnly } == true
-        fun established(i: Int) = values[i] != null && (asPrinted(i) || validated(i))
+        // Nor is a money reading without decimals (WP-AC round 2), whether its slot's only reading or one of
+        // two: only the money identity, evaluated with exactly that reading and holding, establishes it.
+        fun asPrinted(i: Int) = values[i]?.let { it.repairs == 0 && !it.hourOnly && !it.noDecimals } == true
+        // Nor is a reading chosen among several (WP-AC): a two-reading amount's whole reading, a separatorless
+        // distance's literal one. Only an evaluated identity that holds establishes it — for a two-reading
+        // fare or rate, the money identity evaluated with exactly the resolved reading ([validated]).
+        fun readAsPrinted(i: Int) = asPrinted(i) && slots[i].candidates.size == 1
+        fun established(i: Int) = values[i] != null && (readAsPrinted(i) || validated(i))
 
         // Restricted recovery: only an unread trip dimension of an identified row, from operands read
         // as printed — one reading, no repair; never a decimal-repaired or money-selected total (round 2),
         // never an hour-only duration (round 3) — while the OTHER route dimension's identity holds independently.
-        fun readAsPrinted(i: Int) = asPrinted(i) && slots[i].candidates.size == 1
         val recovered = BooleanArray(8)
         val operands = IntArray(8)
         if (!contradictory && rowsIdentified) {

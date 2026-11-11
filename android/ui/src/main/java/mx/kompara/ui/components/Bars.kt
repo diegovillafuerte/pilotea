@@ -32,62 +32,6 @@ data class BarScale(val minimum: Double, val maximum: Double) {
 }
 
 @Composable
-fun PeriodBars(bars: List<BarValue>, modifier: Modifier = Modifier, onClick: (() -> Unit)? = null, showBestLabel: Boolean = true, showNegativeLabels: Boolean = false,
-    fixedBarWidth: androidx.compose.ui.unit.Dp? = null, dashedUnknown: Boolean = false) {
-    val c = KomparaTheme.colors
-    val scale = BarScale.of(bars.map { it.value })
-    val best = bars.indices.filter { bars[it].value != null }.maxByOrNull { bars[it].value!! }
-    Column(modifier.then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-        .semantics(mergeDescendants = true) {}) {
-        best?.takeIf { showBestLabel }?.let { index ->
-            val label = "${bars[index].label} ${bars[index].display}"
-            val density = LocalDensity.current
-            val labelWidth = rememberTextMeasurer().measure(label, KomparaType.small).size.width.toFloat()
-            BoxWithConstraints(Modifier.fillMaxWidth()) {
-                val width = with(density) { maxWidth.toPx() }
-                val gap = with(density) { 10.dp.toPx() }
-                val barWidth = ((width - gap * (bars.size - 1)) / bars.size).coerceAtLeast(0f)
-                val center = if (fixedBarWidth != null) width / bars.size * (index + .5f) else index * (barWidth + gap) + barWidth / 2
-                val x = (center - labelWidth / 2).coerceIn(0f, (width - labelWidth).coerceAtLeast(0f))
-                Text(label, Modifier.offset(x = with(density) { x.toDp() }), style = KomparaType.small, color = c.inkSecondary)
-            }
-        }
-        val description = bars.joinToString("; ") { "${it.label}: ${it.display}" }
-        Canvas(Modifier.fillMaxWidth().height(72.dp).clearAndSetSemantics { contentDescription = description }) {
-            val zero = size.height * (1f - scale.fraction(0.0))
-            val gap = 10.dp.toPx()
-            val slot = size.width / bars.size.coerceAtLeast(1)
-            val width = fixedBarWidth?.toPx()?.coerceAtMost(slot) ?: ((size.width - gap * (bars.size - 1)) / bars.size.coerceAtLeast(1)).coerceAtLeast(0f)
-            fun left(index: Int) = if (fixedBarWidth != null) slot * index + (slot - width) / 2 else index * (width + gap)
-            bars.forEachIndexed { index, bar ->
-                bar.value?.takeIf { it.isFinite() }?.let { value ->
-                    val y = size.height * (1 - scale.fraction(value))
-                    drawRect(if (index == best) c.ink else c.rule, Offset(left(index), minOf(y, zero)),
-                        Size(width, kotlin.math.abs(zero - y)))
-                    if (showNegativeLabels && value < 0) {
-                        val left = left(index)
-                        drawLine(c.inkSecondary, Offset(left, zero), Offset(left, y), 1.5.dp.toPx())
-                        drawLine(c.inkSecondary, Offset(left, y), Offset(left + width, y), 1.5.dp.toPx())
-                        drawLine(c.inkSecondary, Offset(left + width, y), Offset(left + width, zero), 1.5.dp.toPx())
-                    }
-                }
-            }
-            if (dashedUnknown) bars.forEachIndexed { index, bar ->
-                val baseline = zero.coerceIn(1.dp.toPx(), size.height - 1.dp.toPx())
-                drawLine(c.inkTertiary, Offset(slot * index, baseline), Offset(slot * (index + 1), baseline), 1.dp.toPx(),
-                    pathEffect = if (bar.value == null) androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx())) else null)
-            } else drawLine(if (showNegativeLabels) c.inkTertiary else c.ink, Offset(0f, zero.coerceIn(1.dp.toPx(), size.height - 1.dp.toPx())),
-                Offset(size.width, zero.coerceIn(1.dp.toPx(), size.height - 1.dp.toPx())), (if (showNegativeLabels) 1.dp else 2.dp).toPx())
-        }
-        if (showNegativeLabels && bars.any { (it.value ?: 0.0) < 0 }) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                bars.forEach { bar -> Text(if ((bar.value ?: 0.0) < 0) bar.display else "", style = KomparaType.small, color = c.inkSecondary) }
-            }
-        }
-    }
-}
-
-@Composable
 fun CompareBars(bars: List<BarValue>, modifier: Modifier = Modifier) {
     val c = KomparaTheme.colors
     val scale = BarScale.of(bars.map { it.value })

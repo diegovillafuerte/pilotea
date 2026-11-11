@@ -19,11 +19,13 @@ class NoticeNavigation @Inject constructor(private val selection: SelectedPeriod
     }
     companion object {
         fun destination(target: NoticeTarget): String = when (target.kind) {
-            NoticeKind.READER -> KomparaDestination.INICIO.route
+            NoticeKind.READER -> KomparaDestination.GANANCIAS.route
             NoticeKind.DAY -> KomparaDestination.dayRoute(target.period)
             NoticeKind.WEEK -> "${KomparaDestination.WEEK_SUMMARY_ROUTE}/${target.period}"
-            NoticeKind.MONTH -> KomparaDestination.MONTH_ROUTE
-            NoticeKind.IMPORT -> KomparaDestination.IMPORT_ROUTE
+            NoticeKind.MONTH -> KomparaDestination.IMSS.route
+            // Statement import waits until after launch (plan §3): a 0.2.x import reminder still in the shade opens
+            // Ganancias instead. Restore KomparaDestination.IMPORT_ROUTE when import returns.
+            NoticeKind.IMPORT -> KomparaDestination.GANANCIAS.route
         }
     }
 }

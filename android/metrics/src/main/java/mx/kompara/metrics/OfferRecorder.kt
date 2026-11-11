@@ -11,6 +11,7 @@ import mx.kompara.data.settings.CostProfileRepository
 import mx.kompara.data.settings.SettingsRepository
 import mx.kompara.data.settings.PreferredMetric
 import mx.kompara.data.settings.PlatformThreshold
+import mx.kompara.data.settings.RateBasis
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -37,7 +38,7 @@ class OfferRecorder @Inject constructor(
                 val version = costs.runningVersions().firstOrNull { it.id == saved.costVersionId }
                 val result = engine.evaluate(TripOffer(offer.platform, enriched.fareMxn, enriched.pickupKm,
                     enriched.pickupMin, enriched.tripKm, enriched.tripMin, enriched.paymentBasis),
-                    version?.inputs?.costPerKm, threshold, unit)
+                    version?.inputs?.costPerKm, threshold, unit, RateBasis.fromName(saved.rateBasis))
                 enriched.copy(distanceKm = result.totalKm, durationMin = result.totalMin,
                     verdict = result.verdict.level.name, evaluation = saved.copy(
                         paymentBasis = enriched.paymentBasis, contribution = result.contributionDecimal,
@@ -50,7 +51,7 @@ class OfferRecorder @Inject constructor(
         }
         val saved = settings.settings.first()
         val version = CostSchedule(costs.runningVersions()).runningAt(seenAt)
-        val result = engine.evaluate(offer, version?.inputs?.costPerKm, saved.effectiveThreshold, saved.preferredMetric)
+        val result = engine.evaluate(offer, version?.inputs?.costPerKm, saved.effectiveThreshold, saved.preferredMetric, saved.rateBasis)
         val threshold = saved.effectiveThreshold
         val km = saved.preferredMetric == PreferredMetric.IPK
         val row = OfferEntity(seenAt = seenAt, platform = offer.platform.uppercase(), fareMxn = offer.fareMxn,
@@ -61,7 +62,7 @@ class OfferRecorder @Inject constructor(
                 (if (km) threshold.minPerKmMxn else threshold.minPerHourMxn).toBigDecimal().toPlainString(),
                 (if (km) threshold.redPerKmMxn else threshold.redPerHourMxn).toBigDecimal().toPlainString(),
                 version?.id, source, offer.paymentBasis, result.contributionDecimal, result.perKmDecimal,
-                result.perHourDecimal, result.verdict.unavailableReason))
+                result.perHourDecimal, result.verdict.unavailableReason, saved.rateBasis.name))
         val id = offers.insert(row)
         if (id == -1L) requireNotNull(offers.forSession(sessionId)) else row.copy(id = id)
     }
@@ -75,12 +76,16 @@ fun OfferEntity.recordedMetrics(): OfferMetrics {
     val net = saved.contribution?.toDouble()
     val grossKm = distanceKm?.takeIf { it > 0 }?.let { fareMxn?.div(it) }
     val grossMin = durationMin?.takeIf { it > 0 }?.let { fareMxn?.div(it) }
+    val grossHour = durationMin?.takeIf { it > 0 }?.let { fareMxn?.times(60)?.div(it) }
     val missing = listOfNotNull(if (fareMxn == null) "fareMxn" else null, if (pickupKm == null) "pickupKm" else null,
         if (tripKm == null) "tripKm" else null, if (pickupMin == null) "pickupMin" else null, if (tripMin == null) "tripMin" else null)
     val verdict = Verdict(VerdictLevel.valueOf(requireNotNull(verdict)), km, hour, net, grossKm,
-        missing, preferredMetric = PreferredMetric.valueOf(saved.unit), unavailableReason = saved.unavailableReason)
+        missing, preferredMetric = PreferredMetric.valueOf(saved.unit), unavailableReason = saved.unavailableReason,
+        rateBasis = RateBasis.fromName(saved.rateBasis))
+    // The legs' decimal sum, as the engine added them; the Double total only for rows without both legs.
+    fun legs(a: Double?, b: Double?, total: Double?) = (a?.toBigDecimal()?.let { b?.toBigDecimal()?.add(it) } ?: total?.toBigDecimal())?.toPlainString()
     return OfferMetrics(fareMxn, net, distanceKm, durationMin, grossKm, grossMin, km, hour?.div(60), hour, verdict,
-        saved.contribution, saved.perKm, saved.perHour)
+        saved.contribution, saved.perKm, saved.perHour, grossHour, legs(pickupKm, tripKm, distanceKm), legs(pickupMin, tripMin, durationMin))
 }
 
 /**

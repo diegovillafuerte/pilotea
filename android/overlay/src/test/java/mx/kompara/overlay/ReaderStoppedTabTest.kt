@@ -20,6 +20,7 @@ import mx.kompara.overlay.RealGeometryFixtures.UBER
 import mx.kompara.overlay.RealGeometryFixtures.display
 import mx.kompara.overlay.RealGeometryFixtures.navigationBar
 import mx.kompara.overlay.RealGeometryFixtures.statusBar
+import mx.kompara.testing.BaselineComparison
 import mx.kompara.ui.theme.KomparaTheme
 import mx.kompara.parsers.model.HostGeometry
 import mx.kompara.parsers.model.HostGeometryDeriver
@@ -177,7 +178,8 @@ class StoppedTabAfterStallTest {
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class ReaderStoppedTabTest {
     @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
-    @Test fun `C6 passive tab retains words geometry and no action at day night and large fonts`() {
+    /** v3's C6 is the v4 kit's S8, unchanged: these renders are its coverage in both contracts. */
+    @Test fun `C6 (S8) passive tab retains words geometry and no action at day night and large fonts`() {
         data class Case(val name: String, val scale: Float = 1f, val width: Int = 393, val dark: Boolean = false)
         val cases = listOf(Case("C6_day"), Case("C6_night", dark = true),
             Case("C6_1.3", scale = 1.3f), Case("C6_narrow_1.3", scale = 1.3f, width = 320),
@@ -205,7 +207,7 @@ class ReaderStoppedTabTest {
             out.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
             val baseline = File("src/test/snapshots/v3/${out.name}")
             if (System.getProperty("v3.recordScreenshots") == "true") out.copyTo(baseline, overwrite = true)
-            else { assertTrue("Missing $baseline", baseline.exists()); assertTrue("Changed $out", BitmapFactory.decodeFile(baseline.path).sameAs(bitmap)) }
+            else { assertTrue("Missing $baseline", baseline.exists()); BaselineComparison.assertMatches(BitmapFactory.decodeFile(baseline.path), bitmap, out) }
         }
     }
 }

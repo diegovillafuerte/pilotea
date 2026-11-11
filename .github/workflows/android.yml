@@ -38,6 +38,23 @@ jobs:
       - name: Lint
         run: ./gradlew lintDebug
 
+      # Every finished run keeps its reports: a red one to see why (each failed assertion's message,
+      # the lint report, the screenshots the tests rendered on this runner), a green one to see which
+      # frames were accepted with rendering differences and by how much (BaselineComparison).
+      - name: Upload reports and rendered screenshots
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            android/*/build/reports/tests/testDebugUnitTest
+            android/*/build/test-results/testDebugUnitTest
+            android/*/build/reports/lint-results-debug.*
+            android/*/build/outputs/v3-screenshots
+            android/*/build/outputs/v4-screenshots
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:

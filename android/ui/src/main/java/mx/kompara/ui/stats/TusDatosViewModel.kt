@@ -30,7 +30,7 @@ class LocalHistoryEraser @Inject constructor(
 ) {
     suspend fun erase() {
         uploads.revoke(deleting = true)
-        reader.forgetHistoryAndPause()
+        reader.forgetHistory()
         localData.eraseHistory()
         settings.selectWeekStart(null)
         withContext(Dispatchers.IO) {
@@ -87,6 +87,7 @@ class TusDatosViewModel @Inject constructor(
         }
     }
     fun telemetry(value: Boolean) = run("No pudimos guardar el ajuste. Inténtalo otra vez.") { uploads.telemetry(value) }
+    /** J5's second switch, "Sumar mis promedios a mi ciudad": not built until founder decision 1 (plan §8). */
     fun contribution(value: Boolean) = run("No pudimos guardar el ajuste. Inténtalo otra vez.") { uploads.contribution(value) }
     fun deleteAccount() = run("No pudimos eliminarla. Inténtalo otra vez.") {
         check(auth.sessionState.first() is SessionState.Authenticated)

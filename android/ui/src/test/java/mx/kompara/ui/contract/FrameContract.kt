@@ -23,17 +23,20 @@ object FrameContract {
     fun normalize(text: String): String = text.replace("\u2060", "").replace('\u00a0', ' ')
         .replace(Regex("\\s+"), " ").replace(Regex(" +/"), "/").trim()
 
+    /** Every text, edit value and content description on screen, normalized. The v4 contract reads it too. */
+    fun visibleText(compose: ComposeTestRule): String = compose.onAllNodes(SemanticsMatcher("all") { true }, useUnmergedTree = true)
+        .fetchSemanticsNodes().flatMap { node ->
+            val layouts = mutableListOf<TextLayoutResult>()
+            node.config.getOrNull(SemanticsActions.GetTextLayoutResult)?.action?.invoke(layouts)
+            layouts.map { it.layoutInput.text.text } +
+                node.config.getOrNull(SemanticsProperties.Text).orEmpty().map { it.text } +
+                listOfNotNull(node.config.getOrNull(SemanticsProperties.EditableText)?.text) +
+                node.config.getOrNull(SemanticsProperties.ContentDescription).orEmpty()
+        }.joinToString(" ").let(::normalize)
+
     fun assertFrame(compose: ComposeTestRule, id: String) {
         if (id !in strings) return // Additional native error/empty/editor scenarios have their own assertions.
-        fun visibleText() = compose.onAllNodes(SemanticsMatcher("all") { true }, useUnmergedTree = true)
-            .fetchSemanticsNodes().flatMap { node ->
-                val layouts = mutableListOf<TextLayoutResult>()
-                node.config.getOrNull(SemanticsActions.GetTextLayoutResult)?.action?.invoke(layouts)
-                layouts.map { it.layoutInput.text.text } +
-                    node.config.getOrNull(SemanticsProperties.Text).orEmpty().map { it.text } +
-                    listOfNotNull(node.config.getOrNull(SemanticsProperties.EditableText)?.text) +
-                    node.config.getOrNull(SemanticsProperties.ContentDescription).orEmpty()
-            }.joinToString(" ").let(::normalize)
+        fun visibleText() = visibleText(compose)
         var text = visibleText()
         if (id in setOf("D1", "D1a", "D1b", "N3")) {
             // The offer log is lazy: inspect its entire actual list, then restore the screenshot origin.
@@ -46,10 +49,10 @@ object FrameContract {
             list.performScrollToIndex(0)
         }
         val expected = strings.getValue(twins[id] ?: id) + strings.getValue(id)
-        val semanticRates = mapOf("$9.49/km" to "9.49 pesos netos por km", "$7.16/km" to "7.16 pesos netos por km",
-            "$2.20/km" to "2.20 pesos netos por km", "−$1.05/km" to "menos 1.05 pesos netos por km")
+        val semanticRates = mapOf("$9.49/km" to "9.49 pesos por kilómetro", "$7.16/km" to "7.16 pesos por kilómetro",
+            "$2.20/km" to "2.20 pesos por kilómetro", "−$1.05/km" to "menos 1.05 pesos por kilómetro")
         fun nativeEquivalent(value: String): Boolean = when {
-            // The band is one phrase-first accessible image; its visual text and drawn cues are decorative.
+            // The chip is one accessible image; its painted words are hidden from accessibility.
             value in semanticRates -> semanticRates.getValue(value) in text
             value == "▲ desde" -> "Tu meta" in text && "desde" in text
             value == "▼ abajo de" -> "Tu mínimo" in text && "abajo de" in text

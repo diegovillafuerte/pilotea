@@ -14,7 +14,7 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
-import mx.kompara.data.settings.ThemePreference
+import androidx.compose.ui.platform.testTag
 import mx.kompara.ui.components.*
 import org.junit.Assert.*
 import org.junit.Rule
@@ -28,8 +28,7 @@ import org.robolectric.annotation.Config
 class NightThemeTest {
     @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
 
-    @Test fun `system and persisted overrides recompose existing content without changing state`() {
-        var preference by mutableStateOf(ThemePreference.AUTOMATIC)
+    @Test fun `the system's night mode recomposes existing content without changing state`() {
         var systemNight by mutableStateOf(false)
         var observed: KomparaColors? = null
         var material: ColorScheme? = null
@@ -39,27 +38,25 @@ class NightThemeTest {
                     if (systemNight) Configuration.UI_MODE_NIGHT_YES else Configuration.UI_MODE_NIGHT_NO
             }
             CompositionLocalProvider(LocalConfiguration provides configuration) {
-                KomparaTheme(preference = preference) {
+                // The theme follows the system (docs/v4-simple-launch-plan.md §3); there is no stored choice.
+                KomparaTheme {
                     KomparaSystemBars(compose.activity.window)
-                    var selected by remember { mutableIntStateOf(0) }
+                    var on by remember { mutableStateOf(false) }
                     val colors = KomparaTheme.colors
                     val scheme = MaterialTheme.colorScheme
                     SideEffect { observed = colors; material = scheme }
                     Surface { Column {
-                        TextTabs(listOf("Semana", "Mes"), selected, { selected = it })
+                        KomparaSwitch(on, { on = it }, Modifier.testTag("switch"))
                         PrimaryButton("Guardar", {})
-                        RootBottomBar(1, {})
+                        RootBottomBar(0, {})
                     } }
                 }
             }
         }
-        compose.onNodeWithText("Mes").performClick()
-        for ((pref, system, expected) in listOf(
-            Triple(ThemePreference.AUTOMATIC, false, DayColors), Triple(ThemePreference.AUTOMATIC, true, NightColors),
-            Triple(ThemePreference.LIGHT, true, DayColors), Triple(ThemePreference.DARK, false, NightColors),
-            Triple(ThemePreference.AUTOMATIC, false, DayColors), Triple(ThemePreference.DARK, true, NightColors))) {
-            compose.runOnIdle { preference = pref; systemNight = system }
-            compose.onNodeWithText("Mes").assertIsSelected()
+        compose.onNodeWithTag("switch").performClick()
+        for ((system, expected) in listOf(false to DayColors, true to NightColors, false to DayColors, true to NightColors)) {
+            compose.runOnIdle { systemNight = system }
+            compose.onNodeWithTag("switch").assertIsOn()
             compose.onNodeWithText("Guardar").assertHeightIsAtLeast(56.dp)
             compose.onNodeWithText("Ganancias").assertIsSelected()
             compose.runOnIdle {
@@ -87,12 +84,7 @@ class NightThemeTest {
             assertEquals(Color(0xFFD32F2F), colors.rojo)
             assertEquals(Color(0xFF0E0F10), colors.chipInk)
             assertEquals(Color(0xFFEDEDEA), colors.onChip)
-            assertEquals(Color(0xFF2A2C2F), colors.chipGrey)
-            assertEquals(Color(0xFF2FB35A), colors.trayGreen)
-            assertEquals(Color(0xFFF2B705), colors.trayYellow)
-            assertEquals(Color(0xFFFF5C5C), colors.trayRed)
-            assertEquals(Color.White.copy(alpha = .12f), colors.chipEdge)
-            assertEquals(Color.White.copy(alpha = .20f), colors.chipGreyEdge)
+            assertEquals(Color(0xFF58C47A), colors.kOnDark)
         }
         assertEquals(Color(0xFF3FB565), NightColors.activeNavigation)
         assertNotEquals(NightColors.brand, NightColors.activeNavigation)

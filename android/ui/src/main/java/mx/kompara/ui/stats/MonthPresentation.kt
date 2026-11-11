@@ -5,6 +5,7 @@ import mx.kompara.metrics.MonthMoneySnapshot
 import mx.kompara.ui.components.BarValue
 import mx.kompara.ui.components.CalculationRow
 import mx.kompara.ui.format.Formatters
+import mx.kompara.ui.format.spanishDate
 import java.math.BigDecimal
 import java.time.LocalDate
 import java.time.YearMonth
@@ -16,7 +17,7 @@ fun monthName(month: YearMonth): String = month.atDay(1).format(DateTimeFormatte
 fun monthLabel(month: YearMonth, today: LocalDate): String = monthName(month).replaceFirstChar { it.titlecase(monthSpanish) } +
     if (month.year != today.year) " ${month.year}" else ""
 fun monthRange(start: LocalDate, end: LocalDate): String =
-    (if (start == end) "${start.dayOfMonth}" else "${start.dayOfMonth} – ${end.dayOfMonth}") + " " + end.format(DateTimeFormatter.ofPattern("MMM", monthSpanish))
+    (if (start == end) "${start.dayOfMonth}" else "${start.dayOfMonth} – ${end.dayOfMonth}") + " " + end.format(spanishDate("MMM"))
 
 /** One dated net ledger and separately named statement-payment scopes. */
 data class MonthPresentation(val snapshot: MonthMoneySnapshot, val premium: Boolean = false) {
@@ -38,7 +39,6 @@ data class MonthPresentation(val snapshot: MonthMoneySnapshot, val premium: Bool
     val quietLine get() = if (importOnly) (if (paymentScopes.all { it.tripsKnown }) "${paymentScopes.sumOf { it.trips }} viajes según tu resumen, sin km" else "Sin número de viajes ni kilómetros en tu resumen") else
         money.tripCount() + (if (money.inProgress > 0) " (${money.inProgress} en curso)" else "") + ",\n" +
             if (money.periodResult == null) "faltan datos para calcular lo que te quedó" else basis
-    val imssLabel get() = if (open) "IMSS del mes" else "IMSS de ${monthName(month)}"
     val choices get() = (snapshot.history + month + YearMonth.from(today)).distinct().filter { it <= YearMonth.from(today) }.sortedDescending()
     // Empty pre-reader calendar intervals are gaps, not invented net bars for a statement.
     val weeks get() = snapshot.weeks.filter { it.contributions.isNotEmpty() || it.carConfigured && !importOnly }
@@ -55,20 +55,11 @@ data class MonthPresentation(val snapshot: MonthMoneySnapshot, val premium: Bool
         if (money.periodResult == null || sum.subtract(money.periodResult).abs() > BigDecimal("0.000000000001") || residual.signum() == 0) return null
         return "El total se calcula antes de redondear cada semana."
     }
-    fun weekLabel(week: PeriodMoney) = monthRange(week.window.start, week.window.endInclusive) +
-        (if (week.window.start == today && week.window.endInclusive == today) " · hoy" else "") + " · ${week.trips} viajes"
-    fun weekNote(week: PeriodMoney): String? = when {
-        !week.carConfigured -> null
-        week.carCharges.size == 1 -> "1 día del coche"
-        week.carCharges.size < 7 -> "${week.carCharges.size} de 7 días del coche"
-        week.trips == 0 -> "Sin viajes; lo del coche corre igual"
-        else -> null
-    }
 }
 
 fun paymentLabel(record: IncomeRecord): String = (if (record.paymentBasis == PaymentBasis.UNCONFIRMED) "Pago leído de" else "Te pagó") +
-    " ${appName(record.app)} del " + record.coverage.start.format(DateTimeFormatter.ofPattern(if (record.coverage.start.month == record.coverage.endInclusive.month) "d" else "d MMM", monthSpanish)) + " al " +
-    record.coverage.endInclusive.format(DateTimeFormatter.ofPattern("d MMM", monthSpanish))
+    " ${appName(record.app)} del " + record.coverage.start.format(spanishDate(if (record.coverage.start.month == record.coverage.endInclusive.month) "d" else "d MMM")) + " al " +
+    record.coverage.endInclusive.format(spanishDate("d MMM"))
 
 fun monthCalculation(month: MonthPresentation): DayCalculation {
     val money = month.money

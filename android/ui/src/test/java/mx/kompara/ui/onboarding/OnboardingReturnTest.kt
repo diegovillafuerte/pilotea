@@ -4,6 +4,7 @@ import android.app.ActivityManager
 import android.content.*
 import android.content.pm.ActivityInfo
 import android.content.pm.ResolveInfo
+import android.os.PowerManager
 import android.provider.Settings
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.*
@@ -21,6 +22,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowBuild
 import org.robolectric.shadows.ShadowToast
 import java.time.*
 
@@ -53,6 +55,8 @@ class OnboardingReturnTest {
         Settings.Secure.putString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
             if (value) ReaderDeviceEnvironment.component(context).flattenToString() else "")
     }
+    private fun exempt(value: Boolean) =
+        shadowOf(context.getSystemService(PowerManager::class.java)).setIgnoringBatteryOptimizations(context.packageName, value)
     private fun support(intent: Intent) {
         shadowOf(context.packageManager).addResolveInfoForIntent(intent, ResolveInfo().apply {
             activityInfo = ActivityInfo().apply { packageName = "com.android.settings"; name = "Settings"; exported = true }
@@ -64,6 +68,22 @@ class OnboardingReturnTest {
     }
     @After fun cleanup() { models.forEach { it.viewModelScope.cancel() }; Dispatchers.resetMain() }
 
+    @Test fun `a saved page this build no longer shows restores as the first page`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        // The bytes 0.2.20 parcelled for its sign-in page: the enum OnboardingPage, constant SIGNIN, by name.
+        val bytes = java.io.ByteArrayOutputStream().also { java.io.ObjectOutputStream(it).use { out -> out.writeObject(OnboardingPage.DONE) } }.toByteArray()
+        val done = byteArrayOf(0x74, 0, 4) + "DONE".toByteArray()
+        val at = (0..bytes.size - done.size).first { i -> done.indices.all { bytes[i + it] == done[it] } }
+        val signIn = bytes.copyOfRange(0, at) + byteArrayOf(0x74, 0, 6) + "SIGNIN".toByteArray() + bytes.copyOfRange(at + done.size, bytes.size)
+        val restored = java.io.ObjectInputStream(signIn.inputStream()).use { it.readObject() }
+        for (page in listOf(restored, "SIGNIN", 3)) {
+            val vm = vm(SavedStateHandle(mapOf("entry" to OnboardingEntry.FIRST_RUN, "page" to page)))
+            vm.start(OnboardingEntry.FIRST_RUN); vm.onResume(); runCurrent()
+            assertEquals(OnboardingPage.PITCH, vm.page.value)
+            vm.begin(); runCurrent()
+            assertEquals(OnboardingPage.DISCLOSURE, vm.page.value)
+        }
+    }
     @Test fun `short run has no account cost profile limited or done detour`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val vm = vm(); vm.start(OnboardingEntry.FIRST_RUN); vm.onResume(); runCurrent()
@@ -114,6 +134,29 @@ class OnboardingReturnTest {
         grant(false); vm.onResume(); runCurrent()
         assertEquals(OnboardingPage.DONE, vm.page.value)
         assertEquals(false, reader.state.value.permission)
+    }
+    @Test fun `a maker that freezes apps gets the battery step and the exemption updates the reader on return`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        ShadowBuild.setManufacturer("samsung"); exempt(false); grant(true)
+        val vm = vm(); vm.start(OnboardingEntry.FIRST_RUN); vm.onResume(); runCurrent()
+        vm.begin(); vm.consent(true); runCurrent(); advanceTimeBy(800); runCurrent()
+        assertEquals(OnboardingPage.BATTERY, vm.page.value); assertTrue(reader.state.value.batteryRestricted)
+        assertTrue(records.contains(OnboardingStep.OEM))
+        support(BatterySettings.candidates(context).first()); vm.openSettings(); vm.onPause()
+        exempt(true); vm.onResume(); runCurrent()
+        assertEquals(OnboardingPage.DONE, vm.page.value); assertFalse(reader.state.value.batteryRestricted)
+        assertTrue(settings.isOnboardingCompleted())
+    }
+    @Test fun `an exempt samsung or another maker finishes the first run without the battery step`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        grant(true)
+        for ((maker, isExempt) in listOf("samsung" to true, "Xiaomi" to false, "Google" to false)) {
+            ShadowBuild.setManufacturer(maker); exempt(isExempt)
+            val vm = vm(); vm.start(OnboardingEntry.FIRST_RUN); vm.onResume(); runCurrent()
+            vm.begin(); vm.consent(true); runCurrent(); advanceTimeBy(800); runCurrent()
+            assertEquals(maker, OnboardingPage.DONE, vm.page.value)
+        }
+        assertFalse(records.contains(OnboardingStep.OEM))
     }
     @Test fun `battery only entry preserves off state and exits to its opener`() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
@@ -189,15 +232,4 @@ class OnboardingReturnTest {
         assertFalse(vm.permissionReturn.value.ready)
         vm.finish(); runCurrent(); assertEquals(OnboardingPage.DONE, vm.page.value)
     }
-    @Test fun `optional sign in returns to the pending first run and cancel returns to demo`() = runTest {
-        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val vm = vm(); vm.start(OnboardingEntry.FIRST_RUN); vm.onResume(); runCurrent()
-        vm.signIn(); assertEquals(OnboardingPage.SIGNIN, vm.page.value)
-        vm.cancelSignIn(); assertEquals(OnboardingPage.PITCH, vm.page.value)
-        vm.signIn(); vm.signedIn(); runCurrent()
-        assertEquals(OnboardingPage.DISCLOSURE, vm.page.value)
-        assertFalse(settings.isOnboardingCompleted())
-        assertEquals(1, records.count { it == OnboardingStep.SIGNUP_DONE })
-    }
-
 }

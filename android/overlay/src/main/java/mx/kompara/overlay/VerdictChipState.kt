@@ -1,9 +1,10 @@
 package mx.kompara.overlay
 
-import mx.kompara.data.settings.PlatformThreshold
 import mx.kompara.data.settings.PreferredMetric
+import mx.kompara.metrics.CounterOffers
 import mx.kompara.metrics.OfferMetrics
 import mx.kompara.metrics.VerdictLevel
+import mx.kompara.metrics.rate
 import mx.kompara.ui.components.*
 import mx.kompara.ui.format.Formatters
 
@@ -20,10 +21,13 @@ data class VerdictChipState(val regla: ReglaModel, val grossPerKm: String) {
         ?: (regla.band as ReglaBand.Unavailable).input.headline
 
     companion object {
-        /** [threshold] is the evaluated pair (the recorded snapshot for live offers), not today's pair. */
-        fun from(metrics: OfferMetrics, threshold: PlatformThreshold): VerdictChipState {
-            val limits = reading(threshold, metrics.verdict.preferredMetric)
-            val rate = (if (limits.unit == ReglaUnit.KM) metrics.perKmDecimal else metrics.perHourDecimal)?.toBigDecimalOrNull()
+        /**
+         * The verdict's rate in its own unit and basis (a GROSS judgement never shows a net number).
+         * [counterOffers] are a Pon Tu Precio card's amounts; the pill draws only those still ahead.
+         */
+        fun from(metrics: OfferMetrics, counterOffers: CounterOffers? = null): VerdictChipState {
+            val basis = metrics.verdict.rateBasis
+            val rate = metrics.rate(metrics.verdict.preferredMetric, basis)
             val position = when (metrics.verdict.level) {
                 VerdictLevel.GREEN -> ReglaPosition.ABOVE
                 VerdictLevel.YELLOW -> ReglaPosition.MEETS
@@ -37,16 +41,16 @@ data class VerdictChipState(val regla: ReglaModel, val grossPerKm: String) {
                     "DISTANCE" -> ReglaUnavailable.DISTANCE
                     else -> ReglaUnavailable.UNCONFIRMED
                 })
-            return VerdictChipState(limits.copy(band = band), metrics.grossPerKm?.let(Formatters::formatPerKm) ?: "—")
+            return VerdictChipState(reading(metrics.verdict.preferredMetric).copy(band = band, basis = basis, counterOffers = counterOffers),
+                metrics.grossPerKm?.let(Formatters::formatPerKm) ?: "—")
         }
 
+        /** The unread pill: an OCR frame whose payment was withheld, or the reader's unread notice (WP-AD). */
+        fun unread(preferred: PreferredMetric): VerdictChipState =
+            VerdictChipState(reading(preferred).copy(band = ReglaBand.Unavailable(ReglaUnavailable.FARE)), "—")
+
         /** No previous trip amount is retained while a new session is being evaluated. */
-        fun reading(threshold: PlatformThreshold, preferred: PreferredMetric): ReglaModel {
-            val km = preferred == PreferredMetric.IPK
-            return ReglaModel(ReglaBand.Unavailable(ReglaUnavailable.READING),
-                (if (km) threshold.minPerKmMxn else threshold.minPerHourMxn).toBigDecimal(),
-                (if (km) threshold.redPerKmMxn else threshold.redPerHourMxn).toBigDecimal(),
-                if (km) ReglaUnit.KM else ReglaUnit.HOUR)
-        }
+        fun reading(preferred: PreferredMetric): ReglaModel =
+            ReglaModel(ReglaBand.Unavailable(ReglaUnavailable.READING), if (preferred == PreferredMetric.IPK) ReglaUnit.KM else ReglaUnit.HOUR)
     }
 }

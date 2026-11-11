@@ -38,7 +38,7 @@ class CarCostViewModel @Inject constructor(private val car: CarCostRepository,
                 today, selected != null, legacy != null)
             handle["carOpen"] = true
         } catch (e: Exception) { if (e is CancellationException) throw e
-            mutable.value = state.value.copy(open = true, error = "No pudimos cargar lo del coche. Inténtalo otra vez.") }
+            mutable.value = state.value.copy(open = true, error = "No pudimos cargar el coche. Inténtalo otra vez.") }
     } }
     fun amount(text: String) { if (!state.value.saving) { handle["carAmount"] = text; mutable.value = state.value.copy(amount = text, error = null) } }
     fun date(date: LocalDate) { if (!state.value.saving) { handle["carFrom"] = date.toString(); mutable.value = state.value.copy(from = date, error = null) } }
@@ -62,7 +62,7 @@ class CarCostViewModel @Inject constructor(private val car: CarCostRepository,
                 }
                 mutable.value = state.value.copy(saving = false); dismiss()
             } catch (e: Exception) { if (e is CancellationException) throw e
-                mutable.value = state.value.copy(saving = false, confirmRemove = false, error = "No pudimos guardar lo del coche. Inténtalo otra vez.") }
+                mutable.value = state.value.copy(saving = false, confirmRemove = false, error = "No pudimos guardar el coche. Inténtalo otra vez.") }
         }
     }
 }

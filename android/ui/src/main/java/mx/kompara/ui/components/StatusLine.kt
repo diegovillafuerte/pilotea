@@ -8,7 +8,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.scale
@@ -18,8 +17,8 @@ import androidx.compose.ui.unit.dp
 import mx.kompara.ui.theme.KomparaTheme
 import mx.kompara.ui.theme.KomparaType
 
-/** Status is not a verdict. These six drawings always accompany caller-provided words. */
-enum class StatusGlyph { HEALTHY, WAITING, OFF, PAUSED, DONE, ATTENTION }
+/** Status is not a verdict. These five drawings always accompany caller-provided words. */
+enum class StatusGlyph { HEALTHY, WAITING, OFF, DONE, ATTENTION }
 
 @Composable
 fun StatusIcon(glyph: StatusGlyph, modifier: Modifier = Modifier) {
@@ -35,10 +34,6 @@ fun StatusIcon(glyph: StatusGlyph, modifier: Modifier = Modifier) {
                 StatusGlyph.OFF -> {
                     drawCircle(c.ink, 6f, Offset(8f, 8f), style = Stroke(2f))
                     drawLine(c.ink, Offset(3.8f, 3.8f), Offset(12.2f, 12.2f), 2f)
-                }
-                StatusGlyph.PAUSED -> {
-                    drawRect(c.ink, Offset(3.5f, 2.5f), Size(3f, 11f))
-                    drawRect(c.ink, Offset(9.5f, 2.5f), Size(3f, 11f))
                 }
                 StatusGlyph.DONE -> drawPath(Path().apply {
                     moveTo(2.5f, 8.5f); lineTo(6.5f, 12.5f); lineTo(13.5f, 4f)

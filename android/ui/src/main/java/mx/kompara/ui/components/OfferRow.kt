@@ -43,31 +43,3 @@ fun OfferMark(state: OfferMarkState, modifier: Modifier = Modifier, inRow: Boole
                 PathEffect.dashPathEffect(floatArrayOf(3.dp.toPx(), 2.dp.toPx())) else null))
     }
 }
-
-/** Layout accepts display data, never recalculates or recolours historical offers. */
-@Composable
-fun OfferRow(outcome: String, timeAndMeaning: String, rate: String?, state: OfferMarkState,
-    onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Row(modifier.fillMaxWidth().heightIn(min = 66.dp).clickable(onClick = onClick).padding(vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-        OfferMark(state, inRow = true)
-        BoxWithConstraints(Modifier.weight(1f)) {
-            val stacked = LocalDensity.current.fontScale > 1.3f || maxWidth < 250.dp
-            val copy: @Composable () -> Unit = {
-                Text(outcome, style = KomparaType.outcome)
-                Text(timeAndMeaning, style = KomparaType.meaning, color = KomparaTheme.colors.inkSecondary)
-            }
-            if (stacked) {
-                Column {
-                    copy()
-                    if (state != OfferMarkState.UNKNOWN && rate != null) Text(rate, style = KomparaType.rate, softWrap = false)
-                }
-            } else {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Column(Modifier.weight(1f)) { copy() }
-                    if (state != OfferMarkState.UNKNOWN && rate != null) Text(rate, style = KomparaType.rate, softWrap = false)
-                }
-            }
-        }
-    }
-}

@@ -15,15 +15,51 @@ class VerdictChipStateTest {
     private val full = TripOffer("uber", 100.0, 2.0, 5.0, 8.0, 15.0)
     private fun state(offer: TripOffer = full, preferred: PreferredMetric = PreferredMetric.IPK,
         cost: BigDecimal? = BigDecimal.ZERO, threshold: PlatformThreshold = limits): VerdictChipState =
-        VerdictChipState.from(engine.evaluate(offer, cost, threshold, preferred), threshold)
+        VerdictChipState.from(engine.evaluate(offer, cost, threshold, preferred))
+
+    /** The v4 kit's cost (24.50 ÷ 12 + 0.80 per km) and its bruto limits $11 / $9. */
+    private val kitCost = BigDecimal("24.50").divide(BigDecimal(12), mx.kompara.data.accounting.MONEY_CONTEXT).add(BigDecimal("0.80"))
+    private val bruto = PlatformThreshold(11.0, 280.0, 9.0, 230.0)
+
+    @Test fun `a GROSS judgement shows its gross rate and says bruto, never a net number in a gross colour`() {
+        // S10: $148 for 12 km. Bruto 148 / 12 = 12.33 is green against $11; the net 9.49 is not what was judged.
+        val m = engine.evaluate(TripOffer("uber", 148.0, 2.0, 6.0, 10.0, 18.0), kitCost, bruto, PreferredMetric.IPK,
+            mx.kompara.data.settings.RateBasis.GROSS)
+        val state = VerdictChipState.from(m)
+        assertEquals(VerdictLevel.GREEN, state.level)
+        assertEquals("$12.33/km", state.heroRate)
+        assertEquals(mx.kompara.data.settings.RateBasis.GROSS, state.regla.basis)
+        assertEquals("Arriba de tu meta: 12.33 pesos por kilómetro, bruto", state.regla.spokenBand)
+        // Per hour in bruto: 148 × 60 / 24 = 370.
+        val hourly = VerdictChipState.from(engine.evaluate(TripOffer("uber", 148.0, 2.0, 6.0, 10.0, 18.0), kitCost, bruto,
+            PreferredMetric.IPH, mx.kompara.data.settings.RateBasis.GROSS))
+        assertEquals("$370/h", hourly.heroRate)
+        assertEquals("neto", state(cost = kitCost).regla.basisWord)
+    }
+
+    @Test fun `a Pon Tu Precio card's counter-offers ride along and the verdict decides which are drawn`() {
+        // S5: $90.05 for 22.9 km is 1.09 neto per km, below the mínimo: from $203 and from $249.
+        val s5 = engine.evaluate(TripOffer("didi", 90.05, 2.0, 8.0, 20.9, 36.0), kitCost, limits)
+        val red = VerdictChipState.from(s5, CounterOffers.of(s5, BigDecimal(8), BigDecimal(6), PreferredMetric.IPK,
+            mx.kompara.data.settings.RateBasis.NET))
+        assertEquals(VerdictLevel.RED, red.level)
+        assertEquals(203, red.regla.trayMinimum); assertEquals(249, red.regla.trayGoal)
+        // S9: $96 for 10.4 km is 6.39, between the limits: only from $113.
+        val s9 = engine.evaluate(TripOffer("didi", 96.0, 1.2, 4.0, 9.2, 19.0), kitCost, limits)
+        val yellow = VerdictChipState.from(s9, CounterOffers.of(s9, BigDecimal(8), BigDecimal(6), PreferredMetric.IPK,
+            mx.kompara.data.settings.RateBasis.NET))
+        assertNull(yellow.regla.trayMinimum); assertEquals(113, yellow.regla.trayGoal)
+        // Above the meta, an amount a rounding edge might return is never drawn; without counter-offers, no tray.
+        val s1 = engine.evaluate(TripOffer("didi", 148.0, 2.0, 6.0, 10.0, 18.0), kitCost, limits)
+        assertFalse(VerdictChipState.from(s1, CounterOffers(140, 150)).regla.hasTray)
+        assertFalse(VerdictChipState.from(s5).regla.hasTray)
+    }
 
     @Test fun `complete offer has one net rate and both evaluated limits`() {
         val state = state()
         assertEquals("$10.00/km", state.heroRate)
         assertEquals("$10.00/km", state.grossPerKm)
-        assertEquals("Arriba de tu meta: 10.00 pesos netos por km", state.regla.spokenBand)
-        assertEquals("tu meta $8", state.regla.goalLabel)
-        assertEquals("tu mínimo $6", state.regla.minimumLabel)
+        assertEquals("Arriba de tu meta: 10.00 pesos por kilómetro, neto", state.regla.spokenBand)
     }
 
     @Test fun `absent or partial distance withholds a verdict in either unit`() {
@@ -38,7 +74,7 @@ class VerdictChipStateTest {
     @Test fun `missing fare is grey with no trip figure`() {
         val state = state(full.copy(fareMxn = null))
         assertEquals("Sin lectura", state.heroRate)
-        assertEquals("Sin lectura: falta la tarifa", state.regla.spokenBand)
+        assertEquals("Sin lectura: no pudimos leer esta oferta", state.regla.spokenBand)
         assertNull(state.regla.rateText)
     }
 
@@ -62,8 +98,6 @@ class VerdictChipStateTest {
     @Test fun `chosen hour never substitutes a computable km rate`() {
         val state = state(full.copy(pickupMin = null), PreferredMetric.IPH)
         assertEquals(ReglaBand.Unavailable(ReglaUnavailable.TIME), state.regla.band)
-        assertEquals("tu meta $200/h", state.regla.goalLabel)
-        assertEquals("tu mínimo $150/h", state.regla.minimumLabel)
         assertNull(state.regla.rateText)
     }
 
@@ -71,7 +105,7 @@ class VerdictChipStateTest {
         val state = state(preferred = PreferredMetric.IPH)
         assertEquals("$300/h", state.heroRate)
         assertEquals(ReglaUnit.HOUR, state.regla.unit)
-        assertEquals("Arriba de tu meta: 300 pesos netos por hora", state.regla.spokenBand)
+        assertEquals("Arriba de tu meta: 300 pesos por hora, neto", state.regla.spokenBand)
     }
 
     @Test fun `same rounded rate can have different cue phrase and marker before rounding`() {
@@ -80,7 +114,7 @@ class VerdictChipStateTest {
         assertEquals(atGoal.heroRate, justBelow.heroRate)
         assertEquals(VerdictLevel.GREEN, atGoal.level)
         assertEquals(VerdictLevel.YELLOW, justBelow.level)
-        assertEquals("Cumple tu mínimo: 8.00 pesos netos por km", justBelow.regla.spokenBand)
+        assertEquals("Entre tu mínimo y tu meta: 8.00 pesos por kilómetro, neto", justBelow.regla.spokenBand)
         assertEquals(VerdictLevel.YELLOW, state(full.copy(fareMxn = 60.0)).level)
         assertEquals(VerdictLevel.RED, state(full.copy(fareMxn = 60.0), cost = BigDecimal("0.00001")).level)
     }
@@ -102,12 +136,11 @@ class VerdictChipStateTest {
             }
     }
 
-    @Test fun `reading state clears money and keeps chosen limits with cents`() {
-        val reading = VerdictChipState.reading(limits.copy(minPerHourMxn = 200.50), PreferredMetric.IPH)
-        assertEquals("Leyendo oferta: sin cálculo", reading.spokenBand)
+    @Test fun `reading state clears money and keeps the chosen unit`() {
+        val reading = VerdictChipState.reading(PreferredMetric.IPH)
+        assertEquals("Leyendo oferta", reading.spokenBand)
         assertNull(reading.rateText)
-        assertEquals("tu meta $200.50/h", reading.goalLabel)
-        assertEquals("tu mínimo $150.00/h", reading.minimumLabel)
+        assertEquals(ReglaUnit.HOUR, reading.unit)
     }
 
     @Test fun `evaluated pair is frozen in render state and not recoloured by new settings`() {
@@ -115,7 +148,5 @@ class VerdictChipStateTest {
         val newLimits = limits.copy(minPerKmMxn = 20.0)
         assertEquals(VerdictLevel.YELLOW, state(threshold = newLimits).level)
         assertEquals(VerdictLevel.GREEN, state.level)
-        assertEquals("tu meta $9.50", state.regla.goalLabel)
-        assertEquals("tu mínimo $6.50", state.regla.minimumLabel)
     }
 }

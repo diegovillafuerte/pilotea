@@ -13,8 +13,6 @@ import mx.kompara.data.model.Platform
  *  - each platform's thresholds → two doubles keyed [perKmKey]/[perHourKey]
  */
 object SettingsSerialization {
-    const val KEY_THEME = "theme_preference"
-
     const val KEY_ENABLED_PLATFORMS = "enabled_platforms"
 
     /** Boolean key for the anonymous-telemetry consent toggle (B-034). */
@@ -61,6 +59,9 @@ object SettingsSerialization {
 
     /** String key for which metric decides the semáforo (B-079), stored as [PreferredMetric.name]. */
     const val KEY_PREFERRED_METRIC = "preferred_metric"
+
+    /** String key for the basis the limits are kept and judged in (v4), stored as [RateBasis.name]. */
+    const val KEY_RATE_BASIS = "rate_basis"
 
     /** The single shared semáforo (B-076): green + red floors for $/km and $/hr, platform-less. */
     const val KEY_THRESHOLD_PER_KM = "threshold_per_km"
@@ -111,7 +112,6 @@ object SettingsSerialization {
             dailySummaryEnabled = lookupBoolean("daily_summary_enabled") ?: true,
             importReminderEnabled = lookupBoolean("import_reminder_enabled") ?: true,
             cityChosen = lookupBoolean("city_chosen") ?: false,
-            themePreference = ThemePreference.fromName(lookupString(KEY_THEME)),
             enabledPlatforms = decodeEnabledPlatforms(enabledNames),
             threshold = decodeThreshold(lookupDouble),
             telemetryEnabled = lookupBoolean(KEY_TELEMETRY_ENABLED)
@@ -137,6 +137,7 @@ object SettingsSerialization {
             shareCount = lookupInt(KEY_SHARE_COUNT) ?: 0,
             fiscalExportCount = lookupInt(KEY_FISCAL_EXPORT_COUNT) ?: 0,
             preferredMetric = PreferredMetric.fromName(lookupString(KEY_PREFERRED_METRIC)),
+            rateBasis = RateBasis.fromName(lookupString(KEY_RATE_BASIS)),
         )
     }
 

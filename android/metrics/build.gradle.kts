@@ -29,4 +29,8 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    // The v4 repositories and OfferRecorder against a real Room database and DataStore (as :data does).
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.ext.junit)
+    testImplementation(libs.androidx.datastore.preferences)
 }

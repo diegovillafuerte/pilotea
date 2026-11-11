@@ -164,7 +164,8 @@ class SummaryWorkerTest {
         val notice = shadowOf(manager).allNotifications.single()
         assertEquals("Trae tu resumen", notice.extras.getString(android.app.Notification.EXTRA_TITLE))
         assertEquals("12 – 18 oct", notice.extras.getString(android.app.Notification.EXTRA_TEXT))
-        assertEquals("import", NoticeNavigation.destination(target()!!))
+        // Statement import waits until after launch (plan §3): the dormant worker's notice opens Ganancias, not import.
+        assertEquals("ganancias", NoticeNavigation.destination(target()!!))
         assertNull(notice.publicVersion.extras.getString(android.app.Notification.EXTRA_TEXT))
         manager.cancelAll()
         assertEquals(ListenableWorker.Result.success(), worker(NoticeKind.IMPORT, delivery()).doWork())

@@ -3,9 +3,8 @@ package mx.kompara.ui.fiscal
 import mx.kompara.metrics.fiscal.FiscalMonthSummary
 import mx.kompara.metrics.fiscal.FiscalTotals
 import mx.kompara.metrics.fiscal.PlatformFiscalSummary
-import mx.kompara.metrics.imss.CoverageStatus
-import mx.kompara.metrics.imss.MonthPhase
-import mx.kompara.metrics.imss.PlatformImssStatus
+import mx.kompara.metrics.imss.ImssApp
+import mx.kompara.metrics.imss.ImssState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -47,10 +46,10 @@ class FiscalReportComposerTest {
         ytdTotals = FiscalTotals(60_000.0, 45_000.0, 1_260.0, 4_800.0),
     )
 
-    private fun imss(name: String, net: Double, status: CoverageStatus) = PlatformImssStatus(
-        platform = name, netSoFarMxn = net, thresholdMxn = 8364.0, remainingMxn = 0.0,
-        progress = 1.0, daysRemaining = 0, projectedMonthEndMxn = net, status = status,
-        phase = MonthPhase.PAST,
+    /** A closed month under the v4 IMSS rule (need $21,938): over it, or short by the rest. */
+    private fun imss(name: String, counted: Int, state: ImssState) = ImssApp(
+        platform = name, trips = counted.toBigDecimal(), incentives = null, counted = counted.toBigDecimal(),
+        pace = null, state = state, shortBy = if (state == ImssState.OVER) null else (21_938 - counted).toBigDecimal(),
     )
 
     @Test
@@ -58,7 +57,7 @@ class FiscalReportComposerTest {
         val data = FiscalReportComposer.compose(
             summary = summary(listOf(platform("UBER", approx = false)), approx = false),
             monthLabel = "Junio 2026",
-            imssStatuses = listOf(imss("UBER", 9000.0, CoverageStatus.COVERED)),
+            imssStatuses = listOf(imss("UBER", 22_410, ImssState.OVER)),
             driverName = "Ana",
             generatedOnLabel = "Generado el 10 jun 2026",
             strings = strings,
@@ -94,8 +93,8 @@ class FiscalReportComposerTest {
             summary = summary(listOf(platform("UBER", false), platform("DIDI", false)), approx = false),
             monthLabel = "Junio 2026",
             imssStatuses = listOf(
-                imss("UBER", 9000.0, CoverageStatus.COVERED),
-                imss("DIDI", 5000.0, CoverageStatus.UNLIKELY),
+                imss("UBER", 22_410, ImssState.OVER),
+                imss("DIDI", 5_000, ImssState.FELL_SHORT),
             ),
             driverName = null,
             generatedOnLabel = "x",
@@ -109,7 +108,7 @@ class FiscalReportComposerTest {
     fun `imss line notes when none covered and when no data`() {
         val none = FiscalReportComposer.compose(
             summary = summary(listOf(platform("UBER", false)), false),
-            monthLabel = "x", imssStatuses = listOf(imss("UBER", 3000.0, CoverageStatus.UNLIKELY)),
+            monthLabel = "x", imssStatuses = listOf(imss("UBER", 3_000, ImssState.FELL_SHORT)),
             driverName = null, generatedOnLabel = "x", strings = strings,
         )
         assertEquals(strings.imssNoneCovered, none.imssCoverageLine)

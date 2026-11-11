@@ -31,6 +31,19 @@ sealed interface OfferEvent {
     ) : OfferEvent
 
     /**
+     * WP-AD: an offer card has been on screen for a couple of seconds and no frame of it could be
+     * published (its arithmetic contradicts, its route is unread), with no session. A NOTICE, never an
+     * offer: [card] carries only what placement needs (host geometry, content and fare bounds, instance
+     * evidence), never a fare, legs, session, validation or raw values. The overlay shows the grey unread
+     * pill for it without a ledger or presentation row; every other consumer treats it as a failed read.
+     */
+    data class Unreadable(
+        override val packageName: String,
+        override val timestampMs: Long,
+        val card: OfferCard,
+    ) : OfferEvent
+
+    /**
      * The OCR offer may still be on screen but this frame published nothing (a held signature
      * frame, or unknown visibility). It never hides a chip. [processedFrame] true: a host frame was
      * processed and held (defers the overlay's soft hide); false: unknown visibility with no frame,

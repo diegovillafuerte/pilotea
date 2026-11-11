@@ -241,4 +241,23 @@ class KomparaDatabaseMigrationTest {
         assertEquals(1, count(db, "SELECT COUNT(*) FROM import_statements WHERE source='USER_CORRECTED_IMPORT' AND payment='5062' AND certificationId IS NULL AND certificationCity IS NULL AND confirmedFields IS NULL"))
         db.close()
     }
+
+    @Test fun migrate9To10_freezesJudgedOffersAsNetAndAddsIncentives() {
+        helper.createDatabase(TEST_DB, 9).apply {
+            execSQL("INSERT INTO offers (id,seenAt,platform,fareMxn,distanceKm,durationMin,surge,verdict,accepted,outcome,lastSeenAt,paymentBasis,inputProvenance,evaluation_evaluatedAt,evaluation_unit,evaluation_goal,evaluation_minimum,evaluation_costVersionId,evaluation_source,evaluation_paymentBasis,evaluation_contribution,evaluation_perKm,evaluation_perHour) VALUES (1,1790000000000,'UBER',148,12,24,0,'GREEN',0,'PENDING',1790000000000,'DRIVER_PAYMENT','CAPTURED',1790000000000,'IPK','8','6',1,'OCR','DRIVER_PAYMENT','113.9','9.49','284.7')")
+            execSQL("INSERT INTO offers (id,seenAt,platform,fareMxn,distanceKm,durationMin,surge,verdict,accepted,outcome,lastSeenAt,paymentBasis,inputProvenance) VALUES (2,1790000000000,'DIDI',0,0,0,0,'RED',0,'EXPIRED',1790000000000,'UNCONFIRMED','LEGACY_UNSPECIFIED')")
+            close()
+        }
+        val db = helper.runMigrationsAndValidate(TEST_DB, 10, true, KomparaMigrations.MIGRATION_9_10)
+        assertEquals(1, count(db, "SELECT COUNT(*) FROM offers WHERE id=1 AND evaluation_rateBasis='NET' AND evaluation_goal='8' AND evaluation_perKm='9.49' AND verdict='GREEN'"))
+        assertEquals(1, count(db, "SELECT COUNT(*) FROM offers WHERE id=2 AND evaluation_rateBasis IS NULL AND evaluation_unit IS NULL AND verdict='RED'"))
+        assertEquals(0, count(db, "SELECT COUNT(*) FROM monthly_incentives"))
+        db.close()
+    }
+
+    @Test
+    fun migrate_1_to_10_validatesCompleteUpgradeChain() {
+        helper.createDatabase(TEST_DB, 1).close()
+        helper.runMigrationsAndValidate(TEST_DB, 10, true, *KomparaMigrations.ALL).close()
+    }
 }

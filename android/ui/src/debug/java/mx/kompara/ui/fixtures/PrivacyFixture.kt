@@ -11,22 +11,19 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import mx.kompara.data.model.City
-import mx.kompara.data.settings.Settings
+import mx.kompara.data.settings.PreferredMetric
 import mx.kompara.ui.components.*
 import mx.kompara.ui.screens.*
 import mx.kompara.ui.stats.*
 import mx.kompara.ui.theme.KomparaTheme
 
-/** Reference identities, configured destinations and city suggestions live only in debug fixtures. */
+/** Tu perfil (G9 and its profile state); Tus datos and Ayuda are J5 and J6 in [SettingsFixture]. */
 @Composable
 fun PrivacyFixtureHost(frame: String) {
     val fixture = V3Fixture(LocalContext.current)
     val profile = AccountUiState(loaded = true, phone = "+525512345678", citySource = "por tu número",
-        goal = "$${fixture.goal}/km", minimum = "$${fixture.minimum}/km", suggestedGoal = "$7.70/km")
+        limits = ThresholdEditor.summary(LimitDraft(LimitPair(fixture.goal, fixture.minimum), LimitPair("200", "150"), PreferredMetric.IPK)))
     when (frame) {
-        "G7", "allowed" -> AvisosContent(AvisosState(Settings.DEFAULT.copy(fiscalMonthlySummaryEnabled = false), frame == "allowed", true))
-        "G8" -> HelpContent(initialAnswer = "semaforo", supportAvailable = true)
-        "support-gated" -> HelpContent(initialAnswer = "colores")
         "profile" -> AccountContent(profile, supportAvailable = true)
         "G9" -> Box(Modifier.fillMaxSize()) {
             AccountContent(profile, supportAvailable = true)
@@ -37,9 +34,5 @@ fun PrivacyFixtureHost(frame: String) {
             }
             SettingsConfirmation("¿Cambiar a Monterrey?", cityConfirmation(profile, City.MONTERREY), "Cambiar", {}, {})
         }
-        else -> TusDatosContent(TusDatosState(loaded = true, signedIn = true, contributionAvailable = true,
-            result = if (frame == "deleted") "Cuenta eliminada" else null,
-            error = if (frame == "delete-error") "No pudimos eliminarla. Inténtalo otra vez." else null),
-            externalDeletion = "https://kompara.mx/borrar", initialDialog = if (frame == "G6b") "account" else null)
     }
 }

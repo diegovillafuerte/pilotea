@@ -1,5 +1,9 @@
 package mx.kompara.metrics
 
+import mx.kompara.data.settings.PreferredMetric
+import mx.kompara.data.settings.RateBasis
+import java.math.BigDecimal
+
 /**
  * The full per-offer economics the engine computes, gross and net side by side, plus the
  * [Verdict]. All money in MXN; rate fields are null when the underlying input was missing so the
@@ -19,6 +23,7 @@ package mx.kompara.metrics
  * @property netPerKm netMxn / totalKm (null if either unknown)
  * @property netPerMin netMxn / totalMin (null if either unknown)
  * @property netPerHour netMxn per hour of total time (null if total time unknown)
+ * @property grossPerHour grossMxn per hour of total time (null if either unknown)
  * @property verdict the traffic-light decision and the missing-input list
  */
 data class OfferMetrics(
@@ -35,4 +40,17 @@ data class OfferMetrics(
     val contributionDecimal: String? = netMxn?.toString(),
     val perKmDecimal: String? = netPerKm?.toString(),
     val perHourDecimal: String? = netPerHour?.toString(),
+    val grossPerHour: Double? = grossPerMin?.times(60),
+    /** The engine's exact decimal pickup + trip km and minutes, the denominators it judged with. */
+    val totalKmDecimal: String? = totalKm?.toString(),
+    val totalMinDecimal: String? = totalMin?.toString(),
 )
+
+/**
+ * The rate in a unit and basis, for display ("$9.49 por km neto"): NET from the exact decimals,
+ * GROSS as the fare over the total km or hours. Null when an input is missing.
+ */
+fun OfferMetrics.rate(unit: PreferredMetric, basis: RateBasis): BigDecimal? = when (basis) {
+    RateBasis.NET -> (if (unit == PreferredMetric.IPK) perKmDecimal else perHourDecimal)?.toBigDecimalOrNull()
+    RateBasis.GROSS -> (if (unit == PreferredMetric.IPK) grossPerKm else grossPerHour)?.toBigDecimal()
+}
