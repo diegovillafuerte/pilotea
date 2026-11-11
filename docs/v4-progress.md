@@ -275,3 +275,128 @@ results are identical in every field; the 17 `$109` frames now publish; the 17 `
 fare and legs and now have the rate read and the identity holding; no frame publishes less. Only another
 whole-peso offer on the phone will show the chip appearing for it live, and the `$11/km` rate now validating
 its fare.
+
+**WP-AD (2026-11-10): a card Kompara cannot read or trust gets the grey "Sin lectura" chip.** The WP-AC offer
+showed nothing for 15 s because no frame of it could be published and, with no session, nothing is drawn. WP-AC
+fixed that cause, not the class: a card whose arithmetic contradicts itself or whose route is unread still drew
+no chip, so the driver could not tell an unknown card format from Kompara being off. The founder decided
+(2026-11-10) that such a card gets the grey unread pill once it has been on screen for a couple of seconds. The
+rule (`UnreadCardNotice`, one holder for the current host, all numbers from `CardPresenceTracker`): a frame is
+*unread* when a card signature is on screen, the frame parsed a card with host geometry for a host the reader may
+read, published nothing, and no session is present. Three unread frames with no signature-free frame between
+them, spanning 1,800 ms, start the notice: the third frame at the S25's 0.9 s cadence, the fourth at 0.85 s. A
+signature frame that is not unread (no card selected, no geometry) neither counts nor breaks the run. While it
+shows, every unread frame republishes it with that frame's geometry, any other signature frame is the overlay's
+heartbeat (`LayoutUncertain`), a signature-free frame soft-hides it (`SIGNATURE_ABSENT`; one under our own chip
+never counts as absence), and absence corroborated the way a session's is (three signature-free frames over
+1,800 ms, or the frame's own clear absence) hides it (`CONFIRMED_ABSENCE`) and resets the run. 15 s after it
+first showed (the parse ceiling) it is retired even with the card still there, and it stays off until absence is
+corroborated. A session that reaches its own parse ceiling with the card still there retires it the same way
+(decided in WP-AD: otherwise a lookalike that once started a session would get a grey chip 1.8 s after its 15 s), and
+since round 5 tells the overlay with `CONFIRMED_ABSENCE` when the notice was still on screen.
+A publication ends it silently: the session's `Parsed` takes the window over in place under its own key. A host
+change, the end of capture and a reader that may not read reset it; the end of capture's `NOT_VISIBLE` hides it, and
+since round 4 a readiness reset sends `CONFIRMED_ABSENCE`.
+What it is not: `OfferEvent.Unreadable` carries a card stripped to host geometry, content and fare bounds and
+instance evidence (no fare, legs, session, validation or raw values). The overlay's state machine builds the pill
+itself (`VerdictChipState.unread` on the driver's preferred unit, the function `RowBackedVerdict` now also uses
+for an unread payment) and never calls `evaluate`, so there is no session, ledger row or presentation row, and the
+day's history never shows it. Its placement event is identity-unresolved, so taps always pass through, on DiDi
+too, and placement evidence treats each of its frames as possibly another card. The frame still reaches neither
+the lifecycle classifier nor the ledger bus; `failedOffer` and the fixture recorder are unchanged. Telemetry counts
+it as a failed read; that collector reads only the node path's stream, which never carries it. Debug builds: the
+`TEMP DIAG frame` line ends with `notice=` (0 none, 1 pending, 2 shown, 3 retired), and rate-limited lines
+`offer visibility: UNREAD_NOTICE_SHOWN; frames= spanMs=` and `offer visibility: UNREAD_NOTICE_ENDED; cause=
+shownMs=` (cause `PUBLISHED`, `ABSENCE`, `CLEAR_ABSENCE`, `CAP`, `MASKED`, `CAPTURE_END`, `READINESS` or
+`SESSION_CEILING`). On the JVM: the
+holder's rule (`UnreadCardNoticeTest`); the sanitized `$109` frame with a contradictory TOTAL row, and one with its
+trip row unread, through the pipeline (`OfferFramePipelineUnreadNoticeTest`: nothing for two frames, then the
+notice on every frame, no lifecycle signal, a readable frame taking over with a normal session, never with a
+session present or a host the reader may not read); the state machine; the real controller and Compose window on
+the S25 Priority card through the bus (`InvisibleChipReplayTest`: the pill drawn whole at the placed rectangle,
+`FOOT` 577,351 to 1044,519 above a card whose top is 605, pass-through, no ledger or presentation row, then the
+card's first readable frame, captured under that chip, shows its verdict in the same window); a DiDi notice
+pass-through in a slot where a settled offer takes touches; and the notice refreshing both watchdog deadlines like
+a parse (`OverlayControllerPlacementTest`). The saved device logs (about 90 offers) say the rule would have fired
+once, on the WP-AC offer. Only the phone can show the chip appearing on a real unreadable card, and no normal
+offer getting it.
+
+**WP-AD round 2 (Codex): the notice never touches the card it announces, and the cap keeps absence evidence.**
+On the tall Pon Tu Precio layout (card from y 423) ordinary placement docks the 168 px pill below DiDi's decline
+reservation, across the card's top edge. A notice there masked the card, so the tracker's first-frame rule rejected
+every complete frame as `PARSED_CARD_MASKED` and the verdict waited for the 15 s cap. Now `OverlayPositioning.place`
+takes the notice's keep-clear rects (its card envelope and card bands, the rectangles that rule tests) and, in every
+tier and in the usual order, skips a slot whose rect expanded by the keep-clear distance touches one of them. The
+distance is the capture's mask margin (`ScreenReaderState.CHIP_MASK_MARGIN_PX`, now the one constant
+`ChipMask.DEFAULT_MARGIN_PX` aliases, so overlay and capture cannot drift) plus the OCR-jitter allowance
+(`PlacementEvidence.CEILING_JITTER_DP`, 4 dp): 20 px on the S25. Round 2b added the allowance: the card top is
+OCR-derived (on DiDi from the heading) and moves a few px between frames, and a notice edge to edge with it would
+blink on a 1 px jitter and could still cost the first readable frame. With no clear slot the result is
+`Suppressed(CARD_KEEP_CLEAR)`: the window is taken down before any reveal, no chip rect is reported, and the
+decline-reservation waiver trial is not run for a notice. Offers pass no rects, so their placement is the code path
+it was; the keep-out never enters `PlacementEvidence`. On the saved S25 layouts, through the real controller: the
+notice shows above the card on every Uber layout and on the shorter DiDi cards (the foot slot, or DiDi's top dock),
+with 48 px or more of room to the card top (28 px beyond the 20 px distance at the least, on Pon Tu Precio and the
+bid card); a replay reads that card's top 11 px higher on the next frames and the notice stays put, and the first
+readable frame under it starts its session. The two tall Pon Tu Precio cards (tops 423 and 437) get no notice; their
+first readable frame starts its session at once, and their verdicts dock within 20 px of the card top (379,260 to
+1044,428 and 433,261 to 1044,429 in the replay harness) by the unchanged ordinary placement. Second finding: retiring at
+the cap used to zero the absence count, so a card expiring as the cap fell left the holder retired and the next
+unreadable card got no notice for its whole life; the absence already counted now stands.
+
+**WP-AD round 3 (Codex): the keep-clear rule holds on the footprint the capture masks, every notice frame.**
+`place()` only judged slots it was asked about again, and nothing forced that: a notice already up kept its footprint
+when the card under it changed. Headless Pon Tu Precio (heading and trip row unread) docks the notice at 577,261 to
+1044,429 above a card inferred at 726; if the window's composition then stops (TD-V4-13) and the tall Pon Tu Precio
+card (from 423) replaces it, `show()` kept the old dock slot (ordinary validity knows no card envelope), no draw
+deadline armed, and every settle re-reported the stale rect, so each readable frame was rejected as
+`PARSED_CARD_MASKED` until the cap. Now `show()`, on every notice frame and before anything else, tests the footprint
+the capture is masking (`ScreenReaderState.overlayChipRect`, authoritative for the next capture) and the window's
+current placement (what a later settle could report) with `OverlayPositioning.nearKeepClear`, the same helper and
+distance `place()` filters with. Near this frame's card, the window comes down there and then (`NOTICE_NEAR_CARD`),
+clearing the chip rect, with no composition, measure or pre-draw involved; a fresh window measures against the new
+card and finds a clear slot or none. A settle can only report a placement this check or `place()` has already judged
+against the same frame (geometry and keep-clear rects change together, only in `show()`), so it needs no test of its
+own; a configuration change detaches before it re-shows. Offers' chips never run the check.
+
+**WP-AD round 3b: the invariant at its source.** A frame the tracker rejects as `PARSED_CARD_MASKED` while there is no
+session ends the notice at once (`UnreadCardNotice.Frame.MASKED`): with no session the only mask is the notice's own,
+so that rejection means it is in the reader's way, whatever the overlay knew. The pipeline emits
+`NoCard(CONFIRMED_ABSENCE)`, so the overlay detaches and clears the chip rect before the next capture; the run starts
+over, nothing is retired, and the end line says `cause=MASKED`. The guard only reads `decision.rejection` and only
+with no session, so what the tracker decides and what a session does are unchanged; with no notice up it neither
+counts toward a run nor breaks one. The readable replacement of round 3 is now ended by this guard on its first
+(masked) frame, and an unread replacement by the controller's check. A card read without host geometry is never
+rejected as masked (the tracker's mask lives in the card's host geometry): it publishes and ends the notice. What is
+left: the capture taken before the controller or the pipeline sees a card change is lost, and the session starts on
+the next eligible unmasked capture (on the MediaProjection lane, 300 ms captures with about 450 ms of OCR, a frame
+already queued under the old mask is discarded too, by the lane's window check); and a card whose signature lies
+under the notice's mask reads as absence and ends the notice after three frames (TD-V4-15).
+
+**WP-AD round 4 (Codex): every end of a notice that was on screen leaves the overlay an event that removes it.** A
+readiness reset (the pipeline's stale-token early return, or a host the reader may no longer read) cleared the
+holder and emitted nothing, on the assumption that the overlay's readiness flow hides the window. A delayed "Borrar
+datos del teléfono" (`forgetHistory()`) invalidates capture tokens only, so that flow never changed: the window and
+its mask stayed, a readable replacement was rejected as masked, the holder (now empty) let it pass, and publication
+could wait for the overlay's 15 s detach. Both readiness sites now also emit `NoCard(CONFIRMED_ABSENCE)` when the
+reset ended a notice that was on screen, for the notice's own host: `currentHost` at the early return (the frame's
+host is not resolved yet, and every host change ends the notice through `onCaptureEnd`, so a live notice can only be
+the current host's), the frame's host at the other site. If the overlay's gate drops the event, its readiness flow
+hides. The other ends already had their event: a publication's `Parsed`, the end of capture's `NOT_VISIBLE`, and
+`CONFIRMED_ABSENCE` for absence, the cap and a masked frame. No other path resets the holder: each capture lane
+owns one pipeline and its stop runs `onCaptureEnd`, capture ownership allows one lane at a time, and the per-host
+session map never drops or replaces the notice, which lives beside it.
+
+**WP-AD round 5 (Codex): the session ceiling's retirement tells the overlay too.** The one end that is not a reset:
+when a session reaches its parse ceiling with the card still there, the pipeline retires the notice directly. A
+notice can still be on screen then, if that session never published (Codex's sequence: three DiDi frames read
+`$40.00` without trip minutes and show the notice; a complete `$300.00` frame starts a session that the outlier guard
+holds, so the notice only beats; 15 s pass in OCR timeouts; the next partial frame expires the session). The
+retirement cleared the notice before its cap could fire and nothing reached the overlay. Now, when the notice was on
+screen, that frame also sends `NoCard(CONFIRMED_ABSENCE)` and the end line says `cause=SESSION_CEILING`; it stays
+retired until absence is corroborated. In that held state the notice only beats (`LayoutUncertain`): it is not unread
+while a session is present and a masked rejection needs no session, so nothing else is re-emitted; and if the guard's
+window later agrees, the session publishes and takes the window over as any publication does. So every end of a
+notice that was on screen now leaves the overlay an event that removes it: a publication's `Parsed`, the end of
+capture's `NOT_VISIBLE`, or `CONFIRMED_ABSENCE` (absence, the cap, a masked frame, a readiness reset, a session's
+parse ceiling).

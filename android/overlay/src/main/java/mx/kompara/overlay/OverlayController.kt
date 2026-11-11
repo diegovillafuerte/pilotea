@@ -113,6 +113,10 @@ class OverlayController @Inject constructor(
     private val mainHandler by lazy { Handler(Looper.getMainLooper()) }
     private var event: OfferEvent.Parsed? = null
     private var evaluated = false
+    /** WP-AD: [event] is the reader's unread notice (its placement), not an offer: no presentation row. */
+    private var notice = false
+    /** WP-AD round 2: the notice's card (envelope and bands); its mask never touches them. Empty for an offer. */
+    private var keepClear by mutableStateOf<List<HostRect>>(emptyList())
     private var chipState by mutableStateOf<ReglaModel?>(null)
     private var chipVisible by mutableStateOf(false)
     private var geometry by mutableStateOf<HostGeometry?>(null)
@@ -176,16 +180,18 @@ class OverlayController @Inject constructor(
             readiness.state.map { reader ->
                 (reader.canRead && reader.captureRunning) to reader.apps.filterValues { it.supported }.keys
             }.distinctUntilChanged().flatMapLatest { (allowed, _) ->
-                if (allowed) OverlayStateMachine(evaluate = ::evaluate)
+                if (allowed) OverlayStateMachine(evaluate = ::evaluate,
+                    preferred = { settingsSnapshot?.preferredMetric ?: PreferredMetric.DEFAULT })
                     .visibility(events.filter {
                         val canRead = readiness.canRead(it.packageName)
-                        if (!canRead && it is OfferEvent.Parsed) diagnostic("READINESS", readinessDetails())
+                        if (!canRead && (it is OfferEvent.Parsed || it is OfferEvent.Unreadable)) diagnostic("READINESS", readinessDetails())
                         canRead
                     }.onEach {
                         when (it) {
                             is OfferEvent.NoCard -> diagnostic("NO_CARD_${it.reason}")
                             is OfferEvent.SpecDisabled -> diagnostic("SPEC_DISABLED")
-                            is OfferEvent.Parsed -> heartbeat(overlayScope, parsed = true, processed = true)
+                            // WP-AD: the unread notice is its own fresh evidence, like a parse.
+                            is OfferEvent.Parsed, is OfferEvent.Unreadable -> heartbeat(overlayScope, parsed = true, processed = true)
                             is OfferEvent.LayoutUncertain -> heartbeat(overlayScope, parsed = false,
                                 processed = it.processedFrame)
                         }
@@ -231,7 +237,7 @@ class OverlayController @Inject constructor(
                 // A new session swaps content in place: the window and a still-valid position
                 // stay (no blink between back-to-back offers); only this offer's placement
                 // evidence (ceiling, anchors) starts over.
-                evaluated = false; softHidden = false
+                evaluated = false; softHidden = false; notice = visibility.notice
                 placementEvidence.reset()
                 // This offer's frames are captured under the old plate: not touchable until seen clear.
                 forcePassThrough()
@@ -242,7 +248,7 @@ class OverlayController @Inject constructor(
             is OverlayVisibility.Showing -> {
                 // Content is swapped atomically. Its measured footprint decides whether a move is
                 // needed; changing the verdict alone must not blank an already verified window.
-                chipState = visibility.state.regla; evaluated = true; chipVisible = true
+                chipState = visibility.state.regla; evaluated = true; chipVisible = true; notice = visibility.notice
                 val reveal = softHidden
                 softHidden = false
                 show(visibility.event)
@@ -282,6 +288,14 @@ class OverlayController @Inject constructor(
         if (!touchVouched) forcePassThrough()
         val v = readViewport()
         val rawGeometry = next.card.hostGeometry
+        keepClear = if (notice) listOfNotNull(rawGeometry?.offerCard) + next.card.instanceEvidence?.cardBands.orEmpty() else emptyList()
+        // WP-AD round 3: the capture masks the reported rect, and a stopped composition never measures again. A notice
+        // whose reported or pending footprint is near this frame's card comes down now, mask and all; a fresh window then
+        // measures against this card. A settle can only report a footprint this check or place() has seen.
+        if (notice && listOfNotNull(ScreenReaderState.overlayChipRect?.let { HostRect(it.left, it.top, it.right, it.bottom) },
+                placement?.let { it.position.bounds(it.size) }).any { OverlayPositioning.nearKeepClear(it, keepClear, v) }) {
+            diagnostic("NOTICE_NEAR_CARD"); detach("NOTICE_NEAR_CARD")
+        }
         // Age never detaches a live chip; presence and the no-frame watchdog bound it.
         val problem = OverlayPositioning.geometryProblem(rawGeometry, next.packageName, v,
             System.currentTimeMillis(), checkAge = false)
@@ -397,7 +411,7 @@ class OverlayController @Inject constructor(
                     MeasuredVerdictChip(state, g, v, g.capturedAtMs, savedPosition, chipVisible, reduced,
                         g.appearance == HostAppearance.DARK, VerdictChipCallbacks(::onDrag) { onDragEnd() },
                         dock = dockRequested, savedDocked = savedDocked,
-                        onPresence = { if (composeView === this) presence = it }) { decision ->
+                        onPresence = { if (composeView === this) presence = it }, keepClear = keepClear) { decision ->
                         // Consume this measurement at pre-draw in the SAME traversal, after layout.
                         // No window/Compose mutation during measurement and no extra posted frame.
                         val frameGeneration = generation
@@ -464,8 +478,8 @@ class OverlayController @Inject constructor(
         })
         windowLife?.let { it.placed++ }
         if (decision !is OverlayPlacement.Displayed) {
-            // Only if the next measurement places without the reservation is it waived.
-            val trial = if (decision is OverlayPlacement.Suppressed) placementEvidence.withoutReservation() else null
+            // Only if the next measurement places without the reservation is it waived. Never for the notice (WP-AD).
+            val trial = if (decision is OverlayPlacement.Suppressed && !notice) placementEvidence.withoutReservation() else null
             if (trial != null) { geometry = trial; return }
             record(decision); detach("PLACEMENT_${decision.javaClass.simpleName}"); return
         }
@@ -718,6 +732,7 @@ class OverlayController @Inject constructor(
             is OverlayPlacement.Displayed -> Unit
         }
         if (!evaluated) return // Leyendo is transitional, never evidence that the judged offer was seen.
+        if (notice) return // WP-AD: the unread notice is no offer; nothing was presented to the ledger.
         val current = event ?: return
         val rated = chipState?.band is ReglaBand.Rated
         val key = Triple(sessionId(current), decision, rated)

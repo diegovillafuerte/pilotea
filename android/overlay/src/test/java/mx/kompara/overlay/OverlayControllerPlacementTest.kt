@@ -735,6 +735,43 @@ class OverlayControllerPlacementTest {
         Dispatchers.resetMain()
     }
 
+    // WP-AD: the reader's unread notice is its own fresh evidence: it refreshes both watchdog deadlines like a parse.
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test fun `unread notices on the event path keep the chip past the parse ceiling and lapse like a parse`() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val offers = BoundaryOfferDao()
+        val controller = controller(offers, BoundaryCostProfileDao())
+        try {
+            val events = MutableSharedFlow<OfferEvent>(extraBufferCapacity = 64)
+            controller.start(backgroundScope, events, context, flowOf(null))
+            testScheduler.runCurrent()
+            fun notice() = liveOffer(controller, geometry.packageName, System.currentTimeMillis()).let {
+                OfferEvent.Unreadable(it.packageName, it.timestampMs,
+                    OfferCard(platform = it.packageName, captureSource = "OCR", hostGeometry = it.card.hostGeometry))
+            }
+            events.emit(notice()); testScheduler.runCurrent()
+            assertNotNull("The notice attached the chip", field("composeView").get(controller))
+            var elapsed = 0L
+            while (elapsed < 20_000) {
+                advance(750); elapsed += 750
+                assertNotNull("Kept past the 15 s ceiling at $elapsed", field("composeView").get(controller))
+                assertEquals("Never soft-hidden at $elapsed", false, field("softHidden").get(controller))
+                events.emit(notice()); testScheduler.runCurrent()
+            }
+            var softHiddenAt: Long? = null
+            var detachedAt: Long? = null
+            elapsed = 0L
+            while (elapsed < 16_500) {
+                advance(250); elapsed += 250
+                if (softHiddenAt == null && field("softHidden").get(controller) == true) softHiddenAt = elapsed
+                if (detachedAt == null && field("composeView").get(controller) == null) detachedAt = elapsed
+            }
+            assertTrue("Soft hide 3 s after the last notice: $softHiddenAt", softHiddenAt in 3_000L..3_250L)
+            assertTrue("Detach 15 s after the last notice: $detachedAt", detachedAt in 15_000L..15_250L)
+            assertEquals("A notice is never evaluated into a row", emptyList<mx.kompara.data.db.entity.OfferEntity>(), offers.all())
+        } finally { controller.stop(); Dispatchers.resetMain() }
+    }
+
     // B3 (round 3): the parse-ceiling detach leaves nothing a configuration change could re-show.
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     @Test fun `a configuration change after the parse ceiling never re-shows the stale verdict`() = runTest {

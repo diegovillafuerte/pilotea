@@ -1,6 +1,7 @@
 package mx.kompara.overlay
 
 import mx.kompara.data.service.ReaderReadinessReducer
+import mx.kompara.data.service.ScreenReaderState
 import mx.kompara.parsers.model.HostGeometry
 import mx.kompara.parsers.model.HostGeometrySource
 import mx.kompara.parsers.model.HostOrientation
@@ -82,39 +83,62 @@ object OverlayPositioning {
      * chip docked, so within one offer the chip never moves down, except once when a host decline
      * control is first recognized under it (0.2.17: it then moves below it). [dock] skips the foot/higher
      * tiers when this instance's upper boundary is unobserved. [dockFallback] false keeps the
-     * stopped-reader tab's original contract (hidden rather than docked).
+     * stopped-reader tab's original contract (hidden rather than docked). [keepClear] (WP-AD, the unread
+     * notice only): every tier, in its usual order, skips a slot whose rect expanded by the keep-clear distance
+     * touches one of these rects; with none left the result is [CARD_KEEP_CLEAR], never a slot near them. The
+     * distance is the capture's mask margin (what the reader treats as our chip) plus the OCR-jitter allowance
+     * ([PlacementEvidence.CEILING_JITTER_DP]): the card top is OCR-derived (on DiDi from the heading) and moves a
+     * few px between frames, and the clearance must survive that, or the notice would blink and the next capture
+     * could still put our mask on the card (round 2b).
      */
     fun place(g: HostGeometry?, host: String, viewport: OverlayViewport, nowMs: Long,
         full: ChipSize, compact: ChipSize, saved: OverlayPosition? = null,
-        dock: Boolean = false, savedDocked: Boolean = false, dockFallback: Boolean = true): OverlayPlacement {
+        dock: Boolean = false, savedDocked: Boolean = false, dockFallback: Boolean = true,
+        keepClear: List<HostRect> = emptyList()): OverlayPlacement {
         geometryProblem(g, host, viewport, nowMs)?.let { return OverlayPlacement.Unsupported(it) }
         g!!
+        fun clear(p: OverlayPosition, size: ChipSize) = !nearKeepClear(p.bounds(size), keepClear, viewport)
         val sizes = listOf(PlateFormat.FULL to full, PlateFormat.COMPACT to compact)
         for ((format, size) in sizes) {
-            if (saved != null && valid(saved, size, g, viewport, docked = savedDocked, kept = savedDocked))
+            if (saved != null && valid(saved, size, g, viewport, docked = savedDocked, kept = savedDocked) && clear(saved, size))
                 return OverlayPlacement.Displayed(saved, size, format,
                     rule = if (savedDocked) PlacementRule.DOCK else PlacementRule.FOOT)
-            if (!dock) candidates(size, g, viewport, includeMarkers = true).firstOrNull()?.let { (position, rule) ->
+            if (!dock) candidates(size, g, viewport, includeMarkers = true).firstOrNull { clear(it.first, size) }?.let { (position, rule) ->
                 return OverlayPlacement.Displayed(position, size, format, rule = rule)
             }
         }
         if (!dock) {
             // Controls always win. Only markers may be covered, and only by compact at the foot.
-            footSlots(compact, g, viewport).firstOrNull { valid(it, compact, g, viewport, ignoreMarkers = true) }?.let {
+            footSlots(compact, g, viewport).firstOrNull { valid(it, compact, g, viewport, ignoreMarkers = true) && clear(it, compact) }?.let {
                 return OverlayPlacement.Displayed(it, compact, PlateFormat.COMPACT, overMarker = true,
                     rule = PlacementRule.MARKER)
             }
             // A control-blocked foot is not permission for a marker alone to suppress the plate.
-            candidates(compact, g, viewport, includeMarkers = false).firstOrNull()?.let { (position, _) ->
+            candidates(compact, g, viewport, includeMarkers = false).firstOrNull { clear(it.first, compact) }?.let { (position, _) ->
                 return OverlayPlacement.Displayed(position, compact, PlateFormat.COMPACT, overMarker = true,
                     rule = PlacementRule.MARKER)
             }
         }
         // Fail-open: main's top dock. Never hidden for lack of room above a wrongly derived card.
-        if (dockFallback || dock) for ((format, size) in sizes) dockSlots(size, g, viewport).firstOrNull()?.let {
+        if (dockFallback || dock) for ((format, size) in sizes) dockSlots(size, g, viewport).firstOrNull { clear(it, size) }?.let {
             return OverlayPlacement.Displayed(it, size, format, rule = PlacementRule.DOCK)
         }
+        if (keepClear.isNotEmpty() && place(g, host, viewport, nowMs, full, compact, saved, dock, savedDocked, dockFallback)
+                is OverlayPlacement.Displayed) return OverlayPlacement.Suppressed(CARD_KEEP_CLEAR)
         return OverlayPlacement.Suppressed(if (g.navigation) "NAVIGATION" else "NO_SAFE_SPACE")
+    }
+
+    /** WP-AD: every slot left for the unread notice is within the keep-clear distance of the card it announces. */
+    const val CARD_KEEP_CLEAR = "CARD_KEEP_CLEAR"
+
+    /**
+     * WP-AD: whether [rect], expanded by the keep-clear distance, touches one of [keepClear]. The one test behind both
+     * [place]'s filter and the controller's check of the footprint the capture is masking, so they cannot drift. The
+     * distance is the capture's mask margin plus the OCR-jitter allowance (see [place]).
+     */
+    fun nearKeepClear(rect: HostRect, keepClear: List<HostRect>, viewport: OverlayViewport): Boolean {
+        val distance = ScreenReaderState.CHIP_MASK_MARGIN_PX + viewport.dp(PlacementEvidence.CEILING_JITTER_DP)
+        return keepClear.any { rect.expanded(distance).overlaps(it) }
     }
 
     /**

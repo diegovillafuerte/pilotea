@@ -45,6 +45,10 @@ data class VerdictChipState(val regla: ReglaModel, val grossPerKm: String) {
                 metrics.grossPerKm?.let(Formatters::formatPerKm) ?: "—")
         }
 
+        /** The unread pill: an OCR frame whose payment was withheld, or the reader's unread notice (WP-AD). */
+        fun unread(preferred: PreferredMetric): VerdictChipState =
+            VerdictChipState(reading(preferred).copy(band = ReglaBand.Unavailable(ReglaUnavailable.FARE)), "—")
+
         /** No previous trip amount is retained while a new session is being evaluated. */
         fun reading(preferred: PreferredMetric): ReglaModel =
             ReglaModel(ReglaBand.Unavailable(ReglaUnavailable.READING), if (preferred == PreferredMetric.IPK) ReglaUnit.KM else ReglaUnit.HOUR)

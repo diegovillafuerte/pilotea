@@ -27,8 +27,8 @@ import mx.kompara.data.service.ScreenRect
 object ChipMask {
 
     /** Inflate (px) applied around the chip rect — covers anti-aliased edges, the drop shadow, and
-     *  small overlay-vs-capture coordinate skew (status bar / cutout). */
-    const val DEFAULT_MARGIN_PX = 8
+     *  small overlay-vs-capture coordinate skew (status bar / cutout). Shared with the overlay (WP-AD). */
+    const val DEFAULT_MARGIN_PX = mx.kompara.data.service.ScreenReaderState.CHIP_MASK_MARGIN_PX
 
     /**
      * Drop every [OcrBlock] whose bounds overlap [chip] (inflated by [marginPx]). A null [chip] means

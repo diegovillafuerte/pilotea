@@ -6,8 +6,6 @@ import mx.kompara.data.settings.PreferredMetric
 import mx.kompara.metrics.OfferRecorder
 import mx.kompara.metrics.counterOffers
 import mx.kompara.metrics.recordedMetrics
-import mx.kompara.ui.components.ReglaBand
-import mx.kompara.ui.components.ReglaUnavailable
 
 /**
  * What the chip displays for a published card: the ledger row's frozen evaluation (one judgement
@@ -25,8 +23,7 @@ internal class RowBackedVerdict(val row: OfferEntity, val state: VerdictChipStat
             // Durable history keeps its last confirmed payment when current OCR confidence is lost.
             // It must not rehydrate that payment into a live frame whose instance confidence withheld it.
             if (event.card.captureSource == "OCR" && event.card.fare == null) {
-                return RowBackedVerdict(row, VerdictChipState(VerdictChipState.reading(PreferredMetric.valueOf(evaluation.unit))
-                    .copy(band = ReglaBand.Unavailable(ReglaUnavailable.FARE)), "—"), paymentShown = false)
+                return RowBackedVerdict(row, VerdictChipState.unread(PreferredMetric.valueOf(evaluation.unit)), paymentShown = false)
             }
             // Pon Tu Precio (plan 4.4): the amounts that reach the row's frozen limits, in its frozen unit and basis.
             val counters = if (event.card.variant == BID) row.counterOffers() else null

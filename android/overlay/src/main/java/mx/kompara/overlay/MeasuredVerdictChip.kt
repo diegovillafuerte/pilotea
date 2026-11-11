@@ -9,6 +9,7 @@ import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import mx.kompara.parsers.model.HostGeometry
+import mx.kompara.parsers.model.HostRect
 import mx.kompara.ui.components.Regla
 import mx.kompara.ui.components.ReglaModel
 import mx.kompara.ui.components.ReglaPresence
@@ -30,13 +31,16 @@ internal fun MeasuredVerdictChip(
     savedDocked: Boolean = false,
     /** The displayed plate's presence, so the host can tell an entered plate from one still at alpha 0. */
     onPresence: (MutableTransitionState<Boolean>) -> Unit = {},
+    /** WP-AD: rects the unread notice's mask must never touch (its card); empty for every offer's chip. */
+    keepClear: List<HostRect> = emptyList(),
     onPlacement: (OverlayPlacement) -> Unit,
 ) {
     SubcomposeLayout(modifier) { _ ->
         val full = subcompose("measure-full") { Regla(state, Modifier.clearAndSetSemantics {}) }.single().measure(Constraints())
         val compact = subcompose("measure-compact") { Regla(state, Modifier.clearAndSetSemantics {}, compact = true) }.single().measure(Constraints())
         val decision = OverlayPositioning.place(geometry, geometry.packageName, viewport, nowMs,
-            ChipSize(full.width, full.height), ChipSize(compact.width, compact.height), saved, dock, savedDocked)
+            ChipSize(full.width, full.height), ChipSize(compact.width, compact.height), saved, dock, savedDocked,
+            keepClear = keepClear)
         val shown = decision as? OverlayPlacement.Displayed
         val plate = shown?.let {
             subcompose("display") {

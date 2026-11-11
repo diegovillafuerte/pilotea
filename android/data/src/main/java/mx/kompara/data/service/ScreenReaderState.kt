@@ -118,6 +118,13 @@ object ScreenReaderState {
     var overlayChipRect: ScreenRect? = null
         private set
 
+    /**
+     * How far beyond [overlayChipRect] the capture treats pixels as the chip's own (anti-aliased edges, the drop
+     * shadow, overlay-vs-capture skew): :ocr masks OCR text and card evidence within it; WP-AD keeps the unread
+     * notice's rect, expanded by it, clear of the card it announces. One number for both sides of the bridge.
+     */
+    const val CHIP_MASK_MARGIN_PX = 8
+
     /** Publish the chip's current display-pixel rect (called by the overlay on attach/layout/drag). */
     fun setOverlayChipRect(rect: ScreenRect) {
         overlayChipRect = rect

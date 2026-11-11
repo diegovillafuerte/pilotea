@@ -29,7 +29,10 @@ import androidx.datastore.preferences.core.emptyPreferences
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import mx.kompara.capture.OfferEvent
@@ -57,6 +60,7 @@ import mx.kompara.parsers.model.OfferCard
 import mx.kompara.ui.components.ReglaBand
 import mx.kompara.ui.components.ReglaModel
 import mx.kompara.ui.components.ReglaPosition
+import mx.kompara.ui.components.ReglaUnavailable
 import org.junit.After
 import org.junit.Before
 import org.junit.Assert.*
@@ -667,6 +671,499 @@ class InvisibleChipReplayTest {
         parsed.single()
     }
 
+    /** One capture of a notice run: the chip rect it was captured under, what it published, what is claimed after it. */
+    private data class Captured(val under: ScreenRect?, val underNotice: Boolean, val notice: OfferEvent.Unreadable?,
+        val parsed: OfferEvent.Parsed?, val diag: String, val claim: ScreenRect?,
+        /** Round 3, [NoticeRun.capture] with `held`: the window and chip rect once the frame's events were handled, before any frame callback. */
+        val heldWindow: ComposeView? = null, val heldClaim: ScreenRect? = null)
+
+    /**
+     * WP-AD: the production path for the reader's unread notice. The real OCR pipeline publishes on the bus, start()
+     * wires the state machine into the real controller and Compose window, and each frame is captured under the chip
+     * rect the controller reports, so the session tracker's own first-frame rule sees our mask. Every capture taken
+     * under a notice is checked against that capture's own card: the notice's rect, expanded by the capture's mask
+     * margin, never touches the card envelope or a card band.
+     */
+    private inner class NoticeRun(val host: String) {
+        val offers = BoundaryOfferDao()
+        val presented = mutableListOf<String>()
+        val controller = controller(offers = offers, costs = BoundaryCostProfileDao(), presentations = presentations(presented))
+        val replay = Replay(controller)
+        val captures = mutableListOf<Captured>()
+        private val pipeline = OfferFramePipeline()
+        private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+        private val events = mutableListOf<OfferEvent>()
+        private val listener = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined).launch { OfferEventBus.events.collect { events += it } }
+
+        fun start() {
+            controller.start(scope, OfferEventBus.events, context, flowOf(host))
+            looper.idle()
+            ShadowLog.clear()
+        }
+
+        /**
+         * [held] (round 3): no frame callback runs while the frame's events are handled (the choreographer is paused for
+         * that stretch), and the window and chip rect are sampled right then: whatever the controller did, it did inside
+         * its event handling, with no composition, measure or pre-draw. [masked]: this capture is expected to be taken
+         * under a notice's mask that touches the frame's card (the one frame a card change can cost); otherwise every
+         * capture under a notice must be clear of the frame's own card.
+         */
+        fun capture(blocks: List<mx.kompara.ocr.OcrBlock>, held: Boolean = false, masked: Boolean = false): Captured {
+            if (captures.isNotEmpty()) check(replay, captures.size)
+            val under = ScreenReaderState.overlayChipRect
+            val underNotice = under != null && field("notice").get(controller) == true
+            val before = events.size
+            val diags = ShadowLog.getLogsForTag("KomparaOCR").size
+            if (held) { ShadowChoreographer.setPaused(true); ShadowChoreographer.setFrameDelay(HELD_FRAME_GAP) }
+            pipeline.processOwnedFrame(blocks, under, null, displayBounds = HostRect(0, 0, 1080, 2340), density = 3f,
+                foregroundPackage = host)
+            // The bus reaches the controller on the main looper: watch a window as soon as it is attached,
+            // before its first traversal (which may reveal and draw it), one due task at a time.
+            while (!looper.isIdle) { looper.runOneTask(); watch(replay) }
+            val heldWindow = if (held) field("composeView").get(controller) as ComposeView? else null
+            val heldClaim = if (held) ScreenReaderState.overlayChipRect else null
+            if (held) {
+                looper.idleFor(HELD_FRAME_GAP)
+                ShadowChoreographer.setPaused(false); ShadowChoreographer.setFrameDelay(frameDelay)
+                looper.idle()
+            }
+            repeat(60) { frame(); watch(replay) }
+            val published = events.drop(before)
+            val captured = Captured(under, underNotice, published.filterIsInstance<OfferEvent.Unreadable>().lastOrNull(),
+                published.filterIsInstance<OfferEvent.Parsed>().lastOrNull(),
+                ShadowLog.getLogsForTag("KomparaOCR").drop(diags).map { it.msg }.single { it.startsWith("TEMP DIAG frame") },
+                ScreenReaderState.overlayChipRect, heldWindow, heldClaim)
+            captures += captured
+            val card = captured.notice?.card ?: captured.parsed?.card
+            // A frame the tracker rejected as masked publishes no card (round 3b): the rejection is the tracker's own proof.
+            if (masked) assertTrue("capture ${captures.size} was expected under a notice's mask on its card: ${captured.diag}",
+                under != null && underNotice && (card?.let { maskTouches(under, it) } ?: ("rejection=PARSED_CARD_MASKED" in captured.diag)))
+            else if (under != null && underNotice && card != null) assertClearOfCard("capture ${captures.size}", under, card)
+            return captured
+        }
+
+        fun stop() { controller.stop(); scope.cancel(); listener.cancel() }
+    }
+
+    private fun noticeRun(host: String, body: NoticeRun.() -> Unit) {
+        val run = NoticeRun(host)
+        ScreenReaderState.setForegroundHost(host, android.os.SystemClock.elapsedRealtime())
+        try { run.start(); run.body() } finally {
+            run.stop(); ScreenReaderState.setForegroundHost(null, android.os.SystemClock.elapsedRealtime())
+        }
+    }
+
+    /** The tracker's first-frame rule (OcrOfferSessionTracker.update): the mask is the chip rect expanded by the margin. */
+    private fun assertClearOfCard(label: String, chip: ScreenRect, card: OfferCard,
+        clearance: Int = ScreenReaderState.CHIP_MASK_MARGIN_PX) {
+        val mask = HostRect(chip.left, chip.top, chip.right, chip.bottom).expanded(clearance)
+        val envelope = requireNotNull(card.hostGeometry).offerCard
+        assertFalse("$label: the notice's rect +$clearance px $mask touches the card envelope $envelope", mask.overlaps(envelope))
+        for (band in card.instanceEvidence?.cardBands.orEmpty())
+            assertFalse("$label: the notice's rect +$clearance px $mask touches the card band $band", mask.overlaps(band))
+    }
+
+    /** The tracker's first-frame rule, as a predicate: the chip rect plus the capture's mask margin touches the card. */
+    private fun maskTouches(chip: ScreenRect, card: OfferCard): Boolean {
+        val mask = HostRect(chip.left, chip.top, chip.right, chip.bottom).expanded(ScreenReaderState.CHIP_MASK_MARGIN_PX)
+        return (listOf(requireNotNull(card.hostGeometry).offerCard) + card.instanceEvidence?.cardBands.orEmpty()).any(mask::overlaps)
+    }
+
+    /** Round 2b: the notice's keep-clear distance, the capture's mask margin plus the OCR-jitter allowance (20 px on the S25). */
+    private val noticeClearance get() = ScreenReaderState.CHIP_MASK_MARGIN_PX +
+        Math.round(PlacementEvidence.CEILING_JITTER_DP * context.resources.displayMetrics.density)
+
+    /** Vertical room from the notice's bottom edge to the nearest card rect below it (envelope or a band it spans). */
+    private fun slack(chip: ScreenRect, card: OfferCard) = (listOf(card.hostGeometry!!.offerCard) + card.instanceEvidence?.cardBands.orEmpty())
+        .filter { it.left < chip.right && it.right > chip.left }.minOf { it.top } - chip.bottom
+
+    @Suppress("UNCHECKED_CAST")
+    private fun heldChip(controller: OverlayController) =
+        requireNotNull((field("chipState\$delegate").get(controller) as MutableState<ReglaModel?>).value)
+
+    /**
+     * WP-AD: the reader's unread notice on the production path ([NoticeRun]). Its window draws the grey "Sin lectura"
+     * pill whole at the placed rectangle, above the card, and takes no touch, and neither the ledger nor the presentation
+     * log hears of it. The card's first readable frame, captured under that chip, then shows its verdict in the same
+     * window, with its own row. S25 Priority card (invented addresses), its TOTAL row's rate misread so that every frame
+     * contradicts itself.
+     */
+    @Test fun `the unread notice draws Sin lectura untouchable with no row, and a readable frame takes the same window`() = noticeRun(uber) {
+        val readable = priority()
+        val contradictory = readable.map { if ("/km est" in it.text) it.copy(text = "25 min • 2.6 km • \$9.99/km est.") else it }
+        repeat(2) { capture(contradictory) }
+        assertNull("Nothing before three unread frames span 1.8 s", field("composeView").get(controller))
+        val shown = capture(contradictory)
+        val view = requireNotNull(field("composeView").get(controller) as ComposeView?) { logs().toString() }
+        capture(contradictory)
+        check(replay, captures.size)
+        assertEquals(emptyList<String>(), replay.violations)
+        assertEquals("Revealed", 1f, view.alpha)
+        assertEquals("The grey unread pill", ReglaUnavailable.FARE.spoken, spoken(view))
+        val claim = requireNotNull(ScreenReaderState.overlayChipRect) { "No chip claimed" }
+        assertEquals("Round 1's rectangle, 16 dp above the card", ScreenRect(577, 351, 1044, 519), claim)
+        assertEquals(HostRect(0, 605, 1080, 2340), requireNotNull(shown.notice).card.hostGeometry?.offerCard)
+        assertClearOfCard("the shown notice", claim, shown.notice.card)
+        assertEquals("Drawn where placed", claim, replay.screens[view]?.rect)
+        assertTrue("Drawn whole", (replay.screens[view]?.ink ?: 0) >= 250)
+        assertTrue("Taps pass through", (view.layoutParams as WindowManager.LayoutParams).flags and
+            WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE != 0)
+        assertTrue(logs().any { "TEMP DIAG window drawn" in it })
+        assertEquals("No ledger row", emptyList<mx.kompara.data.db.entity.OfferEntity>(), offers.all())
+        assertEquals("No presentation row", emptyList<String>(), presented)
+        // The card turns readable under the notice's own chip: its first readable frame starts the session.
+        val first = capture(readable)
+        assertTrue("Captured under the notice", first.underNotice)
+        assertTrue(first.diag, first.parsed?.card?.sessionId != null && "rejection=null" in first.diag)
+        capture(readable)
+        check(replay, captures.size)
+        assertEquals(emptyList<String>(), replay.violations)
+        assertSame("The same window", view, field("composeView").get(controller))
+        val held = heldChip(controller)
+        assertTrue("The offer's own verdict: $held", held.band is ReglaBand.Rated)
+        assertEquals(held.spokenBand, spoken(view))
+        val row = offers.all().single()
+        assertEquals("Only the offer is presented", listOf(row.sessionId), presented.distinct())
+        assertFalse(logs().any { "UNDRAWN" in it })
+        assertFalse(captures.any { "PARSED_CARD_MASKED" in it.diag })
+    }
+
+    /**
+     * WP-AD round 2 (Codex): on the tall Pon Tu Precio layout (card from y 423) ordinary placement docks the 168 px pill
+     * below the decline reservation, across the card's top edge, so a notice there would mask the card and every
+     * complete first frame would be rejected as PARSED_CARD_MASKED until its 15 s cap. Round 2b: on the second tall card
+     * (top 437) the dock slot's mask ends exactly at the card top, with no room for OCR jitter. Neither has a slot clear by
+     * the keep-clear distance, so the notice is not shown at all: no window revealed, no chip rect, no mask. The card's
+     * first readable frame starts its session at once and its verdict docks where the notice may not. S25 frames of
+     * 2026-11-06 (invented addresses), their trip leg unread on the first frames.
+     */
+    @Test fun `on the tall Pon Tu Precio card the notice is not shown, and the first readable frame shows its verdict`() =
+        tallCard(RealGeometryFixtures.didiPtpTallS25(), "14 min (2.1 km)" to "1? min (?.1 km)", HostRect(0, 423, 1080, 2340),
+            HostRect(104, 471, 717, 1882), ScreenRect(379, 260, 1044, 428))
+
+    @Test fun `on the second tall Pon Tu Precio card the notice is not shown either`() =
+        tallCard(RealGeometryFixtures.didiPtpTall2S25(), "13 min (2.7 km)" to "1? min (?.7 km)", HostRect(0, 437, 1080, 2340),
+            HostRect(105, 485, 717, 1879), TALL2_VERDICT)
+
+    private fun tallCard(readable: List<mx.kompara.ocr.OcrBlock>, unreadTrip: Pair<String, String>, envelope: HostRect,
+        band: HostRect, verdictRect: ScreenRect) = noticeRun(didi) {
+        val unread = RealGeometryFixtures.retext(readable, unreadTrip)
+        val notices = (1..4).map { capture(unread) }
+        val notice = requireNotNull(notices[2].notice) { notices[2].diag }
+        assertEquals("The raw card envelope", envelope, notice.card.hostGeometry?.offerCard)
+        assertEquals("and its band", listOf(band), notice.card.instanceEvidence?.cardBands)
+        for ((i, c) in notices.withIndex()) {
+            assertTrue(c.diag, "rejection=PARSED_ROUTE_INCOMPLETE" in c.diag)
+            assertNull("f$i: no chip rect reported, so no mask", c.claim)
+            val view = field("composeView").get(controller) as ComposeView?
+            assertTrue("f$i: no window revealed", view == null || view.alpha == 0f)
+        }
+        assertTrue("The notice was wanted (f2, f3)", notices[2].notice != null && notices[3].notice != null)
+        assertTrue(logs().toString(), logs().any { "chip hidden reason=SUPPRESSED_CARD_KEEP_CLEAR" in it })
+        assertEquals(emptyList<mx.kompara.data.db.entity.OfferEntity>(), offers.all())
+        assertEquals(emptyList<String>(), presented)
+        // The route becomes readable: the first readable frame starts its session, with no mask to reject it.
+        val first = capture(readable)
+        assertNull("Captured with no chip of ours", first.under)
+        assertTrue(first.diag, first.parsed?.card?.sessionId != null && "rejection=null" in first.diag)
+        capture(readable)
+        check(replay, captures.size)
+        assertEquals(emptyList<String>(), replay.violations)
+        val view = requireNotNull(field("composeView").get(controller) as ComposeView?) { logs().toString() }
+        assertEquals("The verdict is on screen", 1f, view.alpha)
+        val held = heldChip(controller)
+        assertTrue("$held", held.band is ReglaBand.Rated)
+        assertEquals(held.spokenBand, spoken(view))
+        val verdict = requireNotNull(ScreenReaderState.overlayChipRect)
+        // Ordinary placement, unchanged: the session's chip docks within the keep-clear distance of the card top.
+        assertEquals("Docked below the decline reservation, right slot", verdictRect, verdict)
+        assertTrue("The dock slot is too close to the card for a notice", HostRect(verdict.left, verdict.top, verdict.right,
+            verdict.bottom).expanded(noticeClearance).overlaps(envelope))
+        // Round 3: the notice's check never touches an offer's chip, which may sit over its own card as before.
+        val detaches = logs().count { "window detach" in it }
+        val next = capture(readable, held = true)
+        assertSame("The session's chip keeps its window", view, next.heldWindow)
+        assertEquals(verdict, next.heldClaim)
+        capture(readable)
+        assertSame(view, field("composeView").get(controller))
+        assertEquals(verdict, ScreenReaderState.overlayChipRect)
+        assertEquals(detaches, logs().count { "window detach" in it })
+        assertFalse(logs().any { "NOTICE_NEAR_CARD" in it })
+        assertEquals(1, offers.all().size)
+        assertFalse(captures.any { "PARSED_CARD_MASKED" in it.diag })
+    }
+
+    /** Round 3: Pon Tu Precio read without its heading and trip row: no upper anchor, so the notice docks above a card inferred at 726. */
+    private fun headlessPtp() = RealGeometryFixtures.retext(RealGeometryFixtures.didiPtpS25().filterNot { it.text == "Pon Tu Precio" },
+        "39 min (7.2 km)" to "3? min (?.2 km)")
+
+    /**
+     * WP-AD round 3 (Codex): a notice already up keeps its footprint when the card under it changes. Pon Tu Precio read
+     * without its heading and trip row docks the notice above a card inferred at 726; the window's composition then stops
+     * (the S25 failure, TD-V4-13), and the tall Pon Tu Precio card (envelope from 423) replaces the first. Its first frame
+     * is captured under the old mask and rejected (the one frame a card change costs); handling that frame, the controller
+     * takes the window down and clears the chip rect before any frame callback, so the next capture carries no mask and
+     * starts the session; the verdict shows. Driven through the real pipeline and tracker with the rect the controller reports.
+     */
+    @Test fun `a notice whose card is replaced by a taller one comes down at once though its composition stopped`() {
+        replacedByTallCard(stopComposition = true, readableFirst = true)
+        replacedByTallCard(stopComposition = true, readableFirst = false)
+    }
+
+    @Test fun `a notice whose card is replaced by a taller one comes down at once`() {
+        replacedByTallCard(stopComposition = false, readableFirst = true)
+        replacedByTallCard(stopComposition = false, readableFirst = false)
+    }
+
+    /**
+     * [readableFirst]: the tall card's first frame is complete, so the tracker rejects it as PARSED_CARD_MASKED and the
+     * pipeline's guard (round 3b) ends the notice on that frame. Otherwise that frame is unread for its own reasons (trip
+     * row) and the controller's check (round 3) takes the window down. Either way, before any frame callback.
+     */
+    private fun replacedByTallCard(stopComposition: Boolean, readableFirst: Boolean) = noticeRun(didi) {
+        repeat(4) { capture(headlessPtp()) }
+        val old = requireNotNull(field("composeView").get(controller) as ComposeView?) { logs().toString() }
+        val stale = requireNotNull(ScreenReaderState.overlayChipRect) { logs().toString() }
+        assertEquals("Docked above the inferred card", ScreenRect(577, 261, 1044, 429), stale)
+        assertEquals(726, captures.last().notice?.card?.hostGeometry?.offerCard?.top)
+        assertEquals(1f, old.alpha)
+        if (stopComposition) freeze(controller, Freeze.COMPOSITION)
+        val tall = RealGeometryFixtures.didiPtpTallS25()
+        val tallUnread = RealGeometryFixtures.retext(tall, "14 min (2.1 km)" to "1? min (?.1 km)")
+        val replaced = capture(if (readableFirst) tall else tallUnread, held = true, masked = true)
+        assertTrue("$readableFirst: the old window is down before any frame callback",
+            replaced.heldWindow !== old && !old.isAttachedToWindow)
+        assertNull("and the chip rect is cleared with it", replaced.heldClaim)
+        assertNull("No clear slot on the tall card", replaced.claim)
+        val ocr = ShadowLog.getLogsForTag("KomparaOCR").map { it.msg }
+        if (readableFirst) {
+            assertTrue("Captured under the old mask: rejected", "rejection=PARSED_CARD_MASKED" in replaced.diag)
+            assertNull("The guard emits no notice for it", replaced.notice)
+            assertTrue(replaced.diag, "notice=0" in replaced.diag)
+            assertTrue(ocr.toString(), ocr.any { it.startsWith("offer visibility: UNREAD_NOTICE_ENDED; cause=MASKED") })
+        } else {
+            assertTrue(replaced.diag, "rejection=PARSED_ROUTE_INCOMPLETE" in replaced.diag)
+            assertEquals("Its envelope", 423, replaced.notice?.card?.hostGeometry?.offerCard?.top)
+            assertTrue(logs().any { "window detach reason=NOTICE_NEAR_CARD" in it })
+        }
+        val first = capture(tall)
+        assertNull("The next capture carries no mask", first.under)
+        assertTrue(first.diag, first.parsed?.card?.sessionId != null && "rejection=null" in first.diag)
+        capture(tall)
+        check(replay, captures.size)
+        assertEquals(emptyList<String>(), replay.violations)
+        val view = requireNotNull(field("composeView").get(controller) as ComposeView?) { logs().toString() }
+        assertEquals("The verdict is on screen", 1f, view.alpha)
+        val held = heldChip(controller)
+        assertTrue("$held", held.band is ReglaBand.Rated)
+        assertEquals(held.spokenBand, spoken(view))
+        assertEquals("At most the frame captured under the old mask was rejected", if (readableFirst) 1 else 0,
+            captures.count { "PARSED_CARD_MASKED" in it.diag })
+        assertEquals(1, offers.all().size)
+    }
+
+    /** Round 3: a notice whose card does not change keeps its window on every frame: no churn. */
+    @Test fun `a notice over an unchanged card keeps its window`() = noticeRun(didi) {
+        repeat(4) { capture(headlessPtp()) }
+        val view = requireNotNull(field("composeView").get(controller) as ComposeView?) { logs().toString() }
+        val rect = ScreenReaderState.overlayChipRect
+        repeat(4) {
+            val c = capture(headlessPtp(), held = true)
+            assertSame(view, c.heldWindow)
+            assertEquals(rect, c.heldClaim)
+        }
+        assertFalse(logs().any { "window detach" in it || "NOTICE_NEAR_CARD" in it })
+    }
+
+    /**
+     * Round 3: a soft-hidden notice keeps its mask (by design), so a taller card appearing at once is captured under it.
+     * Pinned: that first frame is rejected, the controller takes the window and its mask down while handling it, and the
+     * next frame starts the session. Read with its trip row unread, the taller card shows no notice at all (no clear slot)
+     * and its first readable frame starts the session.
+     */
+    @Test fun `a soft-hidden notice followed by a taller card costs that card one frame`() {
+        val ptp = RealGeometryFixtures.retext(RealGeometryFixtures.didiPtpS25(), "39 min (7.2 km)" to "3? min (?.2 km)")
+        val tall = RealGeometryFixtures.didiPtpTallS25()
+        val tallUnread = RealGeometryFixtures.retext(tall, "14 min (2.1 km)" to "1? min (?.1 km)")
+        for (readableFirst in listOf(true, false)) noticeRun(didi) {
+            repeat(4) { capture(ptp) }
+            val old = requireNotNull(field("composeView").get(controller) as ComposeView?)
+            val kept = requireNotNull(ScreenReaderState.overlayChipRect)
+            assertEquals(ScreenRect(577, 377, 1044, 545), kept)
+            capture(emptyList())
+            assertEquals("Soft-hidden, the mask stays", kept, ScreenReaderState.overlayChipRect)
+            assertEquals(0f, old.alpha)
+            val next = capture(if (readableFirst) tall else tallUnread, held = true, masked = true)
+            if (readableFirst) assertTrue(next.diag, "rejection=PARSED_CARD_MASKED" in next.diag)
+            assertEquals(kept, next.under)
+            assertTrue("$readableFirst: the old window is down at once", next.heldWindow !== old && !old.isAttachedToWindow)
+            assertNull(next.heldClaim)
+            assertNull("No clear slot on the tall card", next.claim)
+            if (!readableFirst) {
+                assertTrue(next.diag, "rejection=PARSED_ROUTE_INCOMPLETE" in next.diag)
+                repeat(2) { assertNull(capture(tallUnread).claim) }
+            }
+            val first = capture(tall)
+            assertNull(first.under)
+            assertTrue(first.diag, first.parsed?.card?.sessionId != null && "rejection=null" in first.diag)
+            assertEquals(if (readableFirst) 1 else 0, captures.count { "PARSED_CARD_MASKED" in it.diag })
+        }
+    }
+
+    /**
+     * WP-AD round 2b: the clearance survives OCR jitter. On the shown layout with the least room (Pon Tu Precio, notice
+     * 48 px above the card top 593), the next frames read the card's top edge 11 px higher (the allowance less 1 px): the
+     * notice stays where it was, and the card's first readable frame, captured under it, starts its session.
+     */
+    @Test fun `a notice with the least room survives the card top jittering up by the allowance less one pixel`() = noticeRun(didi) {
+        val readable = RealGeometryFixtures.didiPtpS25()
+        val unread = RealGeometryFixtures.retext(readable, "39 min (7.2 km)" to "3? min (?.2 km)")
+        val jitter = Math.round(PlacementEvidence.CEILING_JITTER_DP * context.resources.displayMetrics.density) - 1
+        fun raised(blocks: List<mx.kompara.ocr.OcrBlock>) = blocks.map {
+            if (it.text == "Pon Tu Precio") it.copy(bounds = mx.kompara.ocr.OcrBounds(it.bounds.left, it.bounds.top - jitter,
+                it.bounds.right, it.bounds.bottom - jitter)) else it
+        }
+        repeat(3) { capture(unread) }
+        val placed = requireNotNull(ScreenReaderState.overlayChipRect) { logs().toString() }
+        val card = requireNotNull(captures.last().notice).card
+        assertEquals(ScreenRect(577, 377, 1044, 545), placed)
+        assertEquals(HostRect(0, 593, 1080, 2340), card.hostGeometry?.offerCard)
+        assertEquals("48 px of room", 48, slack(placed, card))
+        val shownView = field("composeView").get(controller) as ComposeView
+        val moved = capture(raised(unread), held = true)
+        assertEquals("The card top read $jitter px higher", 593 - jitter, moved.notice?.card?.hostGeometry?.offerCard?.top)
+        assertSame("Round 3: within the allowance the window stays (no churn)", shownView, moved.heldWindow)
+        assertEquals(placed, moved.heldClaim)
+        assertEquals("The notice stays where it was: no blink", placed, moved.claim)
+        val view = field("composeView").get(controller) as ComposeView
+        assertSame(shownView, view)
+        assertFalse(logs().any { "NOTICE_NEAR_CARD" in it || "window detach" in it })
+        assertEquals(1f, view.alpha)
+        assertEquals(ReglaUnavailable.FARE.spoken, spoken(view))
+        val first = capture(raised(readable))
+        assertTrue("Captured under the notice", first.underNotice && first.under == placed)
+        assertEquals(593 - jitter, first.parsed?.card?.hostGeometry?.offerCard?.top)
+        assertTrue(first.diag, first.parsed?.card?.sessionId != null && "rejection=null" in first.diag)
+        assertFalse(captures.any { "PARSED_CARD_MASKED" in it.diag })
+    }
+
+    /**
+     * WP-AD round 2: the notice on every saved S25 layout the overlay tests carry, through the real controller and its
+     * measured window. Wherever it is shown, its rect expanded by the keep-clear distance (round 2b: the capture's mask
+     * margin plus the OCR-jitter allowance) is clear of the card envelope and of every card band; elsewhere it is not
+     * shown and no chip rect is reported. The rectangles are pinned: the allowance moves no notice, it only withdraws
+     * the two tall Pon Tu Precio ones.
+     */
+    @Test fun `on every saved layout a notice is either clear of the card or not shown`() {
+        val layouts = listOf(uber to ("radar" to RealGeometryFixtures.radar()), uber to ("uberx" to RealGeometryFixtures.uberx()),
+            uber to ("priority" to RealGeometryFixtures.priority()), uber to ("radarHigh" to RealGeometryFixtures.radarHighDistinct()),
+            uber to ("priorityRadarStack" to RealGeometryFixtures.priorityRadarStack()),
+            didi to ("didi" to RealGeometryFixtures.didi()), didi to ("didiBid" to RealGeometryFixtures.didiBid()),
+            didi to ("didiLive" to RealGeometryFixtures.didiLive()), didi to ("ptp" to RealGeometryFixtures.didiPtpS25()),
+            didi to ("tall" to RealGeometryFixtures.didiPtpTallS25()), didi to ("tall2" to RealGeometryFixtures.didiPtpTall2S25()),
+            didi to ("masRapido" to RealGeometryFixtures.didiMasRapidoS25()))
+        val expected = mapOf("radar" to ScreenRect(577, 398, 1044, 566), "uberx" to ScreenRect(577, 572, 1044, 740),
+            "priority" to ScreenRect(577, 351, 1044, 519), "radarHigh" to ScreenRect(577, 171, 1044, 339),
+            "priorityRadarStack" to ScreenRect(577, 231, 1044, 399), "didi" to ScreenRect(577, 171, 1044, 339),
+            "didiBid" to ScreenRect(577, 436, 1044, 604), "didiLive" to ScreenRect(577, 171, 1044, 339),
+            "ptp" to ScreenRect(577, 377, 1044, 545), "tall" to null, "tall2" to null, "masRapido" to ScreenRect(36, 171, 503, 339))
+        val outcomes = mutableListOf<String>()
+        for ((host, layout) in layouts) {
+            val (name, blocks) = layout
+            val card = firstParsed(host, blocks)?.card
+            if (card == null) { outcomes += "$name: no card parsed on a first frame"; continue }
+            val notice = OfferEvent.Unreadable(host, card.hostGeometry!!.capturedAtMs, OfferCard(platform = host, captureSource = "OCR",
+                contentBounds = card.contentBounds, fareBounds = card.fareBounds, hostGeometry = card.hostGeometry,
+                instanceEvidence = card.instanceEvidence))
+            val states = runBlocking {
+                OverlayStateMachine(preferred = { PreferredMetric.IPK }, evaluate = { error("A notice is never evaluated") })
+                    .visibility(flowOf(notice)).toList()
+            }
+            val controller = controller()
+            try {
+                field("foregroundHost").set(controller, host)
+                states.forEach { render(controller, it) }
+                repeat(40) { frame() }
+                val claim = ScreenReaderState.overlayChipRect
+                val view = field("composeView").get(controller) as ComposeView?
+                assertEquals(name, expected.getValue(name), claim)
+                if (claim != null) {
+                    assertClearOfCard(name, claim, card, noticeClearance)
+                    assertEquals("$name: drawn", 1f, view?.alpha)
+                    outcomes += "$name: shown at $claim, room ${slack(claim, card)} px (${slack(claim, card) - noticeClearance} beyond " +
+                        "$noticeClearance), card ${card.hostGeometry?.offerCard} bands ${card.instanceEvidence?.cardBands}"
+                } else {
+                    assertTrue("$name: no window revealed", view == null || view.alpha == 0f)
+                    outcomes += "$name: not shown, card ${card.hostGeometry?.offerCard} bands ${card.instanceEvidence?.cardBands}"
+                }
+            } finally { controller.stop(); ScreenReaderState.clearOverlayChipRect() }
+        }
+        println("WPAD layouts\n" + outcomes.joinToString("\n"))
+    }
+
+    /** The first frame of [blocks] through the real pipeline, as the reader would publish it (no chip of ours). */
+    private fun firstParsed(host: String, blocks: List<mx.kompara.ocr.OcrBlock>): OfferEvent.Parsed? = runBlocking {
+        val parsed = mutableListOf<OfferEvent.Parsed>()
+        val job = launch(kotlinx.coroutines.Dispatchers.Unconfined) { OfferEventBus.events.collect { if (it is OfferEvent.Parsed) parsed += it } }
+        kotlinx.coroutines.yield()
+        OfferFramePipeline().processOwnedFrame(blocks, null, null, displayBounds = HostRect(0, 0, 1080, 2340), density = 3f,
+            foregroundPackage = host)
+        job.cancel()
+        parsed.firstOrNull()
+    }
+
+    /** WP-AD: on DiDi, where a settled offer in a clear strict slot takes touches, the notice in that slot never does. */
+    @Test fun `a DiDi notice never takes touches where a settled offer does`() {
+        val controller = controller()
+        try {
+            field("foregroundHost").set(controller, didi)
+            val offer = didiPonTuPrecio()
+            val notice = OfferEvent.Unreadable(didi, offer.timestampMs, OfferCard(platform = didi, captureSource = "OCR",
+                contentBounds = offer.card.contentBounds, fareBounds = offer.card.fareBounds, hostGeometry = offer.card.hostGeometry,
+                instanceEvidence = offer.card.instanceEvidence))
+            val states = runBlocking {
+                OverlayStateMachine(preferred = { PreferredMetric.IPK }, evaluate = { error("A notice is never evaluated") })
+                    .visibility(flowOf(notice)).toList()
+            }
+            assertEquals(2, states.size)
+            ShadowLog.clear()
+            states.forEach { render(controller, it) }
+            repeat(40) { frame() }
+            val view = field("composeView").get(controller) as ComposeView
+            val params = view.layoutParams as WindowManager.LayoutParams
+            assertEquals(1f, view.alpha)
+            assertEquals(ReglaUnavailable.FARE.spoken, spoken(view))
+            assertTrue("The notice takes no touch", params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE != 0)
+            assertTrue(ShadowLog.getLogsForTag("OverlayController").any { "TEMP DIAG window drawn" in it.msg })
+            // The same frame as a settled offer is touchable in that window (the drag test's precondition).
+            render(controller, OverlayVisibility.Reading("ptp", offer))
+            render(controller, OverlayVisibility.Showing(rated, "ptp", offer))
+            repeat(40) { frame() }
+            assertSame(view, field("composeView").get(controller))
+            assertEquals(0, params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE)
+        } finally { controller.stop() }
+    }
+
+    /** The S25 Priority card the OCR tests read (`uber_priority_s25_2026_10_29.json`, invented addresses). */
+    private fun priority(): List<mx.kompara.ocr.OcrBlock> {
+        val json = org.json.JSONArray(java.io.File("../ocr/src/test/resources/uber_priority_s25_2026_10_29.json").readText())
+        return (0 until json.length()).map { i ->
+            val b = json.getJSONObject(i)
+            mx.kompara.ocr.OcrBlock(b.getString("text"), mx.kompara.ocr.OcrBounds(b.getInt("left"), b.getInt("top"),
+                b.getInt("right"), b.getInt("bottom")))
+        }
+    }
+
+    /** A presentation log that only remembers which sessions it was asked to record. */
+    private fun presentations(recorded: MutableList<String>): OfferPresentationDao =
+        Proxy.newProxyInstance(OfferPresentationDao::class.java.classLoader, arrayOf(OfferPresentationDao::class.java)) { _, method, args ->
+            when (method.name) {
+                "forSession" -> null
+                "record" -> { recorded += (args[0] as mx.kompara.data.db.entity.OfferPresentationEntity).sessionId; Unit }
+                else -> error("Unexpected presentation call: ${method.name}")
+            }
+        } as OfferPresentationDao
+
     /** Max alpha over a 9-point grid inside the plate, as the view itself draws it (its own alpha excluded). */
     private fun ink(view: ComposeView): Int {
         val bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
@@ -683,7 +1180,8 @@ class InvisibleChipReplayTest {
         return find(root)
     }
 
-    private fun controller(): OverlayController {
+    private fun controller(offers: OfferDao = dao(), costs: CostProfileDao = dao(),
+        presentations: OfferPresentationDao = dao()): OverlayController {
         val store = object : DataStore<Preferences> {
             override val data = flowOf(emptyPreferences())
             override suspend fun updateData(transform: suspend (Preferences) -> Preferences) = error("No writes")
@@ -693,8 +1191,8 @@ class InvisibleChipReplayTest {
             override fun load() = ReaderMemory()
             override fun save(memory: ReaderMemory) = Unit
         }, Clock.systemUTC()).apply { supportedApps(setOf(uber, didi)); bound(); captureRunning(true) }
-        return OverlayController(OfferRecorder(dao<OfferDao>(), CostProfileRepository(dao<CostProfileDao>()), settings, NetProfitEngine()),
-            settings, OverlayPrefs(store), PresentationRecorder(dao<OfferPresentationDao>()), readiness).also {
+        return OverlayController(OfferRecorder(offers, CostProfileRepository(costs), settings, NetProfitEngine()),
+            settings, OverlayPrefs(store), PresentationRecorder(presentations), readiness).also {
             field("overlayContext").set(it, context)
         }
     }
@@ -732,5 +1230,9 @@ class InvisibleChipReplayTest {
             "lastPreDrawMsAgo=(-?\\d+) lastCompositionMsAgo=(-?\\d+) placed=(\\d+)")
         /** Longer than any replay: a VSYNC freeze's withheld frame. */
         val VSYNC_GAP: Duration = Duration.ofSeconds(60)
+        /** Round 3: how long a held capture keeps the next vsync away while the frame's events are handled. */
+        val HELD_FRAME_GAP: Duration = Duration.ofMillis(100)
+        /** Round 2b: where this harness's ordinary placement docks the second tall card's verdict (its chip is 611 px wide). */
+        val TALL2_VERDICT = ScreenRect(433, 261, 1044, 429)
     }
 }

@@ -90,6 +90,22 @@ class TelemetryCollectorTest {
         assertEquals(2L, total.failures)
     }
 
+    // WP-AD: the OCR reader's unread notice is a card on screen that could not be read.
+    @Test
+    fun `an unreadable card counts a failed read on the total bucket, never a success`() = runTest {
+        val dao = FakeCounterDao()
+        val collector = collector(dao)
+
+        collector.record(OfferEvent.Unreadable(uber, 1L, OfferCard(platform = uber)))
+        collector.record(OfferEvent.Unreadable(uber, 2L, OfferCard(platform = uber, variant = "surge")))
+
+        val total = dao.get(uber, 500L, 7, TelemetryCounterEntity.TOTAL, day)!!
+        assertEquals(2L, total.attempts)
+        assertEquals(0L, total.successes)
+        assertEquals(2L, total.failures)
+        assertNull("A notice carries no variant to succeed or fail on", dao.get(uber, 500L, 7, "surge", day))
+    }
+
     @Test
     fun `NO_SPEC events are ignored - they are not parser breakages`() = runTest {
         val dao = FakeCounterDao()
